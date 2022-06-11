@@ -52,22 +52,7 @@ func TestFormInputFillSuggestions(t *testing.T) {
 			if len(item.Nodes) == 0 {
 				return
 			}
-
-			attrs := item.Nodes[0].Attr
-			input := FormInput{Attributes: make(map[string]string)}
-			for _, attribute := range attrs {
-				switch attribute.Key {
-				case "name":
-					input.Name = attribute.Val
-				case "value":
-					input.Value = attribute.Val
-				case "type":
-					input.Type = attribute.Val
-				default:
-					input.Attributes[attribute.Key] = attribute.Val
-				}
-			}
-			formInputs = append(formInputs, input)
+			formInputs = append(formInputs, ConvertGoquerySelectionToFormInput(item))
 		})
 
 		dataMap := FormInputFillSuggestions(formInputs, DefaultFormFillData)

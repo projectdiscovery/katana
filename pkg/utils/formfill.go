@@ -2,6 +2,8 @@ package utils
 
 import (
 	"strconv"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 // FormFillData contains suggestions for form filling
@@ -11,6 +13,9 @@ type FormFillData struct {
 	Password    string
 	PhoneNumber string
 	Placeholder string
+
+	// TODO: CustomValues contains a list of custom values for form filling
+	// CustomValues map[string]string
 }
 
 var DefaultFormFillData = FormFillData{
@@ -92,4 +97,24 @@ func FormInputFillSuggestions(inputs []FormInput, formData FormFillData) map[str
 		}
 	}
 	return data
+}
+
+// ConvertGoquerySelectionToFormInput converts goquery selection to form input
+func ConvertGoquerySelectionToFormInput(item *goquery.Selection) FormInput {
+	attrs := item.Nodes[0].Attr
+	input := FormInput{Attributes: make(map[string]string)}
+
+	for _, attribute := range attrs {
+		switch attribute.Key {
+		case "name":
+			input.Name = attribute.Val
+		case "value":
+			input.Value = attribute.Val
+		case "type":
+			input.Type = attribute.Val
+		default:
+			input.Attributes[attribute.Key] = attribute.Val
+		}
+	}
+	return input
 }

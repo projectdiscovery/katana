@@ -10,6 +10,7 @@ import (
 // navigationResponse is a response generated from crawler navigation
 type navigationResponse struct {
 	Resp   *http.Response
+	Depth  int
 	Reader *goquery.Document
 }
 
