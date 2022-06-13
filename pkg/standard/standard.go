@@ -76,6 +76,9 @@ func (c *Crawler) Crawl(url string) {
 			gologger.Error().Msgf("Could not request seed URL: %s\n", err)
 			return
 		}
+		if resp.Resp == nil || resp.Reader == nil {
+			continue
+		}
 		parseResponse(resp, func(nr navigationRequest) {
 			// Ignore blank URL items
 			if nr.URL == "" {
