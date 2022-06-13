@@ -59,3 +59,8 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 	return crawlerOptions, nil
 }
+
+// Close closes the crawler options resources
+func (c *CrawlerOptions) Close() error {
+	return c.OutputWriter.Close()
+}

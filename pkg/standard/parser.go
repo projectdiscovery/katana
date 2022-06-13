@@ -315,6 +315,6 @@ func scriptJSFileRegexParser(resp navigationResponse, callback func(navigationRe
 
 	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
 	for _, item := range endpoints {
-		callback(newNavigationRequestURL(item, "script-content", resp))
+		callback(newNavigationRequestURL(item, "js-file", resp))
 	}
 }

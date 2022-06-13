@@ -31,3 +31,8 @@ func New(options *types.Options) (*Runner, error) {
 	runner.crawlerOptions = crawlerOptions
 	return runner, nil
 }
+
+// Close closes the runner releasing resources
+func (r *Runner) Close() error {
+	return r.crawlerOptions.Close()
+}

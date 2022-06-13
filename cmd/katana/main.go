@@ -18,13 +18,22 @@ func main() {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
 
+	if err := process(); err != nil {
+		gologger.Fatal().Msgf("Could not process: %s\n", err)
+	}
+}
+
+func process() error {
 	runner, err := runner.New(options)
 	if err != nil {
-		gologger.Fatal().Msgf("Could not create runner: %s\n", err)
+		return errors.Wrap(err, "could not create runner")
 	}
+	defer runner.Close()
+
 	if err := runner.ExecuteCrawling(); err != nil {
-		gologger.Fatal().Msgf("Could not execute crawling: %s\n", err)
+		return errors.Wrap(err, "could not execute crawling")
 	}
+	return nil
 }
 
 func readFlags() error {
@@ -51,6 +60,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", []string{}, "in scope target to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", []string{}, "out of scope target to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
+		flagSet.BoolVarP(&options.ScrapeJSResponses, "scrape-js-response", "sjr", false, "scrape relative endpoints from javascript"),
 		flagSet.StringSliceVar(&options.Extensions, "extensions", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", []string{}, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", []string{}, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
