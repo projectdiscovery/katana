@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/katana/pkg/types"
 )
 
@@ -14,6 +16,7 @@ func validateOptions(options *types.Options) error {
 	if options.MaxDepth <= 0 && options.CrawlDuration <= 0 {
 		return errors.New("either max-depth or crawl-duration must be specified")
 	}
+	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
 }
 

@@ -3,6 +3,12 @@ package types
 type Options struct {
 	// URLs contains a list of URLs for crawling
 	URLs []string
+	// Scope contains a list of regexes for in-scope hosts
+	Scope []string
+	// OutOfScope contains a list of regexes for out-scope hosts
+	OutOfScope []string
+	// IncludeSubdomains specifies if we if want to include subdomains for scope
+	IncludeSubdomains bool
 	// MaxDepth is the maximum depth to crawl
 	MaxDepth int
 	// BodyReadSize is the maximum size of response body to read
