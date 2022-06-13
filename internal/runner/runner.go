@@ -1,10 +1,7 @@
 package runner
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"go.uber.org/ratelimit"
 )
@@ -12,9 +9,9 @@ import (
 // Runner creates the required resources for crawling
 // and executes the crawl process.
 type Runner struct {
-	stdin bool
+	crawlerOptions *types.CrawlerOptions
+	stdin          bool
 
-	output    output.Writer
 	options   *types.Options
 	ratelimit ratelimit.Limiter
 }
@@ -26,16 +23,11 @@ func New(options *types.Options) (*Runner, error) {
 	if err := validateOptions(options); err != nil {
 		return nil, errors.Wrap(err, "could not validate options")
 	}
-	if options.RateLimit > 0 {
-		runner.ratelimit = ratelimit.New(options.RateLimit)
-	} else if options.RateLimitMinute > 0 {
-		runner.ratelimit = ratelimit.New(options.RateLimitMinute, ratelimit.Per(60*time.Second))
-	}
 
-	outputWriter, err := output.New(!options.NoColors, options.JSON, options.OutputFile)
+	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create output writer")
+		return nil, errors.Wrap(err, "could not create crawler options")
 	}
-	runner.output = outputWriter
+	runner.crawlerOptions = crawlerOptions
 	return runner, nil
 }

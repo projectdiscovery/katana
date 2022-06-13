@@ -1,4 +1,4 @@
-package utils
+package scope
 
 import (
 	"fmt"
@@ -10,16 +10,16 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-// ScopeManager manages scope for crawling process
-type ScopeManager struct {
+// Manager manages scope for crawling process
+type Manager struct {
 	inScope           []*regexp.Regexp
 	outOfScope        []*regexp.Regexp
 	includeSubdomains bool
 }
 
-// NewScopeManager returns a new scope manager for crawling
-func NewScopeManager(inScope, outOfScope []string, includeSubdomains bool) (*ScopeManager, error) {
-	manager := &ScopeManager{includeSubdomains: includeSubdomains}
+// NewManager returns a new scope manager for crawling
+func NewManager(inScope, outOfScope []string, includeSubdomains bool) (*Manager, error) {
+	manager := &Manager{includeSubdomains: includeSubdomains}
 
 	for _, regex := range inScope {
 		if compiled, err := regexp.Compile(regex); err != nil {
@@ -39,7 +39,7 @@ func NewScopeManager(inScope, outOfScope []string, includeSubdomains bool) (*Sco
 }
 
 // Validate returns true if the URL matches scope rules
-func (m *ScopeManager) Validate(URL *url.URL) (bool, error) {
+func (m *Manager) Validate(URL *url.URL) (bool, error) {
 	hostname := URL.Hostname()
 
 	var subdomain string

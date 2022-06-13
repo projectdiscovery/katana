@@ -37,6 +37,13 @@ var responseParsers = []responseParserFunc{
 	scriptJSFileRegexParser,
 }
 
+// parseResponse runs the response parsers on the navigation response
+func parseResponse(resp navigationResponse, callback func(navigationRequest)) {
+	for _, parser := range responseParsers {
+		parser(resp, callback)
+	}
+}
+
 // -------------------------------------------------------------------------
 // Begin Header based parsers
 // -------------------------------------------------------------------------
@@ -280,7 +287,7 @@ func bodyMetaContentTagParser(resp navigationResponse, callback func(navigationR
 // scriptContentRegexParser parses script content endpoints from response
 func scriptContentRegexParser(resp navigationResponse, callback func(navigationRequest)) {
 	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
-		if !resp.scrapeJSResponses { // do not process if disabled
+		if !resp.options.Options.ScrapeJSResponses { // do not process if disabled
 			return
 		}
 		text := item.Text()
@@ -296,7 +303,7 @@ func scriptContentRegexParser(resp navigationResponse, callback func(navigationR
 
 // scriptJSFileRegexParser parses relative endpoints from js file pages
 func scriptJSFileRegexParser(resp navigationResponse, callback func(navigationRequest)) {
-	if !resp.scrapeJSResponses { // do not process if disabled
+	if !resp.options.Options.ScrapeJSResponses { // do not process if disabled
 		return
 	}
 

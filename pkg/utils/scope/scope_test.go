@@ -1,4 +1,4 @@
-package utils
+package scope
 
 import (
 	"net/url"
@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestScopeManagerValidate(t *testing.T) {
-	manager, err := NewScopeManager([]string{`google\..*`, `192\.168\.1\.1`}, []string{`uber\..*`}, true)
+func TestManagerValidate(t *testing.T) {
+	manager, err := NewManager([]string{`google\..*`, `192\.168\.1\.1`}, []string{`uber\..*`}, true)
 	require.NoError(t, err, "could not create scope manager")
 
 	parsed, _ := url.Parse("https://google.com")

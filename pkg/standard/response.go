@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana/pkg/types"
 )
 
 // navigationResponse is a response generated from crawler navigation
@@ -14,15 +15,21 @@ type navigationResponse struct {
 	Reader *goquery.Document
 	Body   []byte
 
-	scrapeJSResponses bool
+	options *types.CrawlerOptions
 }
 
 func (n navigationResponse) AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "#") {
 		return ""
 	}
+	if !n.options.ExtensionsValidator.ValidatePath(path) {
+		return ""
+	}
 	absURL, err := n.Resp.Request.URL.Parse(path)
 	if err != nil {
+		return ""
+	}
+	if validated, err := n.options.ScopeManager.Validate(absURL); err != nil || !validated {
 		return ""
 	}
 	absURL.Fragment = ""

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -170,7 +171,7 @@ func TestScriptParsers(t *testing.T) {
 	t.Run("content", func(t *testing.T) {
 		var gotURL string
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<script>var endpoint='/test/html/script/content.do';</script>"))
-		resp := navigationResponse{scrapeJSResponses: true, Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := navigationResponse{options: &types.CrawlerOptions{Options: &types.Options{ScrapeJSResponses: true}}, Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		scriptContentRegexParser(resp, func(resp navigationRequest) {
 			gotURL = resp.URL
 		})
@@ -180,7 +181,7 @@ func TestScriptParsers(t *testing.T) {
 	t.Run("js", func(t *testing.T) {
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/data.js")
 		var gotURL string
-		resp := navigationResponse{scrapeJSResponses: true, Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: []byte("var endpoint='/test/html/script/body.do';")}
+		resp := navigationResponse{options: &types.CrawlerOptions{Options: &types.Options{ScrapeJSResponses: true}}, Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: []byte("var endpoint='/test/html/script/body.do';")}
 		scriptJSFileRegexParser(resp, func(resp navigationRequest) {
 			gotURL = resp.URL
 		})
@@ -188,7 +189,7 @@ func TestScriptParsers(t *testing.T) {
 
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/")
 		gotURL = ""
-		resp = navigationResponse{scrapeJSResponses: true, Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: []byte("var endpoint='/test/html/script/body-content-type.do';")}
+		resp = navigationResponse{options: &types.CrawlerOptions{Options: &types.Options{ScrapeJSResponses: true}}, Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: []byte("var endpoint='/test/html/script/body-content-type.do';")}
 		scriptJSFileRegexParser(resp, func(resp navigationRequest) {
 			gotURL = resp.URL
 		})
