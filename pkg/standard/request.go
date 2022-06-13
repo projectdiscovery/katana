@@ -1,6 +1,8 @@
 package standard
 
-import "strings"
+import (
+	"strings"
+)
 
 // navigationRequest is a navigation request for the crawler
 type navigationRequest struct {

@@ -12,6 +12,9 @@ type navigationResponse struct {
 	Resp   *http.Response
 	Depth  int
 	Reader *goquery.Document
+	Body   []byte
+
+	scrapeJSResponses bool
 }
 
 func (n navigationResponse) AbsoluteURL(path string) string {

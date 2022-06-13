@@ -31,6 +31,10 @@ var responseParsers = []responseParserFunc{
 	bodyScriptSrcTagParser,
 	bodyFormTagParser,
 	bodyMetaContentTagParser,
+
+	// Optional JS relative endpoints parsers
+	scriptContentRegexParser,
+	scriptJSFileRegexParser,
 }
 
 // -------------------------------------------------------------------------
@@ -267,4 +271,43 @@ func bodyMetaContentTagParser(resp navigationResponse, callback func(navigationR
 		}
 		callback(newNavigationRequestURL(values, "meta", resp))
 	})
+}
+
+// -------------------------------------------------------------------------
+// Begin JS Regex based parsers
+// -------------------------------------------------------------------------
+
+// scriptContentRegexParser parses script content endpoints from response
+func scriptContentRegexParser(resp navigationResponse, callback func(navigationRequest)) {
+	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
+		if !resp.scrapeJSResponses { // do not process if disabled
+			return
+		}
+		text := item.Text()
+		if text == "" {
+			return
+		}
+		endpoints := utils.ExtractRelativeEndpoints(text)
+		for _, item := range endpoints {
+			callback(newNavigationRequestURL(item, "script-content", resp))
+		}
+	})
+}
+
+// scriptJSFileRegexParser parses relative endpoints from js file pages
+func scriptJSFileRegexParser(resp navigationResponse, callback func(navigationRequest)) {
+	if !resp.scrapeJSResponses { // do not process if disabled
+		return
+	}
+
+	// Only process javascript file based on path or content type
+	contentType := resp.Resp.Header.Get("Content-Type")
+	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.Contains(contentType, "/javascript")) {
+		return
+	}
+
+	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
+	for _, item := range endpoints {
+		callback(newNavigationRequestURL(item, "script-content", resp))
+	}
 }
