@@ -79,6 +79,9 @@ func (w *StandardWriter) Write(event *Result) error {
 	if err != nil {
 		return errors.Wrap(err, "could not format output")
 	}
+	w.outputMutex.Lock()
+	defer w.outputMutex.Unlock()
+
 	_, _ = os.Stdout.Write(data)
 	_, _ = os.Stdout.Write([]byte("\n"))
 	if w.outputFile != nil {
@@ -88,7 +91,6 @@ func (w *StandardWriter) Write(event *Result) error {
 		if writeErr := w.outputFile.Write(data); writeErr != nil {
 			return errors.Wrap(err, "could not write to output")
 		}
-		_ = w.outputFile.Write([]byte("\n"))
 	}
 	return nil
 }
