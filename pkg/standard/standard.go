@@ -90,7 +90,7 @@ func (c *Crawler) Crawl(url string) {
 			}
 
 			// Write the found result to output
-			c.options.OutputWriter.Write(&output.Result{URL: nr.URL, Source: nr.Source})
+			c.options.OutputWriter.Write(&output.Result{URL: nr.RequestURL(), Source: nr.Source})
 
 			// Do not add to crawl queue if max items are reached
 			if nr.Depth >= c.options.Options.MaxDepth {

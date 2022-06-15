@@ -8,6 +8,9 @@ import (
 // ExecuteCrawling executes the crawling main loop
 func (r *Runner) ExecuteCrawling() error {
 	inputs := r.parseInputs()
+	if len(inputs) == 0 {
+		return errors.New("no input provided for crawling")
+	}
 
 	crawler, err := standard.New(r.crawlerOptions)
 	if err != nil {

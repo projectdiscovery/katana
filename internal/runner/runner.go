@@ -18,6 +18,8 @@ type Runner struct {
 
 // New returns a new crawl runner structure
 func New(options *types.Options) (*Runner, error) {
+	showBanner()
+
 	runner := &Runner{options: options, stdin: hasStdin()}
 
 	if err := validateOptions(options); err != nil {
