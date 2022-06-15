@@ -22,6 +22,7 @@ var decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
 	json        bool
+	verbose     bool
 	aurora      aurora.Aurora
 	outputFile  *fileWriter
 	outputMutex *sync.Mutex
@@ -39,6 +40,10 @@ type Options struct {
 
 // Result is a result structure for the crawler
 type Result struct {
+	// Method is the method for the result
+	Method string `json:"method,omitempty"`
+	// Body contains the body for the request
+	Body string `json:"body,omitempty"`
 	// URL is the URL of the result
 	URL string `json:"url,omitempty"`
 	// Source is the source for the result
@@ -46,7 +51,7 @@ type Result struct {
 }
 
 // New returns a new output writer instance
-func New(colors, json bool, file string) (Writer, error) {
+func New(colors, json, verbose bool, file string) (Writer, error) {
 	auroraColorizer := aurora.NewAurora(colors)
 
 	var outputFile *fileWriter
@@ -59,6 +64,7 @@ func New(colors, json bool, file string) (Writer, error) {
 	}
 	writer := &StandardWriter{
 		json:        json,
+		verbose:     verbose,
 		aurora:      auroraColorizer,
 		outputFile:  outputFile,
 		outputMutex: &sync.Mutex{},

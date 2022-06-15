@@ -2,8 +2,9 @@ package runner
 
 import (
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/fileutil"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"go.uber.org/ratelimit"
 )
 
 // Runner creates the required resources for crawling
@@ -12,15 +13,18 @@ type Runner struct {
 	crawlerOptions *types.CrawlerOptions
 	stdin          bool
 
-	options   *types.Options
-	ratelimit ratelimit.Limiter
+	options *types.Options
 }
 
 // New returns a new crawl runner structure
 func New(options *types.Options) (*Runner, error) {
 	showBanner()
 
-	runner := &Runner{options: options, stdin: hasStdin()}
+	if options.Version {
+		gologger.Info().Msgf("Current version: %s", version)
+		return nil, nil
+	}
+	runner := &Runner{options: options, stdin: fileutil.HasStdin()}
 
 	if err := validateOptions(options); err != nil {
 		return nil, errors.Wrap(err, "could not validate options")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
+	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/types"
 )
 
@@ -16,20 +17,14 @@ func validateOptions(options *types.Options) error {
 	if options.MaxDepth <= 0 && options.CrawlDuration <= 0 {
 		return errors.New("either max-depth or crawl-duration must be specified")
 	}
+	if options.Verbose {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
+	}
+	if len(options.URLs) == 0 {
+		return errors.New("no inputs specified for crawler")
+	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
-}
-
-// hasStdin returns true if we have stdin input
-func hasStdin() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	if fi.Mode()&os.ModeNamedPipe == 0 {
-		return false
-	}
-	return true
 }
 
 // parseInputs parses the inputs returning a slice of URLs

@@ -248,6 +248,11 @@ func bodyFormTagParser(resp navigationResponse, callback func(navigationRequest)
 			Depth:  resp.Depth,
 			Source: "form",
 		}
+		if multipartWriter != nil {
+			req.Body = sb.String()
+		} else {
+			req.Body = queryValuesWriter.Encode()
+		}
 		switch method {
 		case "GET":
 			value := queryValuesWriter.Encode()
@@ -258,7 +263,6 @@ func bodyFormTagParser(resp navigationResponse, callback func(navigationRequest)
 			req.URL = sb.String()
 		case "POST":
 			req.Headers = make(map[string]string)
-			req.Body = sb.String()
 			req.Headers["Content-Type"] = contentType
 		}
 		callback(req)

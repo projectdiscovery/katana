@@ -18,6 +18,10 @@ type navigationResponse struct {
 	options *types.CrawlerOptions
 }
 
+// AbsoluteURL parses the path returning a string.
+//
+// It returns a blank string if the item is invalid, not in-scope
+// or can't be formatted.
 func (n navigationResponse) AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "#") {
 		return ""
