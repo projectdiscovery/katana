@@ -20,7 +20,7 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 	}
 	builder.WriteString(output.URL)
 
-	if output.Body != "" {
+	if output.Body != "" && w.verbose {
 		builder.WriteRune(' ')
 		builder.WriteRune('[')
 		builder.WriteString(output.Body)

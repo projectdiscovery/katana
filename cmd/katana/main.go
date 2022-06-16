@@ -28,6 +28,9 @@ func process() error {
 	if err != nil {
 		return errors.Wrap(err, "could not create runner")
 	}
+	if runner == nil {
+		return nil
+	}
 	defer runner.Close()
 
 	if err := runner.ExecuteCrawling(); err != nil {
