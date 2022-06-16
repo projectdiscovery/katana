@@ -12,7 +12,7 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 		builder.WriteRune(']')
 		builder.WriteRune(' ')
 	}
-	if output.Method != "" {
+	if output.Method != "" && w.verbose {
 		builder.WriteRune('[')
 		builder.WriteString(w.aurora.Green(output.Method).String())
 		builder.WriteRune(']')
