@@ -32,9 +32,9 @@ type CrawlerOptions struct {
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	extensionsValidator := extensions.NewValidator(options.Extensions, options.ExtensionsAllowList, options.ExtensionDenyList)
 
-	scopeManager, err := scope.NewManager(options.Scope, options.OutOfScope, options.IncludeSubdomains)
+	scopeManager, err := scope.NewManager(options.Scope, options.OutOfScope, options.ScopeDomains, options.OutOfScopeDomains, options.IncludeSubdomains)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create http client")
+		return nil, errors.Wrap(err, "could not create scope manager")
 	}
 	itemFilter := filters.NewSimple()
 
