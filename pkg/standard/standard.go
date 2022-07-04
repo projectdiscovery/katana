@@ -98,7 +98,7 @@ func (c *Crawler) Crawl(url string) {
 			if nr.Method != http.MethodGet {
 				result.Method = nr.Method
 			}
-			c.options.OutputWriter.Write(result)
+			_ = c.options.OutputWriter.Write(result)
 
 			// Do not add to crawl queue if max items are reached
 			if nr.Depth >= c.options.Options.MaxDepth {
