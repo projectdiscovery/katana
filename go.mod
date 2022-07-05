@@ -13,6 +13,7 @@ require (
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
 	github.com/stretchr/testify v1.7.2
+	go.uber.org/multierr v1.8.0
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8
 )
@@ -45,6 +46,7 @@ require (
 	github.com/zmap/rc2 v0.0.0-20131011165748-24b9757f5521 // indirect
 	github.com/zmap/zcrypto v0.0.0-20211005224000-2d0ffdec8a9b // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
 	golang.org/x/sys v0.0.0-20210915083310-ed5796bab164 // indirect
 	golang.org/x/text v0.3.7 // indirect
