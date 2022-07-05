@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"go.uber.org/multierr"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -42,18 +43,30 @@ func NewManager(inScope, outOfScope []string, includeSubdomains bool) (*Manager,
 func (m *Manager) Validate(URL *url.URL) (bool, error) {
 	hostname := URL.Hostname()
 
-	var subdomain string
-	var domain string
-	parsed := net.ParseIP(hostname)
-	if parsed != nil {
+	var domain, subdomain string
+
+	parsedIP := net.ParseIP(hostname)
+	parsedDomain, errDomainParse := publicsuffix.EffectiveTLDPlusOne(hostname)
+
+	// The target can be:
+	// - IP
+	// - RFC Domain Name
+	// - Resolvable domain name via /etc/hosts or resolver
+	switch {
+	case parsedIP != nil:
 		domain = hostname
-	} else {
-		var err error
-		domain, err = publicsuffix.EffectiveTLDPlusOne(hostname)
-		if err != nil {
-			return false, fmt.Errorf("could not parse domain %s: %s", hostname, err)
-		}
+	case parsedDomain != "" && errDomainParse == nil:
+		domain = parsedDomain
 		subdomain = strings.TrimSuffix(hostname, domain)
+	default:
+		// attempt to resolve the domain
+		addrs, errLookupHostname := net.LookupHost(hostname)
+		// consider the hardcoded hostname as a valid endpoint
+		if len(addrs) > 0 && errLookupHostname == nil {
+			domain = hostname
+		} else {
+			return false, fmt.Errorf("domain '%s' could not be parsed/resolved: %s:", hostname, multierr.Combine(errDomainParse, errLookupHostname))
+		}
 	}
 
 	if len(m.outOfScope) > 0 {
