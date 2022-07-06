@@ -9,6 +9,14 @@ const (
 	FieldID = "id"
 	// FieldURL holds the string denoting the url field in the database.
 	FieldURL = "url"
+	// FieldMethod holds the string denoting the method field in the database.
+	FieldMethod = "method"
+	// FieldBody holds the string denoting the body field in the database.
+	FieldBody = "body"
+	// FieldHeaders holds the string denoting the headers field in the database.
+	FieldHeaders = "headers"
+	// FieldSource holds the string denoting the source field in the database.
+	FieldSource = "source"
 	// EdgeLinks holds the string denoting the links edge name in mutations.
 	EdgeLinks = "links"
 	// Table holds the table name of the endpoint in the database.
@@ -21,6 +29,10 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldURL,
+	FieldMethod,
+	FieldBody,
+	FieldHeaders,
+	FieldSource,
 }
 
 var (
@@ -42,4 +54,6 @@ func ValidColumn(column string) bool {
 var (
 	// URLValidator is a validator for the "url" field. It is called by the builders before save.
 	URLValidator func(string) error
+	// MethodValidator is a validator for the "method" field. It is called by the builders before save.
+	MethodValidator func(string) error
 )

@@ -33,6 +33,30 @@ func (eu *EndpointUpdate) SetURL(s string) *EndpointUpdate {
 	return eu
 }
 
+// SetMethod sets the "method" field.
+func (eu *EndpointUpdate) SetMethod(s string) *EndpointUpdate {
+	eu.mutation.SetMethod(s)
+	return eu
+}
+
+// SetBody sets the "body" field.
+func (eu *EndpointUpdate) SetBody(s string) *EndpointUpdate {
+	eu.mutation.SetBody(s)
+	return eu
+}
+
+// SetHeaders sets the "headers" field.
+func (eu *EndpointUpdate) SetHeaders(m map[string]string) *EndpointUpdate {
+	eu.mutation.SetHeaders(m)
+	return eu
+}
+
+// SetSource sets the "source" field.
+func (eu *EndpointUpdate) SetSource(s string) *EndpointUpdate {
+	eu.mutation.SetSource(s)
+	return eu
+}
+
 // AddLinkIDs adds the "links" edge to the Endpoint entity by IDs.
 func (eu *EndpointUpdate) AddLinkIDs(ids ...int) *EndpointUpdate {
 	eu.mutation.AddLinkIDs(ids...)
@@ -141,6 +165,11 @@ func (eu *EndpointUpdate) check() error {
 			return &ValidationError{Name: "url", err: fmt.Errorf(`ent: validator failed for field "Endpoint.url": %w`, err)}
 		}
 	}
+	if v, ok := eu.mutation.Method(); ok {
+		if err := endpoint.MethodValidator(v); err != nil {
+			return &ValidationError{Name: "method", err: fmt.Errorf(`ent: validator failed for field "Endpoint.method": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -167,6 +196,34 @@ func (eu *EndpointUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Type:   field.TypeString,
 			Value:  value,
 			Column: endpoint.FieldURL,
+		})
+	}
+	if value, ok := eu.mutation.Method(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldMethod,
+		})
+	}
+	if value, ok := eu.mutation.Body(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldBody,
+		})
+	}
+	if value, ok := eu.mutation.Headers(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: endpoint.FieldHeaders,
+		})
+	}
+	if value, ok := eu.mutation.Source(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldSource,
 		})
 	}
 	if eu.mutation.LinksCleared() {
@@ -245,6 +302,30 @@ type EndpointUpdateOne struct {
 // SetURL sets the "url" field.
 func (euo *EndpointUpdateOne) SetURL(s string) *EndpointUpdateOne {
 	euo.mutation.SetURL(s)
+	return euo
+}
+
+// SetMethod sets the "method" field.
+func (euo *EndpointUpdateOne) SetMethod(s string) *EndpointUpdateOne {
+	euo.mutation.SetMethod(s)
+	return euo
+}
+
+// SetBody sets the "body" field.
+func (euo *EndpointUpdateOne) SetBody(s string) *EndpointUpdateOne {
+	euo.mutation.SetBody(s)
+	return euo
+}
+
+// SetHeaders sets the "headers" field.
+func (euo *EndpointUpdateOne) SetHeaders(m map[string]string) *EndpointUpdateOne {
+	euo.mutation.SetHeaders(m)
+	return euo
+}
+
+// SetSource sets the "source" field.
+func (euo *EndpointUpdateOne) SetSource(s string) *EndpointUpdateOne {
+	euo.mutation.SetSource(s)
 	return euo
 }
 
@@ -363,6 +444,11 @@ func (euo *EndpointUpdateOne) check() error {
 			return &ValidationError{Name: "url", err: fmt.Errorf(`ent: validator failed for field "Endpoint.url": %w`, err)}
 		}
 	}
+	if v, ok := euo.mutation.Method(); ok {
+		if err := endpoint.MethodValidator(v); err != nil {
+			return &ValidationError{Name: "method", err: fmt.Errorf(`ent: validator failed for field "Endpoint.method": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -406,6 +492,34 @@ func (euo *EndpointUpdateOne) sqlSave(ctx context.Context) (_node *Endpoint, err
 			Type:   field.TypeString,
 			Value:  value,
 			Column: endpoint.FieldURL,
+		})
+	}
+	if value, ok := euo.mutation.Method(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldMethod,
+		})
+	}
+	if value, ok := euo.mutation.Body(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldBody,
+		})
+	}
+	if value, ok := euo.mutation.Headers(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: endpoint.FieldHeaders,
+		})
+	}
+	if value, ok := euo.mutation.Source(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldSource,
 		})
 	}
 	if euo.mutation.LinksCleared() {

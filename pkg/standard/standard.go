@@ -82,8 +82,7 @@ func (c *Crawler) Crawl(URL string) error {
 		}
 
 		// if we arrive here, we add the successful request/response to the graph
-		URL := req.RequestURL()
-		node, err := c.options.GraphDB.GetOrCreateWithURL(context.Background(), URL)
+		node, err := c.options.GraphDB.GetOrCreate(ctx, req.ToEphemeralEntity())
 		if err != nil {
 			gologger.Error().Msgf("Could not create the node URL: %s\n", err)
 		}

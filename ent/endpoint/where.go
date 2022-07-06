@@ -98,6 +98,27 @@ func URL(v string) predicate.Endpoint {
 	})
 }
 
+// Method applies equality check predicate on the "method" field. It's identical to MethodEQ.
+func Method(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldMethod), v))
+	})
+}
+
+// Body applies equality check predicate on the "body" field. It's identical to BodyEQ.
+func Body(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldBody), v))
+	})
+}
+
+// Source applies equality check predicate on the "source" field. It's identical to SourceEQ.
+func Source(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldSource), v))
+	})
+}
+
 // URLEQ applies the EQ predicate on the "url" field.
 func URLEQ(v string) predicate.Endpoint {
 	return predicate.Endpoint(func(s *sql.Selector) {
@@ -206,6 +227,339 @@ func URLEqualFold(v string) predicate.Endpoint {
 func URLContainsFold(v string) predicate.Endpoint {
 	return predicate.Endpoint(func(s *sql.Selector) {
 		s.Where(sql.ContainsFold(s.C(FieldURL), v))
+	})
+}
+
+// MethodEQ applies the EQ predicate on the "method" field.
+func MethodEQ(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldMethod), v))
+	})
+}
+
+// MethodNEQ applies the NEQ predicate on the "method" field.
+func MethodNEQ(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.NEQ(s.C(FieldMethod), v))
+	})
+}
+
+// MethodIn applies the In predicate on the "method" field.
+func MethodIn(vs ...string) predicate.Endpoint {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Endpoint(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.In(s.C(FieldMethod), v...))
+	})
+}
+
+// MethodNotIn applies the NotIn predicate on the "method" field.
+func MethodNotIn(vs ...string) predicate.Endpoint {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Endpoint(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.NotIn(s.C(FieldMethod), v...))
+	})
+}
+
+// MethodGT applies the GT predicate on the "method" field.
+func MethodGT(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.GT(s.C(FieldMethod), v))
+	})
+}
+
+// MethodGTE applies the GTE predicate on the "method" field.
+func MethodGTE(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.GTE(s.C(FieldMethod), v))
+	})
+}
+
+// MethodLT applies the LT predicate on the "method" field.
+func MethodLT(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.LT(s.C(FieldMethod), v))
+	})
+}
+
+// MethodLTE applies the LTE predicate on the "method" field.
+func MethodLTE(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.LTE(s.C(FieldMethod), v))
+	})
+}
+
+// MethodContains applies the Contains predicate on the "method" field.
+func MethodContains(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.Contains(s.C(FieldMethod), v))
+	})
+}
+
+// MethodHasPrefix applies the HasPrefix predicate on the "method" field.
+func MethodHasPrefix(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.HasPrefix(s.C(FieldMethod), v))
+	})
+}
+
+// MethodHasSuffix applies the HasSuffix predicate on the "method" field.
+func MethodHasSuffix(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.HasSuffix(s.C(FieldMethod), v))
+	})
+}
+
+// MethodEqualFold applies the EqualFold predicate on the "method" field.
+func MethodEqualFold(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EqualFold(s.C(FieldMethod), v))
+	})
+}
+
+// MethodContainsFold applies the ContainsFold predicate on the "method" field.
+func MethodContainsFold(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.ContainsFold(s.C(FieldMethod), v))
+	})
+}
+
+// BodyEQ applies the EQ predicate on the "body" field.
+func BodyEQ(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldBody), v))
+	})
+}
+
+// BodyNEQ applies the NEQ predicate on the "body" field.
+func BodyNEQ(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.NEQ(s.C(FieldBody), v))
+	})
+}
+
+// BodyIn applies the In predicate on the "body" field.
+func BodyIn(vs ...string) predicate.Endpoint {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Endpoint(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.In(s.C(FieldBody), v...))
+	})
+}
+
+// BodyNotIn applies the NotIn predicate on the "body" field.
+func BodyNotIn(vs ...string) predicate.Endpoint {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Endpoint(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.NotIn(s.C(FieldBody), v...))
+	})
+}
+
+// BodyGT applies the GT predicate on the "body" field.
+func BodyGT(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.GT(s.C(FieldBody), v))
+	})
+}
+
+// BodyGTE applies the GTE predicate on the "body" field.
+func BodyGTE(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.GTE(s.C(FieldBody), v))
+	})
+}
+
+// BodyLT applies the LT predicate on the "body" field.
+func BodyLT(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.LT(s.C(FieldBody), v))
+	})
+}
+
+// BodyLTE applies the LTE predicate on the "body" field.
+func BodyLTE(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.LTE(s.C(FieldBody), v))
+	})
+}
+
+// BodyContains applies the Contains predicate on the "body" field.
+func BodyContains(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.Contains(s.C(FieldBody), v))
+	})
+}
+
+// BodyHasPrefix applies the HasPrefix predicate on the "body" field.
+func BodyHasPrefix(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.HasPrefix(s.C(FieldBody), v))
+	})
+}
+
+// BodyHasSuffix applies the HasSuffix predicate on the "body" field.
+func BodyHasSuffix(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.HasSuffix(s.C(FieldBody), v))
+	})
+}
+
+// BodyEqualFold applies the EqualFold predicate on the "body" field.
+func BodyEqualFold(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EqualFold(s.C(FieldBody), v))
+	})
+}
+
+// BodyContainsFold applies the ContainsFold predicate on the "body" field.
+func BodyContainsFold(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.ContainsFold(s.C(FieldBody), v))
+	})
+}
+
+// SourceEQ applies the EQ predicate on the "source" field.
+func SourceEQ(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EQ(s.C(FieldSource), v))
+	})
+}
+
+// SourceNEQ applies the NEQ predicate on the "source" field.
+func SourceNEQ(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.NEQ(s.C(FieldSource), v))
+	})
+}
+
+// SourceIn applies the In predicate on the "source" field.
+func SourceIn(vs ...string) predicate.Endpoint {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Endpoint(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.In(s.C(FieldSource), v...))
+	})
+}
+
+// SourceNotIn applies the NotIn predicate on the "source" field.
+func SourceNotIn(vs ...string) predicate.Endpoint {
+	v := make([]interface{}, len(vs))
+	for i := range v {
+		v[i] = vs[i]
+	}
+	return predicate.Endpoint(func(s *sql.Selector) {
+		// if not arguments were provided, append the FALSE constants,
+		// since we can't apply "IN ()". This will make this predicate falsy.
+		if len(v) == 0 {
+			s.Where(sql.False())
+			return
+		}
+		s.Where(sql.NotIn(s.C(FieldSource), v...))
+	})
+}
+
+// SourceGT applies the GT predicate on the "source" field.
+func SourceGT(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.GT(s.C(FieldSource), v))
+	})
+}
+
+// SourceGTE applies the GTE predicate on the "source" field.
+func SourceGTE(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.GTE(s.C(FieldSource), v))
+	})
+}
+
+// SourceLT applies the LT predicate on the "source" field.
+func SourceLT(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.LT(s.C(FieldSource), v))
+	})
+}
+
+// SourceLTE applies the LTE predicate on the "source" field.
+func SourceLTE(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.LTE(s.C(FieldSource), v))
+	})
+}
+
+// SourceContains applies the Contains predicate on the "source" field.
+func SourceContains(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.Contains(s.C(FieldSource), v))
+	})
+}
+
+// SourceHasPrefix applies the HasPrefix predicate on the "source" field.
+func SourceHasPrefix(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.HasPrefix(s.C(FieldSource), v))
+	})
+}
+
+// SourceHasSuffix applies the HasSuffix predicate on the "source" field.
+func SourceHasSuffix(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.HasSuffix(s.C(FieldSource), v))
+	})
+}
+
+// SourceEqualFold applies the EqualFold predicate on the "source" field.
+func SourceEqualFold(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.EqualFold(s.C(FieldSource), v))
+	})
+}
+
+// SourceContainsFold applies the ContainsFold predicate on the "source" field.
+func SourceContainsFold(v string) predicate.Endpoint {
+	return predicate.Endpoint(func(s *sql.Selector) {
+		s.Where(sql.ContainsFold(s.C(FieldSource), v))
 	})
 }
 

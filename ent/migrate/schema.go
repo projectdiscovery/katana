@@ -12,6 +12,10 @@ var (
 	EndpointsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "url", Type: field.TypeString},
+		{Name: "method", Type: field.TypeString},
+		{Name: "body", Type: field.TypeString},
+		{Name: "headers", Type: field.TypeJSON},
+		{Name: "source", Type: field.TypeString},
 	}
 	// EndpointsTable holds the schema information for the "endpoints" table.
 	EndpointsTable = &schema.Table{

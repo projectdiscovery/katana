@@ -33,6 +33,10 @@ type EndpointMutation struct {
 	typ           string
 	id            *int
 	url           *string
+	method        *string
+	body          *string
+	headers       *map[string]string
+	source        *string
 	clearedFields map[string]struct{}
 	links         map[int]struct{}
 	removedlinks  map[int]struct{}
@@ -176,6 +180,150 @@ func (m *EndpointMutation) ResetURL() {
 	m.url = nil
 }
 
+// SetMethod sets the "method" field.
+func (m *EndpointMutation) SetMethod(s string) {
+	m.method = &s
+}
+
+// Method returns the value of the "method" field in the mutation.
+func (m *EndpointMutation) Method() (r string, exists bool) {
+	v := m.method
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMethod returns the old "method" field's value of the Endpoint entity.
+// If the Endpoint object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EndpointMutation) OldMethod(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMethod is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMethod requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMethod: %w", err)
+	}
+	return oldValue.Method, nil
+}
+
+// ResetMethod resets all changes to the "method" field.
+func (m *EndpointMutation) ResetMethod() {
+	m.method = nil
+}
+
+// SetBody sets the "body" field.
+func (m *EndpointMutation) SetBody(s string) {
+	m.body = &s
+}
+
+// Body returns the value of the "body" field in the mutation.
+func (m *EndpointMutation) Body() (r string, exists bool) {
+	v := m.body
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBody returns the old "body" field's value of the Endpoint entity.
+// If the Endpoint object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EndpointMutation) OldBody(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBody is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBody requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBody: %w", err)
+	}
+	return oldValue.Body, nil
+}
+
+// ResetBody resets all changes to the "body" field.
+func (m *EndpointMutation) ResetBody() {
+	m.body = nil
+}
+
+// SetHeaders sets the "headers" field.
+func (m *EndpointMutation) SetHeaders(value map[string]string) {
+	m.headers = &value
+}
+
+// Headers returns the value of the "headers" field in the mutation.
+func (m *EndpointMutation) Headers() (r map[string]string, exists bool) {
+	v := m.headers
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeaders returns the old "headers" field's value of the Endpoint entity.
+// If the Endpoint object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EndpointMutation) OldHeaders(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeaders is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeaders requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeaders: %w", err)
+	}
+	return oldValue.Headers, nil
+}
+
+// ResetHeaders resets all changes to the "headers" field.
+func (m *EndpointMutation) ResetHeaders() {
+	m.headers = nil
+}
+
+// SetSource sets the "source" field.
+func (m *EndpointMutation) SetSource(s string) {
+	m.source = &s
+}
+
+// Source returns the value of the "source" field in the mutation.
+func (m *EndpointMutation) Source() (r string, exists bool) {
+	v := m.source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSource returns the old "source" field's value of the Endpoint entity.
+// If the Endpoint object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EndpointMutation) OldSource(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSource: %w", err)
+	}
+	return oldValue.Source, nil
+}
+
+// ResetSource resets all changes to the "source" field.
+func (m *EndpointMutation) ResetSource() {
+	m.source = nil
+}
+
 // AddLinkIDs adds the "links" edge to the Endpoint entity by ids.
 func (m *EndpointMutation) AddLinkIDs(ids ...int) {
 	if m.links == nil {
@@ -249,9 +397,21 @@ func (m *EndpointMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EndpointMutation) Fields() []string {
-	fields := make([]string, 0, 1)
+	fields := make([]string, 0, 5)
 	if m.url != nil {
 		fields = append(fields, endpoint.FieldURL)
+	}
+	if m.method != nil {
+		fields = append(fields, endpoint.FieldMethod)
+	}
+	if m.body != nil {
+		fields = append(fields, endpoint.FieldBody)
+	}
+	if m.headers != nil {
+		fields = append(fields, endpoint.FieldHeaders)
+	}
+	if m.source != nil {
+		fields = append(fields, endpoint.FieldSource)
 	}
 	return fields
 }
@@ -263,6 +423,14 @@ func (m *EndpointMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case endpoint.FieldURL:
 		return m.URL()
+	case endpoint.FieldMethod:
+		return m.Method()
+	case endpoint.FieldBody:
+		return m.Body()
+	case endpoint.FieldHeaders:
+		return m.Headers()
+	case endpoint.FieldSource:
+		return m.Source()
 	}
 	return nil, false
 }
@@ -274,6 +442,14 @@ func (m *EndpointMutation) OldField(ctx context.Context, name string) (ent.Value
 	switch name {
 	case endpoint.FieldURL:
 		return m.OldURL(ctx)
+	case endpoint.FieldMethod:
+		return m.OldMethod(ctx)
+	case endpoint.FieldBody:
+		return m.OldBody(ctx)
+	case endpoint.FieldHeaders:
+		return m.OldHeaders(ctx)
+	case endpoint.FieldSource:
+		return m.OldSource(ctx)
 	}
 	return nil, fmt.Errorf("unknown Endpoint field %s", name)
 }
@@ -289,6 +465,34 @@ func (m *EndpointMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetURL(v)
+		return nil
+	case endpoint.FieldMethod:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMethod(v)
+		return nil
+	case endpoint.FieldBody:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBody(v)
+		return nil
+	case endpoint.FieldHeaders:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeaders(v)
+		return nil
+	case endpoint.FieldSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSource(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Endpoint field %s", name)
@@ -341,6 +545,18 @@ func (m *EndpointMutation) ResetField(name string) error {
 	switch name {
 	case endpoint.FieldURL:
 		m.ResetURL()
+		return nil
+	case endpoint.FieldMethod:
+		m.ResetMethod()
+		return nil
+	case endpoint.FieldBody:
+		m.ResetBody()
+		return nil
+	case endpoint.FieldHeaders:
+		m.ResetHeaders()
+		return nil
+	case endpoint.FieldSource:
+		m.ResetSource()
 		return nil
 	}
 	return fmt.Errorf("unknown Endpoint field %s", name)

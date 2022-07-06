@@ -39,3 +39,13 @@ func NewNavigationRequestURL(path, source string, resp NavigationResponse) Navig
 	requestURL := resp.AbsoluteURL(path)
 	return NavigationRequest{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source}
 }
+
+func (n *NavigationRequest) ToEphemeralEntity() *ent.Endpoint {
+	return &ent.Endpoint{
+		URL:     n.URL,
+		Headers: n.Headers,
+		Method:  n.Method,
+		Body:    n.Body,
+		Source:  n.Source,
+	}
+}

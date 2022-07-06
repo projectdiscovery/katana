@@ -17,4 +17,8 @@ func init() {
 	endpointDescURL := endpointFields[0].Descriptor()
 	// endpoint.URLValidator is a validator for the "url" field. It is called by the builders before save.
 	endpoint.URLValidator = endpointDescURL.Validators[0].(func(string) error)
+	// endpointDescMethod is the schema descriptor for method field.
+	endpointDescMethod := endpointFields[1].Descriptor()
+	// endpoint.MethodValidator is a validator for the "method" field. It is called by the builders before save.
+	endpoint.MethodValidator = endpointDescMethod.Validators[0].(func(string) error)
 }

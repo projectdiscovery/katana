@@ -14,8 +14,11 @@ type Endpoint struct {
 // Fields of the Endpoint.
 func (Endpoint) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("url").
-			NotEmpty(),
+		field.String("url").NotEmpty(),
+		field.String("method").NotEmpty(),
+		field.String("body"),
+		field.JSON("headers", map[string]string{}),
+		field.String("source"),
 	}
 }
 

@@ -25,6 +25,30 @@ func (ec *EndpointCreate) SetURL(s string) *EndpointCreate {
 	return ec
 }
 
+// SetMethod sets the "method" field.
+func (ec *EndpointCreate) SetMethod(s string) *EndpointCreate {
+	ec.mutation.SetMethod(s)
+	return ec
+}
+
+// SetBody sets the "body" field.
+func (ec *EndpointCreate) SetBody(s string) *EndpointCreate {
+	ec.mutation.SetBody(s)
+	return ec
+}
+
+// SetHeaders sets the "headers" field.
+func (ec *EndpointCreate) SetHeaders(m map[string]string) *EndpointCreate {
+	ec.mutation.SetHeaders(m)
+	return ec
+}
+
+// SetSource sets the "source" field.
+func (ec *EndpointCreate) SetSource(s string) *EndpointCreate {
+	ec.mutation.SetSource(s)
+	return ec
+}
+
 // AddLinkIDs adds the "links" edge to the Endpoint entity by IDs.
 func (ec *EndpointCreate) AddLinkIDs(ids ...int) *EndpointCreate {
 	ec.mutation.AddLinkIDs(ids...)
@@ -118,6 +142,23 @@ func (ec *EndpointCreate) check() error {
 			return &ValidationError{Name: "url", err: fmt.Errorf(`ent: validator failed for field "Endpoint.url": %w`, err)}
 		}
 	}
+	if _, ok := ec.mutation.Method(); !ok {
+		return &ValidationError{Name: "method", err: errors.New(`ent: missing required field "Endpoint.method"`)}
+	}
+	if v, ok := ec.mutation.Method(); ok {
+		if err := endpoint.MethodValidator(v); err != nil {
+			return &ValidationError{Name: "method", err: fmt.Errorf(`ent: validator failed for field "Endpoint.method": %w`, err)}
+		}
+	}
+	if _, ok := ec.mutation.Body(); !ok {
+		return &ValidationError{Name: "body", err: errors.New(`ent: missing required field "Endpoint.body"`)}
+	}
+	if _, ok := ec.mutation.Headers(); !ok {
+		return &ValidationError{Name: "headers", err: errors.New(`ent: missing required field "Endpoint.headers"`)}
+	}
+	if _, ok := ec.mutation.Source(); !ok {
+		return &ValidationError{Name: "source", err: errors.New(`ent: missing required field "Endpoint.source"`)}
+	}
 	return nil
 }
 
@@ -152,6 +193,38 @@ func (ec *EndpointCreate) createSpec() (*Endpoint, *sqlgraph.CreateSpec) {
 			Column: endpoint.FieldURL,
 		})
 		_node.URL = value
+	}
+	if value, ok := ec.mutation.Method(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldMethod,
+		})
+		_node.Method = value
+	}
+	if value, ok := ec.mutation.Body(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldBody,
+		})
+		_node.Body = value
+	}
+	if value, ok := ec.mutation.Headers(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeJSON,
+			Value:  value,
+			Column: endpoint.FieldHeaders,
+		})
+		_node.Headers = value
+	}
+	if value, ok := ec.mutation.Source(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Value:  value,
+			Column: endpoint.FieldSource,
+		})
+		_node.Source = value
 	}
 	if nodes := ec.mutation.LinksIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,6 +18,14 @@ type Endpoint struct {
 	ID int `json:"id,omitempty"`
 	// URL holds the value of the "url" field.
 	URL string `json:"url,omitempty"`
+	// Method holds the value of the "method" field.
+	Method string `json:"method,omitempty"`
+	// Body holds the value of the "body" field.
+	Body string `json:"body,omitempty"`
+	// Headers holds the value of the "headers" field.
+	Headers map[string]string `json:"headers,omitempty"`
+	// Source holds the value of the "source" field.
+	Source string `json:"source,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the EndpointQuery when eager-loading is set.
 	Edges EndpointEdges `json:"edges"`
@@ -45,9 +54,11 @@ func (*Endpoint) scanValues(columns []string) ([]interface{}, error) {
 	values := make([]interface{}, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case endpoint.FieldHeaders:
+			values[i] = new([]byte)
 		case endpoint.FieldID:
 			values[i] = new(sql.NullInt64)
-		case endpoint.FieldURL:
+		case endpoint.FieldURL, endpoint.FieldMethod, endpoint.FieldBody, endpoint.FieldSource:
 			values[i] = new(sql.NullString)
 		default:
 			return nil, fmt.Errorf("unexpected column %q for type Endpoint", columns[i])
@@ -75,6 +86,32 @@ func (e *Endpoint) assignValues(columns []string, values []interface{}) error {
 				return fmt.Errorf("unexpected type %T for field url", values[i])
 			} else if value.Valid {
 				e.URL = value.String
+			}
+		case endpoint.FieldMethod:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field method", values[i])
+			} else if value.Valid {
+				e.Method = value.String
+			}
+		case endpoint.FieldBody:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field body", values[i])
+			} else if value.Valid {
+				e.Body = value.String
+			}
+		case endpoint.FieldHeaders:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field headers", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &e.Headers); err != nil {
+					return fmt.Errorf("unmarshal field headers: %w", err)
+				}
+			}
+		case endpoint.FieldSource:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source", values[i])
+			} else if value.Valid {
+				e.Source = value.String
 			}
 		}
 	}
@@ -111,6 +148,14 @@ func (e *Endpoint) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v", e.ID))
 	builder.WriteString(", url=")
 	builder.WriteString(e.URL)
+	builder.WriteString(", method=")
+	builder.WriteString(e.Method)
+	builder.WriteString(", body=")
+	builder.WriteString(e.Body)
+	builder.WriteString(", headers=")
+	builder.WriteString(fmt.Sprintf("%v", e.Headers))
+	builder.WriteString(", source=")
+	builder.WriteString(e.Source)
 	builder.WriteByte(')')
 	return builder.String()
 }
