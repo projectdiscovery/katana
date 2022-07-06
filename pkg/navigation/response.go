@@ -1,4 +1,4 @@
-package standard
+package navigation
 
 import (
 	"net/http"
@@ -8,32 +8,32 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 )
 
-// navigationResponse is a response generated from crawler navigation
-type navigationResponse struct {
+// NavigationResponse is a response generated from crawler navigation
+type NavigationResponse struct {
 	Resp   *http.Response
 	Depth  int
 	Reader *goquery.Document
 	Body   []byte
 
-	options *types.CrawlerOptions
+	Options *types.CrawlerOptions
 }
 
 // AbsoluteURL parses the path returning a string.
 //
 // It returns a blank string if the item is invalid, not in-scope
 // or can't be formatted.
-func (n navigationResponse) AbsoluteURL(path string) string {
+func (n NavigationResponse) AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "#") {
 		return ""
 	}
-	if !n.options.ExtensionsValidator.ValidatePath(path) {
+	if !n.Options.ExtensionsValidator.ValidatePath(path) {
 		return ""
 	}
 	absURL, err := n.Resp.Request.URL.Parse(path)
 	if err != nil {
 		return ""
 	}
-	if validated, err := n.options.ScopeManager.Validate(absURL); err != nil || !validated {
+	if validated, err := n.Options.ScopeManager.Validate(absURL); err != nil || !validated {
 		return ""
 	}
 	absURL.Fragment = ""

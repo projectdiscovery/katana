@@ -7,7 +7,9 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
+	"github.com/projectdiscovery/katana/pkg/utils/graphdb"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
+	"go.uber.org/multierr"
 	"go.uber.org/ratelimit"
 )
 
@@ -25,6 +27,7 @@ type CrawlerOptions struct {
 	UniqueFilter filters.Filter
 	// ScopeManager is a manager for validating crawling scope
 	ScopeManager *scope.Manager
+	GraphDB      *graphdb.GraphDB
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -49,6 +52,12 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	} else if options.RateLimitMinute > 0 {
 		ratelimiter = ratelimit.New(options.RateLimitMinute, ratelimit.Per(60*time.Second))
 	}
+
+	graphdb, err := graphdb.New()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create graph db")
+	}
+
 	crawlerOptions := &CrawlerOptions{
 		ExtensionsValidator: extensionsValidator,
 		ScopeManager:        scopeManager,
@@ -56,11 +65,15 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		RateLimit:           ratelimiter,
 		Options:             options,
 		OutputWriter:        outputWriter,
+		GraphDB:             graphdb,
 	}
 	return crawlerOptions, nil
 }
 
 // Close closes the crawler options resources
 func (c *CrawlerOptions) Close() error {
-	return c.OutputWriter.Close()
+	return multierr.Combine(
+		c.OutputWriter.Close(),
+		c.GraphDB.Close(),
+	)
 }

@@ -2,12 +2,14 @@ package standard
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
@@ -42,7 +44,7 @@ func (c *Crawler) Close() {
 }
 
 // Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(url string) {
+func (c *Crawler) Crawl(URL string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	if c.options.Options.CrawlDuration > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
@@ -50,18 +52,18 @@ func (c *Crawler) Crawl(url string) {
 	defer cancel()
 
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigationRequest{Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigation.NavigationRequest{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
 
 	for {
 		// Quit the crawling for zero items or context timeout
 		if queue.Len() == 0 {
-			return
+			return io.EOF
 		}
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		item := queue.Pop()
-		req, ok := item.(navigationRequest)
+		req, ok := item.(navigation.NavigationRequest)
 		if !ok {
 			continue
 		}
@@ -74,12 +76,24 @@ func (c *Crawler) Crawl(url string) {
 		resp, err := c.makeRequest(req)
 		if err != nil {
 			gologger.Error().Msgf("Could not request seed URL: %s\n", err)
-			return
 		}
 		if resp.Resp == nil || resp.Reader == nil {
 			continue
 		}
-		parseResponse(resp, func(nr navigationRequest) {
+
+		// if we arrive here, we add the successful request/response to the graph
+		URL := req.RequestURL()
+		node, err := c.options.GraphDB.GetOrCreateWithURL(context.Background(), URL)
+		if err != nil {
+			gologger.Error().Msgf("Could not create the node URL: %s\n", err)
+		}
+
+		// connect the endpoint with its ancestor
+		if req.FromNode != nil {
+			c.options.GraphDB.ConnectEndpoints(context.Background(), req.FromNode, node)
+		}
+
+		parseResponse(resp, func(nr navigation.NavigationRequest) {
 			// Ignore blank URL items
 			if nr.URL == "" {
 				return
@@ -88,6 +102,9 @@ func (c *Crawler) Crawl(url string) {
 			if !c.options.UniqueFilter.Unique(nr.RequestURL()) {
 				return
 			}
+
+			// back reference the original request
+			nr.FromNode = node
 
 			// Write the found result to output
 			result := &output.Result{
