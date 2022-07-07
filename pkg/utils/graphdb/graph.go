@@ -63,6 +63,16 @@ func (graphDB *GraphDB) QueryEndpoint(ctx context.Context, e *ent.Endpoint) (*en
 	return graphDB.entClient.Endpoint.Query().Where(predicates...).Only(ctx)
 }
 
+func (graphDB *GraphDB) HasEndpoint(ctx context.Context, e *ent.Endpoint) (bool, error) {
+	predicates := []predicate.Endpoint{
+		endpoint.URL(e.URL),
+		// endpoint.Body(e.Body),
+		// endpoint.Source(e.Source),
+		endpoint.Method(e.Method),
+	}
+	return graphDB.entClient.Endpoint.Query().Where(predicates...).Exist(ctx)
+}
+
 func (graphDB *GraphDB) GetOrCreate(ctx context.Context, e *ent.Endpoint) (*ent.Endpoint, error) {
 	endpoint, err := graphDB.QueryEndpoint(ctx, e)
 	if ent.IsNotFound(err) {

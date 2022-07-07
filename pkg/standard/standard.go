@@ -67,6 +67,18 @@ func (c *Crawler) Crawl(URL string) error {
 		if !ok {
 			continue
 		}
+
+		// only visits vertexes once
+		if ok, err := c.options.GraphDB.HasEndpoint(ctx, req.ToEphemeralEntity()); err == nil && ok {
+			continue
+		}
+
+		// if we arrive here, we add the successful request/response to the graph
+		node, err := c.options.GraphDB.GetOrCreate(ctx, req.ToEphemeralEntity())
+		if err != nil {
+			gologger.Error().Msgf("Could not create the node URL: %s\n", err)
+		}
+
 		c.options.RateLimit.Take()
 
 		// Delay if the user has asked for it
@@ -79,12 +91,6 @@ func (c *Crawler) Crawl(URL string) error {
 		}
 		if resp.Resp == nil || resp.Reader == nil {
 			continue
-		}
-
-		// if we arrive here, we add the successful request/response to the graph
-		node, err := c.options.GraphDB.GetOrCreate(ctx, req.ToEphemeralEntity())
-		if err != nil {
-			gologger.Error().Msgf("Could not create the node URL: %s\n", err)
 		}
 
 		// connect the endpoint with its ancestor
