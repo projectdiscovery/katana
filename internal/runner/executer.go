@@ -22,7 +22,7 @@ func (r *Runner) ExecuteCrawling() error {
 	defer crawler.Close()
 
 	for _, input := range inputs {
-		crawler.Crawl(input)
+		_ = crawler.Crawl(input)
 	}
 
 	// for debug purposes print out the schema

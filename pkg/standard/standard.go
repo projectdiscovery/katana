@@ -95,7 +95,7 @@ func (c *Crawler) Crawl(URL string) error {
 
 		// connect the endpoint with its ancestor
 		if req.FromNode != nil {
-			c.options.GraphDB.ConnectEndpoints(context.Background(), req.FromNode, node)
+			_, _ = c.options.GraphDB.ConnectEndpoints(context.Background(), req.FromNode, node)
 		}
 
 		parseResponse(resp, func(nr navigation.NavigationRequest) {
