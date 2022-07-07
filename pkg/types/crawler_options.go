@@ -27,7 +27,7 @@ type CrawlerOptions struct {
 	UniqueFilter filters.Filter
 	// ScopeManager is a manager for validating crawling scope
 	ScopeManager *scope.Manager
-	GraphDB      *graphdb.GraphDB
+	GraphDB      graphdb.Graph
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -53,7 +53,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		ratelimiter = ratelimit.New(options.RateLimitMinute, ratelimit.Per(60*time.Second))
 	}
 
-	graphdb, err := graphdb.New()
+	graphdb, err := graphdb.NewGraphDB()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create graph db")
 	}
