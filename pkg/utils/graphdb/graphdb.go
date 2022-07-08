@@ -7,10 +7,12 @@ import (
 	"github.com/projectdiscovery/katana/ent"
 	"github.com/projectdiscovery/katana/ent/endpoint"
 	"github.com/projectdiscovery/katana/ent/predicate"
+	"gonum.org/v1/gonum/graph/simple"
 )
 
 type GraphDB struct {
-	entClient *ent.Client
+	entClient       *ent.Client
+	undirectedGraph *simple.UndirectedGraph
 }
 
 func NewGraphDB() (*GraphDB, error) {

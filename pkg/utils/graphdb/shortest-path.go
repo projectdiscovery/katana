@@ -45,16 +45,20 @@ func (graphDB *GraphDB) buildGraph(ctx context.Context) (*simple.UndirectedGraph
 }
 
 func (graphDB *GraphDB) ShortestPath(ctx context.Context, source, destination *ent.Endpoint) ([]*ent.Endpoint, error) {
-	undirectedGraph, err := graphDB.buildGraph(ctx)
-	if err != nil {
-		return nil, err
+	if graphDB.undirectedGraph == nil {
+		undirectedGraph, err := graphDB.buildGraph(ctx)
+		if err != nil {
+			return nil, err
+		}
+		graphDB.undirectedGraph = undirectedGraph
 	}
-	sourceNode, err := lookupGraphNodeById(undirectedGraph, source.ID)
+
+	sourceNode, err := lookupGraphNodeById(graphDB.undirectedGraph, source.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	dijkstraEngine := path.DijkstraFrom(sourceNode, undirectedGraph)
+	dijkstraEngine := path.DijkstraFrom(sourceNode, graphDB.undirectedGraph)
 	dijkstraPath, _ := dijkstraEngine.To(int64(destination.ID))
 
 	// rebuild the paths in ent.Endpoint
