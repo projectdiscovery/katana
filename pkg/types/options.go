@@ -55,4 +55,6 @@ type Options struct {
 	ScrapeJSResponses bool
 	// CustomHeaders is a list of custom headers to add to request
 	CustomHeaders goflags.RuntimeMap
+	// Headless navigation
+	Headless bool
 }

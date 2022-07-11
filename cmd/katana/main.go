@@ -57,6 +57,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
 		flagSet.StringVarP(&options.Proxy, "proxy", "p", "", "http/socks5 proxy to use"),
 		flagSet.RuntimeMapVarP(&options.CustomHeaders, "headers", "H", []string{}, "custom header/cookie to include in request"),
+		flagSet.BoolVar(&options.Headless, "headless", false, "Use headless navigation module"),
 	)
 
 	createGroup(flagSet, "filters", "Filters",

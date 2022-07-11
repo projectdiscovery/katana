@@ -71,7 +71,18 @@ func (c *Crawler) Crawl(url string) {
 		if c.options.Options.Delay > 0 {
 			time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 		}
-		resp, err := c.makeRequest(req)
+
+		var (
+			resp navigationResponse
+			err  error
+		)
+		switch {
+		case c.options.Options.Headless:
+			resp, err = c.makeHeadlessRequest(req)
+		default:
+			resp, err = c.makeStandardRequest(req)
+		}
+
 		if err != nil {
 			gologger.Error().Msgf("Could not request seed URL: %s\n", err)
 			return
