@@ -1,11 +1,11 @@
-package standard
+package navigation
 
 import (
 	"strings"
 )
 
-// navigationRequest is a navigation request for the crawler
-type navigationRequest struct {
+// Request is a navigation request for the crawler
+type Request struct {
 	Method  string
 	URL     string
 	Body    string
@@ -16,15 +16,15 @@ type navigationRequest struct {
 }
 
 // RequestURL returns the request URL for the navigation
-func (n *navigationRequest) RequestURL() string {
-	switch n.Method {
+func (r *Request) RequestURL() string {
+	switch r.Method {
 	case "GET":
-		return n.URL
+		return r.URL
 	case "POST":
 		builder := &strings.Builder{}
-		builder.WriteString(n.URL)
+		builder.WriteString(r.URL)
 		builder.WriteString(":")
-		builder.WriteString(n.Body)
+		builder.WriteString(r.Body)
 		builtURL := builder.String()
 		return builtURL
 	}
@@ -32,7 +32,7 @@ func (n *navigationRequest) RequestURL() string {
 }
 
 // newNavigationRequestURL generates a navigation request from a relative URL
-func newNavigationRequestURL(path, source string, resp navigationResponse) navigationRequest {
+func NewRequestURL(path, source string, resp Response) Request {
 	requestURL := resp.AbsoluteURL(path)
-	return navigationRequest{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source}
+	return Request{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source}
 }

@@ -1,4 +1,6 @@
-package standard
+// Package simple implements the functionality for a non-headless crawler.
+// It uses net/http for making requests and goquery for scraping web page HTML.
+package simple
 
 import (
 	"bytes"
@@ -9,15 +11,16 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-// makeRequest makes a request to a URL returning a response interface.
-func (c *Crawler) makeStandardRequest(request navigationRequest) (navigationResponse, error) {
-	response := navigationResponse{
+// MakeRequest makes a request to a URL returning a response interface.
+func (simpleEngine *SimpleEngine) MakeRequest(request navigation.Request) (navigation.Response, error) {
+	response := navigation.Response{
 		Depth:   request.Depth + 1,
-		options: c.options,
+		Options: simpleEngine.options,
 	}
 	httpReq, err := http.NewRequest(request.Method, request.URL, nil)
 	if err != nil {
@@ -36,11 +39,11 @@ func (c *Crawler) makeStandardRequest(request navigationRequest) (navigationResp
 	for k, v := range request.Headers {
 		req.Header.Set(k, v)
 	}
-	for k, v := range c.options.Options.CustomHeaders.AsMap() {
+	for k, v := range simpleEngine.options.Options.CustomHeaders.AsMap() {
 		req.Header.Set(k, v.(string))
 	}
 
-	resp, err := c.httpclient.Do(req)
+	resp, err := simpleEngine.httpclient.Do(req)
 	if resp != nil {
 		defer func() {
 			_, _ = io.CopyN(ioutil.Discard, resp.Body, 8*1024)
@@ -53,7 +56,7 @@ func (c *Crawler) makeStandardRequest(request navigationRequest) (navigationResp
 	if resp.StatusCode == 404 {
 		return response, nil
 	}
-	limitReader := io.LimitReader(resp.Body, int64(c.options.Options.BodyReadSize))
+	limitReader := io.LimitReader(resp.Body, int64(simpleEngine.options.Options.BodyReadSize))
 	data, err := ioutil.ReadAll(limitReader)
 	if err != nil {
 		return response, err

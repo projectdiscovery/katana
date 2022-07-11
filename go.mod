@@ -13,6 +13,7 @@ require (
 	github.com/projectdiscovery/goflags v0.0.8
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
+	github.com/projectdiscovery/urlutil v0.0.0-20220606114420-c8511bedff3f
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/multierr v1.8.0
 	go.uber.org/ratelimit v0.2.0

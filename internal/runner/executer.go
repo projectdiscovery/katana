@@ -2,7 +2,7 @@ package runner
 
 import (
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/katana/pkg/standard"
+	"github.com/projectdiscovery/katana/pkg/engine"
 )
 
 // ExecuteCrawling executes the crawling main loop
@@ -12,7 +12,7 @@ func (r *Runner) ExecuteCrawling() error {
 		return errors.New("no input provided for crawling")
 	}
 
-	crawler, err := standard.New(r.crawlerOptions)
+	crawler, err := engine.New(r.crawlerOptions)
 	if err != nil {
 		return errors.Wrap(err, "could not create standard crawler")
 	}
