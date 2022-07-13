@@ -2,11 +2,12 @@ package engine
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/headless"
 	"github.com/projectdiscovery/katana/pkg/engine/simple"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -14,13 +15,15 @@ import (
 	"github.com/projectdiscovery/katana/pkg/parser"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	"github.com/projectdiscovery/retryablehttp-go"
+	"github.com/projectdiscovery/stringsutil"
 )
 
 // Crawler is a crawler instance
 type Crawler struct {
-	Options  *types.CrawlerOptions
-	Simple   *simple.SimpleEngine
-	Headless *headless.HeadlessEngine
+	Options    *types.CrawlerOptions
+	httpclient *retryablehttp.Client
+	dialer     *fastdialer.Dialer
 }
 
 // New returns a new crawler instance
@@ -30,89 +33,107 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
 
-	simpleEngine, err := simple.NewWithClients(options, dialer, httpclient)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create simple engine")
-	}
-
-	headlessEngine, err := headless.NewWithClients(options, dialer, httpclient)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create simple engine")
-	}
-
 	crawler := &Crawler{
-		Options:  options,
-		Simple:   simpleEngine,
-		Headless: headlessEngine,
+		Options:    options,
+		dialer:     dialer,
+		httpclient: httpclient,
 	}
+
 	return crawler, nil
 }
 
 // Close closes the crawler process
-func (c *Crawler) Close() {
-	if c.Simple != nil {
-		c.Simple.Close()
-	}
-	if c.Headless != nil {
-		c.Headless.Close()
-	}
+func (crawler *Crawler) Close() {
+	crawler.dialer.Close()
 }
 
 // Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(url string) {
+func (crawler *Crawler) Crawl(url string) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	if c.Options.Options.CrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.Options.Options.CrawlDuration)*time.Second)
+	if crawler.Options.Options.CrawlDuration > 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(crawler.Options.Options.CrawlDuration)*time.Second)
 	}
 	defer cancel()
 
-	queue := queue.New(c.Options.Options.Strategy)
+	simpleEngine, err := simple.NewWithClients(crawler.Options, crawler.dialer, crawler.httpclient)
+	if err != nil {
+		return errors.Wrap(err, "could not create simple engine")
+	}
+	defer simpleEngine.Close()
+
+	var headlessEngine *headless.HeadlessEngine
+	if crawler.Options.Options.Headless {
+		// we use different browsers instances with shared context
+		var err error
+		headlessEngine, err = headless.NewWithClients(crawler.Options, crawler.dialer, crawler.httpclient)
+		if err != nil {
+			return errors.Wrap(err, "could not create simple engine")
+		}
+		defer headlessEngine.Close()
+	}
+
+	queue := queue.New(crawler.Options.Options.Strategy)
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: url, Depth: 0}, 0)
 
 	for {
 		// Quit the crawling for zero items or context timeout
 		if queue.Len() == 0 {
-			return
+			return io.EOF
 		}
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		item := queue.Pop()
 		req, ok := item.(navigation.Request)
 		if !ok {
 			continue
 		}
-		c.Options.RateLimit.Take()
+		crawler.Options.RateLimit.Take()
 
 		// Delay if the user has asked for it
-		if c.Options.Options.Delay > 0 {
-			time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
+		if crawler.Options.Options.Delay > 0 {
+			time.Sleep(time.Duration(crawler.Options.Options.Delay) * time.Second)
 		}
 
-		var (
-			resp navigation.Response
-			err  error
-		)
-		switch {
-		case c.Options.Options.Headless:
-			resp, err = c.Headless.MakeRequest(req)
-		default:
-			resp, err = c.Simple.MakeRequest(req)
+		var responses []navigation.Response
+
+		respSimple, errSimple := simpleEngine.MakeRequest(req)
+		if errSimple != nil {
+			return errors.Wrap(errSimple, "Could not request seed URL: %s\n")
 		}
-		if err != nil {
-			gologger.Error().Msgf("Could not request seed URL: %s\n", err)
-			return
+		if !crawler.shouldSkipResponse(respSimple) {
+			responses = append(responses, respSimple)
 		}
-		if resp.Resp == nil || resp.Reader == nil {
-			continue
+
+		// additionally crawls headless if requested
+		canUseHeadless := stringsutil.EqualFoldAny(req.Method, http.MethodGet)
+		if crawler.Options.Options.Headless && canUseHeadless {
+			respHeadless, err := headlessEngine.MakeRequest(req)
+			if err != nil {
+				return errors.Wrap(err, "Could not request headless seed URL: %s\n")
+			}
+			if !crawler.shouldSkipResponse(respHeadless) {
+				responses = append(responses, respHeadless)
+			}
 		}
-		parser.ParseResponse(resp, func(nr navigation.Request) {
+
+		crawler.parseResponses(queue, req, responses...)
+	}
+}
+
+func (crawler *Crawler) shouldSkipResponse(response navigation.Response) bool {
+	return response.Resp == nil || response.Reader == nil
+}
+
+func (crawler *Crawler) parseResponses(queue *queue.VarietyQueue, request navigation.Request, responses ...navigation.Response) {
+	for _, response := range responses {
+		parser.ParseResponse(response, func(nr navigation.Request) {
 			// Ignore blank URL items
 			if nr.URL == "" {
 				return
 			}
 			// Only work on unique items
-			if !c.Options.UniqueFilter.Unique(nr.RequestURL()) {
+			if !crawler.Options.UniqueFilter.Unique(nr.RequestURL()) {
 				return
 			}
 
@@ -125,10 +146,10 @@ func (c *Crawler) Crawl(url string) {
 			if nr.Method != http.MethodGet {
 				result.Method = nr.Method
 			}
-			_ = c.Options.OutputWriter.Write(result)
+			_ = crawler.Options.OutputWriter.Write(result)
 
 			// Do not add to crawl queue if max items are reached
-			if nr.Depth >= c.Options.Options.MaxDepth {
+			if nr.Depth >= crawler.Options.Options.MaxDepth {
 				return
 			}
 			queue.Push(nr, nr.Depth)

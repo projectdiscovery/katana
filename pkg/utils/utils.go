@@ -2,6 +2,8 @@ package utils
 
 import (
 	"strings"
+
+	"github.com/projectdiscovery/urlutil"
 )
 
 // ParseLinkTag parses link tag values returning found urls
@@ -42,4 +44,13 @@ func ParseRefreshTag(value string) string {
 // WebUserAgent returns the chrome-web user agent
 func WebUserAgent() string {
 	return "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+}
+
+func TrimDefaultPort(URL *urlutil.URL) *urlutil.URL {
+	isHttpDefaultPort := URL.Scheme == "http" && URL.Port == "80"
+	isHttpsDefaultPort := URL.Scheme == "https" && URL.Port == "443"
+	if isHttpDefaultPort || isHttpsDefaultPort {
+		URL.Port = ""
+	}
+	return URL
 }

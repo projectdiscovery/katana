@@ -1,7 +1,10 @@
 package runner
 
 import (
+	"io"
+
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 )
 
@@ -19,7 +22,9 @@ func (r *Runner) ExecuteCrawling() error {
 	defer crawler.Close()
 
 	for _, input := range inputs {
-		crawler.Crawl(input)
+		if err := crawler.Crawl(input); err != nil && !errors.Is(err, io.EOF) {
+			gologger.Error().Msgf("Couldn't crawl '%s': %s\n", input, err)
+		}
 	}
 	return nil
 }

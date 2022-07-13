@@ -29,5 +29,5 @@ func NewWithClients(options *types.CrawlerOptions, dialer *fastdialer.Dialer, ht
 
 // Close closes the crawler process
 func (simpleEngine *SimpleEngine) Close() {
-	simpleEngine.dialer.Close()
+
 }

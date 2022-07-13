@@ -13,6 +13,7 @@ require (
 	github.com/projectdiscovery/goflags v0.0.8
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
+	github.com/projectdiscovery/stringsutil v0.0.0-20210830151154-f567170afdd9
 	github.com/projectdiscovery/urlutil v0.0.0-20220606114420-c8511bedff3f
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/multierr v1.8.0
@@ -40,7 +41,6 @@ require (
 	github.com/projectdiscovery/mapcidr v0.0.8 // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.1 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.13-0.20210916165024-76c5b76fd59a // indirect
-	github.com/projectdiscovery/stringsutil v0.0.0-20210830151154-f567170afdd9 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/ulule/deepcopier v0.0.0-20200430083143-45decc6639b6 // indirect
 	github.com/weppos/publicsuffix-go v0.15.1-0.20210928183822-5ee35905bd95 // indirect

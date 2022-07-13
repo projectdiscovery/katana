@@ -8,6 +8,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/projectdiscovery/urlutil"
 )
@@ -19,6 +20,7 @@ type HeadlessEngine struct {
 	browser    *rod.Browser
 	router     *rod.HijackRouter
 	networkMap map[string]*NetworkPair
+	pagepool   rod.PagePool
 }
 
 // New returns a new crawler instance
@@ -39,6 +41,7 @@ func NewWithClients(options *types.CrawlerOptions, dialer *fastdialer.Dialer, ht
 		httpclient: httpClient,
 		browser:    browser,
 		networkMap: make(map[string]*NetworkPair),
+		pagepool:   rod.NewPagePool(5),
 	}
 
 	if err := headlessEngine.hijackRequests(); err != nil {
@@ -50,7 +53,9 @@ func NewWithClients(options *types.CrawlerOptions, dialer *fastdialer.Dialer, ht
 
 // Close closes the crawler process
 func (headlessEngine *HeadlessEngine) Close() {
-	headlessEngine.dialer.Close()
+	headlessEngine.pagepool.Cleanup(func(p *rod.Page) {
+		p.MustClose()
+	})
 	_ = headlessEngine.router.Stop()
 	_ = headlessEngine.browser.Close()
 }
@@ -68,6 +73,7 @@ func (headlessEngine *HeadlessEngine) hijackRequests() error {
 		}
 
 		requestURL, _ := urlutil.Parse(ctx.Request.URL().String())
+		requestURL = utils.TrimDefaultPort(requestURL)
 
 		headlessEngine.networkMap[requestURL.String()] = &NetworkPair{
 			Request: ctx.Request.Req(),

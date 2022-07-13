@@ -8,10 +8,13 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/urlutil"
+	"go.uber.org/multierr"
 )
 
 type NetworkPair struct {
@@ -26,12 +29,25 @@ func (headlessEngine *HeadlessEngine) MakeRequest(request navigation.Request) (n
 		Options: headlessEngine.options,
 	}
 
+	var errs []error
+
 	// create a new page, but in order to persist the context we should use the same tab
-	page, err := headlessEngine.browser.Page(proto.TargetCreateTarget{URL: request.URL})
-	if err != nil {
+	page := headlessEngine.pagepool.Get(func() *rod.Page {
+		p, err := headlessEngine.browser.Page(proto.TargetCreateTarget{})
+		if err != nil {
+			errs = append(errs, err)
+			return nil
+		}
+		return p
+	})
+	if page == nil {
+		return response, multierr.Combine(errs...)
+	}
+	defer headlessEngine.pagepool.Put(page)
+
+	if err := page.Navigate(request.URL); err != nil {
 		return response, err
 	}
-	defer page.Close()
 
 	// we need to process only the HTML as redirects and refreshes are already handled automatically by the browser
 	html, err := page.HTML()
@@ -47,10 +63,10 @@ func (headlessEngine *HeadlessEngine) MakeRequest(request navigation.Request) (n
 	response.Body = data
 
 	requestURL, _ := urlutil.Parse(request.RequestURL())
+	requestURL = utils.TrimDefaultPort(requestURL)
 	if networkPair, ok := headlessEngine.networkMap[requestURL.String()]; ok {
 		response.Resp = networkPair.Response
 	}
-
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
 	if err != nil {
 		return response, errors.Wrap(err, "could not make document from reader")
