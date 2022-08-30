@@ -7,13 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-<<<<<<< HEAD
-func TestManagerValidateDomains(t *testing.T) {
-	manager, err := NewManager(nil, nil, []string{`google\..*`, `192\.168\.1\.1`}, []string{`uber\..*`}, true)
-=======
 func TestManagerValidate(t *testing.T) {
-	manager, err := NewManager([]string{`google\..*`, `192\.168\.1\.1`}, []string{`uber\..*`}, true)
->>>>>>> 3c543adde3fe6cf726c33b4bc034339dfed7f025
+	manager, err := NewManager(nil, nil, []string{`google\..*`, `192\.168\.1\.1`}, []string{`uber\..*`}, true)
 	require.NoError(t, err, "could not create scope manager")
 
 	parsed, _ := url.Parse("https://google.com")
