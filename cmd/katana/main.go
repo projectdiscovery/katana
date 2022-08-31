@@ -60,8 +60,10 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	createGroup(flagSet, "filters", "Filters",
-		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", []string{}, "in scope target to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", []string{}, "out of scope target to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", []string{}, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", []string{}, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.ScopeDomains, "crawl-scope-domains", "csd", []string{}, "in scope hosts to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutOfScopeDomains, "crawl-out-scope-domains", "cosd", []string{}, "out of scope hosts to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "scrape-js-response", "sjr", false, "scrape relative endpoints from javascript"),
 		flagSet.StringSliceVar(&options.Extensions, "extensions", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),

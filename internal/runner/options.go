@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
@@ -20,7 +21,7 @@ func validateOptions(options *types.Options) error {
 	if options.Verbose {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
-	if len(options.URLs) == 0 {
+	if len(options.URLs) == 0 && !fileutil.HasStdin() {
 		return errors.New("no inputs specified for crawler")
 	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))

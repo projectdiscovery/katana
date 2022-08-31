@@ -2,6 +2,7 @@ package standard
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -26,14 +27,14 @@ func (n navigationResponse) AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "#") {
 		return ""
 	}
-	if !n.options.ExtensionsValidator.ValidatePath(path) {
+	if !n.validatePath(path) {
 		return ""
 	}
 	absURL, err := n.Resp.Request.URL.Parse(path)
 	if err != nil {
 		return ""
 	}
-	if validated, err := n.options.ScopeManager.Validate(absURL); err != nil || !validated {
+	if validated, err := n.validateScope(absURL); err != nil || !validated {
 		return ""
 	}
 	absURL.Fragment = ""
@@ -42,4 +43,18 @@ func (n navigationResponse) AbsoluteURL(path string) string {
 	}
 	final := absURL.String()
 	return final
+}
+
+func (n navigationResponse) validatePath(path string) bool {
+	if n.options != nil && n.options.ExtensionsValidator != nil {
+		return n.options.ExtensionsValidator.ValidatePath(path)
+	}
+	return true
+}
+
+func (n navigationResponse) validateScope(absURL *url.URL) (bool, error) {
+	if n.options != nil && n.options.ScopeManager != nil {
+		return n.options.ScopeManager.Validate(absURL)
+	}
+	return true, nil
 }
