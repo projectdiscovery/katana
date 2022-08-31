@@ -4,6 +4,7 @@ import (
 	"os"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/pkg/errors"
@@ -40,6 +41,8 @@ type Options struct {
 
 // Result is a result structure for the crawler
 type Result struct {
+	// Timestamp is the current timestamp
+	Timestamp time.Time `json:"timestamp,omitempty"`
 	// Method is the method for the result
 	Method string `json:"method,omitempty"`
 	// Body contains the body for the request
@@ -48,6 +51,10 @@ type Result struct {
 	URL string `json:"url,omitempty"`
 	// Source is the source for the result
 	Source string `json:"source,omitempty"`
+	// Tag is the tag for the result
+	Tag string `json:"tag,omitempty"`
+	// Attribute is the attribute for the result
+	Attribute string `json:"attribute,omitempty"`
 }
 
 // New returns a new output writer instance
