@@ -9,10 +9,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.15
 	github.com/projectdiscovery/fileutil v0.0.0-20210928100737-cab279c5d4b5
-	github.com/projectdiscovery/goflags v0.0.8
+	github.com/projectdiscovery/goflags v0.0.9
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.8.0
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8
 )
