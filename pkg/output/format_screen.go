@@ -8,7 +8,7 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 
 	if w.verbose {
 		builder.WriteRune('[')
-		builder.WriteString(w.aurora.Blue(output.Source).String())
+		builder.WriteString(w.aurora.Blue(output.Tag).String())
 		builder.WriteRune(']')
 		builder.WriteRune(' ')
 	}

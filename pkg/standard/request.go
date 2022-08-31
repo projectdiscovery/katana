@@ -15,13 +15,14 @@ import (
 
 // navigationRequest is a navigation request for the crawler
 type navigationRequest struct {
-	Method  string
-	URL     string
-	Body    string
-	Depth   int
-	Headers map[string]string
-
-	Source string // source is the source of the request
+	Method    string
+	URL       string
+	Body      string
+	Depth     int
+	Headers   map[string]string
+	Tag       string
+	Attribute string
+	Source    string // source is the source of the request
 }
 
 // makeRequest makes a request to a URL returning a response interface.
@@ -95,7 +96,7 @@ func (n *navigationRequest) RequestURL() string {
 }
 
 // newNavigationRequestURL generates a navigation request from a relative URL
-func newNavigationRequestURL(path, source string, resp navigationResponse) navigationRequest {
+func newNavigationRequestURL(path, source, tag, attribute string, resp navigationResponse) navigationRequest {
 	requestURL := resp.AbsoluteURL(path)
-	return navigationRequest{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source}
+	return navigationRequest{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag}
 }

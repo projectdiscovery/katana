@@ -54,7 +54,7 @@ func headerContentLocationParser(resp navigationResponse, callback func(navigati
 	if header == "" {
 		return
 	}
-	callback(newNavigationRequestURL(header, "content-location", resp))
+	callback(newNavigationRequestURL(header, resp.Resp.Request.URL.String(), "header", "content-location", resp))
 }
 
 // headerLinkParser parsers Link header from response
@@ -65,7 +65,7 @@ func headerLinkParser(resp navigationResponse, callback func(navigationRequest))
 	}
 	values := utils.ParseLinkTag(header)
 	for _, value := range values {
-		callback(newNavigationRequestURL(value, "link", resp))
+		callback(newNavigationRequestURL(value, resp.Resp.Request.URL.String(), "header", "link", resp))
 	}
 }
 
@@ -75,7 +75,7 @@ func headerLocationParser(resp navigationResponse, callback func(navigationReque
 	if header == "" {
 		return
 	}
-	callback(newNavigationRequestURL(header, "location", resp))
+	callback(newNavigationRequestURL(header, resp.Resp.Request.URL.String(), "header", "location", resp))
 }
 
 // headerRefreshParser parsers Refresh header from response
@@ -88,7 +88,7 @@ func headerRefreshParser(resp navigationResponse, callback func(navigationReques
 	if values == "" {
 		return
 	}
-	callback(newNavigationRequestURL(values, "refresh", resp))
+	callback(newNavigationRequestURL(values, resp.Resp.Request.URL.String(), "header", "refresh", resp))
 }
 
 // -------------------------------------------------------------------------
@@ -100,11 +100,11 @@ func bodyATagParser(resp navigationResponse, callback func(navigationRequest)) {
 	resp.Reader.Find("a").Each(func(i int, item *goquery.Selection) {
 		href, ok := item.Attr("href")
 		if ok && href != "" {
-			callback(newNavigationRequestURL(href, "a", resp))
+			callback(newNavigationRequestURL(href, resp.Resp.Request.URL.String(), "a", "href", resp))
 		}
 		ping, ok := item.Attr("ping")
 		if ok && ping != "" {
-			callback(newNavigationRequestURL(ping, "a", resp))
+			callback(newNavigationRequestURL(ping, resp.Resp.Request.URL.String(), "a", "ping", resp))
 		}
 	})
 }
@@ -114,7 +114,7 @@ func bodyEmbedTagParser(resp navigationResponse, callback func(navigationRequest
 	resp.Reader.Find("embed[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "embed", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "embed", "src", resp))
 		}
 	})
 }
@@ -124,7 +124,7 @@ func bodyFrameTagParser(resp navigationResponse, callback func(navigationRequest
 	resp.Reader.Find("frame[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "frame", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "frame", "src", resp))
 		}
 	})
 }
@@ -134,7 +134,7 @@ func bodyIframeTagParser(resp navigationResponse, callback func(navigationReques
 	resp.Reader.Find("iframe[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "iframe", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "iframe", "src", resp))
 		}
 	})
 }
@@ -144,7 +144,7 @@ func bodyInputSrcTagParser(resp navigationResponse, callback func(navigationRequ
 	resp.Reader.Find("input[type='image']").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "input", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "input-image", "src", resp))
 		}
 	})
 }
@@ -154,7 +154,7 @@ func bodyIsindexActionTagParser(resp navigationResponse, callback func(navigatio
 	resp.Reader.Find("isindex[action]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("action")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "isindex", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "isindex", "action", resp))
 		}
 	})
 }
@@ -164,7 +164,7 @@ func bodyScriptSrcTagParser(resp navigationResponse, callback func(navigationReq
 	resp.Reader.Find("script[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "script", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "script", "src", resp))
 		}
 	})
 }
@@ -174,7 +174,7 @@ func bodyButtonFormactionTagParser(resp navigationResponse, callback func(naviga
 	resp.Reader.Find("button[formaction]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("formaction")
 		if ok && src != "" {
-			callback(newNavigationRequestURL(src, "button", resp))
+			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "button", "formaction", resp))
 		}
 	})
 }
@@ -243,10 +243,12 @@ func bodyFormTagParser(resp navigationResponse, callback func(navigationRequest)
 		}
 
 		req := navigationRequest{
-			Method: method,
-			URL:    actionURL,
-			Depth:  resp.Depth,
-			Source: "form",
+			Method:    method,
+			URL:       actionURL,
+			Depth:     resp.Depth,
+			Tag:       "form",
+			Attribute: "action",
+			Source:    resp.Resp.Request.URL.String(),
 		}
 		if multipartWriter != nil {
 			req.Body = sb.String()
@@ -280,7 +282,7 @@ func bodyMetaContentTagParser(resp navigationResponse, callback func(navigationR
 		if values == "" {
 			return
 		}
-		callback(newNavigationRequestURL(values, "meta", resp))
+		callback(newNavigationRequestURL(values, resp.Resp.Request.URL.String(), "meta", "refresh", resp))
 	})
 }
 
@@ -300,7 +302,7 @@ func scriptContentRegexParser(resp navigationResponse, callback func(navigationR
 		}
 		endpoints := utils.ExtractRelativeEndpoints(text)
 		for _, item := range endpoints {
-			callback(newNavigationRequestURL(item, "script-content", resp))
+			callback(newNavigationRequestURL(item, resp.Resp.Request.URL.String(), "script", "text", resp))
 		}
 	})
 }
@@ -319,6 +321,6 @@ func scriptJSFileRegexParser(resp navigationResponse, callback func(navigationRe
 
 	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
 	for _, item := range endpoints {
-		callback(newNavigationRequestURL(item, "js-file", resp))
+		callback(newNavigationRequestURL(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
 	}
 }

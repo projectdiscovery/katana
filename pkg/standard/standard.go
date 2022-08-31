@@ -91,9 +91,12 @@ func (c *Crawler) Crawl(url string) {
 
 			// Write the found result to output
 			result := &output.Result{
-				Body:   nr.Body,
-				URL:    nr.URL,
-				Source: nr.Source,
+				Timestamp: time.Now(),
+				Body:      nr.Body,
+				URL:       nr.URL,
+				Source:    nr.Source,
+				Tag:       nr.Tag,
+				Attribute: nr.Attribute,
 			}
 			if nr.Method != http.MethodGet {
 				result.Method = nr.Method
