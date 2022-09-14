@@ -39,6 +39,8 @@ type Options struct {
 	RateLimitMinute int
 	// Concurrency is the number of concurrent crawling goroutines
 	Concurrency int
+	// Parallelism is the number of urls processing goroutines
+	Parallelism int
 	// Proxy is the URL for the proxy server
 	Proxy string
 	// Strategy is the crawling strategy. depth-first or breadth-first

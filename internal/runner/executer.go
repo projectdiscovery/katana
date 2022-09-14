@@ -3,6 +3,7 @@ package runner
 import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/standard"
+	"github.com/remeh/sizedwaitgroup"
 )
 
 // ExecuteCrawling executes the crawling main loop
@@ -18,8 +19,16 @@ func (r *Runner) ExecuteCrawling() error {
 	}
 	defer crawler.Close()
 
+	wg := sizedwaitgroup.New(r.options.Parallelism)
 	for _, input := range inputs {
-		crawler.Crawl(input)
+		wg.Add()
+
+		go func(input string) {
+			defer wg.Done()
+
+			crawler.Crawl(input)
+		}(input)
 	}
+	wg.Wait()
 	return nil
 }

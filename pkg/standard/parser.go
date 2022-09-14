@@ -243,6 +243,7 @@ func bodyFormTagParser(resp navigationResponse, callback func(navigationRequest)
 		}
 
 		req := navigationRequest{
+			Context:   resp.Resp.Request.Context(),
 			Method:    method,
 			URL:       actionURL,
 			Depth:     resp.Depth,
