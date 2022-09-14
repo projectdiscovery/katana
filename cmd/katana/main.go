@@ -72,7 +72,8 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	createGroup(flagSet, "ratelimit", "Rate-Limit",
-		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 300, "number of concurrent fetchers to use"),
+		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
+		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
 		flagSet.IntVarP(&options.RateLimit, "rate-limit", "rl", 150, "maximum requests to send per second"),
 		flagSet.IntVarP(&options.RateLimitMinute, "rate-limit-minute", "rlm", 0, "maximum number of requests to send per minute"),

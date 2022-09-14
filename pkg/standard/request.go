@@ -2,6 +2,7 @@ package standard
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 // navigationRequest is a navigation request for the crawler
 type navigationRequest struct {
+	Context   context.Context
 	Method    string
 	URL       string
 	Body      string
@@ -31,7 +33,7 @@ func (c *Crawler) makeRequest(request navigationRequest) (navigationResponse, er
 		Depth:   request.Depth + 1,
 		options: c.options,
 	}
-	httpReq, err := http.NewRequest(request.Method, request.URL, nil)
+	httpReq, err := http.NewRequestWithContext(request.Context, request.Method, request.URL, nil)
 	if err != nil {
 		return response, err
 	}
@@ -98,5 +100,5 @@ func (n *navigationRequest) RequestURL() string {
 // newNavigationRequestURL generates a navigation request from a relative URL
 func newNavigationRequestURL(path, source, tag, attribute string, resp navigationResponse) navigationRequest {
 	requestURL := resp.AbsoluteURL(path)
-	return navigationRequest{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag}
+	return navigationRequest{Context: resp.Resp.Request.Context(), Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag}
 }
