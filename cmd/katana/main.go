@@ -55,7 +55,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", 2*1024*1024, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
-		flagSet.StringVarP(&options.Proxy, "proxy", "p", "", "http/socks5 proxy to use"),
+		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
 		flagSet.RuntimeMapVarP(&options.CustomHeaders, "headers", "H", []string{}, "custom header/cookie to include in request"),
 	)
 
