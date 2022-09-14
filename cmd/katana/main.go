@@ -55,7 +55,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", 2*1024*1024, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
-		flagSet.StringVarP(&options.Proxy, "proxy", "p", "", "http/socks5 proxy to use"),
+		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
 		flagSet.RuntimeMapVarP(&options.CustomHeaders, "headers", "H", []string{}, "custom header/cookie to include in request"),
 	)
 
@@ -72,7 +72,8 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	createGroup(flagSet, "ratelimit", "Rate-Limit",
-		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 300, "number of concurrent fetchers to use"),
+		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
+		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
 		flagSet.IntVarP(&options.RateLimit, "rate-limit", "rl", 150, "maximum requests to send per second"),
 		flagSet.IntVarP(&options.RateLimitMinute, "rate-limit-minute", "rlm", 0, "maximum number of requests to send per minute"),

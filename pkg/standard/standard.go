@@ -12,6 +12,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
+	"github.com/remeh/sizedwaitgroup"
 )
 
 // Crawler is a standard crawler instance
@@ -50,64 +51,70 @@ func (c *Crawler) Crawl(url string) {
 	defer cancel()
 
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigationRequest{Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigationRequest{Context: ctx, Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	parseResponseCallback := c.makeParseResponseCallback(queue)
 
+	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	for {
 		// Quit the crawling for zero items or context timeout
-		if queue.Len() == 0 {
-			return
-		}
-		if ctx.Err() != nil {
-			return
+		if queue.Len() == 0 || ctx.Err() != nil {
+			break
 		}
 		item := queue.Pop()
 		req, ok := item.(navigationRequest)
 		if !ok {
 			continue
 		}
-		c.options.RateLimit.Take()
+		wg.Add()
 
-		// Delay if the user has asked for it
-		if c.options.Options.Delay > 0 {
-			time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
-		}
-		resp, err := c.makeRequest(req)
-		if err != nil {
-			gologger.Error().Msgf("Could not request seed URL: %s\n", err)
-			continue
-		}
-		if resp.Resp == nil || resp.Reader == nil {
-			continue
-		}
-		parseResponse(resp, func(nr navigationRequest) {
-			// Ignore blank URL items
-			if nr.URL == "" {
+		go func() {
+			defer wg.Done()
+			c.options.RateLimit.Take()
+
+			// Delay if the user has asked for it
+			if c.options.Options.Delay > 0 {
+				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
+			}
+			resp, err := c.makeRequest(req)
+			if err != nil {
+				gologger.Error().Msgf("Could not request seed URL: %s\n", err)
 				return
 			}
-			// Only work on unique items
-			if !c.options.UniqueFilter.Unique(nr.RequestURL()) {
+			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
+			parseResponse(resp, parseResponseCallback)
+		}()
+	}
+	wg.Wait()
+}
 
-			// Write the found result to output
-			result := &output.Result{
-				Timestamp: time.Now(),
-				Body:      nr.Body,
-				URL:       nr.URL,
-				Source:    nr.Source,
-				Tag:       nr.Tag,
-				Attribute: nr.Attribute,
-			}
-			if nr.Method != http.MethodGet {
-				result.Method = nr.Method
-			}
-			_ = c.options.OutputWriter.Write(result)
+// makeParseResponseCallback returns a parse response function callback
+func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigationRequest) {
+	return func(nr navigationRequest) {
+		// Ignore blank URL items and only work on unique items
+		if nr.URL == "" || !c.options.UniqueFilter.Unique(nr.RequestURL()) {
+			return
+		}
 
-			// Do not add to crawl queue if max items are reached
-			if nr.Depth >= c.options.Options.MaxDepth {
-				return
-			}
-			queue.Push(nr, nr.Depth)
-		})
+		// Write the found result to output
+		result := &output.Result{
+			Timestamp: time.Now(),
+			Body:      nr.Body,
+			URL:       nr.URL,
+			Source:    nr.Source,
+			Tag:       nr.Tag,
+			Attribute: nr.Attribute,
+		}
+		if nr.Method != http.MethodGet {
+			result.Method = nr.Method
+		}
+		_ = c.options.OutputWriter.Write(result)
+
+		// Do not add to crawl queue if max items are reached
+		if nr.Depth >= c.options.Options.MaxDepth {
+			return
+		}
+		queue.Push(nr, nr.Depth)
 	}
 }
