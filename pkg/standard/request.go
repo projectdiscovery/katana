@@ -56,14 +56,16 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigationRequest) (n
 	resp, err := c.httpclient.Do(req)
 	if resp != nil {
 		defer func() {
-			_, _ = io.CopyN(ioutil.Discard, resp.Body, 8*1024)
+			if resp.Body != nil && resp.StatusCode != http.StatusSwitchingProtocols {
+				_, _ = io.CopyN(ioutil.Discard, resp.Body, 8*1024)
+			}
 			_ = resp.Body.Close()
 		}()
 	}
 	if err != nil {
 		return response, err
 	}
-	if resp.StatusCode == 404 || resp.StatusCode == http.StatusSwitchingProtocols {
+	if resp.StatusCode == http.StatusSwitchingProtocols {
 		return response, nil
 	}
 	limitReader := io.LimitReader(resp.Body, int64(c.options.Options.BodyReadSize))
