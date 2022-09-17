@@ -63,7 +63,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigationRequest) (n
 	if err != nil {
 		return response, err
 	}
-	if resp.StatusCode == 404 || resp.StatusCode != http.StatusSwitchingProtocols {
+	if resp.StatusCode == 404 || resp.StatusCode == http.StatusSwitchingProtocols {
 		return response, nil
 	}
 	limitReader := io.LimitReader(resp.Body, int64(c.options.Options.BodyReadSize))
