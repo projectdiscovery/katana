@@ -16,7 +16,6 @@ import (
 
 // navigationRequest is a navigation request for the crawler
 type navigationRequest struct {
-	Context   context.Context
 	Method    string
 	URL       string
 	Body      string
@@ -28,12 +27,12 @@ type navigationRequest struct {
 }
 
 // makeRequest makes a request to a URL returning a response interface.
-func (c *Crawler) makeRequest(request navigationRequest) (navigationResponse, error) {
+func (c *Crawler) makeRequest(ctx context.Context, request navigationRequest) (navigationResponse, error) {
 	response := navigationResponse{
 		Depth:   request.Depth + 1,
 		options: c.options,
 	}
-	httpReq, err := http.NewRequestWithContext(request.Context, request.Method, request.URL, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, request.Method, request.URL, nil)
 	if err != nil {
 		return response, err
 	}
@@ -57,14 +56,16 @@ func (c *Crawler) makeRequest(request navigationRequest) (navigationResponse, er
 	resp, err := c.httpclient.Do(req)
 	if resp != nil {
 		defer func() {
-			_, _ = io.CopyN(ioutil.Discard, resp.Body, 8*1024)
+			if resp.Body != nil && resp.StatusCode != http.StatusSwitchingProtocols {
+				_, _ = io.CopyN(ioutil.Discard, resp.Body, 8*1024)
+			}
 			_ = resp.Body.Close()
 		}()
 	}
 	if err != nil {
 		return response, err
 	}
-	if resp.StatusCode == 404 {
+	if resp.StatusCode == http.StatusSwitchingProtocols {
 		return response, nil
 	}
 	limitReader := io.LimitReader(resp.Body, int64(c.options.Options.BodyReadSize))
@@ -100,5 +101,5 @@ func (n *navigationRequest) RequestURL() string {
 // newNavigationRequestURL generates a navigation request from a relative URL
 func newNavigationRequestURL(path, source, tag, attribute string, resp navigationResponse) navigationRequest {
 	requestURL := resp.AbsoluteURL(path)
-	return navigationRequest{Context: resp.Resp.Request.Context(), Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag}
+	return navigationRequest{Method: "GET", URL: requestURL, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag}
 }

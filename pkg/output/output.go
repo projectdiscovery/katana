@@ -1,13 +1,13 @@
 package output
 
 import (
-	"os"
 	"regexp"
 	"sync"
 	"time"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/gologger"
 )
 
 // Writer is an interface which writes output to somewhere for katana events.
@@ -95,8 +95,7 @@ func (w *StandardWriter) Write(event *Result) error {
 	w.outputMutex.Lock()
 	defer w.outputMutex.Unlock()
 
-	_, _ = os.Stdout.Write(data)
-	_, _ = os.Stdout.Write([]byte("\n"))
+	gologger.Silent().Msgf("%s", string(data))
 	if w.outputFile != nil {
 		if !w.json {
 			data = decolorizerRegex.ReplaceAll(data, []byte(""))
