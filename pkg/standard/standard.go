@@ -3,6 +3,7 @@ package standard
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -51,13 +52,14 @@ func (c *Crawler) Crawl(url string) {
 	defer cancel()
 
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigationRequest{Context: ctx, Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigationRequest{Method: http.MethodGet, URL: url, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
+	running := int32(0)
 	for {
 		// Quit the crawling for zero items or context timeout
-		if queue.Len() == 0 || ctx.Err() != nil {
+		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0 || ctx.Err() != nil) {
 			break
 		}
 		item := queue.Pop()
@@ -66,16 +68,19 @@ func (c *Crawler) Crawl(url string) {
 			continue
 		}
 		wg.Add()
+		atomic.AddInt32(&running, 1)
 
 		go func() {
 			defer wg.Done()
+			defer atomic.AddInt32(&running, -1)
+
 			c.options.RateLimit.Take()
 
 			// Delay if the user has asked for it
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.makeRequest(req)
+			resp, err := c.makeRequest(ctx, req)
 			if err != nil {
 				gologger.Error().Msgf("Could not request seed URL: %s\n", err)
 				return
