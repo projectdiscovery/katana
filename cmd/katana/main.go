@@ -65,8 +65,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.ScopeDomains, "crawl-scope-domains", "csd", []string{}, "in scope hosts to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScopeDomains, "crawl-out-scope-domains", "cosd", []string{}, "out of scope hosts to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
-		flagSet.BoolVarP(&options.ScrapeJSResponses, "scrape-js-response", "sjr", false, "scrape relative endpoints from javascript"),
-		flagSet.StringSliceVar(&options.Extensions, "extensions", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
+		flagSet.StringSliceVar(&options.Extensions, "extension", "e", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", []string{}, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", []string{}, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
 	)
@@ -81,7 +81,7 @@ pipelines offering both headless and non-headless crawling.`)
 
 	createGroup(flagSet, "output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
-		flagSet.BoolVar(&options.JSON, "json", false, "write output in JSONL(ines) format"),
+		flagSet.BoolVarP(&options.JSON, "json", "j", false, "write output in JSONL(ines) format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
 		flagSet.BoolVarP(&options.Verbose, "verbose", "v", false, "display verbose output"),
