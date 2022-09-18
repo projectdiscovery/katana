@@ -66,7 +66,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.OutOfScopeDomains, "crawl-out-scope-domains", "cosd", []string{}, "out of scope hosts to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
-		flagSet.StringSliceVar(&options.Extensions, "extension", "e", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", []string{}, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", []string{}, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
 	)
