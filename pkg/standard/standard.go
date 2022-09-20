@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/remeh/sizedwaitgroup"
@@ -67,6 +68,9 @@ func (c *Crawler) Crawl(url string) {
 		if !ok {
 			continue
 		}
+		if !utils.IsURL(req.URL) {
+			continue
+		}
 		wg.Add()
 		atomic.AddInt32(&running, 1)
 
@@ -97,6 +101,9 @@ func (c *Crawler) Crawl(url string) {
 // makeParseResponseCallback returns a parse response function callback
 func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigationRequest) {
 	return func(nr navigationRequest) {
+		if !utils.IsURL(nr.URL) {
+			return
+		}
 		// Ignore blank URL items and only work on unique items
 		if nr.URL == "" || !c.options.UniqueFilter.Unique(nr.RequestURL()) {
 			return
