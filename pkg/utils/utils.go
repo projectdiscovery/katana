@@ -4,6 +4,11 @@ import (
 	"strings"
 )
 
+// IsURL returns true if a provided string is URL
+func IsURL(url string) bool {
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+}
+
 // ParseLinkTag parses link tag values returning found urls
 //
 // Inspired from: https://github.com/tomnomnom/linkheader
