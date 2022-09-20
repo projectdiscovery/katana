@@ -49,8 +49,8 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigationRequest) (n
 	for k, v := range request.Headers {
 		req.Header.Set(k, v)
 	}
-	for k, v := range c.options.Options.CustomHeaders.AsMap() {
-		req.Header.Set(k, v.(string))
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := c.httpclient.Do(req)
