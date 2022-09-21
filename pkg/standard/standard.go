@@ -3,6 +3,7 @@ package standard
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 
 // Crawler is a standard crawler instance
 type Crawler struct {
+	headers map[string]string
+
 	options    *types.CrawlerOptions
 	httpclient *retryablehttp.Client
 	dialer     *fastdialer.Dialer
@@ -30,11 +33,16 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
-
 	crawler := &Crawler{
+		headers:    make(map[string]string),
 		options:    options,
 		dialer:     dialer,
 		httpclient: httpclient,
+	}
+	for _, v := range options.Options.CustomHeaders {
+		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
+			crawler.headers[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
+		}
 	}
 	return crawler, nil
 }
