@@ -47,6 +47,8 @@ type Options struct {
 	Strategy string
 	// OutputFile is the file to write output to
 	OutputFile string
+	// Fields is the fields to format in output
+	Fields string
 	// NoColors disables coloring of response output
 	NoColors bool
 	// JSON enables writing output in JSON format

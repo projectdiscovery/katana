@@ -22,6 +22,7 @@ var decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
+	fields      string
 	json        bool
 	verbose     bool
 	aurora      aurora.Aurora
@@ -58,7 +59,7 @@ type Result struct {
 }
 
 // New returns a new output writer instance
-func New(colors, json, verbose bool, file string) (Writer, error) {
+func New(colors, json, verbose bool, file, fields string) (Writer, error) {
 	auroraColorizer := aurora.NewAurora(colors)
 
 	var outputFile *fileWriter
@@ -70,6 +71,7 @@ func New(colors, json, verbose bool, file string) (Writer, error) {
 		outputFile = output
 	}
 	writer := &StandardWriter{
+		fields:      fields,
 		json:        json,
 		verbose:     verbose,
 		aurora:      auroraColorizer,

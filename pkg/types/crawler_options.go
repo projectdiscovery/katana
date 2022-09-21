@@ -38,7 +38,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 	itemFilter := filters.NewSimple()
 
-	outputWriter, err := output.New(!options.NoColors, options.JSON, options.Verbose, options.OutputFile)
+	outputWriter, err := output.New(!options.NoColors, options.JSON, options.Verbose, options.OutputFile, options.Fields)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create output writer")
 	}
