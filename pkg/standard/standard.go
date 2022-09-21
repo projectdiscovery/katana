@@ -39,7 +39,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		httpclient: httpclient,
 	}
 	for _, v := range options.Options.CustomHeaders {
-		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) > 0 {
+		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
 			crawler.headers[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
 		}
 	}
