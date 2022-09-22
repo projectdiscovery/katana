@@ -5,14 +5,10 @@ import "github.com/projectdiscovery/goflags"
 type Options struct {
 	// URLs contains a list of URLs for crawling
 	URLs goflags.StringSlice
-	// Scope contains a list of regexes for in-scope URLS
+	// Scope contains a list of regexes for in-scope hosts
 	Scope goflags.StringSlice
-	// OutOfScope contains a list of regexes for out-scope URLS
+	// OutOfScope contains a list of regexes for out-scope hosts
 	OutOfScope goflags.StringSlice
-	// ScopeDomains contains a list of regexes for in-scope hosts
-	ScopeDomains goflags.StringSlice
-	// OutOfScopeDomains contains a list of regexes for out-scope hosts
-	OutOfScopeDomains goflags.StringSlice
 	// IncludeSubdomains specifies if we if want to include subdomains for scope
 	IncludeSubdomains bool
 	// Extensions is a list of extensions to be allowed. Can be * for all extensions.
