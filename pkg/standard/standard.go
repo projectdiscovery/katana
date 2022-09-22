@@ -3,6 +3,7 @@ package standard
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/remeh/sizedwaitgroup"
@@ -18,6 +20,8 @@ import (
 
 // Crawler is a standard crawler instance
 type Crawler struct {
+	headers map[string]string
+
 	options    *types.CrawlerOptions
 	httpclient *retryablehttp.Client
 	dialer     *fastdialer.Dialer
@@ -29,11 +33,16 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
-
 	crawler := &Crawler{
+		headers:    make(map[string]string),
 		options:    options,
 		dialer:     dialer,
 		httpclient: httpclient,
+	}
+	for _, v := range options.Options.CustomHeaders {
+		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
+			crawler.headers[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
+		}
 	}
 	return crawler, nil
 }
@@ -67,6 +76,9 @@ func (c *Crawler) Crawl(url string) {
 		if !ok {
 			continue
 		}
+		if !utils.IsURL(req.URL) {
+			continue
+		}
 		wg.Add()
 		atomic.AddInt32(&running, 1)
 
@@ -82,7 +94,7 @@ func (c *Crawler) Crawl(url string) {
 			}
 			resp, err := c.makeRequest(ctx, req)
 			if err != nil {
-				gologger.Error().Msgf("Could not request seed URL: %s\n", err)
+				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
 			}
 			if resp.Resp == nil || resp.Reader == nil {
@@ -97,6 +109,9 @@ func (c *Crawler) Crawl(url string) {
 // makeParseResponseCallback returns a parse response function callback
 func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigationRequest) {
 	return func(nr navigationRequest) {
+		if !utils.IsURL(nr.URL) {
+			return
+		}
 		// Ignore blank URL items and only work on unique items
 		if nr.URL == "" || !c.options.UniqueFilter.Unique(nr.RequestURL()) {
 			return
