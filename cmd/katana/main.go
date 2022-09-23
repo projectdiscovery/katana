@@ -81,6 +81,7 @@ pipelines offering both headless and non-headless crawling.`)
 
 	createGroup(flagSet, "output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
+		flagSet.StringVarP(&options.Fields, "fields", "f", "", "field to display in output (fqdn,rdn,url,rurl,path,file,key,value,kv,udir,dir)"),
 		flagSet.BoolVarP(&options.JSON, "json", "j", false, "write output in JSONL(ines) format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
