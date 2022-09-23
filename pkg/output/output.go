@@ -94,6 +94,9 @@ func (w *StandardWriter) Write(event *Result) error {
 	if err != nil {
 		return errors.Wrap(err, "could not format output")
 	}
+	if len(data) == 0 {
+		return nil
+	}
 	w.outputMutex.Lock()
 	defer w.outputMutex.Unlock()
 
