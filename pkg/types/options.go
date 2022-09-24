@@ -64,5 +64,5 @@ type Options struct {
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
 	ScrapeJSResponses bool
 	// CustomHeaders is a list of custom headers to add to request
-	CustomHeaders goflags.RuntimeMap
+	CustomHeaders goflags.StringSlice
 }
