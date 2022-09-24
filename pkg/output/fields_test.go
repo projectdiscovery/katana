@@ -7,6 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateFieldNames(t *testing.T) {
+	err := validateFieldNames("fqdn")
+	require.Nil(t, err, "got error with valid field")
+
+	err = validateFieldNames("")
+	require.Error(t, err, "got no error with blank field")
+
+	err = validateFieldNames("invalid")
+	require.Error(t, err, "got no error with invalid field")
+}
+
 func TestFormatField(t *testing.T) {
 	url := "https://policies.google.com/terms/file.php?hl=en-IN&fg=1"
 	tests := []struct {
