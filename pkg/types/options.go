@@ -49,6 +49,8 @@ type Options struct {
 	OutputFile string
 	// Fields is the fields to format in output
 	Fields string
+	// StoreFields is the fields to store in separate per-host files
+	StoreFields string
 	// NoColors disables coloring of response output
 	NoColors bool
 	// JSON enables writing output in JSON format

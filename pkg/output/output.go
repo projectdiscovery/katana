@@ -1,7 +1,9 @@
 package output
 
 import (
+	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,7 @@ var decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
+	storeFields []string
 	fields      string
 	json        bool
 	verbose     bool
@@ -58,31 +61,45 @@ type Result struct {
 	Attribute string `json:"attribute,omitempty"`
 }
 
-// New returns a new output writer instance
-func New(colors, json, verbose bool, file, fields string) (Writer, error) {
-	auroraColorizer := aurora.NewAurora(colors)
+const storeFieldsDirectory = "katana_outputs"
 
-	var outputFile *fileWriter
+// New returns a new output writer instance
+func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, error) {
+	writer := &StandardWriter{
+		fields:      fields,
+		json:        json,
+		verbose:     verbose,
+		aurora:      aurora.NewAurora(colors),
+		outputMutex: &sync.Mutex{},
+	}
+	// Perform validations for fields and store-fields
+	if fields != "" {
+		if err := validateFieldNames(fields); err != nil {
+			return nil, errors.Wrap(err, "could not validate fields")
+		}
+	}
+	if storeFields != "" {
+		_ = os.MkdirAll(storeFieldsDirectory, os.ModePerm)
+		if err := validateFieldNames(storeFields); err != nil {
+			return nil, errors.Wrap(err, "could not validate store fields")
+		}
+		writer.storeFields = append(writer.storeFields, strings.Split(storeFields, ",")...)
+	}
 	if file != "" {
 		output, err := newFileOutputWriter(file)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create output file")
 		}
-		outputFile = output
-	}
-	writer := &StandardWriter{
-		fields:      fields,
-		json:        json,
-		verbose:     verbose,
-		aurora:      auroraColorizer,
-		outputFile:  outputFile,
-		outputMutex: &sync.Mutex{},
+		writer.outputFile = output
 	}
 	return writer, nil
 }
 
 // Write writes the event to file and/or screen.
 func (w *StandardWriter) Write(event *Result) error {
+	if len(w.storeFields) > 0 {
+		storeFields(event, w.storeFields)
+	}
 	var data []byte
 	var err error
 
