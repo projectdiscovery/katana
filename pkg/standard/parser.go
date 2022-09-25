@@ -141,7 +141,7 @@ func bodyIframeTagParser(resp navigationResponse, callback func(navigationReques
 
 // bodyInputSrcTagParser parses input image src tag from response
 func bodyInputSrcTagParser(resp navigationResponse, callback func(navigationRequest)) {
-	resp.Reader.Find("input[type='image']").Each(func(i int, item *goquery.Selection) {
+	resp.Reader.Find("input[type='image' i]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
 			callback(newNavigationRequestURL(src, resp.Resp.Request.URL.String(), "input-image", "src", resp))
@@ -273,7 +273,7 @@ func bodyFormTagParser(resp navigationResponse, callback func(navigationRequest)
 
 // bodyMetaContentTagParser parses meta content tag from response
 func bodyMetaContentTagParser(resp navigationResponse, callback func(navigationRequest)) {
-	resp.Reader.Find("meta[http-equiv='refresh']").Each(func(i int, item *goquery.Selection) {
+	resp.Reader.Find("meta[http-equiv='refresh' i]").Each(func(i int, item *goquery.Selection) {
 		header, ok := item.Attr("content")
 		if !ok {
 			return
