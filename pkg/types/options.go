@@ -9,12 +9,10 @@ type Options struct {
 	Scope goflags.StringSlice
 	// OutOfScope contains a list of regexes for out-scope URLS
 	OutOfScope goflags.StringSlice
-	// ScopeDomains contains a list of regexes for in-scope hosts
-	ScopeDomains goflags.StringSlice
-	// OutOfScopeDomains contains a list of regexes for out-scope hosts
-	OutOfScopeDomains goflags.StringSlice
 	// IncludeSubdomains specifies if we if want to include subdomains for scope
 	IncludeSubdomains bool
+	// NoScope disables host based default scope
+	NoScope bool
 	// Extensions is a list of extensions to be allowed. Can be * for all extensions.
 	Extensions goflags.StringSlice
 	// ExtensionsAllowList contains any extensions to allow from default deny list

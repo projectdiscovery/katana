@@ -27,10 +27,11 @@ type navigationRequest struct {
 }
 
 // makeRequest makes a request to a URL returning a response interface.
-func (c *Crawler) makeRequest(ctx context.Context, request navigationRequest) (navigationResponse, error) {
+func (c *Crawler) makeRequest(ctx context.Context, request navigationRequest, rootHostname string) (navigationResponse, error) {
 	response := navigationResponse{
-		Depth:   request.Depth + 1,
-		options: c.options,
+		Depth:        request.Depth + 1,
+		options:      c.options,
+		rootHostname: rootHostname,
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, request.Method, request.URL, nil)
 	if err != nil {
