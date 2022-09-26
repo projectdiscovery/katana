@@ -36,8 +36,13 @@ func TestManagerValidate(t *testing.T) {
 		require.NoError(t, err, "could not validate host")
 		require.True(t, validated, "could not get correct in-scope validation")
 
+		parsed, _ = url.Parse("https://example.test.com/index.php")
+		validated, err = manager.Validate(parsed, "second.test.com")
+		require.NoError(t, err, "could not validate host")
+		require.True(t, validated, "could not get correct in-scope validation")
+
 		parsed, _ = url.Parse("https://example.com/logout.php")
-		validated, err = manager.Validate(parsed, "")
+		validated, err = manager.Validate(parsed, "another.com")
 		require.NoError(t, err, "could not validate host")
 		require.False(t, validated, "could not get correct out-scope validation")
 	})

@@ -102,7 +102,7 @@ func (m *Manager) validateSubdomain(hostname, rootHostname string) (bool, error)
 		domain = hostname
 	}
 
-	if m.includeSubdomains && subdomain != "" && strings.EqualFold(domain, rootHostname) {
+	if m.includeSubdomains && subdomain != "" && strings.HasSuffix(rootHostname, domain) {
 		return true, nil
 	}
 	return false, nil
