@@ -62,6 +62,9 @@ func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
 	if len(m.inScope) > 0 || len(m.outOfScope) > 0 {
 		return m.validateURL(URL.String())
 	}
+	if m.noScope {
+		return true, nil
+	}
 	return false, nil
 }
 
