@@ -55,7 +55,7 @@ func TestFormInputFillSuggestions(t *testing.T) {
 			formInputs = append(formInputs, ConvertGoquerySelectionToFormInput(item))
 		})
 
-		dataMap := FormInputFillSuggestions(formInputs, DefaultFormFillData)
+		dataMap := FormInputFillSuggestions(formInputs)
 		for key, value := range dataMap {
 			if key == "" || value == "" {
 				continue

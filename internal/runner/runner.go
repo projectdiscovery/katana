@@ -29,7 +29,11 @@ func New(options *types.Options) (*Runner, error) {
 	if err := validateOptions(options); err != nil {
 		return nil, errors.Wrap(err, "could not validate options")
 	}
-
+	if options.FormConfig != "" {
+		if err := readCustomFormConfig(options); err != nil {
+			return nil, err
+		}
+	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create crawler options")
