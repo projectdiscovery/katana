@@ -2,6 +2,7 @@ package runner
 
 import (
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/standard"
 	"github.com/remeh/sizedwaitgroup"
 )
@@ -26,7 +27,9 @@ func (r *Runner) ExecuteCrawling() error {
 		go func(input string) {
 			defer wg.Done()
 
-			crawler.Crawl(input)
+			if err := crawler.Crawl(input); err != nil {
+				gologger.Error().Msgf("Could not crawl %s: %s", input, err)
+			}
 		}(input)
 	}
 	wg.Wait()
