@@ -49,7 +49,7 @@ func readFlags() error {
 pipelines offering both headless and non-headless crawling.`)
 
 	createGroup(flagSet, "input", "Input",
-		flagSet.StringSliceVarP(&options.URLs, "list", "u", []string{}, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
 	createGroup(flagSet, "configs", "Configurations",
@@ -60,19 +60,20 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
-		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", []string{}, "custom header/cookie to include in request", goflags.StringSliceOptions),
+		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
+		flagSet.BoolVarP(&options.Headless, "headless", "he", false, "enable headless hybrid crawling"),
 	)
 
 	createGroup(flagSet, "filters", "Filters",
-		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", []string{}, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", []string{}, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.ScopeDomains, "crawl-scope-domains", "csd", []string{}, "in scope hosts to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.OutOfScopeDomains, "crawl-out-scope-domains", "cosd", []string{}, "out of scope hosts to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.ScopeDomains, "crawl-scope-domains", "csd", nil, "in scope hosts to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutOfScopeDomains, "crawl-out-scope-domains", "cosd", nil, "out of scope hosts to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
-		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", []string{}, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", []string{}, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", nil, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", nil, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", nil, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
 	)
 
 	createGroup(flagSet, "ratelimit", "Rate-Limit",
