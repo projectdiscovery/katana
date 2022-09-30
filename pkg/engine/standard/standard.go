@@ -49,12 +49,13 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 }
 
 // Close closes the crawler process
-func (c *Crawler) Close() {
+func (c *Crawler) Close() error {
 	c.dialer.Close()
+	return nil
 }
 
 // Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(url string) {
+func (c *Crawler) Crawl(url string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	if c.options.Options.CrawlDuration > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
@@ -105,6 +106,8 @@ func (c *Crawler) Crawl(url string) {
 		}()
 	}
 	wg.Wait()
+
+	return nil
 }
 
 // makeParseResponseCallback returns a parse response function callback
