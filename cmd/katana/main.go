@@ -48,11 +48,11 @@ func readFlags() error {
 	flagSet.SetDescription(`Katana is a fast crawler focused on execution in automation
 pipelines offering both headless and non-headless crawling.`)
 
-	createGroup(flagSet, "input", "Input",
+	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
-	createGroup(flagSet, "configs", "Configurations",
+	flagSet.CreateGroup("configs", "Configurations",
 		flagSet.StringVar(&cfgFile, "config", "", "path to the nuclei configuration file"),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 2, "maximum depth to crawl"),
 		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
@@ -64,7 +64,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.Headless, "headless", "he", false, "enable headless hybrid crawling"),
 	)
 
-	createGroup(flagSet, "filters", "Filters",
+	flagSet.CreateGroup("filters", "Filters",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ScopeDomains, "crawl-scope-domains", "csd", nil, "in scope hosts to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
@@ -76,7 +76,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", nil, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
 	)
 
-	createGroup(flagSet, "ratelimit", "Rate-Limit",
+	flagSet.CreateGroup("ratelimit", "Rate-Limit",
 		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
 		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
@@ -85,7 +85,7 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	availableFields := strings.Join(output.FieldNames, ",")
-	createGroup(flagSet, "output", "Output",
+	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.StringVarP(&options.Fields, "fields", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-fields", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
@@ -106,11 +106,4 @@ pipelines offering both headless and non-headless crawling.`)
 		}
 	}
 	return nil
-}
-
-func createGroup(flagSet *goflags.FlagSet, groupName, description string, flags ...*goflags.FlagData) {
-	flagSet.SetGroup(groupName, description)
-	for _, currentFlag := range flags {
-		currentFlag.Group(groupName)
-	}
 }
