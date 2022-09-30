@@ -3,13 +3,13 @@ package standard
 import (
 	"context"
 	"net/http"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -31,20 +31,15 @@ type Crawler struct {
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	httpclient, dialer, err := BuildClient(options.Options)
+	httpclient, dialer, err := common.BuildClient(options.Options)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
 	crawler := &Crawler{
-		headers:    make(map[string]string),
+		headers:    options.Options.ParseCustomHeaders(),
 		options:    options,
 		dialer:     dialer,
 		httpclient: httpclient,
-	}
-	for _, v := range options.Options.CustomHeaders {
-		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
-			crawler.headers[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
-		}
 	}
 	return crawler, nil
 }
