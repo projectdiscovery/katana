@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -30,7 +31,7 @@ type Crawler struct {
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	httpclient, dialer, err := buildClient(options.Options)
+	httpclient, dialer, err := BuildClient(options.Options)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
@@ -102,7 +103,7 @@ func (c *Crawler) Crawl(url string) error {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
-			parseResponse(resp, parseResponseCallback)
+			parser.ParseResponse(resp, parseResponseCallback)
 		}()
 	}
 	wg.Wait()

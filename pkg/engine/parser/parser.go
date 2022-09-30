@@ -1,4 +1,4 @@
-package standard
+package parser
 
 import (
 	"mime/multipart"
@@ -12,10 +12,10 @@ import (
 
 // responseParserFunc is a function that parses the document returning
 // new navigation items or requests for the crawler.
-type responseParserFunc func(resp navigation.Response, callback func(navigation.Request))
+type ResponseParserFunc func(resp navigation.Response, callback func(navigation.Request))
 
 // responseParsers is a list of response parsers for the standard engine
-var responseParsers = []responseParserFunc{
+var responseParsers = []ResponseParserFunc{
 	// Header based parsers
 	headerContentLocationParser,
 	headerLinkParser,
@@ -39,7 +39,7 @@ var responseParsers = []responseParserFunc{
 }
 
 // parseResponse runs the response parsers on the navigation response
-func parseResponse(resp navigation.Response, callback func(navigation.Request)) {
+func ParseResponse(resp navigation.Response, callback func(navigation.Request)) {
 	for _, parser := range responseParsers {
 		parser(resp, callback)
 	}

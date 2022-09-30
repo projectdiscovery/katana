@@ -1,4 +1,4 @@
-package standard
+package parser
 
 import (
 	"net/http"

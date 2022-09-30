@@ -12,8 +12,8 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-// buildClient builds a http client based on a profile
-func buildClient(options *types.Options) (*retryablehttp.Client, *fastdialer.Dialer, error) {
+// BuildClient builds a http client based on a profile
+func BuildClient(options *types.Options) (*retryablehttp.Client, *fastdialer.Dialer, error) {
 	dialer, err := fastdialer.NewDialer(fastdialer.DefaultOptions)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not create dialer")
