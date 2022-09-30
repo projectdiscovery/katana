@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -61,7 +62,7 @@ func (c *Crawler) Crawl(url string) {
 	defer cancel()
 
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigationRequest{Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigation.Request{Method: http.MethodGet, URL: url, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -72,7 +73,7 @@ func (c *Crawler) Crawl(url string) {
 			break
 		}
 		item := queue.Pop()
-		req, ok := item.(navigationRequest)
+		req, ok := item.(navigation.Request)
 		if !ok {
 			continue
 		}
@@ -107,8 +108,8 @@ func (c *Crawler) Crawl(url string) {
 }
 
 // makeParseResponseCallback returns a parse response function callback
-func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigationRequest) {
-	return func(nr navigationRequest) {
+func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigation.Request) {
+	return func(nr navigation.Request) {
 		if !utils.IsURL(nr.URL) {
 			return
 		}
