@@ -85,7 +85,11 @@ func (c *Crawler) Crawl(url string) error {
 		return err
 	}
 	go incognitoRouter.Run()
-	defer incognitoRouter.Stop()
+	defer func() {
+		if err := incognitoRouter.Stop(); err != nil {
+			gologger.Warning().Msgf("%s\n", err)
+		}
+	}()
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
