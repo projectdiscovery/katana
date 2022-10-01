@@ -3,6 +3,7 @@ package hybrid
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
@@ -21,6 +22,21 @@ func (c *Crawler) navigateRequest(ctx context.Context, browser *rod.Browser, req
 		return nil, err
 	}
 	defer page.Close()
+
+	timeout := time.Duration(c.options.Options.Timeout * int(time.Second))
+
+	// wait the page to be fully loaded and becoming idle
+	page.Timeout(timeout).WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+
+	// Wait for the window.onload event
+	if err := page.WaitLoad(); err != nil {
+		return nil, err
+	}
+
+	// wait for idle the network requests
+	if err := page.WaitIdle(timeout); err != nil {
+		return nil, err
+	}
 
 	body, err := page.HTML()
 	if err != nil {
