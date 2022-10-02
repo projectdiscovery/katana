@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -73,4 +74,24 @@ func (r *Runner) parseInputs() []string {
 
 func normalizeInput(value string) string {
 	return strings.TrimSpace(value)
+}
+
+func initExampleFormFillConfig() error {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return errors.Wrap(err, "could not get home directory")
+	}
+	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
+
+	if fileutil.FileExists(defaultConfig) {
+		return nil
+	}
+	exampleConfig, err := os.Create(defaultConfig)
+	if err != nil {
+		return errors.Wrap(err, "could not get home directory")
+	}
+	defer exampleConfig.Close()
+
+	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
+	return err
 }
