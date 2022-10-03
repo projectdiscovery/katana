@@ -172,8 +172,8 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 // routingHandler intercepts all asyncronous http requests
 func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
 	return func(ctx *rod.Hijack) {
-		reqURL := ctx.Request.URL().String()
-		if !utils.IsURL(reqURL) {
+		reqURL := ctx.Request.URL()
+		if !utils.IsURL(reqURL.String()) {
 			return
 		}
 
@@ -201,6 +201,11 @@ func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, parseRequestCall
 			Reader:  bodyReader,
 			Options: c.options,
 		}
+
+		// Until https://github.com/projectdiscovery/katana/pull/19 is merged the only
+		// option we have is trying to infer the depth from the URL itself
+		estimatedDepth := strings.Count(reqURL.Path, "/")
+		resp.Depth = estimatedDepth
 
 		// process the raw response
 		parser.ParseResponse(resp, parseRequestCallback)
