@@ -60,7 +60,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
-		flagSet.BoolVarP(&options.Headless, "headless", "he", false, "enable headless hybrid crawling"),
+		flagSet.BoolVarP(&options.Headless, "headless", "he", false, "enable experimental headless hybrid crawling (process in one pass raw http requests/responses and dom-javascript web pages in browser context)"),
 		flagSet.StringVar(&options.FormConfig, "form-config", "", "path to custom form configuration file"),
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
 	)
