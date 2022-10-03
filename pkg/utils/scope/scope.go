@@ -12,19 +12,37 @@ import (
 
 // Manager manages scope for crawling process
 type Manager struct {
-	inScope           []*regexp.Regexp
-	outOfScope        []*regexp.Regexp
-	noScope           bool
-	includeSubdomains bool
+	inScope    []*regexp.Regexp
+	outOfScope []*regexp.Regexp
+	noScope    bool
+	fieldScope dnsScopeField
+}
+
+type dnsScopeField int
+
+const (
+	dnDnsScopeField dnsScopeField = iota + 1
+	rdnDnsScopeField
+	fqdnDNSScopeField
+)
+
+var stringToDNSScopeField = map[string]dnsScopeField{
+	"dn":   dnDnsScopeField,
+	"rdn":  rdnDnsScopeField,
+	"fqdn": fqdnDNSScopeField,
 }
 
 // NewManager returns a new scope manager for crawling
-func NewManager(inScope, outOfScope []string, includeSubdomains, noScope bool) (*Manager, error) {
+func NewManager(inScope, outOfScope []string, fieldScope string, noScope bool) (*Manager, error) {
 	manager := &Manager{
-		noScope:           noScope,
-		includeSubdomains: includeSubdomains,
+		noScope: noScope,
 	}
 
+	if scopeValue, ok := stringToDNSScopeField[fieldScope]; !ok {
+		return nil, fmt.Errorf("invalid dns scope field specified: %s", fieldScope)
+	} else {
+		manager.fieldScope = scopeValue
+	}
 	for _, regex := range inScope {
 		if compiled, err := regexp.Compile(regex); err != nil {
 			return nil, fmt.Errorf("could not compile regex %s: %s", regex, err)
@@ -48,10 +66,7 @@ func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
 
 	// Validate host if not explicitly disabled by the user
 	if !m.noScope {
-		if strings.EqualFold(hostname, rootHostname) {
-			return true, nil
-		}
-		if validated, err := m.validateSubdomain(hostname, rootHostname); err != nil {
+		if validated, err := m.validateDNS(hostname, rootHostname); err != nil {
 			return false, err
 		} else if validated {
 			return validated, nil
@@ -83,30 +98,42 @@ func (m *Manager) validateURL(URL string) (bool, error) {
 				break
 			}
 		}
-		if !inScopeMatched {
-			return false, nil
-		}
 	}
-	return true, nil
+	return inScopeMatched, nil
 }
 
-func (m *Manager) validateSubdomain(hostname, rootHostname string) (bool, error) {
-	var subdomain, domain string
-	var err error
-
+func (m *Manager) validateDNS(hostname, rootHostname string) (bool, error) {
 	parsed := net.ParseIP(hostname)
-	if parsed == nil {
-		domain, err = publicsuffix.EffectiveTLDPlusOne(hostname)
-		if err != nil {
-			return false, fmt.Errorf("could not parse domain %s: %s", hostname, err)
-		}
-		subdomain = strings.TrimSuffix(hostname, domain)
-	} else {
-		domain = hostname
+
+	if m.fieldScope == fqdnDNSScopeField || parsed != nil {
+		matched := strings.EqualFold(hostname, rootHostname)
+		return matched, nil
 	}
 
-	if m.includeSubdomains && subdomain != "" && strings.HasSuffix(rootHostname, domain) {
-		return true, nil
+	rdn, dn, err := getDomainRDNandRDN(rootHostname)
+	if err != nil {
+		return false, err
+	}
+	switch m.fieldScope {
+	case dnDnsScopeField:
+		return strings.Contains(hostname, dn), nil
+	case rdnDnsScopeField:
+		return strings.HasSuffix(hostname, rdn), nil
 	}
 	return false, nil
+}
+
+func getDomainRDNandRDN(domain string) (string, string, error) {
+	if strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") || strings.Contains(domain, "..") {
+		return "", "", fmt.Errorf("publicsuffix: empty label in domain %q", domain)
+	}
+	suffix, _ := publicsuffix.PublicSuffix(domain)
+	if len(domain) <= len(suffix) {
+		return "", "", fmt.Errorf("publicsuffix: cannot derive eTLD+1 for domain %q", domain)
+	}
+	i := len(domain) - len(suffix) - 1
+	if domain[i] != '.' {
+		return "", "", fmt.Errorf("publicsuffix: invalid public suffix %q for domain %q", suffix, domain)
+	}
+	return domain[1+strings.LastIndex(domain[:i], "."):], domain[1+strings.LastIndex(domain[:i], ".") : len(domain)-len(suffix)-1], nil
 }

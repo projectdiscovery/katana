@@ -66,7 +66,7 @@ pipelines offering both headless and non-headless crawling.`)
 	createGroup(flagSet, "filters", "Filters",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", []string{}, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", []string{}, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
+		flagSet.StringVarP(&options.FieldScope, "field-scope", "fs", "rdn", "pre-defined scope field (dn,rdn,fqdn)"),
 		flagSet.BoolVarP(&options.NoScope, "no-scope", "ns", false, "disables host based default scope"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
