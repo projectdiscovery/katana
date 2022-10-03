@@ -80,17 +80,6 @@ func (c *Crawler) Crawl(url string) error {
 		return err
 	}
 
-	incognitoRouter := incognitoBrowser.HijackRequests()
-	if err := incognitoRouter.Add("*", "", c.makeRoutingHandler(queue, parseResponseCallback)); err != nil {
-		return err
-	}
-	go incognitoRouter.Run()
-	defer func() {
-		if err := incognitoRouter.Stop(); err != nil {
-			gologger.Warning().Msgf("%s\n", err)
-		}
-	}()
-
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
 	for {
@@ -119,7 +108,7 @@ func (c *Crawler) Crawl(url string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.navigateRequest(ctx, incognitoBrowser, req)
+			resp, err := c.navigateRequest(ctx, queue, parseResponseCallback, incognitoBrowser, req)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
@@ -170,7 +159,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 }
 
 // routingHandler intercepts all asyncronous http requests
-func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
+func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
 	return func(ctx *rod.Hijack) {
 		reqURL := ctx.Request.URL()
 		if !utils.IsURL(reqURL.String()) {
@@ -200,12 +189,8 @@ func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, parseRequestCall
 			Body:    []byte(body),
 			Reader:  bodyReader,
 			Options: c.options,
+			Depth:   depth,
 		}
-
-		// Until https://github.com/projectdiscovery/katana/pull/19 is merged the only
-		// option we have is trying to infer the depth from the URL itself
-		estimatedDepth := strings.Count(reqURL.Path, "/")
-		resp.Depth = estimatedDepth
 
 		// process the raw response
 		parser.ParseResponse(resp, parseRequestCallback)

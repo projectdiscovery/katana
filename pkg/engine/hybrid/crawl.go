@@ -8,20 +8,38 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/utils/queue"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, browser *rod.Browser, request navigation.Request) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request) (*navigation.Response, error) {
+	depth := request.Depth + 1
 	response := &navigation.Response{
-		Depth:   request.Depth + 1,
+		Depth:   depth,
 		Options: c.options,
 	}
 
-	page, err := browser.Page(proto.TargetCreateTarget{URL: request.URL})
+	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
 		return nil, err
 	}
 	defer page.Close()
+
+	pageRouter := page.HijackRequests()
+	if err := pageRouter.Add("*", "", c.makeRoutingHandler(queue, depth, parseResponseCallback)); err != nil {
+		return nil, err
+	}
+	go pageRouter.Run()
+	defer func() {
+		if err := pageRouter.Stop(); err != nil {
+			gologger.Warning().Msgf("%s\n", err)
+		}
+	}()
+
+	if err := page.Navigate(request.URL); err != nil {
+		return nil, err
+	}
 
 	timeout := time.Duration(c.options.Options.Timeout * int(time.Second))
 
