@@ -29,8 +29,6 @@ var htmlFormInputExample = `<html>
 		<input type="checkbox" name="sport3" value="football">Football<br>  
 		<input type="color" name="upclick" value="#a52a2a"> Upclick<br><br>  
 		<input type="date" name="Startdate"> Start date:<br><br>  
-		<label><b>Enter your Email-address</b></label>  
-		<input type="email" name="email" required>  
 		<label>Enter your age: </label>  
 		<input type="number" name="num" min="50" max="80">  
 		<label><b>Enter your Telephone Number(in format of xxx-xxx-xxxx):</b></label>  
@@ -55,7 +53,7 @@ func TestFormInputFillSuggestions(t *testing.T) {
 			formInputs = append(formInputs, ConvertGoquerySelectionToFormInput(item))
 		})
 
-		dataMap := FormInputFillSuggestions(formInputs, DefaultFormFillData)
+		dataMap := FormInputFillSuggestions(formInputs)
 		for key, value := range dataMap {
 			if key == "" || value == "" {
 				continue
@@ -64,6 +62,6 @@ func TestFormInputFillSuggestions(t *testing.T) {
 		}
 
 		value := queryValuesWriter.Encode()
-		require.Equal(t, "Startdate=katana&color=red&email=katana%40projectdiscovery.io&firstname=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
+		require.Equal(t, "Startdate=katana&color=red&firstname=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
 	})
 }
