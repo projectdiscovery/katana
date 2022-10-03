@@ -60,6 +60,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
+		flagSet.StringVar(&options.FormConfig, "form-config", "", "path to custom form configuration file"),
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", []string{}, "custom header/cookie to include in request", goflags.StringSliceOptions),
 	)
 

@@ -37,6 +37,8 @@ type Options struct {
 	Concurrency int
 	// Parallelism is the number of urls processing goroutines
 	Parallelism int
+	// FormConfig is the path to the form configuration file
+	FormConfig string
 	// Proxy is the URL for the proxy server
 	Proxy string
 	// Strategy is the crawling strategy. depth-first or breadth-first

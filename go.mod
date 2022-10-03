@@ -13,6 +13,7 @@ require (
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
 	github.com/remeh/sizedwaitgroup v1.0.0
+	github.com/rs/xid v1.4.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
