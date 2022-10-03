@@ -36,7 +36,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create scope manager")
 	}
-	itemFilter := filters.NewSimple()
+	itemFilter, err := filters.NewSimple()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create filter")
+	}
 
 	outputWriter, err := output.New(!options.NoColors, options.JSON, options.Verbose, options.OutputFile, options.Fields, options.StoreFields)
 	if err != nil {
@@ -62,5 +65,6 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 
 // Close closes the crawler options resources
 func (c *CrawlerOptions) Close() error {
+	c.UniqueFilter.Close()
 	return c.OutputWriter.Close()
 }

@@ -1,25 +1,31 @@
 package utils
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/rs/xid"
 )
+
+// FormData is the global form fill data instance
+var FormData FormFillData
+
+func init() {
+	FormData = DefaultFormFillData
+}
 
 // FormFillData contains suggestions for form filling
 type FormFillData struct {
-	Email       string
-	Color       string
-	Password    string
-	PhoneNumber string
-	Placeholder string
-
-	// TODO: CustomValues contains a list of custom values for form filling
-	// CustomValues map[string]string
+	Email       string `yaml:"email"`
+	Color       string `yaml:"color"`
+	Password    string `yaml:"password"`
+	PhoneNumber string `yaml:"phone"`
+	Placeholder string `yaml:"placeholder"`
 }
 
 var DefaultFormFillData = FormFillData{
-	Email:       "katana@projectdiscovery.io",
+	Email:       fmt.Sprintf("%s@katanacrawler.io", xid.New().String()),
 	Color:       "#e66465",
 	Password:    "katanaP@assw0rd1",
 	PhoneNumber: "2124567890",
@@ -36,7 +42,7 @@ type FormInput struct {
 
 // FormInputFillSuggestions returns a list of form filling suggestions
 // for inputs returning the specified recommended values.
-func FormInputFillSuggestions(inputs []FormInput, formData FormFillData) map[string]string {
+func FormInputFillSuggestions(inputs []FormInput) map[string]string {
 	data := make(map[string]string)
 
 	// Fill checkboxes and radioboxes first or default values first
@@ -67,9 +73,9 @@ func FormInputFillSuggestions(inputs []FormInput, formData FormFillData) map[str
 
 		switch input.Type {
 		case "email":
-			data[input.Name] = formData.Email
+			data[input.Name] = FormData.Email
 		case "color":
-			data[input.Name] = formData.Color
+			data[input.Name] = FormData.Color
 		case "number", "range":
 			var err error
 			var max, min, step, val int
@@ -89,11 +95,11 @@ func FormInputFillSuggestions(inputs []FormInput, formData FormFillData) map[str
 			}
 			data[input.Name] = strconv.Itoa(val)
 		case "password":
-			data[input.Name] = formData.Password
+			data[input.Name] = FormData.Password
 		case "tel":
-			data[input.Name] = formData.Password
+			data[input.Name] = FormData.Password
 		default:
-			data[input.Name] = formData.Placeholder
+			data[input.Name] = FormData.Placeholder
 		}
 	}
 	return data

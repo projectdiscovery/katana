@@ -182,11 +182,8 @@ func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navig
 
 // bodyFormTagParser parses forms from response
 func bodyFormTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	resp.Reader.Find("form[action]").Each(func(i int, item *goquery.Selection) {
-		href, ok := item.Attr("action")
-		if !ok {
-			return
-		}
+	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
+		href, _ := item.Attr("action")
 		encType, ok := item.Attr("enctype")
 		if !ok || encType == "" {
 			encType = "application/x-www-form-urlencoded"
@@ -222,7 +219,7 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 			formInputs = append(formInputs, utils.ConvertGoquerySelectionToFormInput(item))
 		})
 
-		dataMap := utils.FormInputFillSuggestions(formInputs, utils.DefaultFormFillData)
+		dataMap := utils.FormInputFillSuggestions(formInputs)
 		for key, value := range dataMap {
 			if key == "" || value == "" {
 				continue
