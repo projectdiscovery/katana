@@ -9,10 +9,10 @@ import (
 
 func TestManagerValidate(t *testing.T) {
 	t.Run("url", func(t *testing.T) {
-		manager, err := NewManager([]string{`index\.php`}, []string{`logout\.php`}, "dn", false)
+		manager, err := NewManager([]string{`example`}, []string{`logout\.php`}, "dn", false)
 		require.NoError(t, err, "could not create scope manager")
 
-		parsed, _ := url.Parse("https://test.com/index.php")
+		parsed, _ := url.Parse("https://test.com/index.php/example")
 		validated, err := manager.Validate(parsed, "test.com")
 		require.NoError(t, err, "could not validate url")
 		require.True(t, validated, "could not get correct in-scope validation")
