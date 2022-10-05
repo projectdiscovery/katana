@@ -1,4 +1,4 @@
-package standard
+package navigation
 
 import (
 	"net/http"
@@ -9,22 +9,22 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 )
 
-// navigationResponse is a response generated from crawler navigation
-type navigationResponse struct {
+// Response is a response generated from crawler navigation
+type Response struct {
 	Resp         *http.Response
 	Depth        int
 	Reader       *goquery.Document
 	Body         []byte
-	rootHostname string
+	RootHostname string
 
-	options *types.CrawlerOptions
+	Options *types.CrawlerOptions
 }
 
 // AbsoluteURL parses the path returning a string.
 //
 // It returns a blank string if the item is invalid, not in-scope
 // or can't be formatted.
-func (n navigationResponse) AbsoluteURL(path string) string {
+func (n Response) AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "#") {
 		return ""
 	}
@@ -46,16 +46,16 @@ func (n navigationResponse) AbsoluteURL(path string) string {
 	return final
 }
 
-func (n navigationResponse) validatePath(path string) bool {
-	if n.options != nil && n.options.ExtensionsValidator != nil {
-		return n.options.ExtensionsValidator.ValidatePath(path)
+func (n Response) validatePath(path string) bool {
+	if n.Options != nil && n.Options.ExtensionsValidator != nil {
+		return n.Options.ExtensionsValidator.ValidatePath(path)
 	}
 	return true
 }
 
-func (n navigationResponse) validateScope(absURL *url.URL) (bool, error) {
-	if n.options != nil && n.options.ScopeManager != nil {
-		return n.options.ScopeManager.Validate(absURL, n.rootHostname)
+func (n Response) validateScope(absURL *url.URL) (bool, error) {
+	if n.Options != nil && n.Options.ScopeManager != nil {
+		return n.Options.ScopeManager.Validate(absURL, n.RootHostname)
 	}
 	return true, nil
 }

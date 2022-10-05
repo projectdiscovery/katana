@@ -48,11 +48,11 @@ func readFlags() error {
 	flagSet.SetDescription(`Katana is a fast crawler focused on execution in automation
 pipelines offering both headless and non-headless crawling.`)
 
-	createGroup(flagSet, "input", "Input",
-		flagSet.StringSliceVarP(&options.URLs, "list", "u", []string{}, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
+	flagSet.CreateGroup("input", "Input",
+		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
-	createGroup(flagSet, "configs", "Configurations",
+	flagSet.CreateGroup("configs", "Configurations",
 		flagSet.StringVar(&cfgFile, "config", "", "path to the nuclei configuration file"),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 2, "maximum depth to crawl"),
 		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
@@ -60,22 +60,23 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.Retries, "retries", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
+		flagSet.BoolVarP(&options.Headless, "headless", "he", false, "enable experimental headless hybrid crawling (process in one pass raw http requests/responses and dom-javascript web pages in browser context)"),
 		flagSet.StringVar(&options.FormConfig, "form-config", "", "path to custom form configuration file"),
-		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", []string{}, "custom header/cookie to include in request", goflags.StringSliceOptions),
+		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
 	)
 
-	createGroup(flagSet, "filters", "Filters",
-		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", []string{}, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", []string{}, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+	flagSet.CreateGroup("filters", "Filters",
 		flagSet.StringVarP(&options.FieldScope, "field-scope", "fs", "rdn", "pre-defined scope field (dn,rdn,fqdn)"),
 		flagSet.BoolVarP(&options.NoScope, "no-scope", "ns", false, "disables host based default scope"),
+		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
-		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", []string{}, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", []string{}, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", []string{}, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", nil, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", nil, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", nil, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
 	)
 
-	createGroup(flagSet, "ratelimit", "Rate-Limit",
+	flagSet.CreateGroup("ratelimit", "Rate-Limit",
 		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
 		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
@@ -84,7 +85,7 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	availableFields := strings.Join(output.FieldNames, ",")
-	createGroup(flagSet, "output", "Output",
+	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.StringVarP(&options.Fields, "fields", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-fields", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
@@ -105,11 +106,4 @@ pipelines offering both headless and non-headless crawling.`)
 		}
 	}
 	return nil
-}
-
-func createGroup(flagSet *goflags.FlagSet, groupName, description string, flags ...*goflags.FlagData) {
-	flagSet.SetGroup(groupName, description)
-	for _, currentFlag := range flags {
-		currentFlag.Group(groupName)
-	}
 }

@@ -7,7 +7,9 @@ import (
 )
 
 func TestSimpleFilter(t *testing.T) {
-	simple := NewSimple()
+	simple, err := NewSimple()
+	require.NoError(t, err, "could not create filter")
+	defer simple.Close()
 
 	unique := simple.Unique("https://example.com")
 	require.True(t, unique, "could not get unique value")

@@ -1,6 +1,10 @@
 package types
 
-import "github.com/projectdiscovery/goflags"
+import (
+	"strings"
+
+	"github.com/projectdiscovery/goflags"
+)
 
 type Options struct {
 	// URLs contains a list of URLs for crawling
@@ -65,4 +69,16 @@ type Options struct {
 	ScrapeJSResponses bool
 	// CustomHeaders is a list of custom headers to add to request
 	CustomHeaders goflags.StringSlice
+	// Headless enables headless scraping
+	Headless bool
+}
+
+func (options *Options) ParseCustomHeaders() map[string]string {
+	customHeaders := make(map[string]string)
+	for _, v := range options.CustomHeaders {
+		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
+			customHeaders[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
+		}
+	}
+	return customHeaders
 }
