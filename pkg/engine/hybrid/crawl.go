@@ -28,7 +28,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue
 	defer page.Close()
 
 	pageRouter := page.HijackRequests()
-	if err := pageRouter.Add("*", "", c.makeRoutingHandler(queue, depth, parseResponseCallback)); err != nil {
+	if err := pageRouter.Add("*", "", c.makeRoutingHandler(queue, depth, rootHostname, parseResponseCallback)); err != nil {
 		return nil, err
 	}
 	go pageRouter.Run()

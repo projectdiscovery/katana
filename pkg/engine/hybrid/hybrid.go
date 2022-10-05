@@ -2,15 +2,18 @@ package hybrid
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
@@ -22,16 +25,21 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
+	"github.com/projectdiscovery/stringsutil"
 	"github.com/remeh/sizedwaitgroup"
+	ps "github.com/shirou/gopsutil/v3/process"
+	"go.uber.org/multierr"
 )
 
 // Crawler is a standard crawler instance
 type Crawler struct {
-	headers    map[string]string
-	options    *types.CrawlerOptions
-	httpclient *retryablehttp.Client
-	browser    *rod.Browser
-	dialer     *fastdialer.Dialer
+	headers      map[string]string
+	options      *types.CrawlerOptions
+	httpclient   *retryablehttp.Client
+	browser      *rod.Browser
+	dialer       *fastdialer.Dialer
+	previousPIDs map[int32]struct{} // track already running PIDs
+	tempDir      string
 }
 
 // New returns a new standard crawler instance
@@ -40,19 +48,59 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
-	browser := rod.New()
-	if err := browser.Connect(); err != nil {
+
+	dataStore, err := os.MkdirTemp("", "katana-*")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create temporary directory")
+	}
+
+	previousPIDs := findChromeProcesses()
+
+	chromeLauncher := launcher.New().
+		Leakless(false).
+		Set("disable-gpu", "true").
+		Set("ignore-certificate-errors", "true").
+		Set("ignore-certificate-errors", "1").
+		Set("disable-crash-reporter", "true").
+		Set("disable-notifications", "true").
+		Set("hide-scrollbars", "true").
+		Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
+		Set("mute-audio", "true").
+		Delete("use-mock-keychain").
+		UserDataDir(dataStore)
+
+	if options.Options.UseInstalledChrome {
+		if chromePath, hasChrome := launcher.LookPath(); hasChrome {
+			chromeLauncher.Bin(chromePath)
+		} else {
+			return nil, errors.New("the chrome browser is not installed")
+		}
+	}
+
+	if options.Options.ShowBrowser {
+		chromeLauncher = chromeLauncher.Headless(false)
+	} else {
+		chromeLauncher = chromeLauncher.Headless(true)
+	}
+
+	launcherURL, err := chromeLauncher.Launch()
+	if err != nil {
 		return nil, err
 	}
 
-	// hijack all requests with the client
+	browser := rod.New().ControlURL(launcherURL)
+	if browserErr := browser.Connect(); browserErr != nil {
+		return nil, browserErr
+	}
 
 	crawler := &Crawler{
-		headers:    options.Options.ParseCustomHeaders(),
-		options:    options,
-		dialer:     dialer,
-		httpclient: httpclient,
-		browser:    browser,
+		headers:      options.Options.ParseCustomHeaders(),
+		options:      options,
+		dialer:       dialer,
+		httpclient:   httpclient,
+		browser:      browser,
+		previousPIDs: previousPIDs,
+		tempDir:      dataStore,
 	}
 	return crawler, nil
 }
@@ -60,7 +108,16 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 // Close closes the crawler process
 func (c *Crawler) Close() error {
 	c.dialer.Close()
-	return c.browser.Close()
+
+	if err := c.browser.Close(); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(c.tempDir); err != nil {
+		return err
+	}
+
+	return c.killChromeProcesses()
 }
 
 // Crawl crawls a URL with the specified options
@@ -166,7 +223,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 }
 
 // routingHandler intercepts all asyncronous http requests
-func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
+func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootHostname string, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
 	return func(ctx *rod.Hijack) {
 		reqURL := ctx.Request.URL()
 		if !utils.IsURL(reqURL.String()) {
@@ -192,14 +249,62 @@ func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, parse
 
 		bodyReader, _ := goquery.NewDocumentFromReader(strings.NewReader(body))
 		resp := navigation.Response{
-			Resp:    httpresp,
-			Body:    []byte(body),
-			Reader:  bodyReader,
-			Options: c.options,
-			Depth:   depth,
+			Resp:         httpresp,
+			Body:         []byte(body),
+			Reader:       bodyReader,
+			Options:      c.options,
+			Depth:        depth,
+			RootHostname: rootHostname,
 		}
 
 		// process the raw response
 		parser.ParseResponse(resp, parseRequestCallback)
 	}
+}
+
+// killChromeProcesses any and all new chrome processes started after
+// headless process launch.
+func (c *Crawler) killChromeProcesses() error {
+	var errs []error
+	processes, _ := ps.Processes()
+
+	for _, process := range processes {
+		// skip non-chrome processes
+		if !isChromeProcess(process) {
+			continue
+		}
+
+		// skip chrome processes that were already running
+		if _, ok := c.previousPIDs[process.Pid]; ok {
+			continue
+		}
+
+		if err := process.Kill(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return multierr.Combine(errs...)
+}
+
+// findChromeProcesses finds chrome process running on host
+func findChromeProcesses() map[int32]struct{} {
+	processes, _ := ps.Processes()
+	list := make(map[int32]struct{})
+	for _, process := range processes {
+		if isChromeProcess(process) {
+			list[process.Pid] = struct{}{}
+			if ppid, err := process.Ppid(); err == nil {
+				list[ppid] = struct{}{}
+			}
+		}
+	}
+	return list
+}
+
+// isChromeProcess checks if a process is chrome/chromium
+func isChromeProcess(process *ps.Process) bool {
+	name, _ := process.Name()
+	executable, _ := process.Exe()
+	return stringsutil.ContainsAny(name, "chrome", "chromium") || stringsutil.ContainsAny(executable, "chrome", "chromium")
 }

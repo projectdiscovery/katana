@@ -63,6 +63,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.Headless, "headless", "he", false, "enable experimental headless hybrid crawling (process in one pass raw http requests/responses and dom-javascript web pages in browser context)"),
 		flagSet.StringVar(&options.FormConfig, "form-config", "", "path to custom form configuration file"),
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
+		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "Use local installed chrome browser instead of nuclei installed"),
+		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 	)
 
 	flagSet.CreateGroup("filters", "Filters",
