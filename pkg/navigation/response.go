@@ -11,10 +11,11 @@ import (
 
 // Response is a response generated from crawler navigation
 type Response struct {
-	Resp   *http.Response
-	Depth  int
-	Reader *goquery.Document
-	Body   []byte
+	Resp         *http.Response
+	Depth        int
+	Reader       *goquery.Document
+	Body         []byte
+	RootHostname string
 
 	Options *types.CrawlerOptions
 }
@@ -54,7 +55,7 @@ func (n Response) validatePath(path string) bool {
 
 func (n Response) validateScope(absURL *url.URL) (bool, error) {
 	if n.Options != nil && n.Options.ScopeManager != nil {
-		return n.Options.ScopeManager.Validate(absURL)
+		return n.Options.ScopeManager.Validate(absURL, n.RootHostname)
 	}
 	return true, nil
 }

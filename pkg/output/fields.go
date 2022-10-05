@@ -18,6 +18,7 @@ var FieldNames = []string{
 	"fqdn",
 	"rdn",
 	"rurl",
+	"qurl",
 	"file",
 	"key",
 	"value",
@@ -98,10 +99,20 @@ func formatField(output *Result, fields string) string {
 	rootURL := fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
 	values := []string{
 		"url", output.URL,
+		"rurl", rootURL,
+		"rdn", etld,
 		"path", parsed.Path,
 		"fqdn", hostname,
-		"rdn", etld,
-		"rurl", rootURL,
+	}
+	if len(queryKeys) > 0 {
+		values = append(values, "qurl", output.URL)
+	} else {
+		values = append(values, "qurl", "")
+	}
+	if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
+		values = append(values, "key", strings.Join(queryKeys, "\n"))
+		values = append(values, "kv", strings.Join(queryBoth, "\n"))
+		values = append(values, "value", strings.Join(queryValues, "\n"))
 	}
 	if parsed.Path != "" && parsed.Path != "/" {
 		basePath := path.Base(parsed.Path)
@@ -110,14 +121,9 @@ func formatField(output *Result, fields string) string {
 		}
 		if strings.Contains(parsed.Path[1:], "/") {
 			directory := parsed.Path[:strings.LastIndex(parsed.Path[1:], "/")+2]
-			values = append(values, "dir", directory)
 			values = append(values, "udir", fmt.Sprintf("%s%s", rootURL, directory))
+			values = append(values, "dir", directory)
 		}
-	}
-	if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
-		values = append(values, "key", strings.Join(queryKeys, "\n"))
-		values = append(values, "kv", strings.Join(queryBoth, "\n"))
-		values = append(values, "value", strings.Join(queryValues, "\n"))
 	}
 	replacer := strings.NewReplacer(values...)
 	replaced := replacer.Replace(fields)
@@ -152,6 +158,10 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 	case "udir":
 		if parsed.Path != "" && parsed.Path != "/" && strings.Contains(parsed.Path[1:], "/") {
 			return fmt.Sprintf("%s%s", rurl, parsed.Path[:strings.LastIndex(parsed.Path[1:], "/")+2])
+		}
+	case "qurl":
+		if len(parsed.Query()) > 0 {
+			return parsed.String()
 		}
 	case "key":
 		values := make([]string, 0, len(parsed.Query()))

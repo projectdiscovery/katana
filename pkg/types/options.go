@@ -13,12 +13,8 @@ type Options struct {
 	Scope goflags.StringSlice
 	// OutOfScope contains a list of regexes for out-scope URLS
 	OutOfScope goflags.StringSlice
-	// ScopeDomains contains a list of regexes for in-scope hosts
-	ScopeDomains goflags.StringSlice
-	// OutOfScopeDomains contains a list of regexes for out-scope hosts
-	OutOfScopeDomains goflags.StringSlice
-	// IncludeSubdomains specifies if we if want to include subdomains for scope
-	IncludeSubdomains bool
+	// NoScope disables host based default scope
+	NoScope bool
 	// Extensions is a list of extensions to be allowed. Can be * for all extensions.
 	Extensions goflags.StringSlice
 	// ExtensionsAllowList contains any extensions to allow from default deny list
@@ -51,6 +47,8 @@ type Options struct {
 	Proxy string
 	// Strategy is the crawling strategy. depth-first or breadth-first
 	Strategy string
+	// FieldScope is the scope field for default DNS scope
+	FieldScope string
 	// OutputFile is the file to write output to
 	OutputFile string
 	// Fields is the fields to format in output

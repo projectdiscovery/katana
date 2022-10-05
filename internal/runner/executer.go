@@ -40,7 +40,7 @@ func (r *Runner) ExecuteCrawling() error {
 			defer wg.Done()
 
 			if err := crawler.Crawl(input); err != nil {
-				gologger.Warning().Msgf("%s\n", err)
+				gologger.Warning().Msgf("Could not crawl %s: %s", input, err)
 			}
 		}(input)
 	}

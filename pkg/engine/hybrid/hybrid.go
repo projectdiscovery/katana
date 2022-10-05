@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -63,15 +64,21 @@ func (c *Crawler) Close() error {
 }
 
 // Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(url string) error {
+func (c *Crawler) Crawl(rootURL string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	if c.options.Options.CrawlDuration > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
 	}
 	defer cancel()
 
+	parsed, err := url.Parse(rootURL)
+	if err != nil {
+		return errors.Wrap(err, "could not parse root URL")
+	}
+	hostname := parsed.Hostname()
+
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigation.Request{Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
 
 	// for each seed URL we use an incognito isolated session
@@ -108,7 +115,7 @@ func (c *Crawler) Crawl(url string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.navigateRequest(ctx, queue, parseResponseCallback, incognitoBrowser, req)
+			resp, err := c.navigateRequest(ctx, queue, parseResponseCallback, incognitoBrowser, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return

@@ -3,6 +3,7 @@ package standard
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -51,7 +52,13 @@ func (c *Crawler) Close() error {
 }
 
 // Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(url string) error {
+func (c *Crawler) Crawl(rootURL string) error {
+	parsed, err := url.Parse(rootURL)
+	if err != nil {
+		return errors.Wrap(err, "could not parse root URL")
+	}
+	hostname := parsed.Hostname()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if c.options.Options.CrawlDuration > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
@@ -59,7 +66,7 @@ func (c *Crawler) Crawl(url string) error {
 	defer cancel()
 
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigation.Request{Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -90,7 +97,7 @@ func (c *Crawler) Crawl(url string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.makeRequest(ctx, req)
+			resp, err := c.makeRequest(ctx, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return

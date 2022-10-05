@@ -13,11 +13,12 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
-		Depth:   depth,
-		Options: c.options,
+		Depth:        depth,
+		Options:      c.options,
+		RootHostname: rootHostname,
 	}
 
 	page, err := browser.Page(proto.TargetCreateTarget{})

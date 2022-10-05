@@ -18,6 +18,7 @@ type Runner struct {
 
 // New returns a new crawl runner structure
 func New(options *types.Options) (*Runner, error) {
+	configureOutput(options)
 	showBanner()
 
 	if options.Version {

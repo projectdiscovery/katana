@@ -2,6 +2,8 @@ package runner
 
 import (
 	"bufio"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,6 +76,17 @@ func (r *Runner) parseInputs() []string {
 
 func normalizeInput(value string) string {
 	return strings.TrimSpace(value)
+}
+
+// configureOutput configures the output logging levels to be displayed on the screen
+func configureOutput(options *types.Options) {
+	if options.Silent {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
+	}
+
+	// disable standard logger (ref: https://github.com/golang/go/issues/19895)
+	log.SetFlags(0)
+	log.SetOutput(io.Discard)
 }
 
 func initExampleFormFillConfig() error {

@@ -66,11 +66,10 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	flagSet.CreateGroup("filters", "Filters",
+		flagSet.StringVarP(&options.FieldScope, "field-scope", "fs", "rdn", "pre-defined scope field (dn,rdn,fqdn)"),
+		flagSet.BoolVarP(&options.NoScope, "no-scope", "ns", false, "disables host based default scope"),
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.ScopeDomains, "crawl-scope-domains", "csd", nil, "in scope hosts to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringSliceVarP(&options.OutOfScopeDomains, "crawl-out-scope-domains", "cosd", nil, "out of scope hosts to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.BoolVarP(&options.IncludeSubdomains, "include-sub", "is", false, "include subdomains in crawl scope"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", nil, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", nil, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
