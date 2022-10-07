@@ -3,13 +3,16 @@ package standard
 import (
 	"context"
 	"net/http"
-	"strings"
+	"net/url"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -29,31 +32,33 @@ type Crawler struct {
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	httpclient, dialer, err := buildClient(options.Options)
+	httpclient, dialer, err := common.BuildClient(options.Options)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create http client")
 	}
 	crawler := &Crawler{
-		headers:    make(map[string]string),
+		headers:    options.Options.ParseCustomHeaders(),
 		options:    options,
 		dialer:     dialer,
 		httpclient: httpclient,
-	}
-	for _, v := range options.Options.CustomHeaders {
-		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
-			crawler.headers[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
-		}
 	}
 	return crawler, nil
 }
 
 // Close closes the crawler process
-func (c *Crawler) Close() {
+func (c *Crawler) Close() error {
 	c.dialer.Close()
+	return nil
 }
 
 // Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(url string) {
+func (c *Crawler) Crawl(rootURL string) error {
+	parsed, err := url.Parse(rootURL)
+	if err != nil {
+		return errors.Wrap(err, "could not parse root URL")
+	}
+	hostname := parsed.Hostname()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if c.options.Options.CrawlDuration > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
@@ -61,7 +66,7 @@ func (c *Crawler) Crawl(url string) {
 	defer cancel()
 
 	queue := queue.New(c.options.Options.Strategy)
-	queue.Push(navigationRequest{Method: http.MethodGet, URL: url, Depth: 0}, 0)
+	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -72,7 +77,7 @@ func (c *Crawler) Crawl(url string) {
 			break
 		}
 		item := queue.Pop()
-		req, ok := item.(navigationRequest)
+		req, ok := item.(navigation.Request)
 		if !ok {
 			continue
 		}
@@ -92,7 +97,7 @@ func (c *Crawler) Crawl(url string) {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.makeRequest(ctx, req)
+			resp, err := c.makeRequest(ctx, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
@@ -100,15 +105,17 @@ func (c *Crawler) Crawl(url string) {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
-			parseResponse(resp, parseResponseCallback)
+			parser.ParseResponse(resp, parseResponseCallback)
 		}()
 	}
 	wg.Wait()
+
+	return nil
 }
 
 // makeParseResponseCallback returns a parse response function callback
-func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigationRequest) {
-	return func(nr navigationRequest) {
+func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigation.Request) {
+	return func(nr navigation.Request) {
 		if !utils.IsURL(nr.URL) {
 			return
 		}

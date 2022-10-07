@@ -1,6 +1,10 @@
 package types
 
-import "github.com/projectdiscovery/goflags"
+import (
+	"strings"
+
+	"github.com/projectdiscovery/goflags"
+)
 
 type Options struct {
 	// URLs contains a list of URLs for crawling
@@ -9,12 +13,8 @@ type Options struct {
 	Scope goflags.StringSlice
 	// OutOfScope contains a list of regexes for out-scope URLS
 	OutOfScope goflags.StringSlice
-	// ScopeDomains contains a list of regexes for in-scope hosts
-	ScopeDomains goflags.StringSlice
-	// OutOfScopeDomains contains a list of regexes for out-scope hosts
-	OutOfScopeDomains goflags.StringSlice
-	// IncludeSubdomains specifies if we if want to include subdomains for scope
-	IncludeSubdomains bool
+	// NoScope disables host based default scope
+	NoScope bool
 	// Extensions is a list of extensions to be allowed. Can be * for all extensions.
 	Extensions goflags.StringSlice
 	// ExtensionsAllowList contains any extensions to allow from default deny list
@@ -41,10 +41,14 @@ type Options struct {
 	Concurrency int
 	// Parallelism is the number of urls processing goroutines
 	Parallelism int
+	// FormConfig is the path to the form configuration file
+	FormConfig string
 	// Proxy is the URL for the proxy server
 	Proxy string
 	// Strategy is the crawling strategy. depth-first or breadth-first
 	Strategy string
+	// FieldScope is the scope field for default DNS scope
+	FieldScope string
 	// OutputFile is the file to write output to
 	OutputFile string
 	// Fields is the fields to format in output
@@ -65,4 +69,20 @@ type Options struct {
 	ScrapeJSResponses bool
 	// CustomHeaders is a list of custom headers to add to request
 	CustomHeaders goflags.StringSlice
+	// Headless enables headless scraping
+	Headless bool
+	// UseInstalledChrome skips chrome install and use local instance
+	UseInstalledChrome bool
+	// ShowBrowser specifies whether the show the browser in headless mode
+	ShowBrowser bool
+}
+
+func (options *Options) ParseCustomHeaders() map[string]string {
+	customHeaders := make(map[string]string)
+	for _, v := range options.CustomHeaders {
+		if headerParts := strings.SplitN(v, ":", 2); len(headerParts) >= 2 {
+			customHeaders[strings.Trim(headerParts[0], " ")] = strings.Trim(headerParts[1], " ")
+		}
+	}
+	return customHeaders
 }

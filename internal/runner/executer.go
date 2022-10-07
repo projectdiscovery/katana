@@ -2,7 +2,10 @@ package runner
 
 import (
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/katana/pkg/standard"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine"
+	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
+	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -13,7 +16,17 @@ func (r *Runner) ExecuteCrawling() error {
 		return errors.New("no input provided for crawling")
 	}
 
-	crawler, err := standard.New(r.crawlerOptions)
+	var (
+		crawler engine.Engine
+		err     error
+	)
+
+	switch {
+	case r.options.Headless:
+		crawler, err = hybrid.New(r.crawlerOptions)
+	default:
+		crawler, err = standard.New(r.crawlerOptions)
+	}
 	if err != nil {
 		return errors.Wrap(err, "could not create standard crawler")
 	}
@@ -26,7 +39,9 @@ func (r *Runner) ExecuteCrawling() error {
 		go func(input string) {
 			defer wg.Done()
 
-			crawler.Crawl(input)
+			if err := crawler.Crawl(input); err != nil {
+				gologger.Warning().Msgf("Could not crawl %s: %s", input, err)
+			}
 		}(input)
 	}
 	wg.Wait()
