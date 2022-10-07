@@ -71,6 +71,10 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// UseInstalledChrome skips chrome install and use local instance
+	UseInstalledChrome bool
+	// ShowBrowser specifies whether the show the browser in headless mode
+	ShowBrowser bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
