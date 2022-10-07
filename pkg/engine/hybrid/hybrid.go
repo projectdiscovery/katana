@@ -233,8 +233,7 @@ func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootH
 		// here we can process raw request/response in one pass
 		err := ctx.LoadResponse(c.httpclient.HTTPClient, true)
 		if err != nil {
-			gologger.Warning().Msgf("%s\n", err)
-			return
+			gologger.Warning().Msgf("\"%s\" on load response: %s\n", reqURL, err)
 		}
 
 		body := ctx.Response.Body()

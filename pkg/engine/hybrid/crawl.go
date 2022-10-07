@@ -38,23 +38,26 @@ func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue
 		}
 	}()
 
+	timeout := time.Duration(c.options.Options.Timeout) * time.Second
+	page = page.Timeout(timeout)
+
+	// wait the page to be fully loaded and becoming idle
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+
 	if err := page.Navigate(request.URL); err != nil {
 		return nil, err
 	}
 
-	timeout := time.Duration(c.options.Options.Timeout * int(time.Second))
-
-	// wait the page to be fully loaded and becoming idle
-	page.Timeout(timeout).WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+	waitNavigation()
 
 	// Wait for the window.onload event
 	if err := page.WaitLoad(); err != nil {
-		return nil, err
+		gologger.Warning().Msgf("\"%s\" on wait load: %s\n", request.URL, err)
 	}
 
 	// wait for idle the network requests
 	if err := page.WaitIdle(timeout); err != nil {
-		return nil, err
+		gologger.Warning().Msgf("\"%s\" on wait idle: %s\n", request.URL, err)
 	}
 
 	body, err := page.HTML()
