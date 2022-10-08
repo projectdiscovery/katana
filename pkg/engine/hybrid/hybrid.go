@@ -222,7 +222,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 	}
 }
 
-// routingHandler intercepts all asyncronous http requests
+// makeRoutingHandler intercepts all asyncronous http requests and do them using go net/http
 func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootHostname string, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
 	return func(ctx *rod.Hijack) {
 		reqURL := ctx.Request.URL()

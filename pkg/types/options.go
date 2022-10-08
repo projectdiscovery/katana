@@ -75,6 +75,8 @@ type Options struct {
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
 	ShowBrowser bool
+	// NativeHttp use native headless http engine
+	NativeHttp bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

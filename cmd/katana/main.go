@@ -65,6 +65,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "Use local installed chrome browser instead of nuclei installed"),
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
+		flagSet.BoolVarP(&options.NativeHttp, "native-http", "nh", false, "Use native browser http engine"),
 	)
 
 	flagSet.CreateGroup("filters", "Filters",
