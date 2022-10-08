@@ -74,7 +74,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue
 			// process the raw response
 			parser.ParseResponse(resp, parseResponseCallback)
 			return FetchContinueRequest(page, e)
-		})()
+		})() //nolint
 		defer func() {
 			if err := pageRouter.Stop(); err != nil {
 				gologger.Warning().Msgf("%s\n", err)
