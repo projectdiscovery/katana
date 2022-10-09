@@ -131,11 +131,11 @@ func getDomainRDNandRDN(domain string) (string, string, error) {
 	}
 	suffix, _ := publicsuffix.PublicSuffix(domain)
 	if len(domain) <= len(suffix) {
-		return "", "", fmt.Errorf("publicsuffix: cannot derive eTLD+1 for domain %q", domain)
+		return domain, "", nil
 	}
 	i := len(domain) - len(suffix) - 1
 	if domain[i] != '.' {
-		return "", "", fmt.Errorf("publicsuffix: invalid public suffix %q for domain %q", suffix, domain)
+		return domain, "", nil
 	}
 	return domain[1+strings.LastIndex(domain[:i], "."):], domain[1+strings.LastIndex(domain[:i], ".") : len(domain)-len(suffix)-1], nil
 }
