@@ -98,6 +98,9 @@ func headerRefreshParser(resp navigation.Response, callback func(navigation.Requ
 
 // bodyATagParser parses A tag from response
 func bodyATagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("a").Each(func(i int, item *goquery.Selection) {
 		href, ok := item.Attr("href")
 		if ok && href != "" {
@@ -110,8 +113,24 @@ func bodyATagParser(resp navigation.Response, callback func(navigation.Request))
 	})
 }
 
+// linkHrefTagParser parses link tag from response
+func linkHrefTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
+	resp.Reader.Find("link[href]").Each(func(i int, item *goquery.Selection) {
+		href, ok := item.Attr("href")
+		if ok && href != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(href, resp.Resp.Request.URL.String(), "a", "href", resp))
+		}
+	})
+}
+
 // bodyEmbedTagParser parses Embed tag from response
 func bodyEmbedTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("embed[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -122,6 +141,9 @@ func bodyEmbedTagParser(resp navigation.Response, callback func(navigation.Reque
 
 // bodyFrameTagParser parses frame tag from response
 func bodyFrameTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("frame[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -132,6 +154,9 @@ func bodyFrameTagParser(resp navigation.Response, callback func(navigation.Reque
 
 // bodyIframeTagParser parses iframe tag from response
 func bodyIframeTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("iframe[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -142,6 +167,9 @@ func bodyIframeTagParser(resp navigation.Response, callback func(navigation.Requ
 
 // bodyInputSrcTagParser parses input image src tag from response
 func bodyInputSrcTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("input[type='image' i]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -152,6 +180,9 @@ func bodyInputSrcTagParser(resp navigation.Response, callback func(navigation.Re
 
 // bodyIsindexActionTagParser parses isindex action tag from response
 func bodyIsindexActionTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("isindex[action]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("action")
 		if ok && src != "" {
@@ -162,6 +193,9 @@ func bodyIsindexActionTagParser(resp navigation.Response, callback func(navigati
 
 // bodyScriptSrcTagParser parses script src tag from response
 func bodyScriptSrcTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("script[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -172,6 +206,9 @@ func bodyScriptSrcTagParser(resp navigation.Response, callback func(navigation.R
 
 // bodyButtonFormactionTagParser parses button formaction tag from response
 func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("button[formaction]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("formaction")
 		if ok && src != "" {
@@ -182,6 +219,9 @@ func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navig
 
 // bodyFormTagParser parses forms from response
 func bodyFormTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
 		href, _ := item.Attr("action")
 		encType, ok := item.Attr("enctype")
@@ -271,6 +311,9 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 
 // bodyMetaContentTagParser parses meta content tag from response
 func bodyMetaContentTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("meta[http-equiv='refresh' i]").Each(func(i int, item *goquery.Selection) {
 		header, ok := item.Attr("content")
 		if !ok {
@@ -290,6 +333,9 @@ func bodyMetaContentTagParser(resp navigation.Response, callback func(navigation
 
 // scriptContentRegexParser parses script content endpoints from response
 func scriptContentRegexParser(resp navigation.Response, callback func(navigation.Request)) {
+	if resp.Reader == nil {
+		return
+	}
 	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
 		if !resp.Options.Options.ScrapeJSResponses { // do not process if disabled
 			return
@@ -312,8 +358,9 @@ func scriptJSFileRegexParser(resp navigation.Response, callback func(navigation.
 	}
 
 	// Only process javascript file based on path or content type
+	// CSS, JS are supported for relative endpoint extraction.
 	contentType := resp.Resp.Header.Get("Content-Type")
-	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.Contains(contentType, "/javascript")) {
+	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
 		return
 	}
 

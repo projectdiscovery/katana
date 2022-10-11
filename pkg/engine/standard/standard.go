@@ -1,14 +1,16 @@
 package standard
 
 import (
+	"bytes"
 	"context"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync/atomic"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
@@ -17,37 +19,26 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/remeh/sizedwaitgroup"
 )
 
 // Crawler is a standard crawler instance
 type Crawler struct {
 	headers map[string]string
-
-	options    *types.CrawlerOptions
-	httpclient *retryablehttp.Client
-	dialer     *fastdialer.Dialer
+	options *types.CrawlerOptions
 }
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	httpclient, dialer, err := common.BuildClient(options.Options)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create http client")
-	}
 	crawler := &Crawler{
-		headers:    options.Options.ParseCustomHeaders(),
-		options:    options,
-		dialer:     dialer,
-		httpclient: httpclient,
+		headers: options.Options.ParseCustomHeaders(),
+		options: options,
 	}
 	return crawler, nil
 }
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	c.dialer.Close()
 	return nil
 }
 
@@ -68,6 +59,15 @@ func (c *Crawler) Crawl(rootURL string) error {
 	queue := queue.New(c.options.Options.Strategy)
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
+
+	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+		body, _ := ioutil.ReadAll(resp.Body)
+		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not create http client")
+	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
@@ -97,7 +97,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.makeRequest(ctx, req, hostname)
+			resp, err := c.makeRequest(ctx, req, hostname, req.Depth, httpclient)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return

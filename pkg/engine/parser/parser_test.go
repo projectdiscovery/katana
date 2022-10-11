@@ -68,6 +68,15 @@ func TestBodyParsers(t *testing.T) {
 		})
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/a/ping.found", gotURL, "could not get correct url")
 	})
+	t.Run("link", func(t *testing.T) {
+		var gotURL string
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<link rel=\"stylesheet\" href=\"/css/font-face.css\">"))
+		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		linkHrefTagParser(resp, func(resp navigation.Request) {
+			gotURL = resp.URL
+		})
+		require.Equal(t, "https://security-crawl-maze.app/css/font-face.css", gotURL, "could not get correct url")
+	})
 	t.Run("embed", func(t *testing.T) {
 		var gotURL string
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<embed src=\"/test/html/body/embed/src.found\"></embed>"))

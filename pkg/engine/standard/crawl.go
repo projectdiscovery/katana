@@ -15,12 +15,13 @@ import (
 )
 
 // makeRequest makes a request to a URL returning a response interface.
-func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, rootHostname string) (navigation.Response, error) {
+func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, rootHostname string, depth int, httpclient *retryablehttp.Client) (navigation.Response, error) {
 	response := navigation.Response{
 		Depth:        request.Depth + 1,
 		Options:      c.options,
 		RootHostname: rootHostname,
 	}
+	ctx = context.WithValue(ctx, "depth", depth)
 	httpReq, err := http.NewRequestWithContext(ctx, request.Method, request.URL, nil)
 	if err != nil {
 		return response, err
@@ -42,7 +43,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 		req.Header.Set(k, v)
 	}
 
-	resp, err := c.httpclient.Do(req)
+	resp, err := httpclient.Do(req)
 	if resp != nil {
 		defer func() {
 			if resp.Body != nil && resp.StatusCode != http.StatusSwitchingProtocols {

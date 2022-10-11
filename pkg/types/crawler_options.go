@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
@@ -25,6 +26,8 @@ type CrawlerOptions struct {
 	UniqueFilter filters.Filter
 	// ScopeManager is a manager for validating crawling scope
 	ScopeManager *scope.Manager
+	// Dialer is instance of the dialer for global crawler
+	Dialer *fastdialer.Dialer
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -32,6 +35,10 @@ type CrawlerOptions struct {
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	extensionsValidator := extensions.NewValidator(options.Extensions, options.ExtensionsAllowList, options.ExtensionDenyList)
 
+	fastdialerInstance, err := fastdialer.NewDialer(fastdialer.DefaultOptions)
+	if err != nil {
+		return nil, err
+	}
 	scopeManager, err := scope.NewManager(options.Scope, options.OutOfScope, options.FieldScope, options.NoScope)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create scope manager")
@@ -58,6 +65,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		UniqueFilter:        itemFilter,
 		RateLimit:           ratelimiter,
 		Options:             options,
+		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
 	}
 	return crawlerOptions, nil

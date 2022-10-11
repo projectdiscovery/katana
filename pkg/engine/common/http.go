@@ -2,23 +2,19 @@ package common
 
 import (
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
 // BuildClient builds a http client based on a profile
-func BuildClient(options *types.Options) (*retryablehttp.Client, *fastdialer.Dialer, error) {
-	dialer, err := fastdialer.NewDialer(fastdialer.DefaultOptions)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not create dialer")
-	}
-
+func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback func(resp *http.Response, depth int)) (*retryablehttp.Client, *fastdialer.Dialer, error) {
+	var err error
 	var proxyURL *url.URL
 	if options.Proxy != "" {
 		proxyURL, err = url.Parse(options.Proxy)
@@ -50,6 +46,19 @@ func BuildClient(options *types.Options) (*retryablehttp.Client, *fastdialer.Dia
 	client := retryablehttp.NewWithHTTPClient(&http.Client{
 		Transport: transport,
 		Timeout:   time.Duration(options.Timeout) * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) == 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			depth, ok := req.Context().Value("depth").(int)
+			if !ok {
+				depth = 2
+			}
+			if redirectCallback != nil {
+				redirectCallback(req.Response, depth)
+			}
+			return nil
+		},
 	}, retryablehttpOptions)
 	client.CheckRetry = retryablehttp.HostSprayRetryPolicy()
 	return client, dialer, nil

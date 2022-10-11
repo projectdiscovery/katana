@@ -11,9 +11,10 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
@@ -28,7 +29,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, queue *queue.VarietyQueue
 	defer page.Close()
 
 	pageRouter := page.HijackRequests()
-	if err := pageRouter.Add("*", "", c.makeRoutingHandler(queue, depth, rootHostname, parseResponseCallback)); err != nil {
+	if err := pageRouter.Add("*", "", c.makeRoutingHandler(queue, depth, rootHostname, httpclient, parseResponseCallback)); err != nil {
 		return nil, err
 	}
 	go pageRouter.Run()

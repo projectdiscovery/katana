@@ -1,9 +1,11 @@
 package hybrid
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,7 +17,6 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
@@ -35,20 +36,13 @@ import (
 type Crawler struct {
 	headers      map[string]string
 	options      *types.CrawlerOptions
-	httpclient   *retryablehttp.Client
 	browser      *rod.Browser
-	dialer       *fastdialer.Dialer
 	previousPIDs map[int32]struct{} // track already running PIDs
 	tempDir      string
 }
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	httpclient, dialer, err := common.BuildClient(options.Options)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create http client")
-	}
-
 	dataStore, err := os.MkdirTemp("", "katana-*")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create temporary directory")
@@ -96,8 +90,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	crawler := &Crawler{
 		headers:      options.Options.ParseCustomHeaders(),
 		options:      options,
-		dialer:       dialer,
-		httpclient:   httpclient,
 		browser:      browser,
 		previousPIDs: previousPIDs,
 		tempDir:      dataStore,
@@ -107,8 +99,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	c.dialer.Close()
-
 	if err := c.browser.Close(); err != nil {
 		return err
 	}
@@ -137,6 +127,15 @@ func (c *Crawler) Crawl(rootURL string) error {
 	queue := queue.New(c.options.Options.Strategy)
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
+
+	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+		body, _ := ioutil.ReadAll(resp.Body)
+		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not create http client")
+	}
 
 	// for each seed URL we use an incognito isolated session
 	incognitoBrowser, err := c.browser.Incognito()
@@ -172,7 +171,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.navigateRequest(ctx, queue, parseResponseCallback, incognitoBrowser, req, hostname)
+			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
@@ -223,7 +222,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 }
 
 // routingHandler intercepts all asyncronous http requests
-func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootHostname string, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
+func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootHostname string, httpclient *retryablehttp.Client, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
 	return func(ctx *rod.Hijack) {
 		reqURL := ctx.Request.URL()
 		if !utils.IsURL(reqURL.String()) {
@@ -231,7 +230,7 @@ func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootH
 		}
 
 		// here we can process raw request/response in one pass
-		err := ctx.LoadResponse(c.httpclient.HTTPClient, true)
+		err := ctx.LoadResponse(httpclient.HTTPClient, true)
 		if err != nil {
 			gologger.Warning().Msgf("\"%s\" on load response: %s\n", reqURL, err)
 		}
