@@ -5,7 +5,7 @@ import "regexp"
 var (
 	// relativeEndpointsRegex is the regex to find endpoints in js files.
 	relativeEndpointsRegex = regexp.MustCompile(
-		`(?:"|'| )((?:(?:(?:https?:\/\/[A-Za-z0-9_\-\.]+)?(?:[\.]{0,2})?\/[A-Za-z0-9\/\-_\.]+)|[A-Za-z0-9\-_\/]+\.(?:aspx?|js(?:on|p)?|html|php5?|html|action|do)(?:[\?|#][^"|']+)?))(?:"|'| |)`,
+		`(?:"|'| |)((?:(?:(?:https?:\/\/[A-Za-z0-9_\-\.]+)?(?:[\.]{0,2})?\/[A-Za-z0-9\/\-_\.]+)|[A-Za-z0-9\-_\/]+\.(?:aspx?|js(?:on|p)?|html|php5?|html|action|do)(?:[\?|#][^"|']+)?))(?:"|'| |)`,
 	)
 )
 

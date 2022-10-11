@@ -14,34 +14,64 @@ import (
 // new navigation items or requests for the crawler.
 type ResponseParserFunc func(resp navigation.Response, callback func(navigation.Request))
 
+type responseParserType int
+
+const (
+	headerParser responseParserType = iota + 1
+	bodyParser
+	contentParser
+)
+
+type responseParser struct {
+	parserType responseParserType
+	parserFunc ResponseParserFunc
+}
+
 // responseParsers is a list of response parsers for the standard engine
-var responseParsers = []ResponseParserFunc{
+var responseParsers = []responseParser{
 	// Header based parsers
-	headerContentLocationParser,
-	headerLinkParser,
-	headerLocationParser,
-	headerRefreshParser,
+	{headerParser, headerContentLocationParser},
+	{headerParser, headerLinkParser},
+	{headerParser, headerLocationParser},
+	{headerParser, headerRefreshParser},
 
 	// Body based parsers
-	bodyATagParser,
-	bodyEmbedTagParser,
-	bodyFrameTagParser,
-	bodyIframeTagParser,
-	bodyInputSrcTagParser,
-	bodyIsindexActionTagParser,
-	bodyScriptSrcTagParser,
-	bodyFormTagParser,
-	bodyMetaContentTagParser,
+	{bodyParser, bodyATagParser},
+	{bodyParser, bodyLinkHrefTagParser},
+	{bodyParser, bodyBackgroundTagParser},
+	{bodyParser, bodyAudioTagParser},
+	{bodyParser, bodyAppletTagParser},
+	{bodyParser, bodyImgTagParser},
+	{bodyParser, bodyObjectTagParser},
+	{bodyParser, bodySvgTagParser},
+	{bodyParser, bodyTableTagParser},
+	{bodyParser, bodyVideoTagParser},
+	{bodyParser, bodyButtonFormactionTagParser},
+	{bodyParser, bodyEmbedTagParser},
+	{bodyParser, bodyFrameTagParser},
+	{bodyParser, bodyIframeTagParser},
+	{bodyParser, bodyInputSrcTagParser},
+	{bodyParser, bodyIsindexActionTagParser},
+	{bodyParser, bodyScriptSrcTagParser},
+	{bodyParser, bodyFormTagParser},
+	{bodyParser, bodyMetaContentTagParser},
+	{bodyParser, scriptContentRegexParser},
 
 	// Optional JS relative endpoints parsers
-	scriptContentRegexParser,
-	scriptJSFileRegexParser,
+	{contentParser, scriptJSFileRegexParser},
 }
 
 // parseResponse runs the response parsers on the navigation response
 func ParseResponse(resp navigation.Response, callback func(navigation.Request)) {
 	for _, parser := range responseParsers {
-		parser(resp, callback)
+		switch {
+		case parser.parserType == headerParser && resp.Resp != nil:
+			parser.parserFunc(resp, callback)
+		case parser.parserType == bodyParser && resp.Reader != nil:
+			parser.parserFunc(resp, callback)
+		case parser.parserType == contentParser && len(resp.Body) > 0:
+			parser.parserFunc(resp, callback)
+		}
 	}
 }
 
@@ -98,9 +128,6 @@ func headerRefreshParser(resp navigation.Response, callback func(navigation.Requ
 
 // bodyATagParser parses A tag from response
 func bodyATagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("a").Each(func(i int, item *goquery.Selection) {
 		href, ok := item.Attr("href")
 		if ok && href != "" {
@@ -113,24 +140,18 @@ func bodyATagParser(resp navigation.Response, callback func(navigation.Request))
 	})
 }
 
-// linkHrefTagParser parses link tag from response
-func linkHrefTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
+// bodyLinkHrefTagParser parses link tag from response
+func bodyLinkHrefTagParser(resp navigation.Response, callback func(navigation.Request)) {
 	resp.Reader.Find("link[href]").Each(func(i int, item *goquery.Selection) {
 		href, ok := item.Attr("href")
 		if ok && href != "" {
-			callback(navigation.NewNavigationRequestURLFromResponse(href, resp.Resp.Request.URL.String(), "a", "href", resp))
+			callback(navigation.NewNavigationRequestURLFromResponse(href, resp.Resp.Request.URL.String(), "link", "href", resp))
 		}
 	})
 }
 
 // bodyEmbedTagParser parses Embed tag from response
 func bodyEmbedTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("embed[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -141,9 +162,6 @@ func bodyEmbedTagParser(resp navigation.Response, callback func(navigation.Reque
 
 // bodyFrameTagParser parses frame tag from response
 func bodyFrameTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("frame[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -154,22 +172,23 @@ func bodyFrameTagParser(resp navigation.Response, callback func(navigation.Reque
 
 // bodyIframeTagParser parses iframe tag from response
 func bodyIframeTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
-	resp.Reader.Find("iframe[src]").Each(func(i int, item *goquery.Selection) {
+	resp.Reader.Find("iframe").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
 			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "iframe", "src", resp))
+		}
+		srcDoc, ok := item.Attr("srcdoc")
+		if ok && srcDoc != "" {
+			endpoints := utils.ExtractRelativeEndpoints(srcDoc)
+			for _, item := range endpoints {
+				callback(navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "iframe", "srcdoc", resp))
+			}
 		}
 	})
 }
 
 // bodyInputSrcTagParser parses input image src tag from response
 func bodyInputSrcTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("input[type='image' i]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -180,9 +199,6 @@ func bodyInputSrcTagParser(resp navigation.Response, callback func(navigation.Re
 
 // bodyIsindexActionTagParser parses isindex action tag from response
 func bodyIsindexActionTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("isindex[action]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("action")
 		if ok && src != "" {
@@ -193,9 +209,6 @@ func bodyIsindexActionTagParser(resp navigation.Response, callback func(navigati
 
 // bodyScriptSrcTagParser parses script src tag from response
 func bodyScriptSrcTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("script[src]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("src")
 		if ok && src != "" {
@@ -204,11 +217,165 @@ func bodyScriptSrcTagParser(resp navigation.Response, callback func(navigation.R
 	})
 }
 
+// bodyBackgroundTagParser parses body background tag from response
+func bodyBackgroundTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("body[background]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("background")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "body", "background", resp))
+		}
+	})
+}
+
+// bodyAudioTagParser parses body audio tag from response
+func bodyAudioTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("audio").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("src")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "audio", "src", resp))
+		}
+		item.Find("source").Each(func(i int, s *goquery.Selection) {
+			src, ok := s.Attr("src")
+			if ok && src != "" {
+				callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "audio", "source", resp))
+			}
+			srcSet, ok := s.Attr("srcset")
+			if ok && srcSet != "" {
+				for _, value := range utils.ParseSRCSetTag(srcSet) {
+					callback(navigation.NewNavigationRequestURLFromResponse(value, resp.Resp.Request.URL.String(), "audio", "sourcesrcset", resp))
+				}
+			}
+		})
+	})
+}
+
+// bodyAppletTagParser parses body applet tag from response
+func bodyAppletTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("applet").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("archive")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "applet", "archive", resp))
+		}
+		srcCodebase, ok := item.Attr("codebase")
+		if ok && srcCodebase != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcCodebase, resp.Resp.Request.URL.String(), "applet", "codebase", resp))
+		}
+	})
+}
+
+// bodyImgTagParser parses Img tag from response
+func bodyImgTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("img").Each(func(i int, item *goquery.Selection) {
+		srcDynsrc, ok := item.Attr("dynsrc")
+		if ok && srcDynsrc != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcDynsrc, resp.Resp.Request.URL.String(), "img", "dynsrc", resp))
+		}
+		srcLongdesc, ok := item.Attr("longdesc")
+		if ok && srcLongdesc != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcLongdesc, resp.Resp.Request.URL.String(), "img", "longdesc", resp))
+		}
+		srcLowsrc, ok := item.Attr("lowsrc")
+		if ok && srcLowsrc != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcLowsrc, resp.Resp.Request.URL.String(), "img", "lowsrc", resp))
+		}
+		src, ok := item.Attr("src")
+		if ok && src != "" && src != "#" {
+			if strings.HasPrefix(src, "data:") {
+				// TODO: Add data:uri/data:image parsing
+				return
+			}
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "img", "src", resp))
+		}
+		srcSet, ok := item.Attr("srcset")
+		if ok && srcSet != "" {
+			for _, value := range utils.ParseSRCSetTag(srcSet) {
+				callback(navigation.NewNavigationRequestURLFromResponse(value, resp.Resp.Request.URL.String(), "img", "srcset", resp))
+			}
+		}
+	})
+}
+
+// bodyObjectTagParser parses object tag from response
+func bodyObjectTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("object").Each(func(i int, item *goquery.Selection) {
+		srcData, ok := item.Attr("data")
+		if ok && srcData != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcData, resp.Resp.Request.URL.String(), "src", "data", resp))
+		}
+		srcCodebase, ok := item.Attr("codebase")
+		if ok && srcCodebase != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcCodebase, resp.Resp.Request.URL.String(), "src", "codebase", resp))
+		}
+		item.Find("param").Each(func(i int, s *goquery.Selection) {
+			srcValue, ok := s.Attr("value")
+			if ok && srcValue != "" {
+				callback(navigation.NewNavigationRequestURLFromResponse(srcValue, resp.Resp.Request.URL.String(), "src", "value", resp))
+			}
+		})
+	})
+}
+
+// bodySvgTagParser parses svg tag from response
+func bodySvgTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("svg").Each(func(i int, item *goquery.Selection) {
+		item.Find("image").Each(func(i int, s *goquery.Selection) {
+			hrefData, ok := s.Attr("href")
+			if ok && hrefData != "" {
+				callback(navigation.NewNavigationRequestURLFromResponse(hrefData, resp.Resp.Request.URL.String(), "svg", "image-href", resp))
+			}
+		})
+		item.Find("script").Each(func(i int, s *goquery.Selection) {
+			hrefData, ok := s.Attr("href")
+			if ok && hrefData != "" {
+				callback(navigation.NewNavigationRequestURLFromResponse(hrefData, resp.Resp.Request.URL.String(), "svg", "script-href", resp))
+			}
+		})
+	})
+}
+
+// bodyTableTagParser parses table tag from response
+func bodyTableTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("table").Each(func(i int, item *goquery.Selection) {
+		srcData, ok := item.Attr("background")
+		if ok && srcData != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcData, resp.Resp.Request.URL.String(), "table", "background", resp))
+		}
+		item.Find("td").Each(func(i int, s *goquery.Selection) {
+			srcValue, ok := s.Attr("background")
+			if ok && srcValue != "" {
+				callback(navigation.NewNavigationRequestURLFromResponse(srcValue, resp.Resp.Request.URL.String(), "table", "td-background", resp))
+			}
+		})
+	})
+}
+
+// bodyVideoTagParser parses video tag from response
+func bodyVideoTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("video").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("src")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "video", "src", resp))
+		}
+		srcData, ok := item.Attr("poster")
+		if ok && srcData != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(srcData, resp.Resp.Request.URL.String(), "video", "poster", resp))
+		}
+		item.Find("track").Each(func(i int, s *goquery.Selection) {
+			srcValue, ok := s.Attr("src")
+			if ok && srcValue != "" {
+				callback(navigation.NewNavigationRequestURLFromResponse(srcValue, resp.Resp.Request.URL.String(), "video", "track-src", resp))
+			}
+		})
+	})
+}
+
+// /test/html/body/blockquote/cite.found
+// /test/html/body/frameset/frame/src.found
+// /test/html/body/map/area/ping.found
+// /test/html/body/img/src-data.found
+
 // bodyButtonFormactionTagParser parses button formaction tag from response
 func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("button[formaction]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("formaction")
 		if ok && src != "" {
@@ -219,9 +386,6 @@ func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navig
 
 // bodyFormTagParser parses forms from response
 func bodyFormTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
 		href, _ := item.Attr("action")
 		encType, ok := item.Attr("enctype")
@@ -311,9 +475,6 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 
 // bodyMetaContentTagParser parses meta content tag from response
 func bodyMetaContentTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("meta[http-equiv='refresh' i]").Each(func(i int, item *goquery.Selection) {
 		header, ok := item.Attr("content")
 		if !ok {
@@ -333,9 +494,6 @@ func bodyMetaContentTagParser(resp navigation.Response, callback func(navigation
 
 // scriptContentRegexParser parses script content endpoints from response
 func scriptContentRegexParser(resp navigation.Response, callback func(navigation.Request)) {
-	if resp.Reader == nil {
-		return
-	}
 	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
 		if !resp.Options.Options.ScrapeJSResponses { // do not process if disabled
 			return
