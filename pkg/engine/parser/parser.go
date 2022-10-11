@@ -47,6 +47,10 @@ var responseParsers = []responseParser{
 	{bodyParser, bodyTableTagParser},
 	{bodyParser, bodyVideoTagParser},
 	{bodyParser, bodyButtonFormactionTagParser},
+	{bodyParser, bodyBlockquoteCiteTagParser},
+	{bodyParser, bodyFrameSrcTagParser},
+	{bodyParser, bodyMapAreaPingTagParser},
+	{bodyParser, bodyBaseHrefTagParser},
 	{bodyParser, bodyEmbedTagParser},
 	{bodyParser, bodyFrameTagParser},
 	{bodyParser, bodyIframeTagParser},
@@ -369,10 +373,52 @@ func bodyVideoTagParser(resp navigation.Response, callback func(navigation.Reque
 	})
 }
 
-// /test/html/body/blockquote/cite.found
-// /test/html/body/frameset/frame/src.found
-// /test/html/body/map/area/ping.found
-// /test/html/body/img/src-data.found
+// bodyButtonFormactionTagParser parses blockquote cite tag from response
+func bodyBlockquoteCiteTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("blockquote[cite]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("cite")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "blockquote", "cite", resp))
+		}
+	})
+}
+
+// bodyFrameSrcTagParser parses frame src tag from response
+func bodyFrameSrcTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("frame[src]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("src")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "frame", "src", resp))
+		}
+	})
+}
+
+// bodyMapAreaPingTagParser parses map area ping tag from response
+func bodyMapAreaPingTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("area[ping]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("ping")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "area", "ping", resp))
+		}
+	})
+}
+
+// bodyBaseHrefTagParser parses base href tag from response
+func bodyBaseHrefTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("base[href]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("href")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "base", "href", resp))
+		}
+	})
+}
+
+// /test/html/head/comment-conditional.found
+
+// /test/html/head/import/implementation.found
+// /test/html/head/meta/content-csp.found
+// /test/html/head/meta/content-pinned-websites.found
+// /test/html/head/meta/content-reading-view.found
 
 // bodyButtonFormactionTagParser parses button formaction tag from response
 func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navigation.Request)) {

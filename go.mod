@@ -38,6 +38,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.20 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

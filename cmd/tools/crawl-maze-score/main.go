@@ -136,6 +136,12 @@ func process() error {
 
 	linksMap := make(map[string]struct{})
 	linksHeadlessMap := make(map[string]struct{})
+	for _, link := range links {
+		linksMap[link] = struct{}{}
+	}
+	for _, link := range linksHeadless {
+		linksHeadlessMap[link] = struct{}{}
+	}
 	matches, matchesHeadless := 0, 0
 	for _, expected := range expectedResults {
 		expected = urlTestPrefix + expected
