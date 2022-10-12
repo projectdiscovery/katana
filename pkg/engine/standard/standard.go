@@ -14,6 +14,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
+	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -24,8 +25,9 @@ import (
 
 // Crawler is a standard crawler instance
 type Crawler struct {
-	headers map[string]string
-	options *types.CrawlerOptions
+	headers    map[string]string
+	knownFiles *files.KnownFiles
+	options    *types.CrawlerOptions
 }
 
 // New returns a new standard crawler instance
@@ -33,6 +35,13 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	crawler := &Crawler{
 		headers: options.Options.ParseCustomHeaders(),
 		options: options,
+	}
+	if options.Options.KnownFiles {
+		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create http client")
+		}
+		crawler.knownFiles = files.New(httpclient)
 	}
 	return crawler, nil
 }
@@ -60,6 +69,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
 
+	if c.knownFiles != nil {
+		if err := c.knownFiles.Request(rootURL, func(nr navigation.Request) {
+			parseResponseCallback(nr)
+		}); err != nil {
+			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
+		}
+	}
 	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
 		body, _ := ioutil.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))

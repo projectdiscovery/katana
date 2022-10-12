@@ -7,6 +7,7 @@ require (
 	github.com/go-rod/rod v0.111.0
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
+	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.17
 	github.com/projectdiscovery/fileutil v0.0.1
@@ -38,7 +39,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
-	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.20 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

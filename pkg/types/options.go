@@ -59,6 +59,8 @@ type Options struct {
 	NoColors bool
 	// JSON enables writing output in JSON format
 	JSON bool
+	// KnownFiles enables crawling of knows files like robots.txt, sitemap.xml, etc
+	KnownFiles bool
 	// Silent shows only output
 	Silent bool
 	// Verbose specifies showing verbose output

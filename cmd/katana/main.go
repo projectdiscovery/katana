@@ -55,6 +55,7 @@ pipelines offering both headless and non-headless crawling.`)
 	flagSet.CreateGroup("configs", "Configurations",
 		flagSet.StringVar(&cfgFile, "config", "", "path to the nuclei configuration file"),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 2, "maximum depth to crawl"),
+		flagSet.BoolVarP(&options.KnownFiles, "known-files", "kf", false, "enable crawling of known files like robots,sitemap"),
 		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", 2*1024*1024, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
