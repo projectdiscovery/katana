@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -8,7 +9,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
-	"go.uber.org/ratelimit"
+	"github.com/projectdiscovery/ratelimit"
 )
 
 // CrawlerOptions contains helper utilities for the crawler
@@ -48,9 +49,9 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 
 	var ratelimiter ratelimit.Limiter
 	if options.RateLimit > 0 {
-		ratelimiter = ratelimit.New(options.RateLimit)
+		ratelimiter = *ratelimit.New(context.Background(), options.RateLimit, time.Second)
 	} else if options.RateLimitMinute > 0 {
-		ratelimiter = ratelimit.New(options.RateLimitMinute, ratelimit.Per(60*time.Second))
+		ratelimiter = *ratelimit.New(context.Background(), options.RateLimitMinute, time.Minute)
 	}
 	crawlerOptions := &CrawlerOptions{
 		ExtensionsValidator: extensionsValidator,
