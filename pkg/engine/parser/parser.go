@@ -51,6 +51,7 @@ var responseParsers = []responseParser{
 	{bodyParser, bodyFrameSrcTagParser},
 	{bodyParser, bodyMapAreaPingTagParser},
 	{bodyParser, bodyBaseHrefTagParser},
+	{bodyParser, bodyImportImplementationTagParser},
 	{bodyParser, bodyEmbedTagParser},
 	{bodyParser, bodyFrameTagParser},
 	{bodyParser, bodyIframeTagParser},
@@ -413,12 +414,15 @@ func bodyBaseHrefTagParser(resp navigation.Response, callback func(navigation.Re
 	})
 }
 
-// /test/html/head/comment-conditional.found
-
-// /test/html/head/import/implementation.found
-// /test/html/head/meta/content-csp.found
-// /test/html/head/meta/content-pinned-websites.found
-// /test/html/head/meta/content-reading-view.found
+// bodyImportImplementationTagParser parses import implementation tag from response
+func bodyImportImplementationTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("import[implementation]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("implementation")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "import", "implementation", resp))
+		}
+	})
+}
 
 // bodyButtonFormactionTagParser parses button formaction tag from response
 func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navigation.Request)) {
@@ -521,16 +525,15 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 
 // bodyMetaContentTagParser parses meta content tag from response
 func bodyMetaContentTagParser(resp navigation.Response, callback func(navigation.Request)) {
-	resp.Reader.Find("meta[http-equiv='refresh' i]").Each(func(i int, item *goquery.Selection) {
+	resp.Reader.Find("meta").Each(func(i int, item *goquery.Selection) {
 		header, ok := item.Attr("content")
 		if !ok {
 			return
 		}
-		values := utils.ParseRefreshTag(header)
-		if values == "" {
-			return
+		extracted := utils.ExtractRelativeEndpoints(header)
+		for _, item := range extracted {
+			callback(navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "meta", "refresh", resp))
 		}
-		callback(navigation.NewNavigationRequestURLFromResponse(values, resp.Resp.Request.URL.String(), "meta", "refresh", resp))
 	})
 }
 

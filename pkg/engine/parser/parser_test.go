@@ -328,6 +328,15 @@ func TestBodyParsers(t *testing.T) {
 		})
 		require.Equal(t, "https://security-crawl-maze.app/test/html/head/base/href.found", gotURL, "could not get correct url")
 	})
+	t.Run("import", func(t *testing.T) {
+		var gotURL string
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<IMPORT namespace="myNS" implementation="/test/html/head/import/implementation.found" /></IMPORT>`))
+		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		bodyImportImplementationTagParser(resp, func(resp navigation.Request) {
+			gotURL = resp.URL
+		})
+		require.Equal(t, "https://security-crawl-maze.app/test/html/head/import/implementation.found", gotURL, "could not get correct url")
+	})
 	t.Run("embed", func(t *testing.T) {
 		var gotURL string
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<embed src=\"/test/html/body/embed/src.found\"></embed>"))
@@ -426,7 +435,7 @@ func TestBodyParsers(t *testing.T) {
 		})
 	})
 
-	t.Run("meta-refresh", func(t *testing.T) {
+	t.Run("meta", func(t *testing.T) {
 		var gotURL string
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<meta http-equiv=\"refresh\" content=\"10; url=/test/html/head/meta/content-redirect.found\">"))
 		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
@@ -434,6 +443,27 @@ func TestBodyParsers(t *testing.T) {
 			gotURL = resp.URL
 		})
 		require.Equal(t, "https://security-crawl-maze.app/test/html/head/meta/content-redirect.found", gotURL, "could not get correct url")
+
+		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<meta http-equiv="Content-Security-Policy" content="script-src 'self'; report-uri /test/html/head/meta/content-csp.found">`))
+		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		bodyMetaContentTagParser(resp, func(resp navigation.Request) {
+			gotURL = resp.URL
+		})
+		require.Equal(t, "https://security-crawl-maze.app/test/html/head/meta/content-csp.found", gotURL, "could not get correct url")
+
+		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<meta name="msapplication-config" content="/test/html/head/meta/content-pinned-websites.found">`))
+		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		bodyMetaContentTagParser(resp, func(resp navigation.Request) {
+			gotURL = resp.URL
+		})
+		require.Equal(t, "https://security-crawl-maze.app/test/html/head/meta/content-pinned-websites.found", gotURL, "could not get correct url")
+
+		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<meta name="copyright" content="<img src='/test/html/head/meta/content-reading-view.found'>">`))
+		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		bodyMetaContentTagParser(resp, func(resp navigation.Request) {
+			gotURL = resp.URL
+		})
+		require.Equal(t, "https://security-crawl-maze.app/test/html/head/meta/content-reading-view.found", gotURL, "could not get correct url")
 	})
 }
 
