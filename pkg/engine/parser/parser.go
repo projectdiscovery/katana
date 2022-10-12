@@ -8,6 +8,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"golang.org/x/net/html"
 )
 
 // responseParserFunc is a function that parses the document returning
@@ -61,9 +62,12 @@ var responseParsers = []responseParser{
 	{bodyParser, bodyFormTagParser},
 	{bodyParser, bodyMetaContentTagParser},
 	{bodyParser, scriptContentRegexParser},
+	{bodyParser, bodyHtmlManifestTagParser},
+	{bodyParser, bodyHtmlDoctypeTagParser},
 
 	// Optional JS relative endpoints parsers
 	{contentParser, scriptJSFileRegexParser},
+	{contentParser, bodyScrapeEndpointsParser},
 }
 
 // parseResponse runs the response parsers on the navigation response
@@ -434,6 +438,31 @@ func bodyButtonFormactionTagParser(resp navigation.Response, callback func(navig
 	})
 }
 
+// bodyHtmlManifestTagParser parses body manifest tag from response
+func bodyHtmlManifestTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	resp.Reader.Find("html[manifest]").Each(func(i int, item *goquery.Selection) {
+		src, ok := item.Attr("manifest")
+		if ok && src != "" {
+			callback(navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "html", "manifest", resp))
+		}
+	})
+}
+
+// bodyHtmlDoctypeTagParser parses body doctype tag from response
+func bodyHtmlDoctypeTagParser(resp navigation.Response, callback func(navigation.Request)) {
+	if len(resp.Reader.Nodes) < 1 || resp.Reader.Nodes[0].FirstChild == nil {
+		return
+	}
+	docTypeNode := resp.Reader.Nodes[0].FirstChild
+	if docTypeNode.Type != html.DoctypeNode {
+		return
+	}
+	if len(docTypeNode.Attr) == 0 || strings.ToLower(docTypeNode.Attr[0].Key) != "system" {
+		return
+	}
+	callback(navigation.NewNavigationRequestURLFromResponse(docTypeNode.Attr[0].Val, resp.Resp.Request.URL.String(), "html", "doctype", resp))
+}
+
 // bodyFormTagParser parses forms from response
 func bodyFormTagParser(resp navigation.Response, callback func(navigation.Request)) {
 	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
@@ -574,5 +603,17 @@ func scriptJSFileRegexParser(resp navigation.Response, callback func(navigation.
 	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
 	for _, item := range endpoints {
 		callback(navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
+	}
+}
+
+// bodyScrapeEndpointsParser parses scraped URLs from HTML body
+func bodyScrapeEndpointsParser(resp navigation.Response, callback func(navigation.Request)) {
+	if !resp.Options.Options.ScrapeJSResponses { // do not process if disabled
+		return
+	}
+
+	endpoints := utils.ExtractBodyEndpoints(string(resp.Body))
+	for _, item := range endpoints {
+		callback(navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "html", "regex", resp))
 	}
 }

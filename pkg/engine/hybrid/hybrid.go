@@ -193,7 +193,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
 			}
-			if resp.Resp == nil || resp.Reader == nil {
+			if resp.Resp == nil && resp.Reader == nil {
 				return
 			}
 			// process the dom-rendered response

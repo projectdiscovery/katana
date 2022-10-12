@@ -3,11 +3,14 @@ package hybrid
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
@@ -24,13 +27,13 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not create target")
 	}
 	defer page.Close()
 
 	pageRouter := page.HijackRequests()
 	if err := pageRouter.Add("*", "", c.makeRoutingHandler(queue, depth, rootHostname, httpclient, parseResponseCallback)); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not add router")
 	}
 	go pageRouter.Run()
 	defer func() {
@@ -46,9 +49,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
 
 	if err := page.Navigate(request.URL); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not navigate target")
 	}
-
 	waitNavigation()
 
 	// Wait for the window.onload event
@@ -63,13 +65,15 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not get html")
 	}
 
+	parsed, _ := url.Parse(request.URL)
+	response.Resp = &http.Response{Header: make(http.Header), Request: &http.Request{URL: parsed}}
 	response.Body = []byte(body)
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(response.Body))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not parse html")
 	}
 
 	return response, nil
