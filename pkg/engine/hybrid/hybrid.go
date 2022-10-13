@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -26,7 +24,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/projectdiscovery/stringsutil"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
@@ -235,45 +232,6 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		queue.Push(nr, nr.Depth)
-	}
-}
-
-// routingHandler intercepts all asyncronous http requests
-func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootHostname string, httpclient *retryablehttp.Client, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
-	return func(ctx *rod.Hijack) {
-		reqURL := ctx.Request.URL()
-		if !utils.IsURL(reqURL.String()) {
-			return
-		}
-
-		// here we can process raw request/response in one pass
-		err := ctx.LoadResponse(httpclient.HTTPClient, true)
-		if err != nil {
-			gologger.Warning().Msgf("\"%s\" on load response: %s\n", reqURL, err)
-		}
-
-		body := ctx.Response.Body()
-
-		httpresp := &http.Response{
-			StatusCode: ctx.Response.Payload().ResponseCode,
-			Status:     ctx.Response.Payload().ResponsePhrase,
-			Header:     ctx.Response.Headers(),
-			Body:       io.NopCloser(strings.NewReader(body)),
-			Request:    ctx.Request.Req(),
-		}
-
-		bodyReader, _ := goquery.NewDocumentFromReader(strings.NewReader(body))
-		resp := navigation.Response{
-			Resp:         httpresp,
-			Body:         []byte(body),
-			Reader:       bodyReader,
-			Options:      c.options,
-			Depth:        depth,
-			RootHostname: rootHostname,
-		}
-
-		// process the raw response
-		parser.ParseResponse(resp, parseRequestCallback)
 	}
 }
 

@@ -11,9 +11,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.17
 	github.com/projectdiscovery/fileutil v0.0.1
-	github.com/projectdiscovery/goflags v0.1.0
+	github.com/projectdiscovery/goflags v0.1.1
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
+	github.com/projectdiscovery/ratelimit v0.0.0-20221004232058-7b82379157fa
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
 	github.com/projectdiscovery/stringsutil v0.0.1
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -21,14 +22,12 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/multierr v1.8.0
-	go.uber.org/ratelimit v0.2.0
 	golang.org/x/net v0.0.0-20220927171203-f486391704dc
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/akrylysov/pogreb v0.10.1 // indirect
-	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
