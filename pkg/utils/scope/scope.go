@@ -72,7 +72,6 @@ func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	// If we have URL rules also consider them
 	if len(m.inScope) > 0 || len(m.outOfScope) > 0 {
 		urlValidated, err := m.validateURL(URL.String())
@@ -92,6 +91,9 @@ func (m *Manager) validateURL(URL string) (bool, error) {
 		if item.MatchString(URL) {
 			return false, nil
 		}
+	}
+	if len(m.inScope) == 0 {
+		return true, nil
 	}
 
 	var inScopeMatched bool
