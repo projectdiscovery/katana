@@ -2,6 +2,7 @@ package runner
 
 import (
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/types"
 )
@@ -24,7 +25,7 @@ func New(options *types.Options) (*Runner, error) {
 		gologger.Info().Msgf("Current version: %s", version)
 		return nil, nil
 	}
-	runner := &Runner{options: options /*stdin: fileutil.HasStdin()*/}
+	runner := &Runner{options: options, stdin: fileutil.HasStdin()}
 
 	if err := initExampleFormFillConfig(); err != nil {
 		return nil, errors.Wrap(err, "could not init default config")
