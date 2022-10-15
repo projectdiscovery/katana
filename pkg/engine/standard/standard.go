@@ -36,12 +36,12 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		headers: options.Options.ParseCustomHeaders(),
 		options: options,
 	}
-	if options.Options.KnownFiles {
+	if options.Options.KnownFiles != "" {
 		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create http client")
 		}
-		crawler.knownFiles = files.New(httpclient)
+		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
 	return crawler, nil
 }

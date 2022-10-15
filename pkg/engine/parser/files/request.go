@@ -13,13 +13,23 @@ type KnownFiles struct {
 }
 
 // New returns a new known files parser instance
-func New(httpclient *retryablehttp.Client) *KnownFiles {
+func New(httpclient *retryablehttp.Client, files string) *KnownFiles {
 	parser := &KnownFiles{
 		httpclient: httpclient,
 	}
-	robotsTxtCrawler := &robotsTxtCrawler{httpclient: httpclient}
-	sitemapXmlCrawler := &sitemapXmlCrawler{httpclient: httpclient}
-	parser.parsers = append(parser.parsers, robotsTxtCrawler.Visit, sitemapXmlCrawler.Visit)
+	switch files {
+	case "robotstxt":
+		crawler := &robotsTxtCrawler{httpclient: httpclient}
+		parser.parsers = append(parser.parsers, crawler.Visit)
+	case "sitemapxml":
+		crawler := &sitemapXmlCrawler{httpclient: httpclient}
+		parser.parsers = append(parser.parsers, crawler.Visit)
+	default:
+		crawler := &robotsTxtCrawler{httpclient: httpclient}
+		parser.parsers = append(parser.parsers, crawler.Visit)
+		another := &sitemapXmlCrawler{httpclient: httpclient}
+		parser.parsers = append(parser.parsers, another.Visit)
+	}
 	return parser
 }
 

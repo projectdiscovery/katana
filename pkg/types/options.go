@@ -51,6 +51,8 @@ type Options struct {
 	FieldScope string
 	// OutputFile is the file to write output to
 	OutputFile string
+	// KnownFiles enables crawling of knows files like robots.txt, sitemap.xml, etc
+	KnownFiles string
 	// Fields is the fields to format in output
 	Fields string
 	// StoreFields is the fields to store in separate per-host files
@@ -59,8 +61,6 @@ type Options struct {
 	NoColors bool
 	// JSON enables writing output in JSON format
 	JSON bool
-	// KnownFiles enables crawling of knows files like robots.txt, sitemap.xml, etc
-	KnownFiles bool
 	// Silent shows only output
 	Silent bool
 	// Verbose specifies showing verbose output

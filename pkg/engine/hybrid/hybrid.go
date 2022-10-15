@@ -93,12 +93,12 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		previousPIDs: previousPIDs,
 		tempDir:      dataStore,
 	}
-	if options.Options.KnownFiles {
+	if options.Options.KnownFiles != "" {
 		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create http client")
 		}
-		crawler.knownFiles = files.New(httpclient)
+		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
 	return crawler, nil
 }
