@@ -159,7 +159,7 @@ func process() error {
 	}
 	fmt.Printf("[info] Total links (%d): Standard=>%d Headless=>%d\n", len(expectedResults), len(links), len(linksHeadless))
 	fmt.Printf("[info] Total: %d NormalMatches=>%d HeadlessMatches=>%d\n", len(expectedResults), matches, matchesHeadless)
-	fmt.Printf("[info] Score: Normal=>%.2f%% Headless=>%.2f%%\n", math.Round(float64(len(links)*100/len(expectedResults))), math.Round(float64(len(linksHeadless)*100/len(expectedResults))))
+	fmt.Printf("[info] Score: Normal=>%.2f%% Headless=>%.2f%%\n", math.Round(float64(matches*100/len(expectedResults))), math.Round(float64(matchesHeadless*100/len(expectedResults))))
 	return nil
 }
 
