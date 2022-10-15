@@ -21,7 +21,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 		Options:      c.options,
 		RootHostname: rootHostname,
 	}
-	ctx = context.WithValue(ctx, "depth", depth)
+	ctx = context.WithValue(ctx, navigation.Depth{}, depth)
 	httpReq, err := http.NewRequestWithContext(ctx, request.Method, request.URL, nil)
 	if err != nil {
 		return response, err

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
 )
@@ -50,7 +51,7 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 			if len(via) == 10 {
 				return errors.New("stopped after 10 redirects")
 			}
-			depth, ok := req.Context().Value("depth").(int)
+			depth, ok := req.Context().Value(navigation.Depth{}).(int)
 			if !ok {
 				depth = 2
 			}

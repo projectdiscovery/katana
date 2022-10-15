@@ -23,7 +23,7 @@ func TestSitemapXmlParseReader(t *testing.T) {
 </sitemap>
 </sitemapindex>`
 	parsed, _ := url.Parse("http://security-crawl-maze.app/sitemap.xml")
-	crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}}, func(r navigation.Request) {
+	_ = crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}}, func(r navigation.Request) {
 		requests = append(requests, r.URL)
 	})
 	require.ElementsMatch(t, requests, []string{
