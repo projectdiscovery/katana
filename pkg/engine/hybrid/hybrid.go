@@ -190,7 +190,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
 			}
-			if resp.Resp == nil && resp.Reader == nil {
+			if resp == nil || resp.Resp == nil && resp.Reader == nil {
 				return
 			}
 			// process the dom-rendered response
@@ -209,7 +209,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if nr.URL == "" || !c.options.UniqueFilter.Unique(nr.RequestURL()) {
+		if nr.URL == "" || !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
 			return
 		}
 

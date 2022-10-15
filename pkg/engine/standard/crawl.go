@@ -63,6 +63,10 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 	if err != nil {
 		return response, err
 	}
+	if !c.options.UniqueFilter.UniqueContent(data) {
+		return navigation.Response{}, nil
+	}
+
 	response.Body = data
 	response.Resp = resp
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))

@@ -61,6 +61,9 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 				Body:   io.NopCloser(strings.NewReader(e.Request.PostData)),
 			},
 		}
+		if !c.options.UniqueFilter.UniqueContent(body) {
+			return FetchContinueRequest(page, e)
+		}
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		resp := navigation.Response{
@@ -124,13 +127,19 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response
 	responseCopy.Body = []byte(builder.String())
+	if !c.options.UniqueFilter.UniqueContent(responseCopy.Body) {
+		return &navigation.Response{}, nil
+	}
+
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
 		parser.ParseResponse(responseCopy, parseResponseCallback)
 	}
 
-	// Parse the outerHTML for element html
 	response.Body = []byte(body)
+	if !c.options.UniqueFilter.UniqueContent(response.Body) {
+		return &navigation.Response{}, nil
+	}
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(response.Body))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse html")

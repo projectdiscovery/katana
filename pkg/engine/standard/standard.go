@@ -136,7 +136,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if nr.URL == "" || !c.options.UniqueFilter.Unique(nr.RequestURL()) {
+		if nr.URL == "" || !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
 			return
 		}
 
