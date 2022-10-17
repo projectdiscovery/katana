@@ -1,6 +1,9 @@
 package filters
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+
 	"github.com/projectdiscovery/hmap/store/hybrid"
 )
 
@@ -21,13 +24,26 @@ func NewSimple() (*Simple, error) {
 	return &Simple{data: hmap}, nil
 }
 
-// Unique returns true if the URL is unique
-func (s *Simple) Unique(url string) bool {
+// UniqueURL returns true if the URL is unique
+func (s *Simple) UniqueURL(url string) bool {
 	_, found := s.data.Get(url)
 	if found {
 		return false
 	}
 	_ = s.data.Set(url, nil)
+	return true
+}
+
+// UniqueContent returns true if the content is unique
+func (s *Simple) UniqueContent(data []byte) bool {
+	hash := md5.Sum([]byte(data))
+	encoded := hex.EncodeToString(hash[:])
+
+	_, found := s.data.Get(encoded)
+	if found {
+		return false
+	}
+	_ = s.data.Set(encoded, nil)
 	return true
 }
 

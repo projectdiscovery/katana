@@ -1,13 +1,13 @@
 package hybrid
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -15,16 +15,15 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
+	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/projectdiscovery/stringsutil"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
@@ -35,20 +34,14 @@ import (
 type Crawler struct {
 	headers      map[string]string
 	options      *types.CrawlerOptions
-	httpclient   *retryablehttp.Client
 	browser      *rod.Browser
-	dialer       *fastdialer.Dialer
+	knownFiles   *files.KnownFiles
 	previousPIDs map[int32]struct{} // track already running PIDs
 	tempDir      string
 }
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	httpclient, dialer, err := common.BuildClient(options.Options)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create http client")
-	}
-
 	dataStore, err := os.MkdirTemp("", "katana-*")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create temporary directory")
@@ -96,19 +89,22 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	crawler := &Crawler{
 		headers:      options.Options.ParseCustomHeaders(),
 		options:      options,
-		dialer:       dialer,
-		httpclient:   httpclient,
 		browser:      browser,
 		previousPIDs: previousPIDs,
 		tempDir:      dataStore,
+	}
+	if options.Options.KnownFiles != "" {
+		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create http client")
+		}
+		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
 	return crawler, nil
 }
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	c.dialer.Close()
-
 	if err := c.browser.Close(); err != nil {
 		return err
 	}
@@ -137,6 +133,23 @@ func (c *Crawler) Crawl(rootURL string) error {
 	queue := queue.New(c.options.Options.Strategy)
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 	parseResponseCallback := c.makeParseResponseCallback(queue)
+
+	if c.knownFiles != nil {
+		if err := c.knownFiles.Request(rootURL, func(nr navigation.Request) {
+			parseResponseCallback(nr)
+		}); err != nil {
+			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
+		}
+	}
+
+	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+		body, _ := io.ReadAll(resp.Body)
+		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not create http client")
+	}
 
 	// for each seed URL we use an incognito isolated session
 	incognitoBrowser, err := c.browser.Incognito()
@@ -172,12 +185,12 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.navigateRequest(ctx, queue, parseResponseCallback, incognitoBrowser, req, hostname)
+			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
 			}
-			if resp.Resp == nil || resp.Reader == nil {
+			if resp == nil || resp.Resp == nil && resp.Reader == nil {
 				return
 			}
 			// process the dom-rendered response
@@ -196,7 +209,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if nr.URL == "" || !c.options.UniqueFilter.Unique(nr.RequestURL()) {
+		if nr.URL == "" || !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
 			return
 		}
 
@@ -219,45 +232,6 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		queue.Push(nr, nr.Depth)
-	}
-}
-
-// makeRoutingHandler intercepts all asyncronous http requests and do them using go net/http
-func (c *Crawler) makeRoutingHandler(queue *queue.VarietyQueue, depth int, rootHostname string, parseRequestCallback func(nr navigation.Request)) func(ctx *rod.Hijack) {
-	return func(ctx *rod.Hijack) {
-		reqURL := ctx.Request.URL()
-		if !utils.IsURL(reqURL.String()) {
-			return
-		}
-
-		// here we can process raw request/response in one pass
-		err := ctx.LoadResponse(c.httpclient.HTTPClient, true)
-		if err != nil {
-			gologger.Warning().Msgf("\"%s\" on load response: %s\n", reqURL, err)
-		}
-
-		body := ctx.Response.Body()
-
-		httpresp := &http.Response{
-			StatusCode: ctx.Response.Payload().ResponseCode,
-			Status:     ctx.Response.Payload().ResponsePhrase,
-			Header:     ctx.Response.Headers(),
-			Body:       io.NopCloser(strings.NewReader(body)),
-			Request:    ctx.Request.Req(),
-		}
-
-		bodyReader, _ := goquery.NewDocumentFromReader(strings.NewReader(body))
-		resp := navigation.Response{
-			Resp:         httpresp,
-			Body:         []byte(body),
-			Reader:       bodyReader,
-			Options:      c.options,
-			Depth:        depth,
-			RootHostname: rootHostname,
-		}
-
-		// process the raw response
-		parser.ParseResponse(resp, parseRequestCallback)
 	}
 }
 

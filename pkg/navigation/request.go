@@ -4,6 +4,9 @@ import (
 	"strings"
 )
 
+// Depth is the depth of a navigation
+type Depth struct{}
+
 // Request is a navigation request for the crawler
 type Request struct {
 	Method    string
