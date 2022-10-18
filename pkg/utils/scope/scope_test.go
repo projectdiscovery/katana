@@ -41,6 +41,15 @@ func TestManagerValidate(t *testing.T) {
 			require.NoError(t, err, "could not validate host")
 			require.True(t, validated, "could not get correct in-scope validation")
 		})
+		t.Run("localhost", func(t *testing.T) {
+			manager, err := NewManager(nil, nil, "rdn", false)
+			require.NoError(t, err, "could not create scope manager")
+
+			parsed, _ := url.Parse("http://localhost:8082/logout.php")
+			validated, err := manager.Validate(parsed, "localhost")
+			require.NoError(t, err, "could not validate host")
+			require.True(t, validated, "could not get correct in-scope validation")
+		})
 		t.Run("fqdn", func(t *testing.T) {
 			manager, err := NewManager(nil, nil, "fqdn", false)
 			require.NoError(t, err, "could not create scope manager")

@@ -83,7 +83,9 @@ func configureOutput(options *types.Options) {
 	if options.Silent {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
 	}
-
+	if options.Verbose {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
+	}
 	// disable standard logger (ref: https://github.com/golang/go/issues/19895)
 	log.SetFlags(0)
 	log.SetOutput(io.Discard)

@@ -2,11 +2,23 @@ package utils
 
 import (
 	"strings"
+
+	"github.com/lukasbob/srcset"
 )
 
 // IsURL returns true if a provided string is URL
 func IsURL(url string) bool {
 	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+}
+
+// ParseSRCSetTag parses srcset tag returning found URLs
+func ParseSRCSetTag(value string) []string {
+	set := srcset.Parse(value)
+	values := make([]string, 0, len(set))
+	for _, item := range set {
+		values = append(values, item.URL)
+	}
+	return values
 }
 
 // ParseLinkTag parses link tag values returning found urls

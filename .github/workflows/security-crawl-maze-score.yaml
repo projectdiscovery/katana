@@ -1,4 +1,5 @@
 name: 🙏🏻 Security Crawl Maze Score
+
 on:
   workflow_dispatch:
 
@@ -20,11 +21,11 @@ jobs:
         working-directory: cmd/katana/
 
       - name: Run Katana Standard
-        run: ./katana -u https://security-crawl-maze.app/ -kf -jc -d 10 -o output_standard.txt -cos node_modules
+        run: ./katana -u https://security-crawl-maze.app/ -kf all -jc -d 10 -o output_standard.txt -cos node_modules
         working-directory: cmd/katana
         
       - name: Run Katana Headless
-        run: ./katana -u https://security-crawl-maze.app/ -kf -jc -d 10 -headless -o output_headless.txt -cos node_modules
+        run: ./katana -u https://security-crawl-maze.app/ -kf all -jc -d 10 -headless -o output_headless.txt -cos node_modules
         working-directory: cmd/katana
 
       - name: Run Score

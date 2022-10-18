@@ -72,7 +72,6 @@ func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	// If we have URL rules also consider them
 	if len(m.inScope) > 0 || len(m.outOfScope) > 0 {
 		urlValidated, err := m.validateURL(URL.String())
@@ -92,6 +91,9 @@ func (m *Manager) validateURL(URL string) (bool, error) {
 		if item.MatchString(URL) {
 			return false, nil
 		}
+	}
+	if len(m.inScope) == 0 {
+		return true, nil
 	}
 
 	var inScopeMatched bool
@@ -131,11 +133,11 @@ func getDomainRDNandRDN(domain string) (string, string, error) {
 	}
 	suffix, _ := publicsuffix.PublicSuffix(domain)
 	if len(domain) <= len(suffix) {
-		return "", "", fmt.Errorf("publicsuffix: cannot derive eTLD+1 for domain %q", domain)
+		return domain, "", nil
 	}
 	i := len(domain) - len(suffix) - 1
 	if domain[i] != '.' {
-		return "", "", fmt.Errorf("publicsuffix: invalid public suffix %q for domain %q", suffix, domain)
+		return domain, "", nil
 	}
 	return domain[1+strings.LastIndex(domain[:i], "."):], domain[1+strings.LastIndex(domain[:i], ".") : len(domain)-len(suffix)-1], nil
 }

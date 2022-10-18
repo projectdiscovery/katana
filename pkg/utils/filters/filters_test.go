@@ -11,9 +11,9 @@ func TestSimpleFilter(t *testing.T) {
 	require.NoError(t, err, "could not create filter")
 	defer simple.Close()
 
-	unique := simple.Unique("https://example.com")
+	unique := simple.UniqueURL("https://example.com")
 	require.True(t, unique, "could not get unique value")
 
-	unique = simple.Unique("https://example.com")
+	unique = simple.UniqueURL("https://example.com")
 	require.False(t, unique, "could get unique value")
 }
