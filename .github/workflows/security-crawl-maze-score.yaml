@@ -1,4 +1,5 @@
 name: 🙏🏻 Security Crawl Maze Score
+
 on:
   workflow_dispatch:
 
