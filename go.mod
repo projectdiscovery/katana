@@ -19,7 +19,7 @@ require (
 	github.com/projectdiscovery/stringsutil v0.0.2
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
-	github.com/shirou/gopsutil/v3 v3.22.9
+	github.com/shirou/gopsutil/v3 v3.22.10
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/multierr v1.8.0
 	golang.org/x/net v0.0.0-20221002022538-bcab6841153b
