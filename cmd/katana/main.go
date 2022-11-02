@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/goflags"
@@ -22,25 +25,28 @@ func main() {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
 
-	if err := process(); err != nil {
-		gologger.Fatal().Msgf("Could not process: %s\n", err)
-	}
-}
-
-func process() error {
 	runner, err := runner.New(options)
-	if err != nil {
-		return errors.Wrap(err, "could not create runner")
-	}
-	if runner == nil {
-		return nil
+	if err != nil || runner == nil {
+		gologger.Fatal().Msgf("could not create runner: %s\n", err)
 	}
 	defer runner.Close()
 
+	// close handler
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-c
+			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
+			runner.Close()
+			os.Exit(0)
+		}()
+	}()
+
 	if err := runner.ExecuteCrawling(); err != nil {
-		return errors.Wrap(err, "could not execute crawling")
+		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
-	return nil
+
 }
 
 func readFlags() error {
