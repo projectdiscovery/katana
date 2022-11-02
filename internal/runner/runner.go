@@ -4,7 +4,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine"
+	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
+	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"go.uber.org/multierr"
 )
 
 // Runner creates the required resources for crawling
@@ -12,8 +16,8 @@ import (
 type Runner struct {
 	crawlerOptions *types.CrawlerOptions
 	stdin          bool
-
-	options *types.Options
+	crawler        engine.Engine
+	options        *types.Options
 }
 
 // New returns a new crawl runner structure
@@ -25,7 +29,6 @@ func New(options *types.Options) (*Runner, error) {
 		gologger.Info().Msgf("Current version: %s", version)
 		return nil, nil
 	}
-	runner := &Runner{options: options, stdin: fileutil.HasStdin()}
 
 	if err := initExampleFormFillConfig(); err != nil {
 		return nil, errors.Wrap(err, "could not init default config")
@@ -42,11 +45,29 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create crawler options")
 	}
-	runner.crawlerOptions = crawlerOptions
+
+	var (
+		crawler engine.Engine
+	)
+
+	switch {
+	case options.Headless:
+		crawler, err = hybrid.New(crawlerOptions)
+	default:
+		crawler, err = standard.New(crawlerOptions)
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create standard crawler")
+	}
+	runner := &Runner{options: options, stdin: fileutil.HasStdin(), crawlerOptions: crawlerOptions, crawler: crawler}
+
 	return runner, nil
 }
 
 // Close closes the runner releasing resources
 func (r *Runner) Close() error {
-	return r.crawlerOptions.Close()
+	return multierr.Combine(
+		r.crawler.Close(),
+		r.crawlerOptions.Close(),
+	)
 }
