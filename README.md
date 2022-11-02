@@ -28,12 +28,10 @@
 
  - Fast And fully configurable web crawling
  - **Standard** and **Headless** mode support
+ - **JavaScript** parsing / crawling
  - Customizable **automatic form filling**
  - Pre-Configured / Regex based **Scope control**
  - Pre-Configured fields for **customizable output**
- - **JavaScript** parsing / crawling
- - Time based crawling execution
- - Request **Rate / Delay** control
  - **URL** / **LIST** input support
  - STD **IN/OUT** and **TXT/JSON** output
 
@@ -104,6 +102,36 @@ OUTPUT:
    -v, -verbose               display verbose output
    -version                   display project version
 ```
+
+## Running Katana
+
+### Input for katana
+
+**katana** requires **url** or **endpoint** to crawl and accepts single or multiple inputs.
+
+Input URL can be provided using `-u` option, and multiple values can be provided using comma-separated input, similarly **file** input is supported using `-list` option and additionally piped input (stdin) is also supported.
+
+
+```sh
+katana -u https://tesla.com # Single URL input
+```
+
+```sh
+katana -u https://tesla.com,https://google.com # Multiple URL input (comma-separated)
+```
+
+```sh
+katana -list url_list.txt # List input
+```
+
+```sh
+echo https://tesla.com | katana # STDIN (piped) input
+```
+
+```sh
+cat domains | httpx | katana # STDIN (piped) input
+```
+
 
 ## Crawl Mode
 
