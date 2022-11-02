@@ -19,6 +19,7 @@ var FieldNames = []string{
 	"rdn",
 	"rurl",
 	"qurl",
+	"qpath",
 	"file",
 	"key",
 	"value",
@@ -106,8 +107,10 @@ func formatField(output *Result, fields string) string {
 	}
 	if len(queryKeys) > 0 {
 		values = append(values, "qurl", output.URL)
+		values = append(values, "qpath", fmt.Sprintf("%s?%s", parsed.Path, parsed.Query().Encode()))
 	} else {
 		values = append(values, "qurl", "")
+		values = append(values, "qpath", "")
 	}
 	if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
 		values = append(values, "key", strings.Join(queryKeys, "\n"))
@@ -158,6 +161,10 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 	case "udir":
 		if parsed.Path != "" && parsed.Path != "/" && strings.Contains(parsed.Path[1:], "/") {
 			return fmt.Sprintf("%s%s", rurl, parsed.Path[:strings.LastIndex(parsed.Path[1:], "/")+2])
+		}
+	case "qpath":
+		if len(parsed.Query()) > 0 {
+			return fmt.Sprintf("%s?%s", parsed.Path, parsed.Query().Encode())
 		}
 	case "qurl":
 		if len(parsed.Query()) > 0 {
