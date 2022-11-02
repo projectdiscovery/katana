@@ -1,7 +1,10 @@
-FROM golang:1.19.2-alpine as build-env
-RUN go install -v github.com/projectdiscovery/katana/cmd/katana@latest
+FROM golang:1.19.2-alpine AS builder
+RUN apk add --no-cache git
+RUN go install -v github.com/projectdiscovery/katana/cmd/httpx@latest
 
 FROM alpine:3.16.2
-RUN apk add --no-cache bind-tools ca-certificates chromium
-COPY --from=build-env /go/bin/katana /usr/local/bin/katana
+RUN apk -U upgrade --no-cache \
+    && apk add --no-cache bind-tools ca-certificates
+COPY --from=builder /go/bin/katana /usr/local/bin/
+
 ENTRYPOINT ["katana"]
