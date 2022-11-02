@@ -14,7 +14,7 @@ require (
 	github.com/projectdiscovery/goflags v0.1.3
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
-	github.com/projectdiscovery/ratelimit v0.0.0-20221004232058-7b82379157fa
+	github.com/projectdiscovery/ratelimit v0.0.1
 	github.com/projectdiscovery/retryablehttp-go v1.0.2
 	github.com/projectdiscovery/stringsutil v0.0.2
 	github.com/remeh/sizedwaitgroup v1.0.0
