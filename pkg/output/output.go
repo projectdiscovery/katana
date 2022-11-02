@@ -61,7 +61,7 @@ type Result struct {
 	Attribute string `json:"attribute,omitempty"`
 }
 
-const storeFieldsDirectory = "katana_outputs"
+const storeFieldsDirectory = "katana_output"
 
 // New returns a new output writer instance
 func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, error) {
