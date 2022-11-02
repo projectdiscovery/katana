@@ -1,0 +1,30 @@
+name: 🎉 Release Binary
+on:
+  create:
+    tags:
+      - v*
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Check out code"
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      
+      - name: "Set up Go"
+        uses: actions/setup-go@v3
+        with: 
+          go-version: 1.18
+      
+      - name: "Create release on GitHub"
+        uses: goreleaser/goreleaser-action@v3
+        with: 
+          args: "release --rm-dist"
+          version: latest
+          workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          SLACK_WEBHOOK: "${{ secrets.RELEASE_SLACK_WEBHOOK }}"
