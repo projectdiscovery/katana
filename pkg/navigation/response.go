@@ -35,9 +35,6 @@ func (n Response) AbsoluteURL(path string) string {
 	if err != nil {
 		return ""
 	}
-	if validated, err := n.validateScope(absURL); err != nil || !validated {
-		return ""
-	}
 	absURL.Fragment = ""
 	if absURL.Scheme == "//" {
 		absURL.Scheme = n.Resp.Request.URL.Scheme
@@ -53,9 +50,14 @@ func (n Response) validatePath(path string) bool {
 	return true
 }
 
-func (n Response) validateScope(absURL *url.URL) (bool, error) {
+// ValidateScope validates scope for an AbsURL
+func (n Response) ValidateScope(absURL string) (bool, error) {
+	parsed, err := url.Parse(absURL)
+	if err != nil {
+		return false, err
+	}
 	if n.Options != nil && n.Options.ScopeManager != nil {
-		return n.Options.ScopeManager.Validate(absURL, n.RootHostname)
+		return n.Options.ScopeManager.Validate(parsed, n.RootHostname)
 	}
 	return true, nil
 }

@@ -15,6 +15,8 @@ type Options struct {
 	OutOfScope goflags.StringSlice
 	// NoScope disables host based default scope
 	NoScope bool
+	// DisplayOutScope displays out of scope items in results
+	DisplayOutScope bool
 	// Extensions is a list of extensions to be allowed. Can be * for all extensions.
 	Extensions goflags.StringSlice
 	// ExtensionsAllowList contains any extensions to allow from default deny list
