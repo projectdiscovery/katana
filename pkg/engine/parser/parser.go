@@ -524,12 +524,13 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 		}
 
 		req := navigation.Request{
-			Method:    method,
-			URL:       actionURL,
-			Depth:     resp.Depth,
-			Tag:       "form",
-			Attribute: "action",
-			Source:    resp.Resp.Request.URL.String(),
+			Method:       method,
+			URL:          actionURL,
+			Depth:        resp.Depth,
+			RootHostname: resp.RootHostname,
+			Tag:          "form",
+			Attribute:    "action",
+			Source:       resp.Resp.Request.URL.String(),
 		}
 		switch method {
 		case "GET":
