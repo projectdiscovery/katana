@@ -86,8 +86,8 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
-   -f, -fields string               field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
-   -sf, -store-fields string        field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -f, -field string               field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -sf, -store-field string        field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -e, -extension string[]          extensions to be explicitly allowed for crawling (* means all - default)
    -extensions-allow-list string[]  extensions to allow from default deny list
    -extensions-deny-list string[]   custom extensions for the crawl extensions deny list
