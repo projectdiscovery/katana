@@ -87,8 +87,8 @@ pipelines offering both headless and non-headless crawling.`)
 
 	availableFields := strings.Join(output.FieldNames, ",")
 	flagSet.CreateGroup("filter", "Filter",
-		flagSet.StringVarP(&options.Fields, "fields", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
-		flagSet.StringVarP(&options.StoreFields, "store-fields", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
+		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
+		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.Extensions, "extension", "e", nil, "extensions to be explicitly allowed for crawling (* means all - default)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionsAllowList, "extensions-allow-list", nil, "extensions to allow from default deny list", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.ExtensionDenyList, "extensions-deny-list", nil, "custom extensions for the crawl extensions deny list", goflags.CommaSeparatedStringSliceOptions),
