@@ -406,7 +406,7 @@ katana -u https://example.com -json -do | jq .
 ```json
 {
   "timestamp": "2022-11-05T22:33:27.745815+05:30",
-  "url": "https://www.iana.org/domains/example",
+  "endpoint": "https://www.iana.org/domains/example",
   "source": "https://example.com",
   "tag": "a",
   "attribute": "href"
