@@ -354,6 +354,10 @@ https_www.tesla.com_key.txt
 https_www.tesla.com_qurl.txt
 ```
 
+<table>
+<tr>
+<td>  
+
 > **Note**: 
 
 > `store-field` option can come handy to collect information to build a target aware wordlist for followings but not limited to - 
@@ -362,6 +366,10 @@ https_www.tesla.com_qurl.txt
 - Most / commonly used **paths**
 - Most / commonly **files**
 - Related / unknown **sub(domains)**
+
+</td>
+</tr>
+</table>
 
 Here are additonal filter options -
 
