@@ -70,12 +70,12 @@ CONFIGURATION:
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
-   -config string                path to the nuclei configuration file
+   -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
 
 HEADLESS:
-   -he, -headless       enable experimental headless hybrid crawling (process in one pass raw http requests/responses and dom-javascript web pages in browser context)
-   -sc, -system-chrome  Use local installed chrome browser instead of nuclei installed
+   -hl, -headless       enable experimental headless hybrid crawling
+   -sc, -system-chrome  use local installed chrome browser instead of katana installed
    -sb, -show-browser   show the browser on the screen with headless mode
 
 SCOPE:

@@ -68,7 +68,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVar(&options.Retries, "retry", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
-		flagSet.StringVar(&cfgFile, "config", "", "path to the nuclei configuration file"),
+		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
 	)
 
