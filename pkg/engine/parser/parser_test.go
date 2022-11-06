@@ -450,10 +450,12 @@ func TestBodyParsers(t *testing.T) {
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/button/formaction.found", gotURL, "could not get correct url")
 	})
 	t.Run("form", func(t *testing.T) {
+		opts := &types.CrawlerOptions{Options: &types.Options{AutomaticFormFill: true}}
+
 		t.Run("get", func(t *testing.T) {
 			var gotURL string
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-get.found\" method=\"GET\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader, Options: opts}
 			bodyFormTagParser(resp, func(resp navigation.Request) {
 				gotURL = resp.URL
 			})
@@ -463,7 +465,7 @@ func TestBodyParsers(t *testing.T) {
 			var gotURL string
 			var method string
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-post.found\" method=\"POST\" enctype=\"multipart/form-data\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader, Options: opts}
 			bodyFormTagParser(resp, func(resp navigation.Request) {
 				gotURL = resp.URL
 				method = resp.Method
