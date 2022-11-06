@@ -155,7 +155,13 @@ cat domains | httpx | katana
 
 ### Standard Mode
 
+Standard crawling modality uses the standard go http library under the hood to handle HTTP requests/responses. This modality is much faster as it doesn't have the browser overhead. Still, it analyzes HTTP responses body as is, without any javascript or DOM rendering, potentially missing post-dom-rendered endpoints or asynchronous endpoint calls that might happen in complex web applications depending, for example, on browser-specific events.
+
 ### Headless Mode
+
+Headless mode hooks internal headless calls to handle HTTP requests/responses directly within the browser context. This offers two advantages:
+- The HTTP fingerprint (TLS and user agent) fully identify the client as a legitimate browser
+- Better coverage since the endpoints are discovered analyzing the standard raw response, as in the previous modality, and also the browser-rendered one with javascript enabled
 
 ## Scope Control
 
