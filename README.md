@@ -378,7 +378,7 @@ CONFIGURATION:
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
-   -config string                path to the nuclei configuration file
+   -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
 ```
 
