@@ -67,6 +67,7 @@ CONFIGURATION:
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -mrs, -max-response-size int  maximum response size to read (default 2097152)
    -timeout int                  time to wait for request in seconds (default 10)
+   -aff, -automatic-form-fill    enable optional automatic form filling (experimental)
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
@@ -74,7 +75,7 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
 
 HEADLESS:
-   -hl, -headless       enable experimental headless hybrid crawling
+   -hl, -headless       enable headless hybrid crawling (experimental)
    -sc, -system-chrome  use local installed chrome browser instead of katana installed
    -sb, -show-browser   show the browser on the screen with headless mode
 
@@ -86,8 +87,8 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
-   -f, -field string               field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
-   -sf, -store-field string        field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 
@@ -370,7 +371,7 @@ Option to enable automatic form filling for known / unknown fields, known field 
 Automatic form filling is experimental feature.
 
 ```
-   -aff, -automatic-form-fill  enable optional automatic form filling
+   -aff, -automatic-form-fill  enable optional automatic form filling (experimental)
 ```
 
 There are more options to configure when needed, here is all the config related CLI options - 
