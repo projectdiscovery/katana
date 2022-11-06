@@ -34,7 +34,7 @@ type CrawlerOptions struct {
 // NewCrawlerOptions creates a new crawler options structure
 // from user specified options.
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
-	extensionsValidator := extensions.NewValidator(options.Extensions, options.ExtensionsAllowList, options.ExtensionDenyList)
+	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter)
 
 	fastdialerInstance, err := fastdialer.NewDialer(fastdialer.DefaultOptions)
 	if err != nil {

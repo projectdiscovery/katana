@@ -11,56 +11,50 @@ var defaultDenylist = []string{".3g2", ".3gp", ".7z", ".apk", ".arj", ".avi", ".
 
 // Validator is a validator for file extension
 type Validator struct {
-	allExtensions  bool
-	extensions     map[string]struct{}
-	extensionsDeny map[string]struct{}
+	extensionsMatch  map[string]struct{}
+	extensionsFilter map[string]struct{}
 }
 
 // NewValidator creates a new extension validator instance
-func NewValidator(extensions, extensionsAllowlist, extensionsDenyList []string) *Validator {
+func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 	validator := &Validator{
-		extensions:     make(map[string]struct{}),
-		extensionsDeny: make(map[string]struct{}),
+		extensionsMatch:  make(map[string]struct{}),
+		extensionsFilter: make(map[string]struct{}),
 	}
 
 	extensionNormalize := func(extension string) string {
+		extension = strings.ToLower(extension)
 		if !strings.HasPrefix(extension, ".") {
 			return fmt.Sprintf(".%s", extension)
 		}
 		return extension
 	}
-	for _, extension := range extensions {
-		if extension == "*" {
-			validator.allExtensions = true
-		} else {
-			validator.extensions[extensionNormalize(extension)] = struct{}{}
-		}
+
+	for _, extension := range extensionsMatch {
+		validator.extensionsMatch[extensionNormalize(extension)] = struct{}{}
 	}
-	for _, extension := range defaultDenylist {
-		validator.extensionsDeny[extensionNormalize(extension)] = struct{}{}
+	for _, item := range defaultDenylist {
+		validator.extensionsFilter[extensionNormalize(item)] = struct{}{}
 	}
-	for _, extension := range extensionsDenyList {
-		validator.extensionsDeny[extensionNormalize(extension)] = struct{}{}
-	}
-	for _, extension := range extensionsAllowlist {
-		delete(validator.extensionsDeny, extensionNormalize(extension))
+	for _, extension := range extensionsFilter {
+		validator.extensionsFilter[extensionNormalize(extension)] = struct{}{}
 	}
 	return validator
 }
 
 // ValidatePath returns true if an extension is allowed by the validator
 func (e *Validator) ValidatePath(item string) bool {
-	extension := path.Ext(item)
+	extension := strings.ToLower(path.Ext(item))
 	if extension == "" {
 		return true
 	}
-	if len(e.extensions) > 0 && !e.allExtensions {
-		if _, ok := e.extensions[extension]; ok {
+	if len(e.extensionsMatch) > 0 {
+		if _, ok := e.extensionsMatch[extension]; ok {
 			return true
 		}
 		return false
 	}
-	if _, ok := e.extensionsDeny[extension]; ok {
+	if _, ok := e.extensionsFilter[extension]; ok {
 		return false
 	}
 	return true

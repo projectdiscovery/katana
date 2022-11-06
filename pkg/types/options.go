@@ -15,12 +15,10 @@ type Options struct {
 	OutOfScope goflags.StringSlice
 	// NoScope disables host based default scope
 	NoScope bool
-	// Extensions is a list of extensions to be allowed. Can be * for all extensions.
-	Extensions goflags.StringSlice
-	// ExtensionsAllowList contains any extensions to allow from default deny list
-	ExtensionsAllowList goflags.StringSlice
-	// ExtensionDenyList contains additional items for deny list
-	ExtensionDenyList goflags.StringSlice
+	// ExtensionsMatch contains extensions to match explicitly
+	ExtensionsMatch goflags.StringSlice
+	// ExtensionFilter contains additional items for filter list
+	ExtensionFilter goflags.StringSlice
 	// MaxDepth is the maximum depth to crawl
 	MaxDepth int
 	// BodyReadSize is the maximum size of response body to read
