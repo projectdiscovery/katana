@@ -15,6 +15,8 @@ type Options struct {
 	OutOfScope goflags.StringSlice
 	// NoScope disables host based default scope
 	NoScope bool
+	// DisplayOutScope displays out of scope items in results
+	DisplayOutScope bool
 	// ExtensionsMatch contains extensions to match explicitly
 	ExtensionsMatch goflags.StringSlice
 	// ExtensionFilter contains additional items for filter list
@@ -71,6 +73,8 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// AutomaticFormFill enables optional automatic form filling and submission
+	AutomaticFormFill bool
 	// UseInstalledChrome skips chrome install and use local instance
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
