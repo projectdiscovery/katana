@@ -161,7 +161,7 @@ cat domains | httpx | katana
 
 Crawling can be endless if not scoped, as such katana comes with multiple support to define the crawl scope.
 
-*field-scope*
+*`-field-scope`*
 ----
 Most handy option to define scope with predefined field name, `rdn` being default option for field scope.
 
@@ -174,7 +174,7 @@ katana -u https://tesla.com -fs dn
 ```
 
 
-*crawl-scope*
+*`-crawl-scope`*
 ------
 
 For advanced scope control, `-cs` option can be used that comes with **regex** support.
@@ -184,7 +184,7 @@ katana -u https://tesla.com -cs login
 ```
 
 
-*crawl-out-scope*
+*`-crawl-out-scope`*
 -----
 
 For defining what not to crawl, `-cos` option can be used and also support **regex** input.
@@ -193,7 +193,7 @@ For defining what not to crawl, `-cos` option can be used and also support **reg
 katana -u https://tesla.com -cs logout
 ```
 
-*no-scope*
+*`-no-scope`*
 ----
 
 Katana is default to scope `*.domain`, to disable this `-ns` option can be used and also to crawl the internet.
@@ -202,7 +202,7 @@ Katana is default to scope `*.domain`, to disable this `-ns` option can be used 
 katana -u https://tesla.com -ns
 ```
 
-*display-out-scope*
+*`-display-out-scope`*
 ----
 
 As default, when scope option is used, it also applies for the links to display as output, as such **external URLs are default to exclude** and to overwrite this behavior, `-do` option can be used to display all the external URLs that exist in targets scoped URL / Endpoint.
@@ -231,7 +231,7 @@ SCOPE:
 
 Katana comes with multiple options to configure and control the crawl as the way we want.
 
-*depth*
+*`-depth`*
 ----
 
 Option to define the `depth` to follow the urls for crawling, the more depth the more number of endpoint being crawled + time for crawl.
@@ -240,7 +240,7 @@ Option to define the `depth` to follow the urls for crawling, the more depth the
 katana -u https://tesla.com -d 5
 ```
 
-*js-crawl*
+*`-js-crawl`*
 ----
 
 Option to enable JavaScript file parsing + crawling the endpoints discovered in JavaScript files, disabled as default.
@@ -249,18 +249,18 @@ Option to enable JavaScript file parsing + crawling the endpoints discovered in 
 katana -u https://tesla.com -jc
 ```
 
-*crawl-duration*
+*`-crawl-duration`*
 ----
 
-Option to predefined crawl duration.
+Option to predefined crawl duration, disabled as default.
 
 ```
 katana -u https://tesla.com -ct 2
 ```
 
-*known-files*
+*`-known-files`*
 ----
-Option to crawl `robots.txt` and `sitemap.xml` file.
+Option to enable crawling `robots.txt` and `sitemap.xml` file, disabled as default.
 
 ```
 katana -u https://tesla.com -kf robotstxt,sitemapxml
@@ -286,12 +286,15 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
 ```
 
-## Field
+## Filters
+
+*`-field`*
+----
 
 Katana comes with build in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
 
 ```
-   -f, -fields string  field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -f, -field string  field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
 ```
 
 Here is a table with examples of each field and expected output when used - 
@@ -328,6 +331,9 @@ https://www.tesla.com/about/legal?redirect=no
 https://www.tesla.com/findus/list?redirect=no
 ```
 
+*`-store-field`*
+---
+
 To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_output` directory sorted by target url.
 
 ```
@@ -351,32 +357,59 @@ https_www.tesla.com_qurl.txt
 - Most / commonly **files**
 - Related / unknown **sub(domains)**
 
+Here are additonal filter options -
+
+```console
+   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
+   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
+```
+
 
 ## Rate Limit & Delay
 
 It's easy to get blocked / banned while crawling if not following target websites limits, katana comes with multiple option to tune the crawl to go as fast / slow we want.
 
-*delay*
+*`-delay`*
 -----
 
 option to introduce a delay in seconds between each new request katana makes while crawling, disabled as default.
 
-*concurrency*
------
-option to control the number of fetchers to use.
+```
+katana -u https://tesla.com -delay 20
+```
 
-*parallelism*
+*`-concurrency`*
+-----
+option to control the number of urls per target to fetch at the same time.
+
+```
+katana -u https://tesla.com -c 20
+```
+
+
+*`-parallelism`*
 -----
 option to define number of target to process at same time from list input.
 
-*rate-limit*
+```
+katana -u https://tesla.com -p 20
+```
+
+*`-rate-limit`*
 -----
 option to use to define max number of request can go out per second.
 
-*rate-limit-minute*
+```
+katana -u https://tesla.com -rl 100
+```
+
+*`-rate-limit-minute`*
 -----
 option to use to define max number of request can go out per minute.
 
+```
+katana -u https://tesla.com -rlm 500
+```
 
 Here is all long / short CLI options for rate limit control -
 
@@ -394,7 +427,7 @@ RATE-LIMIT:
 
 ## Output
 
-*json*
+*`-json`*
 ---
 
 Katana support both file output in plain text format as well as JSON which includes additional information like, `source`, `tag`, and `attribute` name to co-related the discovered endpoint.
@@ -413,7 +446,7 @@ katana -u https://example.com -json -do | jq .
 }
 ```
 
-Here is additional CLI options related to output -
+Here are additional CLI options related to output -
 
 ```conosle
 katana -h output
@@ -426,3 +459,14 @@ OUTPUT:
    -v, -verbose        display verbose output
    -version  
 ```
+
+--------
+
+<div align="center">
+
+katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE).
+
+
+<a href="https://discord.gg/projectdiscovery"><img src="https://raw.githubusercontent.com/projectdiscovery/nuclei-burp-plugin/main/static/join-discord.png" width="300" alt="Join Discord"></a>
+
+</div>
