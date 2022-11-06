@@ -362,6 +362,17 @@ Option to enable crawling `robots.txt` and `sitemap.xml` file, disabled as defau
 katana -u https://tesla.com -kf robotstxt,sitemapxml
 ```
 
+*`-automatic-form-fill`*
+----
+
+Option to enable automatic form filling for known / unknown fields, known field values can be customized as needed by updating form config file at `$HOME/.config/katana/form-config.yaml`.
+
+Automatic form filling is experimental feature.
+
+```
+   -aff, -automatic-form-fill  enable optional automatic form filling
+```
+
 There are more options to configure when needed, here is all the config related CLI options - 
 
 ```console
