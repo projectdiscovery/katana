@@ -160,8 +160,11 @@ func (c *Crawler) Crawl(rootURL string) error {
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
 	for {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		// Quit the crawling for zero items or context timeout
-		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0 || ctx.Err() != nil) {
+		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0) {
 			break
 		}
 		item := queue.Pop()
@@ -205,11 +208,15 @@ func (c *Crawler) Crawl(rootURL string) error {
 // makeParseResponseCallback returns a parse response function callback
 func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigation.Request) {
 	return func(nr navigation.Request) {
-		if !utils.IsURL(nr.URL) {
+		if nr.URL == "" || !utils.IsURL(nr.URL) {
+			return
+		}
+		parsed, err := url.Parse(nr.URL)
+		if err != nil {
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if nr.URL == "" || !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
 			return
 		}
 
@@ -225,10 +232,16 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if nr.Method != http.MethodGet {
 			result.Method = nr.Method
 		}
-		_ = c.options.OutputWriter.Write(result)
+		scopeValidated, err := c.options.ScopeManager.Validate(parsed, nr.RootHostname)
+		if err != nil {
+			return
+		}
+		if scopeValidated || c.options.Options.DisplayOutScope {
+			_ = c.options.OutputWriter.Write(result)
+		}
 
 		// Do not add to crawl queue if max items are reached
-		if nr.Depth >= c.options.Options.MaxDepth {
+		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
 			return
 		}
 		queue.Push(nr, nr.Depth)
