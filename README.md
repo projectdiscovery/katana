@@ -418,6 +418,8 @@ Here are additonal filter options -
 ```console
    -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
+   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
+   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 ```
 
 
