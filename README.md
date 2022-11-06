@@ -88,9 +88,8 @@ SCOPE:
 FILTER:
    -f, -field string               field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -sf, -store-field string        field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
-   -e, -extension string[]          extensions to be explicitly allowed for crawling (* means all - default)
-   -extensions-allow-list string[]  extensions to allow from default deny list
-   -extensions-deny-list string[]   custom extensions for the crawl extensions deny list
+   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
+   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -129,8 +128,8 @@ katana -u https://tesla.com,https://google.com
 ```
 
 #### List Input
-```sh
-cat url_list.txt
+```bash
+$ cat url_list.txt
 
 https://tesla.com
 https://google.com
@@ -150,12 +149,61 @@ echo https://tesla.com | katana
 cat domains | httpx | katana
 ```
 
+Example running katana -
+
+```console
+katana -u https://youtube.com
+
+   __        __                
+  / /_____ _/ /____ ____  ___ _
+ /  '_/ _  / __/ _  / _ \/ _  /
+/_/\_\\_,_/\__/\_,_/_//_/\_,_/ v0.0.1                     
+
+      projectdiscovery.io
+
+[WRN] Use with caution. You are responsible for your actions.
+[WRN] Developers assume no liability and are not responsible for any misuse or damage.
+https://www.youtube.com/
+https://www.youtube.com/about/
+https://www.youtube.com/about/press/
+https://www.youtube.com/about/copyright/
+https://www.youtube.com/t/contact_us/
+https://www.youtube.com/creators/
+https://www.youtube.com/ads/
+https://www.youtube.com/t/terms
+https://www.youtube.com/t/privacy
+https://www.youtube.com/about/policies/
+https://www.youtube.com/howyoutubeworks?utm_campaign=ytgen&utm_source=ythp&utm_medium=LeftNav&utm_content=txt&u=https%3A%2F%2Fwww.youtube.com%2Fhowyoutubeworks%3Futm_source%3Dythp%26utm_medium%3DLeftNav%26utm_campaign%3Dytgen
+https://www.youtube.com/new
+https://m.youtube.com/
+https://www.youtube.com/s/desktop/4965577f/jsbin/desktop_polymer.vflset/desktop_polymer.js
+https://www.youtube.com/s/desktop/4965577f/cssbin/www-main-desktop-home-page-skeleton.css
+https://www.youtube.com/s/desktop/4965577f/cssbin/www-onepick.css
+https://www.youtube.com/s/_/ytmainappweb/_/ss/k=ytmainappweb.kevlar_base.0Zo5FUcPkCg.L.B1.O/am=gAE/d=0/rs=AGKMywG5nh5Qp-BGPbOaI1evhF5BVGRZGA
+https://www.youtube.com/opensearch?locale=en_GB
+https://www.youtube.com/manifest.webmanifest
+https://www.youtube.com/s/desktop/4965577f/cssbin/www-main-desktop-watch-page-skeleton.css
+https://www.youtube.com/s/desktop/4965577f/jsbin/web-animations-next-lite.min.vflset/web-animations-next-lite.min.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/custom-elements-es5-adapter.vflset/custom-elements-es5-adapter.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/webcomponents-sd.vflset/webcomponents-sd.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/intersection-observer.min.vflset/intersection-observer.min.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/scheduler.vflset/scheduler.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/www-i18n-constants-en_GB.vflset/www-i18n-constants.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/www-tampering.vflset/www-tampering.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/spf.vflset/spf.js
+https://www.youtube.com/s/desktop/4965577f/jsbin/network.vflset/network.js
+https://www.youtube.com/howyoutubeworks/
+https://www.youtube.com/trends/
+https://www.youtube.com/jobs/
+https://www.youtube.com/kids/
+```
+
 
 ## Crawling Mode
 
 ### Standard Mode
 
-Standard crawling modality uses the standard go http library under the hood to handle HTTP requests/responses. This modality is much faster as it doesn't have the browser overhead. Still, it analyzes HTTP responses body as is, without any javascript or DOM rendering, potentially missing post-dom-rendered endpoints or asynchronous endpoint calls that might happen in complex web applications depending, for example, on browser-specific events, standard crawling mode is used as default.
+Standard crawling modality uses the standard go http library under the hood to handle HTTP requests/responses. This modality is much faster as it doesn't have the browser overhead. Still, it analyzes HTTP responses body as is, without any javascript or DOM rendering, potentially missing post-dom-rendered endpoints or asynchronous endpoint calls that might happen in complex web applications depending, for example, on browser-specific events.
 
 ### Headless Mode
 
@@ -205,8 +253,8 @@ katana -u https://tesla.com -cs login
 
 For multiple in scope rules, file input with multiline string / regex can be passed.
 
-```
-cat in_scope.txt
+```bash
+$ cat in_scope.txt
 
 login/
 admin/
@@ -230,8 +278,8 @@ katana -u https://tesla.com -cs logout
 
 For multiple out of scope rules, file input with multiline string / regex can be passed.
 
-```
-cat out_of_scope.txt
+```bash
+$ cat out_of_scope.txt
 
 /logout
 /log_out
@@ -389,7 +437,7 @@ katana -u https://tesla.com -sf key,fqdn,qurl -silent
 ```
 
 ```bash
-ls katana_output/
+$ ls katana_output/
 
 https_www.tesla.com_fqdn.txt
 https_www.tesla.com_key.txt
