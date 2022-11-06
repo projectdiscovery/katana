@@ -466,6 +466,9 @@ func bodyHtmlDoctypeTagParser(resp navigation.Response, callback func(navigation
 // bodyFormTagParser parses forms from response
 func bodyFormTagParser(resp navigation.Response, callback func(navigation.Request)) {
 	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
+		if !resp.Options.Options.AutomaticFormFill {
+			return
+		}
 		href, _ := item.Attr("action")
 		encType, ok := item.Attr("enctype")
 		if !ok || encType == "" {
