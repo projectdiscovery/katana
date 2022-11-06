@@ -203,6 +203,21 @@ For advanced scope control, `-cs` option can be used that comes with **regex** s
 katana -u https://tesla.com -cs login
 ```
 
+For multiple in scope rules, file input with multiline string / regex can be passed.
+
+```
+cat in_scope.txt
+
+login/
+admin/
+app/
+wordpress/
+```
+
+```
+katana -u https://tesla.com -cs in_scope.txt
+```
+
 
 *`-crawl-out-scope`*
 -----
@@ -211,6 +226,19 @@ For defining what not to crawl, `-cos` option can be used and also support **reg
 
 ```
 katana -u https://tesla.com -cs logout
+```
+
+For multiple out of scope rules, file input with multiline string / regex can be passed.
+
+```
+cat out_of_scope.txt
+
+/logout
+/log_out
+```
+
+```
+katana -u https://tesla.com -cs out_of_scope.txt
 ```
 
 *`-no-scope`*
