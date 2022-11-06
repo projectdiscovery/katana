@@ -160,8 +160,11 @@ func (c *Crawler) Crawl(rootURL string) error {
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
 	for {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		// Quit the crawling for zero items or context timeout
-		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0 || ctx.Err() != nil) {
+		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0) {
 			break
 		}
 		item := queue.Pop()
