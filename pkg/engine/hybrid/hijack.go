@@ -18,7 +18,7 @@ func NewHijack(page *rod.Page) *Hijack {
 // HijackHandler type
 type HijackHandler = func(e *proto.FetchRequestPaused) error
 
-// HijackOnce is a one-time hijack.
+// Hijack is a hijack handler
 type Hijack struct {
 	page    *rod.Page
 	enable  *proto.FetchEnable
