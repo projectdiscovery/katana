@@ -104,7 +104,6 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 			if key != "" && value != "" {
 				optionalArguments[key] = value
 			}
-
 		}
 	}
 	return optionalArguments
