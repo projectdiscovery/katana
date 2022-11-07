@@ -49,6 +49,7 @@ func TestParseCustomHeaders(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			strsl := goflags.StringSlice{}
 			for _, v := range strings.Split(tt.input, ",") {
+				//nolint
 				strsl.Set(v)
 			}
 			opt := Options{CustomHeaders: strsl}
@@ -99,6 +100,7 @@ func TestParseHeadlessOptionalArguments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			strsl := goflags.StringSlice{}
 			for _, v := range strings.Split(tt.input, ",") {
+				//nolint
 				strsl.Set(v)
 			}
 			opt := Options{HeadlessOptionalArguments: strsl}
