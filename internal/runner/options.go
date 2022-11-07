@@ -29,6 +29,9 @@ func validateOptions(options *types.Options) error {
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
 		return errors.New("no inputs specified for crawler")
 	}
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox) && !options.Headless {
+		return errors.New("headless mode (-hl) is required if -hoa or -hns are set")
+	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
 }
