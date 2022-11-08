@@ -1,6 +1,6 @@
 FROM golang:1.19.3-alpine AS builder
 RUN apk add --no-cache git
-RUN go install -v github.com/projectdiscovery/katana/cmd/httpx@latest
+RUN go install -v github.com/projectdiscovery/katana/cmd/katana@latest
 
 FROM alpine:3.16.2
 RUN apk -U upgrade --no-cache \

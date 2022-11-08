@@ -276,7 +276,7 @@ katana -u https://tesla.com -cs in_scope.txt
 For defining what not to crawl, `-cos` option can be used and also support **regex** input.
 
 ```
-katana -u https://tesla.com -cs logout
+katana -u https://tesla.com -cos logout
 ```
 
 For multiple out of scope rules, file input with multiline string / regex can be passed.
@@ -289,7 +289,7 @@ $ cat out_of_scope.txt
 ```
 
 ```
-katana -u https://tesla.com -cs out_of_scope.txt
+katana -u https://tesla.com -cos out_of_scope.txt
 ```
 
 *`-no-scope`*
