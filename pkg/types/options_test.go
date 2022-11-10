@@ -25,24 +25,14 @@ func TestParseCustomHeaders(t *testing.T) {
 			want:  map[string]string{},
 		},
 		{
-			name:  "empty key",
-			input: ":b",
-			want:  map[string]string{},
-		},
-		{
 			name:  "empty value",
 			input: "a:",
-			want:  map[string]string{},
+			want:  map[string]string{"a": ""},
 		},
 		{
 			name:  "double input",
 			input: "a:b,c:d",
 			want:  map[string]string{"a": "b", "c": "d"},
-		},
-		{
-			name:  "duplicated input",
-			input: "a:b,a:b",
-			want:  map[string]string{"a": "b"},
 		},
 	}
 	for _, tt := range tests {

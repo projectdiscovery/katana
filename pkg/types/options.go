@@ -99,8 +99,8 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 	optionalArguments := make(map[string]string)
 	for _, v := range options.HeadlessOptionalArguments {
 		if argParts := strings.SplitN(v, "=", 2); len(argParts) >= 2 {
-			key := strings.Trim(argParts[0], " ")
-			value := strings.Trim(argParts[1], " ")
+			key := strings.TrimSpace(argParts[0])
+			value := strings.TrimSpace(argParts[1])
 			if key != "" && value != "" {
 				optionalArguments[key] = value
 			}
