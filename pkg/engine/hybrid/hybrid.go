@@ -80,15 +80,15 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if options.Options.HeadlessNoSandbox {
 		chromeLauncher.Set("no-sandbox", "true")
 	}
-
-	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
-		chromeLauncher.Set(flags.Flag(k), v)
-	}
-
+	
 	var proxyURL *url.URL
 	if (options.Options.Proxy != "" && options.Options.Headless == true ) {
 		proxyURL, err = url.Parse(options.Options.Proxy)
 		chromeLauncher.Set("proxy-server", proxyURL.String())
+	}
+
+	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
+		chromeLauncher.Set(flags.Flag(k), v)
 	}
 	
 	if err != nil {
