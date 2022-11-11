@@ -46,6 +46,32 @@ katana requires **Go 1.18** to install successfully. To install, just run the be
 go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
+**More options to install / run katana-**
+
+<details>
+  <summary>Docker</summary>
+
+> To install / update docker to latest tag -
+
+```sh
+docker pull projectdiscovery/katana:latest
+```
+
+> To run katana in standard mode using docker -
+
+
+```sh
+docker run projectdiscovery/katana:latest -u https://tesla.com
+```
+
+> To run katana in headless mode using docker -
+
+```sh
+docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -headless
+```
+
+</details>
+
 ## Usage
 
 ```console
