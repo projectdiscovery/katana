@@ -27,7 +27,11 @@ func main() {
 
 	runner, err := runner.New(options)
 	if err != nil || runner == nil {
-		gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		if options.Version {
+			return
+		} else {
+			gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		}
 	}
 	defer runner.Close()
 
@@ -77,6 +81,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless hybrid crawling (experimental)"),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "use local installed chrome browser instead of katana installed"),
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
+		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.BoolVarP(&options.HeadlessNoSandbox, "no-sandbox", "nos", false, "start headless chrome in --no-sandbox mode"),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",

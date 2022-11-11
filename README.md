@@ -46,6 +46,32 @@ katana requires **Go 1.18** to install successfully. To install, just run the be
 go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
+**More options to install / run katana-**
+
+<details>
+  <summary>Docker</summary>
+
+> To install / update docker to latest tag -
+
+```sh
+docker pull projectdiscovery/katana:latest
+```
+
+> To run katana in standard mode using docker -
+
+
+```sh
+docker run projectdiscovery/katana:latest -u https://tesla.com
+```
+
+> To run katana in headless mode using docker -
+
+```sh
+docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -headless
+```
+
+</details>
+
 ## Usage
 
 ```console
@@ -77,9 +103,11 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
 
 HEADLESS:
-   -hl, -headless       enable headless hybrid crawling (experimental)
-   -sc, -system-chrome  use local installed chrome browser instead of katana installed
-   -sb, -show-browser   show the browser on the screen with headless mode
+   -hl, -headless                   enable headless hybrid crawling (experimental)
+   -sc, -system-chrome              use local installed chrome browser instead of katana installed
+   -sb, -show-browser               show the browser on the screen with headless mode
+   -ho, -headless-options string[]  start headless chrome with additional options
+   -nos, -no-sandbox                start headless chrome in --no-sandbox mode
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -226,7 +254,29 @@ HEADLESS:
    -hl, -headless       enable experimental headless hybrid crawling
    -sc, -system-chrome  use local installed chrome browser instead of katana installed
    -sb, -show-browser   show the browser on the screen with headless mode
+   -ho, -headless-options string[]  start headless chrome with additional options
+   -nos, -no-sandbox                start headless chrome in --no-sandbox mode
 ```
+
+*`-no-sandbox`*
+----
+
+Runs headless chrome browser with **no-sandbox** option, useful when running as root user.
+
+```console
+katana -u https://tesla.com -headless -no-sandbox
+```
+
+*`-headless-options`*
+----
+
+When crawling in headless mode, additional chrome options can be specified using `-headless-options`, for example -
+
+
+```console
+katana -u https://tesla.com -headless -system-chrome -headless-options --disable-gpu,proxy-server=http://127.0.0.1:8080
+```
+
 
 ## Scope Control
 
@@ -240,7 +290,7 @@ Most handy option to define scope with predefined field name, `rdn` being defaul
    - `fqdn` - crawling scoped to given sub(domain) 
    - `dn` - crawling scoped to domain name keyword
 
-```
+```console
 katana -u https://tesla.com -fs dn
 ```
 
@@ -250,7 +300,7 @@ katana -u https://tesla.com -fs dn
 
 For advanced scope control, `-cs` option can be used that comes with **regex** support.
 
-```
+```console
 katana -u https://tesla.com -cs login
 ```
 
@@ -265,7 +315,7 @@ app/
 wordpress/
 ```
 
-```
+```console
 katana -u https://tesla.com -cs in_scope.txt
 ```
 
@@ -275,7 +325,7 @@ katana -u https://tesla.com -cs in_scope.txt
 
 For defining what not to crawl, `-cos` option can be used and also support **regex** input.
 
-```
+```console
 katana -u https://tesla.com -cos logout
 ```
 
@@ -288,7 +338,7 @@ $ cat out_of_scope.txt
 /log_out
 ```
 
-```
+```console
 katana -u https://tesla.com -cos out_of_scope.txt
 ```
 
@@ -297,7 +347,7 @@ katana -u https://tesla.com -cos out_of_scope.txt
 
 Katana is default to scope `*.domain`, to disable this `-ns` option can be used and also to crawl the internet.
 
-```
+```console
 katana -u https://tesla.com -ns
 ```
 
@@ -474,6 +524,25 @@ https_www.tesla.com_qurl.txt
 </td>
 </tr>
 </table>
+
+
+*`-extension-match`*
+---
+
+Crawl output can be easily matched for specfic extension using `-em` option to ensure to display only output containing given extension.
+
+```
+katana -u https://tesla.com -silent -em js,jsp,json
+```
+
+*`-extension-filter`*
+---
+
+Crawl output can be easily filtered for specfic extension using `-ef` option which ensure to remove all the urls containing given extension.
+
+```
+katana -u https://tesla.com -silent -ef css,txt,md
+```
 
 Here are additonal filter options -
 
