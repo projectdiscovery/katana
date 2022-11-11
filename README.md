@@ -77,9 +77,11 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
 
 HEADLESS:
-   -hl, -headless       enable headless hybrid crawling (experimental)
-   -sc, -system-chrome  use local installed chrome browser instead of katana installed
-   -sb, -show-browser   show the browser on the screen with headless mode
+   -hl, -headless                   enable headless hybrid crawling (experimental)
+   -sc, -system-chrome              use local installed chrome browser instead of katana installed
+   -sb, -show-browser               show the browser on the screen with headless mode
+   -ho, -headless-options string[]  start headless chrome with additional options
+   -nos, -no-sandbox                start headless chrome in --no-sandbox mode
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler

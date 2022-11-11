@@ -14,6 +14,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
@@ -74,6 +75,14 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		chromeLauncher = chromeLauncher.Headless(false)
 	} else {
 		chromeLauncher = chromeLauncher.Headless(true)
+	}
+
+	if options.Options.HeadlessNoSandbox {
+		chromeLauncher.Set("no-sandbox", "true")
+	}
+
+	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
+		chromeLauncher.Set(flags.Flag(k), v)
 	}
 
 	launcherURL, err := chromeLauncher.Launch()
