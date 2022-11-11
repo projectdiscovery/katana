@@ -85,6 +85,16 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		chromeLauncher.Set(flags.Flag(k), v)
 	}
 
+	var proxyURL *url.URL
+	if (options.Options.Proxy != "" && options.Options.Headless == true ) {
+		proxyURL, err = url.Parse(options.Options.Proxy)
+		chromeLauncher.Set("proxy-server", proxyURL.String())
+	}
+	
+	if err != nil {
+		return nil, err
+	}
+	
 	launcherURL, err := chromeLauncher.Launch()
 	if err != nil {
 		return nil, err
