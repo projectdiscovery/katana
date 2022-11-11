@@ -27,7 +27,11 @@ func main() {
 
 	runner, err := runner.New(options)
 	if err != nil || runner == nil {
-		gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		if options.Version {
+			return
+		} else {
+			gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		}
 	}
 	defer runner.Close()
 
