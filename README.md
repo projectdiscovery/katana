@@ -451,7 +451,7 @@ CONFIGURATION:
 *`-field`*
 ----
 
-Katana comes with build in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
+Katana comes with built in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
 
 ```
    -f, -field string  field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
