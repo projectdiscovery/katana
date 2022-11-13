@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"sync/atomic"
@@ -124,6 +125,19 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
+
+			// calculate the page state
+			state, err := navigation.NewState()
+			if err != nil {
+				log.Print(req.URL, err)
+			} else {
+				if err := state.FromResponse(resp); err != nil {
+					log.Print(req.URL, err)
+				} else {
+					log.Print(req.URL, "-", state.Hash, "-", len(state.Structure))
+				}
+			}
+
 			parser.ParseResponse(resp, parseResponseCallback)
 		}()
 	}
