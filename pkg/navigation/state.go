@@ -31,20 +31,20 @@ func (s *State) FromResponse(resp Response) error {
 	return s.hash(headers, resp.Body)
 }
 
-func ContentTypeIsTextHtml(headers http.Header) bool {
-	return ContentTypeIs(headers, TextHtml)
+func ContentTypeIsTextHtml(headers http.Header, body []byte) bool {
+	return ContentTypeIs(headers, body, TextHtml)
 }
 
-func ContentTypeIs(headers http.Header, contentTypes ...string) bool {
-	headerContentType := headers.Get("Content-Type")
-	if headerContentType == "" {
-		return false
+func ContentTypeIs(headers http.Header, body []byte, contentTypes ...string) bool {
+	contentType := headers.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(body)
 	}
-	return stringsutil.HasPrefixAny(headerContentType, contentTypes...)
+	return stringsutil.HasPrefixAny(contentType, contentTypes...)
 }
 
 func (s *State) hash(headers http.Header, body []byte) error {
-	if !ContentTypeIsTextHtml(headers) {
+	if !ContentTypeIsTextHtml(headers, body) {
 		// static files can have a deterministic hash based on content
 		return s.hashSimple(headers, body)
 	}
