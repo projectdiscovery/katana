@@ -1,9 +1,10 @@
 module github.com/projectdiscovery/katana
 
-go 1.17
+go 1.18
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
+	github.com/dominikbraun/graph v0.14.0
 	github.com/go-rod/rod v0.112.0
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible

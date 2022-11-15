@@ -2,7 +2,10 @@ package navigation
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"math"
 	"net/http"
 	"strings"
 
@@ -17,18 +20,20 @@ type State struct {
 	Structure []Content
 	Features  []*Feature
 	Hash      uint64
-}
-
-func NewState() (*State, error) {
-	return &State{}, nil
+	Digest    string
 }
 
 // FromResponse calculates a state only based on the web page content
-func (s *State) FromResponse(resp Response) error {
+func NewState(req Request, resp Response) (*State, error) {
+	s := &State{}
+	s.Name = req.URL
+
 	// first we collect the raw material
 	headers := resp.Resp.Header.Clone()
-
-	return s.hash(headers, resp.Body)
+	if err := s.hash(headers, resp.Body); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func ContentTypeIsTextHtml(headers http.Header, body []byte) bool {
@@ -46,7 +51,9 @@ func ContentTypeIs(headers http.Header, body []byte, contentTypes ...string) boo
 func (s *State) hash(headers http.Header, body []byte) error {
 	if !ContentTypeIsTextHtml(headers, body) {
 		// static files can have a deterministic hash based on content
-		return s.hashSimple(headers, body)
+		s.Hash = s.hashSimple(headers, body)
+		s.Digest = s.digest(headers, body)
+		return nil
 	}
 
 	// we need to perform feature engineering: identify, extract and process features from raw material
@@ -93,6 +100,7 @@ func (s *State) hash(headers http.Header, body []byte) error {
 	// ≈1: structures can be considered the same
 	// ≈0: structures are different
 	s.Hash = simhash.Fingerprint(simhashVectorize(features))
+	s.Digest = s.digest(headers, body)
 
 	// During the vectorization process, tendentially locality information is lost (page structure)
 	// so we save it for later to compute ordered sequences similarity
@@ -137,9 +145,13 @@ func extractFeatures(contents []Content) ([]*Feature, error) {
 	return features, nil
 }
 
-func (s *State) hashSimple(headers http.Header, body []byte) error {
-	s.Hash = simhash.Simhash(simhash.NewWordFeatureSet(body))
-	return nil
+func (s *State) hashSimple(headers http.Header, body []byte) uint64 {
+	return simhash.Simhash(simhash.NewWordFeatureSet(body))
+}
+
+func (s *State) digest(headers http.Header, body []byte) string {
+	shaSum := sha256.Sum256(body)
+	return hex.EncodeToString(shaSum[:])
 }
 
 type Feature struct {
@@ -163,4 +175,16 @@ func simhashVectorize(features []*Feature) simhash.Vector {
 		simhashFeatures = append(simhashFeatures, simhash.NewFeatureWithWeight([]byte(feature.ID), feature.Weight))
 	}
 	return simhash.Vectorize(simhashFeatures)
+}
+
+func StateHash(s State) string {
+	return s.Name
+	// return fmt.Sprintf("%v", s.Hash)
+}
+
+func Similarity(s1, s2 *State) float64 {
+	hammingDistance := simhash.Compare(s1.Hash, s2.Hash)
+	// normalize the distance in [0-100] range
+	normalizedDistance := float64(hammingDistance) / float64(math.MaxUint8)
+	return 100 - (normalizedDistance * 100)
 }

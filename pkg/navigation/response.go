@@ -11,6 +11,7 @@ import (
 
 // Response is a response generated from crawler navigation
 type Response struct {
+	State        *State
 	Resp         *http.Response
 	Depth        int
 	Reader       *goquery.Document

@@ -79,6 +79,8 @@ type Options struct {
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
 	ShowBrowser bool
+	// OutputGraph dot filename (TODO: only support one URL for now)
+	OutputGraph string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
