@@ -150,7 +150,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 				}
 				if existingState == nil {
 					states[newState.Hash] = newState
-					graphdb.AddVertex(*newState)
+					_ = graphdb.AddVertex(*newState)
 				} else {
 					newState = existingState
 				}
@@ -167,7 +167,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 						graph.EdgeAttribute("tag", req.Tag),
 						graph.EdgeAttribute("label", fmt.Sprintf("%s\n%s", req.Tag, req.Attribute)),
 					}
-					graphdb.AddEdge(navigation.StateHash(*req.State), navigation.StateHash(*resp.State), edgeProperties...)
+					_ = graphdb.AddEdge(navigation.StateHash(*req.State), navigation.StateHash(*resp.State), edgeProperties...)
 				}
 			}
 
