@@ -79,6 +79,10 @@ type Options struct {
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
 	ShowBrowser bool
+	// HeadlessOptionalArguments specifies optional arguments to pass to Chrome
+	HeadlessOptionalArguments goflags.StringSlice
+	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
+	HeadlessNoSandbox bool
 	// OutputGraph dot filename (TODO: only support one URL for now)
 	OutputGraph string
 }
@@ -91,4 +95,18 @@ func (options *Options) ParseCustomHeaders() map[string]string {
 		}
 	}
 	return customHeaders
+}
+
+func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
+	optionalArguments := make(map[string]string)
+	for _, v := range options.HeadlessOptionalArguments {
+		if argParts := strings.SplitN(v, "=", 2); len(argParts) >= 2 {
+			key := strings.TrimSpace(argParts[0])
+			value := strings.TrimSpace(argParts[1])
+			if key != "" && value != "" {
+				optionalArguments[key] = value
+			}
+		}
+	}
+	return optionalArguments
 }
