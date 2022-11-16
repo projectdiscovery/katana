@@ -150,7 +150,16 @@ func (c *Crawler) Crawl(rootURL string) error {
 				}
 				if existingState == nil {
 					states[newState.Hash] = newState
-					_ = graphdb.AddVertex(*newState)
+					// Color edge
+					// Html State => Green
+					// Static File => Red
+					var color string
+					if navigation.ContentTypeIsTextHtml(resp.Resp.Header, resp.Body) {
+						color = "green"
+					} else {
+						color = "red"
+					}
+					_ = graphdb.AddVertex(*newState, graph.VertexAttribute("color", color))
 				} else {
 					newState = existingState
 				}
