@@ -131,7 +131,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 				return
 			}
 
-			state, _ := crawlerGraph.AddState(req, resp)
+			state, _ := crawlerGraph.AddState(req, resp, req.URL)
 
 			// associate the response with the state
 			resp.State = state

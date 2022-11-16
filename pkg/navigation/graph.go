@@ -21,8 +21,8 @@ func NewGraph() (*Graph, error) {
 	return g, nil
 }
 
-func (g *Graph) AddState(req Request, resp Response) (*State, error) {
-	newState, err := NewState(req, resp)
+func (g *Graph) AddState(req Request, resp Response, name string) (*State, error) {
+	newState, err := NewState(req, resp, name)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,14 @@ func (g *Graph) AddState(req Request, resp Response) (*State, error) {
 	// using near approximate search (TODO: current linear complexity => binary search?)
 	var existingState *State
 	for _, state := range g.states {
-		similarity := Similarity(state, newState)
+		// exact match
+		if state.Digest == newState.Digest {
+			existingState = state
+			break
+		}
+
+		// simhash proximity
+		similarity := Similarity(newState, state)
 		if similarity >= 99 {
 			existingState = state
 			break

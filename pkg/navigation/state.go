@@ -21,12 +21,13 @@ type State struct {
 	Features  []*Feature
 	Hash      uint64
 	Digest    string
+	Data      []byte
 }
 
 // FromResponse calculates a state only based on the web page content
-func NewState(req Request, resp Response) (*State, error) {
+func NewState(req Request, resp Response, name string) (*State, error) {
 	s := &State{}
-	s.Name = req.URL
+	s.Name = name
 
 	// first we collect the raw material
 	headers := resp.Resp.Header.Clone()
@@ -106,6 +107,7 @@ func (s *State) hash(headers http.Header, body []byte) error {
 	// so we save it for later to compute ordered sequences similarity
 	s.Structure = filteredContents
 	s.Features = features
+	s.Data = body
 
 	return nil
 }
@@ -150,8 +152,8 @@ func (s *State) hashSimple(headers http.Header, body []byte) uint64 {
 }
 
 func (s *State) digest(headers http.Header, body []byte) string {
-	shaSum := sha256.Sum256(body)
-	return hex.EncodeToString(shaSum[:])
+	digest := sha256.Sum256(body)
+	return hex.EncodeToString(digest[:])
 }
 
 type Feature struct {

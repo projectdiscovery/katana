@@ -20,7 +20,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string, crawlerGraph *navigation.Graph) ([]*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
@@ -34,6 +34,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	}
 	defer page.Close()
 
+	var asyncronousResponses []*navigation.Response
 	pageRouter := NewHijack(page)
 	pageRouter.SetPattern(&proto.FetchRequestPattern{
 		URLPattern:   "*",
@@ -66,7 +67,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		}
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		resp := navigation.Response{
+		resp := &navigation.Response{
 			Resp:         httpresp,
 			Body:         []byte(body),
 			Reader:       bodyReader,
@@ -75,8 +76,11 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			RootHostname: rootHostname,
 		}
 
+		asyncronousResponses = append(asyncronousResponses, resp)
+
 		// process the raw response
-		parser.ParseResponse(resp, parseResponseCallback)
+		parser.ParseResponse(*resp, parseResponseCallback)
+
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -127,7 +131,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	responseCopy := *response
 	responseCopy.Body = []byte(builder.String())
 	if !c.options.UniqueFilter.UniqueContent(responseCopy.Body) {
-		return &navigation.Response{}, nil
+		return nil, nil
 	}
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseCopy.Body))
@@ -137,13 +141,16 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	response.Body = []byte(body)
 	if !c.options.UniqueFilter.UniqueContent(response.Body) {
-		return &navigation.Response{}, nil
+		return nil, nil
 	}
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(response.Body))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse html")
 	}
-	return response, nil
+
+	responses := []*navigation.Response{response}
+
+	return append(responses, asyncronousResponses...), nil
 }
 
 // traverseDOMNode performs traversal of node completely building a pseudo-HTML

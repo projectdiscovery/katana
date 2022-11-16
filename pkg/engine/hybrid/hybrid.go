@@ -203,22 +203,34 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname)
+
+			// responses contains:
+			// index 0 => primary syncronous node
+			// indexes 1..n => secondary asyncronous nodes
+			responses, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname, crawlerGraph)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
 			}
-			if resp == nil || resp.Resp == nil && resp.Reader == nil {
-				return
+
+			for idx, resp := range responses {
+				if resp == nil || resp.Resp == nil && resp.Reader == nil {
+					return
+				}
+
+				state, _ := crawlerGraph.AddState(req, *resp, resp.Resp.Request.URL.String())
+
+				// associate the response with the state
+				resp.State = state
+
+				// process the dom-rendered response
+				parser.ParseResponse(*resp, parseResponseCallback)
+
+				// the web state for response zero becomes the root for asyncronous requests
+				if idx == 0 {
+					req.State = state
+				}
 			}
-
-			state, _ := crawlerGraph.AddState(req, *resp)
-
-			// associate the response with the state
-			resp.State = state
-
-			// process the dom-rendered response
-			parser.ParseResponse(*resp, parseResponseCallback)
 		}()
 	}
 
