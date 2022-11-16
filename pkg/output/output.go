@@ -1,7 +1,6 @@
 package output
 
 import (
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -144,7 +143,6 @@ func (w *StandardWriter) Write(event *Result) error {
 	if w.storeResponse {
 		if file, err := getResponseFile(w.storeResponseFolder, event.URL); err == nil {
 			data, err := w.formatResponse(event)
-			fmt.Println(data, err)
 			if err != nil {
 				return errors.Wrap(err, "could not store response")
 			}
