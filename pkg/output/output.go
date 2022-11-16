@@ -1,6 +1,7 @@
 package output
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -20,17 +21,22 @@ type Writer interface {
 	Write(*Result) error
 }
 
-var decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
+var (
+	decolorizerRegex      = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
+	DefaultResponseFolder = "katana_responses"
+)
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
-	storeFields []string
-	fields      string
-	json        bool
-	verbose     bool
-	aurora      aurora.Aurora
-	outputFile  *fileWriter
-	outputMutex *sync.Mutex
+	storeFields         []string
+	fields              string
+	json                bool
+	verbose             bool
+	aurora              aurora.Aurora
+	outputFile          *fileWriter
+	outputMutex         *sync.Mutex
+	storeResponse       bool
+	storeResponseFolder string
 }
 
 // Options contains the configuration options for output writer
@@ -64,13 +70,15 @@ type Result struct {
 const storeFieldsDirectory = "katana_output"
 
 // New returns a new output writer instance
-func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, error) {
+func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, StoreResponseFolder string) (Writer, error) {
 	writer := &StandardWriter{
-		fields:      fields,
-		json:        json,
-		verbose:     verbose,
-		aurora:      aurora.NewAurora(colors),
-		outputMutex: &sync.Mutex{},
+		fields:              fields,
+		json:                json,
+		verbose:             verbose,
+		aurora:              aurora.NewAurora(colors),
+		outputMutex:         &sync.Mutex{},
+		storeResponse:       storeResponse,
+		storeResponseFolder: StoreResponseFolder,
 	}
 	// Perform validations for fields and store-fields
 	if fields != "" {
@@ -91,6 +99,13 @@ func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, 
 			return nil, errors.Wrap(err, "could not create output file")
 		}
 		writer.outputFile = output
+	}
+	if storeResponse {
+		var outputFolder = DefaultResponseFolder
+		if StoreResponseFolder != DefaultResponseFolder {
+			outputFolder = StoreResponseFolder
+		}
+		_ = os.MkdirAll(outputFolder, os.ModePerm)
 	}
 	return writer, nil
 }
@@ -126,6 +141,20 @@ func (w *StandardWriter) Write(event *Result) error {
 			return errors.Wrap(err, "could not write to output")
 		}
 	}
+	if w.storeResponse {
+		if file, err := getResponseFile(w.storeResponseFolder, event.URL); err == nil {
+			data, err := w.formatResponse(event)
+			fmt.Println(data, err)
+			if err != nil {
+				return errors.Wrap(err, "could not store response")
+			}
+			if writeErr := file.Write(data); writeErr != nil {
+				return errors.Wrap(err, "could not store response")
+			}
+			file.Close()
+		}
+	}
+
 	return nil
 }
 

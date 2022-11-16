@@ -13,6 +13,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"gopkg.in/yaml.v3"
@@ -31,6 +32,9 @@ func validateOptions(options *types.Options) error {
 	}
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox) && !options.Headless {
 		return errors.New("headless mode (-hl) is required if -ho or -nos are set")
+	}
+	if options.StoreResponseFolder != output.DefaultResponseFolder && !options.StoreResponse {
+		return errors.New("Store response (-sr) is required if store response folder is set")
 	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
