@@ -3,17 +3,13 @@ package standard
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/dominikbraun/graph"
-	"github.com/dominikbraun/graph/draw"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
@@ -90,8 +86,10 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	// graph instance
-	graphdb := graph.New(navigation.StateHash, graph.Directed())
-	states := make(map[uint64]*navigation.State)
+	crawlerGraph, err := navigation.NewGraph()
+	if err != nil {
+		return err
+	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
@@ -133,52 +131,10 @@ func (c *Crawler) Crawl(rootURL string) error {
 				return
 			}
 
-			// calculate the page state
-			if newState, err := navigation.NewState(req, resp); err != nil {
-				gologger.Verbose().Msgf("could not create new state for \"%s\": %s", req.URL, err)
-			} else {
+			state, _ := crawlerGraph.AddState(req, resp)
 
-				// Check if the current state was already visited previously
-				// using near approximate search (TODO: current linear complexity => binary search?)
-				var existingState *navigation.State
-				for _, state := range states {
-					similarity := navigation.Similarity(state, newState)
-					if similarity >= 99 {
-						existingState = state
-						break
-					}
-				}
-				if existingState == nil {
-					states[newState.Hash] = newState
-					// Color edge
-					// Html State => Green
-					// Static File => Red
-					var color string
-					if navigation.ContentTypeIsTextHtml(resp.Resp.Header, resp.Body) {
-						color = "green"
-					} else {
-						color = "red"
-					}
-					_ = graphdb.AddVertex(*newState, graph.VertexAttribute("color", color))
-				} else {
-					newState = existingState
-				}
-
-				// associate the response with the state
-				resp.State = newState
-
-				// if req.State is nil => this is a root vertex => nothing to do
-				// otherwise we need to create an edge between the previous state and the current one
-				if req.State != nil {
-					edgeProperties := []func(*graph.EdgeProperties){
-						graph.EdgeAttribute("source", req.Source),
-						graph.EdgeAttribute("attribute", req.Attribute),
-						graph.EdgeAttribute("tag", req.Tag),
-						graph.EdgeAttribute("label", fmt.Sprintf("%s\n%s", req.Tag, req.Attribute)),
-					}
-					_ = graphdb.AddEdge(navigation.StateHash(*req.State), navigation.StateHash(*resp.State), edgeProperties...)
-				}
-			}
+			// associate the response with the state
+			resp.State = state
 
 			parser.ParseResponse(resp, parseResponseCallback)
 		}()
@@ -186,12 +142,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	wg.Wait()
 
 	if c.options.Options.OutputGraph != "" {
-		outputGraphFile, err := os.Create(c.options.Options.OutputGraph)
-		if err != nil {
-			return err
-		}
-		defer outputGraphFile.Close()
-		if err := draw.DOT(graphdb, outputGraphFile); err != nil {
+		if err := crawlerGraph.ExportTo(c.options.Options.OutputGraph); err != nil {
 			return err
 		}
 	}

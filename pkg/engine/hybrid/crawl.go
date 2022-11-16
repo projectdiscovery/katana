@@ -74,7 +74,6 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Depth:        depth,
 			RootHostname: rootHostname,
 		}
-		_ = resp
 
 		// process the raw response
 		parser.ParseResponse(resp, parseResponseCallback)

@@ -40,5 +40,15 @@ func (n *Request) RequestURL() string {
 // newNavigationRequestURL generates a navigation request from a relative URL
 func NewNavigationRequestURLFromResponse(path, source, tag, attribute string, resp Response) Request {
 	requestURL := resp.AbsoluteURL(path)
-	return Request{Method: "GET", URL: requestURL, RootHostname: resp.RootHostname, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag, State: resp.State}
+	request := Request{
+		Method:       "GET",
+		URL:          requestURL,
+		RootHostname: resp.RootHostname,
+		Depth:        resp.Depth,
+		Source:       source,
+		Attribute:    attribute,
+		Tag:          tag,
+		State:        resp.State,
+	}
+	return request
 }

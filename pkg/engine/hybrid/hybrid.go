@@ -166,6 +166,12 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return err
 	}
 
+	// graph instance
+	crawlerGraph, err := navigation.NewGraph()
+	if err != nil {
+		return err
+	}
+
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
 	for {
@@ -205,11 +211,24 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if resp == nil || resp.Resp == nil && resp.Reader == nil {
 				return
 			}
+
+			state, _ := crawlerGraph.AddState(req, *resp)
+
+			// associate the response with the state
+			resp.State = state
+
 			// process the dom-rendered response
 			parser.ParseResponse(*resp, parseResponseCallback)
 		}()
 	}
+
 	wg.Wait()
+
+	if c.options.Options.OutputGraph != "" {
+		if err := crawlerGraph.ExportTo(c.options.Options.OutputGraph); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
