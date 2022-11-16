@@ -1,3 +1,5 @@
+github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 h1:ZbFL+BDfBqegi+/Ssh7im5+aQfBRx6it+kHnC7jaDU8=
+github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809/go.mod h1:upgc3Zs45jBDnBT4tVRgRcgm26ABpaP7MoTSdgysca4=
 github.com/PuerkitoBio/goquery v1.8.0 h1:PJTF7AmFCFKk1N6V6jmKfrNH9tV5pNE6lZMkG0gta/U=
 github.com/PuerkitoBio/goquery v1.8.0/go.mod h1:ypIiRMtY7COPGk+I/YbZLbxsxn9g5ejnI2HSMtkjZvI=
 github.com/akrylysov/pogreb v0.10.0/go.mod h1:pNs6QmpQ1UlTJKDezuRWmaqkgUE2TuU0YTWyqJZ7+lI=
@@ -140,8 +142,9 @@ github.com/projectdiscovery/ratelimit v0.0.1 h1:GnCfbKmkLdDLXT3QS4KS0zCsuDGkoRQE
 github.com/projectdiscovery/ratelimit v0.0.1/go.mod h1:zenrIElIcKg0Y9h7pMfTlw5vaI/kCl8uxXm+PfgbBSw=
 github.com/projectdiscovery/retryabledns v1.0.15 h1:3Nn119UwYsfUPC3g0q57ftz0Wb5Zl5ppvw8R0Xu0DEI=
 github.com/projectdiscovery/retryabledns v1.0.15/go.mod h1:3YbsQVqP7jbQ3CDmarhyVtkJaJ8XcB7S19vMeyMxZxk=
-github.com/projectdiscovery/retryablehttp-go v1.0.2 h1:LV1/KAQU+yeWhNVlvveaYFsjBYRwXlNEq0PvrezMV0U=
 github.com/projectdiscovery/retryablehttp-go v1.0.2/go.mod h1:dx//aY9V247qHdsRf0vdWHTBZuBQ2vm6Dq5dagxrDYI=
+github.com/projectdiscovery/retryablehttp-go v1.0.3 h1:8kIb3LPnt6tdZvCcTmvq3cowYOed4S/B9q2Mgf/EuwI=
+github.com/projectdiscovery/retryablehttp-go v1.0.3/go.mod h1:t4buiLTB0HtI+62iHfGDqQVTv/i+8OhAKwaX93TGsFE=
 github.com/projectdiscovery/sliceutil v0.0.0-20220617151003-15892688e1d6/go.mod h1:9YZb6LRjLYAvSOm65v787dwauurixSyjlqXyYa4rTTA=
 github.com/projectdiscovery/sliceutil v0.0.0-20220625085859-c3a4ecb669f4 h1:C04j5gVVMXqFyBIetAz92SyPRYCpkFgIwZw0L/pps9Q=
 github.com/projectdiscovery/sliceutil v0.0.0-20220625085859-c3a4ecb669f4/go.mod h1:RxDaccMjPzIuF7F8XbdGl1yOcqxN4YPiHr9xHpfCkGI=
