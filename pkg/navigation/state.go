@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"math"
+	"math/rand"
 	"net/http"
-	"strings"
 
 	"github.com/mfonda/simhash"
 	stringsutil "github.com/projectdiscovery/utils/strings"
@@ -52,7 +52,8 @@ func ContentTypeIs(headers http.Header, body []byte, contentTypes ...string) boo
 func (s *State) hash(headers http.Header, body []byte) error {
 	if !ContentTypeIsTextHtml(headers, body) {
 		// static files can have a deterministic hash based on content
-		s.Hash = s.hashSimple(headers, body)
+		// and a random simhash so they are counted as a unique node
+		s.Hash = s.randomHash(headers, body)
 		s.Digest = s.digest(headers, body)
 		return nil
 	}
@@ -76,8 +77,22 @@ func (s *State) hash(headers http.Header, body []byte) error {
 		}
 		switch token.Type {
 		case html.TextToken:
-			tokenizedContent.Type = Dynamic
-		case html.StartTagToken, html.EndTagToken:
+			tokenizedContent.TagType = Text
+			tokenizedContent.Type = Core
+		case html.StartTagToken:
+			tokenizedContent.TagType = StartTag
+			tokenizedContent.Type = Core
+		case html.EndTagToken:
+			tokenizedContent.TagType = EndTag
+			tokenizedContent.Type = Core
+		case html.CommentToken:
+			tokenizedContent.TagType = Comment
+			tokenizedContent.Type = Core
+		case html.SelfClosingTagToken:
+			tokenizedContent.TagType = SelfClosingTag
+			tokenizedContent.Type = Core
+		case html.DoctypeToken:
+			tokenizedContent.TagType = Doctype
 			tokenizedContent.Type = Core
 		default:
 			continue
@@ -126,29 +141,45 @@ func htmlAttributesToCoreAttributes(htmlAttributes []html.Attribute) (attributes
 func filterContent(contents []Content) []Content {
 	var filteredContent []Content
 	for _, content := range contents {
-		// removing items consisting only of new lines
-		if content.Type == Dynamic && strings.ContainsAny(content.Data, "\n") {
+		// removing dynamic content
+		if content.Type == Dynamic {
 			continue
 		}
+
 		filteredContent = append(filteredContent, content)
 	}
 	return filteredContent
 }
 
 func extractFeatures(contents []Content) ([]*Feature, error) {
-	var features []*Feature
+	seenFeatures := make(map[string]int)
+
 	for _, contentItem := range contents {
-		feature, err := NewFeature(contentItem.ID(), 1)
+		for _, id := range contentItem.IDs() {
+			if _, ok := seenFeatures[id]; !ok {
+				seenFeatures[id] = 1
+			}
+
+			seenFeatures[id]++
+		}
+	}
+
+	var features []*Feature
+	for id, weight := range seenFeatures {
+		feature, err := NewFeature(id, weight)
 		if err != nil {
 			return nil, err
 		}
 		features = append(features, feature)
+
 	}
+
 	return features, nil
 }
 
-func (s *State) hashSimple(headers http.Header, body []byte) uint64 {
-	return simhash.Simhash(simhash.NewWordFeatureSet(body))
+// generate a probalistic far hash so that the node is classified as unique
+func (s *State) randomHash(headers http.Header, body []byte) uint64 {
+	return rand.Uint64()
 }
 
 func (s *State) digest(headers http.Header, body []byte) string {

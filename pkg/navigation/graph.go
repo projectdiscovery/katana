@@ -39,7 +39,7 @@ func (g *Graph) AddState(req Request, resp Response, name string) (*State, error
 
 		// simhash proximity
 		similarity := Similarity(newState, state)
-		if similarity >= 99 {
+		if similarity >= 90 {
 			existingState = state
 			break
 		}
