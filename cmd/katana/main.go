@@ -116,7 +116,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
 		flagSet.BoolVarP(&options.Verbose, "verbose", "v", false, "display verbose output"),
 		flagSet.BoolVar(&options.Version, "version", false, "display project version"),
-		flagSet.StringVarP(&options.OutputGraph, "output-graph", "og", "", "graph file to write output to"),
+		flagSet.StringVarP(&options.OutputGraph, "output-graph", "og", "", "graph folder (one graph per URL will be created)"),
 	)
 
 	if err := flagSet.Parse(); err != nil {

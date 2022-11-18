@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -85,10 +86,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return errors.Wrap(err, "could not create http client")
 	}
 
-	// graph instance
-	crawlerGraph, err := navigation.NewGraph()
-	if err != nil {
-		return err
+	var crawlerGraph *navigation.Graph
+	if c.options.Options.OutputGraph != "" {
+		var err error
+		crawlerGraph, err = navigation.NewGraph()
+		if err != nil {
+			return err
+		}
 	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -131,18 +135,19 @@ func (c *Crawler) Crawl(rootURL string) error {
 				return
 			}
 
-			state, _ := crawlerGraph.AddState(req, resp, req.URL)
-
-			// associate the response with the state
-			resp.State = state
+			if crawlerGraph != nil {
+				resp.State, _ = crawlerGraph.AddState(req, resp, req.URL)
+			}
 
 			parser.ParseResponse(resp, parseResponseCallback)
 		}()
 	}
 	wg.Wait()
 
-	if c.options.Options.OutputGraph != "" {
-		if err := crawlerGraph.ExportTo(c.options.Options.OutputGraph); err != nil {
+	if crawlerGraph != nil {
+		// use the domain name as filename
+		outputFile := filepath.Join(c.options.Options.OutputGraph, hostname)
+		if err := crawlerGraph.ExportTo(outputFile); err != nil {
 			return err
 		}
 	}

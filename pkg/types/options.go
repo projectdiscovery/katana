@@ -83,7 +83,7 @@ type Options struct {
 	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
-	// OutputGraph dot filename (TODO: only support one URL for now)
+	// OutputGraph graphs in .dot and .json (one per url)
 	OutputGraph string
 }
 

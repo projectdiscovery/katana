@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"math"
 	"math/rand"
 	"net/http"
@@ -14,11 +13,12 @@ import (
 	"golang.org/x/net/html"
 )
 
+const maxFeatures = 10000
+
 // State identifies a unique navigation webapp state that might be reached by many means
 type State struct {
 	Name      string
 	Structure []Content
-	Features  []*Feature
 	Hash      uint64
 	Digest    string
 	Data      []byte
@@ -107,21 +107,20 @@ func (s *State) hash(headers http.Header, body []byte) error {
 	// Note #1: using unitary weight (for now)
 	// Note #2: the weight cohefficient should keep into account => boost ratio of significant content (eg. forms) + frequency (eg. tfidf)
 	// Note #3: more weight recommendations at http://www2007.org/papers/paper215.pdf
-	features, err := extractFeatures(filteredContents)
+	// Now the hash can be used to compute the bitwise hamming distance with any other hash:
+	// ≈1: structures can be considered the same
+	// ≈0: structures are different
+	hash, err := fingerprintFeatures(filteredContents, 2)
 	if err != nil {
 		return err
 	}
 
-	// Now the hash can be used to compute the bitwise hamming distance with any other hash:
-	// ≈1: structures can be considered the same
-	// ≈0: structures are different
-	s.Hash = simhash.Fingerprint(simhashVectorize(features))
+	s.Hash = hash
 	s.Digest = s.digest(headers, body)
 
 	// During the vectorization process, tendentially locality information is lost (page structure)
 	// so we save it for later to compute ordered sequences similarity
 	s.Structure = filteredContents
-	s.Features = features
 	s.Data = body
 
 	return nil
@@ -151,30 +150,36 @@ func filterContent(contents []Content) []Content {
 	return filteredContent
 }
 
-func extractFeatures(contents []Content) ([]*Feature, error) {
-	seenFeatures := make(map[string]int)
+func fingerprintFeatures(contents []Content, shingle int) (uint64, error) {
+	var (
+		simhashVector    simhash.Vector
+		numberOfFeatures uint
+	)
 
+content_loop:
 	for _, contentItem := range contents {
 		for _, id := range contentItem.IDs() {
-			if _, ok := seenFeatures[id]; !ok {
-				seenFeatures[id] = 1
+			if numberOfFeatures >= maxFeatures {
+				break content_loop
 			}
+			// shingled k-gram feature
+			skgram := make([][]byte, shingle)
+			skgram = append(skgram[1:], []byte(id))
+			featureSum := simhash.NewFeature(bytes.Join(skgram, []byte(" "))).Sum()
 
-			seenFeatures[id]++
+			for idx := uint8(0); idx < 64; idx++ {
+				bit := ((featureSum >> idx) & 1)
+				if bit == 1 {
+					simhashVector[idx]++
+				} else {
+					simhashVector[idx]--
+				}
+			}
+			numberOfFeatures++
 		}
 	}
 
-	var features []*Feature
-	for id, weight := range seenFeatures {
-		feature, err := NewFeature(id, weight)
-		if err != nil {
-			return nil, err
-		}
-		features = append(features, feature)
-
-	}
-
-	return features, nil
+	return simhash.Fingerprint(simhashVector), nil
 }
 
 // generate a probalistic far hash so that the node is classified as unique
@@ -185,29 +190,6 @@ func (s *State) randomHash(headers http.Header, body []byte) uint64 {
 func (s *State) digest(headers http.Header, body []byte) string {
 	digest := sha256.Sum256(body)
 	return hex.EncodeToString(digest[:])
-}
-
-type Feature struct {
-	ID     string
-	Weight int
-}
-
-func NewFeature(id string, weight int) (*Feature, error) {
-	if id == "" {
-		return nil, errors.New("id can't be empty")
-	}
-	if weight <= 0 {
-		return nil, errors.New("weight can't be negative")
-	}
-	return &Feature{ID: id, Weight: weight}, nil
-}
-
-func simhashVectorize(features []*Feature) simhash.Vector {
-	var simhashFeatures []simhash.Feature
-	for _, feature := range features {
-		simhashFeatures = append(simhashFeatures, simhash.NewFeatureWithWeight([]byte(feature.ID), feature.Weight))
-	}
-	return simhash.Vectorize(simhashFeatures)
 }
 
 func StateHash(s State) string {

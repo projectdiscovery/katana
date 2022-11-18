@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -166,10 +167,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return err
 	}
 
-	// graph instance
-	crawlerGraph, err := navigation.NewGraph()
-	if err != nil {
-		return err
+	var crawlerGraph *navigation.Graph
+	if c.options.Options.OutputGraph != "" {
+		var err error
+		crawlerGraph, err = navigation.NewGraph()
+		if err != nil {
+			return err
+		}
 	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -218,26 +222,26 @@ func (c *Crawler) Crawl(rootURL string) error {
 					return
 				}
 
-				state, _ := crawlerGraph.AddState(req, *resp, resp.Resp.Request.URL.String())
-
-				// associate the response with the state
-				resp.State = state
+				if crawlerGraph != nil {
+					resp.State, _ = crawlerGraph.AddState(req, *resp, resp.Resp.Request.URL.String())
+					// the web state for response zero becomes the root for asyncronous requests
+					if idx == 0 {
+						req.State = resp.State
+					}
+				}
 
 				// process the dom-rendered response
 				parser.ParseResponse(*resp, parseResponseCallback)
-
-				// the web state for response zero becomes the root for asyncronous requests
-				if idx == 0 {
-					req.State = state
-				}
 			}
 		}()
 	}
 
 	wg.Wait()
 
-	if c.options.Options.OutputGraph != "" {
-		if err := crawlerGraph.ExportTo(c.options.Options.OutputGraph); err != nil {
+	if crawlerGraph != nil {
+		// use the domain name as filename
+		outputFile := filepath.Join(c.options.Options.OutputGraph, hostname)
+		if err := crawlerGraph.ExportTo(outputFile); err != nil {
 			return err
 		}
 	}
