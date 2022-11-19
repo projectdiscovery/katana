@@ -23,7 +23,7 @@ type GraphData struct {
 func (g *Graph) ExportTo(outputFile string) error {
 	basepath := filepath.Dir(outputFile)
 	if !fileutil.FolderExists(basepath) {
-		fileutil.CreateFolder(basepath)
+		_ = fileutil.CreateFolder(basepath)
 	}
 
 	if err := g.ExportToDotFile(outputFile + ".dot"); err != nil {

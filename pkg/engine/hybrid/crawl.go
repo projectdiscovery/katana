@@ -2,7 +2,6 @@ package hybrid
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,13 +13,10 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
-	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string, crawlerGraph *navigation.Graph) ([]*navigation.Response, error) {
+func (c *Crawler) navigateRequest(parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string, crawlerGraph *navigation.Graph) ([]*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
@@ -79,7 +75,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		asyncronousResponses = append(asyncronousResponses, resp)
 
 		// process the raw response
-		parser.ParseResponse(*resp, parseResponseCallback)
+		// parser.ParseResponse(*resp, parseResponseCallback)
 
 		return FetchContinueRequest(page, e)
 	})() //nolint
@@ -128,16 +124,13 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	response.Resp = &http.Response{Header: make(http.Header), Request: &http.Request{URL: parsed}}
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = []byte(builder.String())
-	if !c.options.UniqueFilter.UniqueContent(responseCopy.Body) {
+	responseShadowDom := *response
+	responseShadowDom.Body = []byte(builder.String())
+	if !c.options.UniqueFilter.UniqueContent(responseShadowDom.Body) {
 		return nil, nil
 	}
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		parser.ParseResponse(responseCopy, parseResponseCallback)
-	}
+	responseShadowDom.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseShadowDom.Body))
 
 	response.Body = []byte(body)
 	if !c.options.UniqueFilter.UniqueContent(response.Body) {
@@ -148,7 +141,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		return nil, errors.Wrap(err, "could not parse html")
 	}
 
-	responses := []*navigation.Response{response}
+	responses := []*navigation.Response{response, &responseShadowDom}
 
 	return append(responses, asyncronousResponses...), nil
 }

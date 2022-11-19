@@ -35,7 +35,7 @@ func NewGraph(graphOptions ...GraphOption) (*Graph, error) {
 }
 
 func (g *Graph) AddState(req Request, resp Response, name string) (*State, error) {
-	newState, err := NewState(req, resp, name)
+	newState, err := g.nearApproximateOrNew(req, resp, name)
 	if err != nil {
 		return nil, err
 	}

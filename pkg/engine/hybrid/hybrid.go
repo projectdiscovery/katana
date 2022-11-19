@@ -1,10 +1,8 @@
 package hybrid
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
@@ -152,15 +149,6 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
-	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
-		body, _ := io.ReadAll(resp.Body)
-		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
-	})
-	if err != nil {
-		return errors.Wrap(err, "could not create http client")
-	}
-
 	// for each seed URL we use an incognito isolated session
 	incognitoBrowser, err := c.browser.Incognito()
 	if err != nil {
@@ -211,7 +199,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			// responses contains:
 			// index 0 => primary syncronous node
 			// indexes 1..n => secondary asyncronous nodes
-			responses, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname, crawlerGraph)
+			responses, err := c.navigateRequest(parseResponseCallback, incognitoBrowser, req, hostname, crawlerGraph)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
