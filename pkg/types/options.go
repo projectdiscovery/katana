@@ -83,10 +83,10 @@ type Options struct {
 	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
-	// StoreResponse specifies if katana should store http responses to output directory
+	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
-	// specifies if katana should use a custom directory to store http responses
-	StoreResponseFolder string
+	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
+	StoreResponseDir string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
