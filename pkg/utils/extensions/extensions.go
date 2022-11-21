@@ -45,8 +45,13 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 
 // ValidatePath returns true if an extension is allowed by the validator
 func (e *Validator) ValidatePath(item string) bool {
+	var extension string
 	u, _ := url.Parse(item)
-	extension := strings.ToLower(path.Ext(u.Path))
+	if u != nil {
+		extension = strings.ToLower(path.Ext(u.Path))
+	} else {
+		extension = strings.ToLower(path.Ext(item))
+	}
 	if extension == "" && len(e.extensionsMatch) > 0 {
 		return false
 	}
