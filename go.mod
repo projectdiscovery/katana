@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.17
 	github.com/projectdiscovery/fileutil v0.0.3
-	github.com/projectdiscovery/goflags v0.1.3
+	github.com/projectdiscovery/goflags v0.1.4
 	github.com/projectdiscovery/gologger v1.1.5
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
 	github.com/projectdiscovery/ratelimit v0.0.1
@@ -56,13 +56,14 @@ require (
 	github.com/projectdiscovery/networkpolicy v0.0.1 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.15 // indirect
 	github.com/projectdiscovery/sliceutil v0.0.0-20220625085859-c3a4ecb669f4 // indirect
+	github.com/projectdiscovery/utils v0.0.2 // indirect
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/ulule/deepcopier v0.0.0-20200430083143-45decc6639b6 // indirect
-	github.com/weppos/publicsuffix-go v0.15.1-0.20210928183822-5ee35905bd95 // indirect
+	github.com/weppos/publicsuffix-go v0.15.1-0.20220724114530-e087fba66a37 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yl2chen/cidranger v1.0.2 // indirect
 	github.com/ysmood/goob v0.4.0 // indirect
@@ -70,7 +71,7 @@ require (
 	github.com/ysmood/leakless v0.8.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	github.com/zmap/rc2 v0.0.0-20131011165748-24b9757f5521 // indirect
-	github.com/zmap/zcrypto v0.0.0-20211005224000-2d0ffdec8a9b // indirect
+	github.com/zmap/zcrypto v0.0.0-20220803033029-557f3e4940be // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
