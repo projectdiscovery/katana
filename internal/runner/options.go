@@ -29,8 +29,13 @@ func validateOptions(options *types.Options) error {
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
 		return errors.New("no inputs specified for crawler")
 	}
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox) && !options.Headless {
-		return errors.New("headless mode (-hl) is required if -ho or -nos are set")
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
+		return errors.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
+	}
+	if (options.SystemChromePath != "") {
+		if _, err := os.Stat(options.SystemChromePath); errors.Is(err, os.ErrNotExist) {
+			return errors.New("specified system chrome binary does not exist")
+		}
 	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil

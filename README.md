@@ -108,6 +108,7 @@ HEADLESS:
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler

@@ -83,6 +83,8 @@ type Options struct {
 	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
+	// SystemChromePath : Specify the chrome binary path for headless crawling
+	SystemChromePath string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
