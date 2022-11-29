@@ -4,7 +4,11 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/katana/pkg/output"
 )
+
+// OnResultCallback (output.Result)
+type OnResultCallback func(output.Result)
 
 type Options struct {
 	// URLs contains a list of URLs for crawling
@@ -83,6 +87,8 @@ type Options struct {
 	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
+	// OnResult allows callback function on a result
+	OnResult OnResultCallback
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
