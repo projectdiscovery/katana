@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.os }}
+          go-version: ${{ matrix.go-version }}
 
       - name: Check out code
         uses: actions/checkout@v3
