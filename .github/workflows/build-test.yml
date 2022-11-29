@@ -31,6 +31,12 @@ jobs:
         run: go build .
         working-directory: cmd/katana/
 
+      - name: Integration Tests
+        env:
+          GH_ACTION: true
+        run: bash run.sh
+        working-directory: integration_tests/
+
       - name: Install
         run: go install
         working-directory: cmd/katana/
