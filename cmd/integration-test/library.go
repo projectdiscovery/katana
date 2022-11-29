@@ -31,6 +31,6 @@ func (h *goIntegrationTest) Execute() error {
 		return err
 	}
 	defer crawler.Close()
-	var input = "https://tesla.com"
+	var input = "https://public-firing-range.appspot.com"
 	return crawler.Crawl(input)
 }
