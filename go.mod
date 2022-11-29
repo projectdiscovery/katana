@@ -53,7 +53,7 @@ require (
 	github.com/projectdiscovery/networkpolicy v0.0.1 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.17 // indirect
 	github.com/projectdiscovery/sliceutil v0.0.1 // indirect
-	github.com/projectdiscovery/utils v0.0.2 // indirect
+	github.com/projectdiscovery/utils v0.0.3
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect

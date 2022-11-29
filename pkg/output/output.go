@@ -1,7 +1,9 @@
 package output
 
 import (
+	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,20 +19,24 @@ type Writer interface {
 	// Close closes the output writer interface
 	Close() error
 	// Write writes the event to file and/or screen.
-	Write(*Result) error
+	Write(*Result, *http.Response) error
 }
 
-var decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
+var (
+	decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
+)
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
-	storeFields []string
-	fields      string
-	json        bool
-	verbose     bool
-	aurora      aurora.Aurora
-	outputFile  *fileWriter
-	outputMutex *sync.Mutex
+	storeFields      []string
+	fields           string
+	json             bool
+	verbose          bool
+	aurora           aurora.Aurora
+	outputFile       *fileWriter
+	outputMutex      *sync.Mutex
+	storeResponse    bool
+	storeResponseDir string
 }
 
 // Options contains the configuration options for output writer
@@ -61,16 +67,22 @@ type Result struct {
 	Attribute string `json:"attribute,omitempty"`
 }
 
-const storeFieldsDirectory = "katana_output"
+const (
+	storeFieldsDirectory = "katana_output"
+	indexFile            = "index.txt"
+	DefaultResponseDir   = "katana_responses"
+)
 
 // New returns a new output writer instance
-func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, error) {
+func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, StoreResponseDir string) (Writer, error) {
 	writer := &StandardWriter{
-		fields:      fields,
-		json:        json,
-		verbose:     verbose,
-		aurora:      aurora.NewAurora(colors),
-		outputMutex: &sync.Mutex{},
+		fields:           fields,
+		json:             json,
+		verbose:          verbose,
+		aurora:           aurora.NewAurora(colors),
+		outputMutex:      &sync.Mutex{},
+		storeResponse:    storeResponse,
+		storeResponseDir: StoreResponseDir,
 	}
 	// Perform validations for fields and store-fields
 	if fields != "" {
@@ -92,40 +104,71 @@ func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, 
 		}
 		writer.outputFile = output
 	}
+	if storeResponse {
+		writer.storeResponseDir = DefaultResponseDir
+		if StoreResponseDir != DefaultResponseDir && StoreResponseDir != "" {
+			writer.storeResponseDir = StoreResponseDir
+		}
+		_ = os.RemoveAll(writer.storeResponseDir)
+		_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create index file")
+		}
+	}
 	return writer, nil
 }
 
 // Write writes the event to file and/or screen.
-func (w *StandardWriter) Write(event *Result) error {
-	if len(w.storeFields) > 0 {
-		storeFields(event, w.storeFields)
-	}
-	var data []byte
-	var err error
-
-	if w.json {
-		data, err = w.formatJSON(event)
-	} else {
-		data, err = w.formatScreen(event)
-	}
-	if err != nil {
-		return errors.Wrap(err, "could not format output")
-	}
-	if len(data) == 0 {
-		return nil
-	}
-	w.outputMutex.Lock()
-	defer w.outputMutex.Unlock()
-
-	gologger.Silent().Msgf("%s", string(data))
-	if w.outputFile != nil {
-		if !w.json {
-			data = decolorizerRegex.ReplaceAll(data, []byte(""))
+func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
+	if event != nil {
+		if len(w.storeFields) > 0 {
+			storeFields(event, w.storeFields)
 		}
-		if writeErr := w.outputFile.Write(data); writeErr != nil {
-			return errors.Wrap(err, "could not write to output")
+		var data []byte
+		var err error
+
+		if w.json {
+			data, err = w.formatJSON(event)
+		} else {
+			data, err = w.formatScreen(event)
+		}
+		if err != nil {
+			return errors.Wrap(err, "could not format output")
+		}
+		if len(data) == 0 {
+			return nil
+		}
+		w.outputMutex.Lock()
+		defer w.outputMutex.Unlock()
+
+		gologger.Silent().Msgf("%s", string(data))
+		if w.outputFile != nil {
+			if !w.json {
+				data = decolorizerRegex.ReplaceAll(data, []byte(""))
+			}
+			if writeErr := w.outputFile.Write(data); writeErr != nil {
+				return errors.Wrap(err, "could not write to output")
+			}
 		}
 	}
+
+	if w.storeResponse && resp != nil {
+		if file, err := getResponseFile(w.storeResponseDir, resp.Request.URL.String()); err == nil {
+			data, err := w.formatResponse(resp)
+			if err != nil {
+				return errors.Wrap(err, "could not store response")
+			}
+			if err := updateIndex(w.storeResponseDir, resp); err != nil {
+				return errors.Wrap(err, "could not store response")
+			}
+			if writeErr := file.Write(data); writeErr != nil {
+				return errors.Wrap(err, "could not store response")
+			}
+			file.Close()
+		}
+	}
+
 	return nil
 }
 
