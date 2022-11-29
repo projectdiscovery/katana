@@ -166,7 +166,9 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if scopeValidated || c.options.Options.DisplayOutScope {
 			_ = c.options.OutputWriter.Write(result)
 		}
-
+		if c.options.Options.OnResult != nil {
+			c.options.Options.OnResult(*result)
+		}
 		// Do not add to crawl queue if max items are reached
 		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
 			return
