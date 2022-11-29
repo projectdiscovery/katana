@@ -659,6 +659,7 @@ package main
 import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 )
 
@@ -668,6 +669,9 @@ func main() {
 		FieldScope:   "rdn",           // Crawling Scope Field
 		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
 		RateLimit:    150,             // Maximum requests to send per second
+		OnResult: func(result output.Result) { // Callback function to execute for result
+			gologger.Info().Msg(result.URL)
+		},
 	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
