@@ -677,12 +677,12 @@ func main() {
 	if err != nil {
 		gologger.Fatal().Msg(err.Error())
 	}
-   defer crawlerOptions.Close()
+	defer crawlerOptions.Close()
 	crawler, err := standard.New(crawlerOptions)
 	if err != nil {
 		gologger.Fatal().Msg(err.Error())
 	}
-   defer crawler.Close()
+	defer crawler.Close()
 	var input = "https://tesla.com"
 	err = crawler.Crawl(input)
 	if err != nil {
