@@ -56,9 +56,9 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 
 	var ratelimiter ratelimit.Limiter
 	if options.RateLimit > 0 {
-		ratelimiter = *ratelimit.New(context.Background(), int64(options.RateLimitMinute), time.Second)
+		ratelimiter = *ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Second)
 	} else if options.RateLimitMinute > 0 {
-		ratelimiter = *ratelimit.New(context.Background(), int64(options.RateLimitMinute), time.Minute)
+		ratelimiter = *ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
 	}
 
 	crawlerOptions := &CrawlerOptions{
