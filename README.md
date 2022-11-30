@@ -117,7 +117,7 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -f, -fields string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
