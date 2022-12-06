@@ -1,6 +1,7 @@
 package output
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -66,13 +67,29 @@ type Result struct {
 const storeFieldsDirectory = "katana_output"
 
 // New returns a new output writer instance
-func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, error) {
+func New(colors, json, verbose bool, file, fields, storeFields, fieldConfig string) (Writer, error) {
 	writer := &StandardWriter{
 		fields:      fields,
 		json:        json,
 		verbose:     verbose,
 		aurora:      aurora.NewAurora(colors),
 		outputMutex: &sync.Mutex{},
+	}
+	// if fieldConfig empty get the default file
+	if fieldConfig == "" {
+		var err error
+		fieldConfig, err = initCustomFieldConfigFile()
+		if err != nil {
+			return nil, err
+		}
+	}
+	err := parseCustomFieldName(fieldConfig)
+	if err != nil {
+		return nil, err
+	}
+	err = loadCustomFields(fieldConfig, fmt.Sprintf("%s,%s", fields, storeFields))
+	if err != nil {
+		return nil, err
 	}
 	// Perform validations for fields and store-fields
 	if fields != "" {

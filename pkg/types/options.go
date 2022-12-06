@@ -61,6 +61,8 @@ type Options struct {
 	Fields string
 	// StoreFields is the fields to store in separate per-host files
 	StoreFields string
+	// FieldConfig is the path to the custom field configuration file
+	FieldConfig string
 	// NoColors disables coloring of response output
 	NoColors bool
 	// JSON enables writing output in JSON format
