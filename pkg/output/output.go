@@ -59,6 +59,8 @@ type Result struct {
 	Tag string `json:"tag,omitempty"`
 	// Attribute is the attribute for the result
 	Attribute string `json:"attribute,omitempty"`
+	// customField matched output
+	CustomFields map[string][]string `json:"fields,omitempty"`
 }
 
 const storeFieldsDirectory = "katana_output"

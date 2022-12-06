@@ -13,6 +13,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"gopkg.in/yaml.v3"
@@ -112,4 +113,27 @@ func initExampleFormFillConfig() error {
 
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err
+}
+
+func initCustomFieldConfig() (string, error) {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errors.Wrap(err, "could not get home directory")
+	}
+	defaultConfig := filepath.Join(homedir, ".config", "katana", "field-config.yaml")
+
+	if fileutil.FileExists(defaultConfig) {
+		return defaultConfig, nil
+	}
+	customFieldConfig, err := os.Create(defaultConfig)
+	if err != nil {
+		return "", errors.Wrap(err, "could not get home directory")
+	}
+	defer customFieldConfig.Close()
+
+	err = yaml.NewEncoder(customFieldConfig).Encode(output.DefaultFieldConfigData)
+	if err != nil {
+		return "", err
+	}
+	return defaultConfig, nil
 }

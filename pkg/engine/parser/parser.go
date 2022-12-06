@@ -7,6 +7,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"golang.org/x/net/html"
 )
@@ -68,6 +69,9 @@ var responseParsers = []responseParser{
 	// Optional JS relative endpoints parsers
 	{contentParser, scriptJSFileRegexParser},
 	{contentParser, bodyScrapeEndpointsParser},
+
+	// custom field regex parser
+	{bodyParser, customFieldRegexParser},
 }
 
 // parseResponse runs the response parsers on the navigation response
@@ -620,4 +624,42 @@ func bodyScrapeEndpointsParser(resp navigation.Response, callback func(navigatio
 	for _, item := range endpoints {
 		callback(navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "html", "regex", resp))
 	}
+}
+
+// customFieldRegexParser parses custom regex from HTML body and header
+func customFieldRegexParser(resp navigation.Response, callback func(navigation.Request)) {
+	var customField = make(map[string][]string)
+	for _, v := range output.CustomFieldsMap {
+		for _, re := range v.CompileRegex {
+			results := []string{}
+			// read body
+			matches := re.FindAllStringSubmatch(string(resp.Body), -1)
+
+			// read header
+			for _, v := range resp.Resp.Header {
+				headerMatches := re.FindAllStringSubmatch(strings.Join(v, "\n"), -1)
+				matches = append(matches, headerMatches...)
+			}
+			for _, match := range matches {
+				if len(match) < (v.Group + 1) {
+					continue
+				}
+				matchString := match[v.Group]
+				results = append(results, matchString)
+			}
+			customField[v.GetName()] = results
+		}
+	}
+	if len(customField) == 0 {
+		return
+	}
+	callback(navigation.Request{
+		Method:       "GET",
+		URL:          resp.Resp.Request.URL.String(),
+		Source:       resp.Resp.Request.URL.String(),
+		Attribute:    "regex",
+		Tag:          "regex",
+		Depth:        resp.Depth,
+		CustomFields: customField,
+	})
 }

@@ -143,18 +143,19 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
 			return
 		}
 
 		// Write the found result to output
 		result := &output.Result{
-			Timestamp: time.Now(),
-			Body:      nr.Body,
-			URL:       nr.URL,
-			Source:    nr.Source,
-			Tag:       nr.Tag,
-			Attribute: nr.Attribute,
+			Timestamp:    time.Now(),
+			Body:         nr.Body,
+			URL:          nr.URL,
+			Source:       nr.Source,
+			Tag:          nr.Tag,
+			Attribute:    nr.Attribute,
+			CustomFields: nr.CustomFields,
 		}
 		if nr.Method != http.MethodGet {
 			result.Method = nr.Method

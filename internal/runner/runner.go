@@ -1,12 +1,15 @@
 package runner
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"go.uber.org/multierr"
 )
@@ -41,6 +44,16 @@ func New(options *types.Options) (*Runner, error) {
 			return nil, err
 		}
 	}
+
+	fieldConfig, err := initCustomFieldConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not init default config")
+	}
+	err = output.ParseCustomFieldName(fieldConfig, fmt.Sprintf("%s,%s", options.Fields, options.StoreFields))
+	if err != nil {
+		return nil, err
+	}
+
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create crawler options")
