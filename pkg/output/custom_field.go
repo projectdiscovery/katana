@@ -111,6 +111,9 @@ func initCustomFieldConfigFile() (string, error) {
 	if fileutil.FileExists(defaultConfig) {
 		return defaultConfig, nil
 	}
+	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
+		return "", err
+	}
 	customFieldConfig, err := os.Create(defaultConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "could not get home directory")
