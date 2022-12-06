@@ -1,7 +1,7 @@
 name: 🎉 Release Binary
 
 on:
-  create:
+  push:
     tags:
       - v*
   workflow_dispatch:
