@@ -41,10 +41,12 @@ func (w *StandardWriter) formatResponse(resp *http.Response) ([]byte, error) {
 		builder.WriteString(k + ": " + strings.Join(v, "; ") + "\n")
 	}
 
-	bodyResp, _ := io.ReadAll(resp.Request.Body)
-	if string(bodyResp) != "" {
-		builder.WriteString("\n")
-		builder.WriteString(string(bodyResp))
+	if resp.Request.Body != nil {
+		bodyResp, _ := io.ReadAll(resp.Request.Body)
+		if string(bodyResp) != "" {
+			builder.WriteString("\n")
+			builder.WriteString(string(bodyResp))
+		}
 	}
 	builder.WriteString("\n\n")
 
