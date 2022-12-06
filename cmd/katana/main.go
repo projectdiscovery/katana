@@ -95,8 +95,8 @@ pipelines offering both headless and non-headless crawling.`)
 
 	availableFields := strings.Join(output.FieldNames, ",")
 	flagSet.CreateGroup("filter", "Filter",
-		flagSet.StringVarP(&options.Fields, "fields", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
-		flagSet.StringVarP(&options.StoreFields, "store-fields", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
+		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
+		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
 	)
