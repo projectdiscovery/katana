@@ -74,7 +74,7 @@ const (
 )
 
 // New returns a new output writer instance
-func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, StoreResponseDir string) (Writer, error) {
+func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, storeResponseDir string) (Writer, error) {
 	writer := &StandardWriter{
 		fields:           fields,
 		json:             json,
@@ -82,7 +82,7 @@ func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, S
 		aurora:           aurora.NewAurora(colors),
 		outputMutex:      &sync.Mutex{},
 		storeResponse:    storeResponse,
-		storeResponseDir: StoreResponseDir,
+		storeResponseDir: storeResponseDir,
 	}
 	// Perform validations for fields and store-fields
 	if fields != "" {
@@ -106,8 +106,8 @@ func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, S
 	}
 	if storeResponse {
 		writer.storeResponseDir = DefaultResponseDir
-		if StoreResponseDir != DefaultResponseDir && StoreResponseDir != "" {
-			writer.storeResponseDir = StoreResponseDir
+		if storeResponseDir != DefaultResponseDir && storeResponseDir != "" {
+			writer.storeResponseDir = storeResponseDir
 		}
 		_ = os.RemoveAll(writer.storeResponseDir)
 		_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
