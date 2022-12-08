@@ -67,6 +67,9 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 		return navigation.Response{}, nil
 	}
 
+	resp.Body = io.NopCloser(strings.NewReader(string(data)))
+	_ = c.options.OutputWriter.Write(nil, resp)
+
 	response.Body = data
 	response.Resp = resp
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))

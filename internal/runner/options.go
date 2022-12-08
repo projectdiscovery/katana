@@ -32,6 +32,13 @@ func validateOptions(options *types.Options) error {
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox) && !options.Headless {
 		return errors.New("headless mode (-hl) is required if -ho or -nos are set")
 	}
+	if options.StoreResponseDir != "" && !options.StoreResponse {
+		gologger.Debug().Msgf("Store response directory specified, enabling \"sr\" flag automatically\n")
+		options.StoreResponse = true
+	}
+	if options.Headless && options.StoreResponse {
+		return errors.New("Impossible to store responses in headless mode")
+	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
 }
