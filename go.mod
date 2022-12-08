@@ -22,7 +22,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.11
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/multierr v1.8.0
-	golang.org/x/net v0.3.0
+	golang.org/x/net v0.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
