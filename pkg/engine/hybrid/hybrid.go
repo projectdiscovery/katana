@@ -254,7 +254,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		if scopeValidated || c.options.Options.DisplayOutScope {
-			_ = c.options.OutputWriter.Write(result)
+			_ = c.options.OutputWriter.Write(result, nil)
 		}
 		if c.options.Options.OnResult != nil {
 			c.options.Options.OnResult(*result)
