@@ -17,12 +17,13 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.2
 	github.com/projectdiscovery/retryablehttp-go v1.0.5
 	github.com/projectdiscovery/stringsutil v0.0.2
+	github.com/projectdiscovery/utils v0.0.4-0.20221201124851-f8524345b6d3
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.22.11
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/multierr v1.8.0
-	golang.org/x/net v0.3.0
+	golang.org/x/net v0.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -53,7 +54,6 @@ require (
 	github.com/projectdiscovery/networkpolicy v0.0.3 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.17 // indirect
 	github.com/projectdiscovery/sliceutil v0.0.1 // indirect
-	github.com/projectdiscovery/utils v0.0.4-0.20221201124851-f8524345b6d3 // indirect
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
