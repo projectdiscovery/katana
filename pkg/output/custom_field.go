@@ -76,19 +76,23 @@ func loadCustomFields(filePath string, fields string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errors.Wrap(err, "could not read form config")
+		return errors.Wrap(err, "could not read field config")
 	}
 	defer file.Close()
 
 	var data []CustomFieldConfig
 	// read the field config file
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errors.Wrap(err, "could not decode form config")
+		return errors.Wrap(err, "could not decode field config")
 	}
 	allCustomFields := make(map[string]CustomFieldConfig)
 	for _, item := range data {
 		for _, rg := range item.Regex {
-			item.SetCompiledRegexp(regexp.MustCompile(rg))
+			regex, err := regexp.Compile(rg)
+			if err != nil {
+				return errors.Wrap(err, "could not parse regex in field config")
+			}
+			item.SetCompiledRegexp(regex)
 		}
 		allCustomFields[item.Name] = item
 	}
