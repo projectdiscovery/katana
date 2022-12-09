@@ -161,7 +161,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	// for each seed URL we use an incognito isolated session
-	incognitoBrowser, err := c.browser.Incognito()
+	// Changed c.browser.Incognito() to c.browser.MustConnect() to enable authenticated crawling #227, #209
+	incognitoBrowser, err := c.browser.MustConnect()
 	if err != nil {
 		return err
 	}
