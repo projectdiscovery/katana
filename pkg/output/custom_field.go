@@ -17,7 +17,7 @@ import (
 // it is used for parsing the header and body of request
 var CustomFieldsMap = make(map[string]CustomFieldConfig)
 
-// FormFillData contains suggestions for form filling
+// CustomFieldConfig contains suggestions for field filling
 type CustomFieldConfig struct {
 	Name         string           `yaml:"name,omitempty"`
 	Type         string           `yaml:"type,omitempty"`
@@ -45,13 +45,13 @@ func (c *CustomFieldConfig) GetName() string {
 func parseCustomFieldName(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errors.Wrap(err, "could not read form config")
+		return errors.Wrap(err, "could not read field config")
 	}
 	defer file.Close()
 
 	var data []CustomFieldConfig
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errors.Wrap(err, "could not decode form config")
+		return errors.Wrap(err, "could not decode field config")
 	}
 	passedCustomFieldMap := make(map[string]CustomFieldConfig)
 	for _, item := range data {
