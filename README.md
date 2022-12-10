@@ -108,6 +108,7 @@ HEADLESS:
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -694,7 +695,7 @@ func main() {
 
 <div align="center">
 
-katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE).
+katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE.md).
 
 
 <a href="https://discord.gg/projectdiscovery"><img src="https://raw.githubusercontent.com/projectdiscovery/nuclei-burp-plugin/main/static/join-discord.png" width="300" alt="Join Discord"></a>

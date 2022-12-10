@@ -70,6 +70,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 			return nil, errors.New("the chrome browser is not installed")
 		}
 	}
+    if options.Options.SystemChromePath != "" {
+		chromeLauncher.Bin(options.Options.SystemChromePath);
+	}
 
 	if options.Options.ShowBrowser {
 		chromeLauncher = chromeLauncher.Headless(false)
