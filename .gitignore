@@ -2,3 +2,5 @@ security-crawl-maze/
 cmd/katana/katana
 katana
 *.exe
+katana_output/
+katana_responses/

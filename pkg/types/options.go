@@ -4,7 +4,11 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/katana/pkg/output"
 )
+
+// OnResultCallback (output.Result)
+type OnResultCallback func(output.Result)
 
 type Options struct {
 	// URLs contains a list of URLs for crawling
@@ -85,6 +89,12 @@ type Options struct {
 	HeadlessNoSandbox bool
 	// SystemChromePath : Specify the chrome binary path for headless crawling
 	SystemChromePath string
+	// OnResult allows callback function on a result
+	OnResult OnResultCallback
+	// StoreResponse specifies if katana should store http requests/responses
+	StoreResponse bool
+	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
+	StoreResponseDir string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

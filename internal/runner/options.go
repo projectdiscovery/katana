@@ -37,6 +37,13 @@ func validateOptions(options *types.Options) error {
 			return errors.New("specified system chrome binary does not exist")
 		}
 	}
+	if options.StoreResponseDir != "" && !options.StoreResponse {
+		gologger.Debug().Msgf("store response directory specified, enabling \"sr\" flag automatically\n")
+		options.StoreResponse = true
+	}
+	if options.Headless && (options.StoreResponse || options.StoreResponseDir != "") {
+		return errors.New("store responses feature is not supported in headless mode")
+	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
 }
