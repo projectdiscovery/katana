@@ -93,6 +93,8 @@ type Options struct {
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
+	// ChromeDataDir : 	Specify the --user-data-dir to chrome binary to preserve sessions
+	ChromeDataDir string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
