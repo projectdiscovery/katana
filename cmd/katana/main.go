@@ -83,6 +83,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.HeadlessNoSandbox, "no-sandbox", "nos", false, "start headless chrome in --no-sandbox mode"),
+		flagSet.StringVarP(&options.ChromeDataDir, "chrome-data-dir", "cdd", "", "specify the --user-data-dir to chrome binary to preserve sessions"),
+
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
