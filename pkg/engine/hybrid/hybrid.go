@@ -68,6 +68,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 			return nil, errors.New("the chrome browser is not installed")
 		}
 	}
+    if options.Options.SystemChromePath != "" {
+		chromeLauncher.Bin(options.Options.SystemChromePath);
+	}
 
 	if options.Options.ShowBrowser {
 		chromeLauncher = chromeLauncher.Headless(false)
@@ -77,6 +80,14 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	if options.Options.HeadlessNoSandbox {
 		chromeLauncher.Set("no-sandbox", "true")
+	}
+
+	if options.Options.Proxy != "" && options.Options.Headless {
+		proxyURL, err := url.Parse(options.Options.Proxy)
+		if err != nil {
+			return nil, err
+		}
+		chromeLauncher.Set("proxy-server", proxyURL.String())
 	}
 
 	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
@@ -269,9 +280,11 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		if scopeValidated || c.options.Options.DisplayOutScope {
-			_ = c.options.OutputWriter.Write(result)
+			_ = c.options.OutputWriter.Write(result, nil)
 		}
-
+		if c.options.Options.OnResult != nil {
+			c.options.Options.OnResult(*result)
+		}
 		// Do not add to crawl queue if max items are reached
 		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
 			return

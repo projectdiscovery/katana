@@ -89,7 +89,7 @@ func (c *Crawler) navigateRequest(parseResponseCallback func(nr navigation.Reque
 	page = page.Timeout(timeout)
 
 	// wait the page to be fully loaded and becoming idle
-	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
 	if err := page.Navigate(request.URL); err != nil {
 		return nil, errors.Wrap(err, "could not navigate target")

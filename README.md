@@ -108,6 +108,7 @@ HEADLESS:
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -649,11 +650,52 @@ OUTPUT:
    -version  
 ```
 
+## Katana as a library
+`katana` can be used as a library by creating an instance of the `Option` struct and populating it with the same options that would be specified via CLI. Using the options you can create `crawlerOptions` and so standard or hybrid `crawler`.
+`crawler.Crawl` method should be called to crawl the input.
+
+```
+package main
+
+import (
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/types"
+)
+
+func main() {
+	options := &types.Options{
+		MaxDepth:     1,               // Maximum depth to crawl
+		FieldScope:   "rdn",           // Crawling Scope Field
+		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
+		RateLimit:    150,             // Maximum requests to send per second
+		OnResult: func(result output.Result) { // Callback function to execute for result
+			gologger.Info().Msg(result.URL)
+		},
+	}
+	crawlerOptions, err := types.NewCrawlerOptions(options)
+	if err != nil {
+		gologger.Fatal().Msg(err.Error())
+	}
+	defer crawlerOptions.Close()
+	crawler, err := standard.New(crawlerOptions)
+	if err != nil {
+		gologger.Fatal().Msg(err.Error())
+	}
+	defer crawler.Close()
+	var input = "https://tesla.com"
+	err = crawler.Crawl(input)
+	if err != nil {
+		gologger.Warning().Msgf("Could not crawl %s: %s", input, err.Error())
+	}
+}
+```
 --------
 
 <div align="center">
 
-katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE).
+katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE.md).
 
 
 <a href="https://discord.gg/projectdiscovery"><img src="https://raw.githubusercontent.com/projectdiscovery/nuclei-burp-plugin/main/static/join-discord.png" width="300" alt="Join Discord"></a>
