@@ -72,6 +72,31 @@ docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -h
 
 </details>
 
+<details>
+  <summary>Ubuntu</summary>
+
+> It's recommended to install the following prerequisites -
+
+```sh
+sudo apt update
+sudo snap refresh
+sudo apt install zip curl wget git
+sudo snap install golang --classic
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 
+sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+sudo apt update 
+sudo apt install google-chrome-stable
+```
+
+> install katana -
+
+
+```sh
+go install github.com/projectdiscovery/katana/cmd/katana@latest
+```
+
+</details>
+
 ## Usage
 
 ```console
