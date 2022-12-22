@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	fileutil "github.com/projectdiscovery/utils/file"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,7 +32,7 @@ func validateOptions(options *types.Options) error {
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
 		return errors.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
-	if (options.SystemChromePath != "") {
+	if options.SystemChromePath != "" {
 		if _, err := os.Stat(options.SystemChromePath); errors.Is(err, os.ErrNotExist) {
 			return errors.New("specified system chrome binary does not exist")
 		}

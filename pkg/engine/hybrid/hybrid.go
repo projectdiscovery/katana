@@ -25,7 +25,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/stringsutil"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
 	"go.uber.org/multierr"
@@ -70,8 +70,8 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 			return nil, errors.New("the chrome browser is not installed")
 		}
 	}
-    if options.Options.SystemChromePath != "" {
-		chromeLauncher.Bin(options.Options.SystemChromePath);
+	if options.Options.SystemChromePath != "" {
+		chromeLauncher.Bin(options.Options.SystemChromePath)
 	}
 
 	if options.Options.ShowBrowser {
@@ -235,8 +235,13 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if err != nil {
 			return
 		}
-		// Ignore blank URL items and only work on unique items
+		// Ignore the following cases
+		// - previously seen URLs
 		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+			return
+		}
+		// - URLs stuck in a loop
+		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
 			return
 		}
 
