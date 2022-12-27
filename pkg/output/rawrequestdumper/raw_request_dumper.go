@@ -16,7 +16,7 @@ import (
 type Dumper interface {
 	// Close closes the output Dumper interface
 	Close() error
-	// Write writes the event to file and/or screen.
+	// Write writes the raw request to file and/or screen.
 	Write(string) error
 }
 
@@ -33,7 +33,7 @@ type Options struct {
 	OutputFile string
 }
 
-// New returns a new output RawReqDumper instance
+// NewReqDumper returns a new output RawReqDumper instance
 func NewReqDumper(filename string) (*RawReqDumper, error) {
 	dumper := &RawReqDumper{
 		outputMutex: &sync.Mutex{},
@@ -51,7 +51,7 @@ func NewReqDumper(filename string) (*RawReqDumper, error) {
 	return dumper, nil
 }
 
-// Dump dumps the event to yaml file
+// DumpToFile dumps the raw request to yaml file
 func (w *RawReqDumper) DumpToFile(data string) error {
 	if len(data) == 0 {
 		return nil
@@ -70,6 +70,7 @@ func (w *RawReqDumper) DumpToFile(data string) error {
 	return nil
 }
 
+// StartFile prints first two lines of yaml file
 func (w *RawReqDumper) StartFile() error {
 	if writeErr := w.outputFile.Write([]byte("requests:\n  - raw:")); writeErr != nil {
 		fmt.Println("could not write data in rawreqdumper.StartFile")
@@ -78,7 +79,7 @@ func (w *RawReqDumper) StartFile() error {
 	return nil
 }
 
-// DumpRawRequest prints to the screen an ascii representation of a request
+// Dump calls DumpToFile if set and dumps raw request to the screen 
 func (w *RawReqDumper) Dump(header http.Header, body string, r *http.Request, toScreen bool) {
 	req := BuildRawRequest(header, body, r)
 	if w.outputFileName != "" {
@@ -90,7 +91,7 @@ func (w *RawReqDumper) Dump(header http.Header, body string, r *http.Request, to
 	}
 }
 
-// From header object and request body data, build and return the raw request string
+// BuildRawRequest uses header object and request body data to build and return the raw request string
 func BuildRawRequest(header http.Header, body string, r *http.Request) string {
 	var request []string
 	// get path from url
