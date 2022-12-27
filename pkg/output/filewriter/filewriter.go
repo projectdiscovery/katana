@@ -1,4 +1,4 @@
-package output
+package filewriter
 
 import (
 	"bufio"
@@ -6,22 +6,22 @@ import (
 )
 
 // fileWriter is a concurrent file based output writer.
-type fileWriter struct {
+type Writer struct {
 	file   *os.File
 	writer *bufio.Writer
 }
 
 // NewFileOutputWriter creates a new buffered writer for a file
-func newFileOutputWriter(file string) (*fileWriter, error) {
+func NewFileOutputWriter(file string) (*Writer, error) {
 	output, err := os.Create(file)
 	if err != nil {
 		return nil, err
 	}
-	return &fileWriter{file: output, writer: bufio.NewWriter(output)}, nil
+	return &Writer{file: output, writer: bufio.NewWriter(output)}, nil
 }
 
 // WriteString writes an output to the underlying file
-func (w *fileWriter) Write(data []byte) error {
+func (w *Writer) Write(data []byte) error {
 	_, err := w.writer.Write(data)
 	if err != nil {
 		return err
@@ -31,7 +31,7 @@ func (w *fileWriter) Write(data []byte) error {
 }
 
 // Close closes the underlying writer flushing everything to disk
-func (w *fileWriter) Close() error {
+func (w *Writer) Close() error {
 	w.writer.Flush()
 	//nolint:errcheck // we don't care whether sync failed or succeeded.
 	w.file.Sync()

@@ -10,6 +10,7 @@ import (
 	"github.com/logrusorgru/aurora"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/output/filewriter"
 )
 
 // Writer is an interface which writes output to somewhere for katana events.
@@ -29,7 +30,7 @@ type StandardWriter struct {
 	json        bool
 	verbose     bool
 	aurora      aurora.Aurora
-	outputFile  *fileWriter
+	outputFile  *filewriter.Writer
 	outputMutex *sync.Mutex
 }
 
@@ -86,7 +87,7 @@ func New(colors, json, verbose bool, file, fields, storeFields string) (Writer, 
 		writer.storeFields = append(writer.storeFields, strings.Split(storeFields, ",")...)
 	}
 	if file != "" {
-		output, err := newFileOutputWriter(file)
+		output, err := filewriter.NewFileOutputWriter(file)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create output file")
 		}

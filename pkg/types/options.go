@@ -65,6 +65,10 @@ type Options struct {
 	Silent bool
 	// Verbose specifies showing verbose output
 	Verbose bool
+	// DumpRawReqs enables dumping of raw requests to screen
+	DumpRawReqs bool
+	// DumpRawReqsFile enables dumping of raw requests to specified file
+	DumpRawReqsFile string
 	// Version enables showing of crawler version
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript

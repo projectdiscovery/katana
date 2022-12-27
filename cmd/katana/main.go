@@ -112,6 +112,8 @@ pipelines offering both headless and non-headless crawling.`)
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.BoolVarP(&options.JSON, "json", "j", false, "write output in JSONL(ines) format"),
+		flagSet.BoolVarP(&options.DumpRawReqs, "dump-raw-reqs", "drr", false, "write raw requests to screen"),
+		flagSet.StringVarP(&options.DumpRawReqsFile, "dump-raw-reqs-file", "drrf", "", "write raw requests to yaml file (eg, -drrf raw-req.yaml)"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
 		flagSet.BoolVarP(&options.Verbose, "verbose", "v", false, "display verbose output"),

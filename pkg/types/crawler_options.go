@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/output/rawrequestdumper"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -29,6 +30,10 @@ type CrawlerOptions struct {
 	ScopeManager *scope.Manager
 	// Dialer is instance of the dialer for global crawler
 	Dialer *fastdialer.Dialer
+	// RawReqDumper dumps raw requests to the screen or to a specified file
+	RawReqDumper *rawrequestdumper.RawReqDumper
+	// DumpRawRequests if set causes crawler to dump raw requests to the screen
+	DumpRawRequests bool
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -54,6 +59,17 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errors.Wrap(err, "could not create output writer")
 	}
 
+	rawReqDumper, err := rawrequestdumper.NewReqDumper(options.DumpRawReqsFile)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dumpRawRequests := false
+	if options.DumpRawReqs {
+		dumpRawRequests = true
+	}
+
 	var ratelimiter ratelimit.Limiter
 	if options.RateLimit > 0 {
 		ratelimiter = *ratelimit.New(context.Background(), int64(options.RateLimitMinute), time.Second)
@@ -69,6 +85,8 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		Options:             options,
 		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
+		RawReqDumper:        rawReqDumper,
+		DumpRawRequests:     dumpRawRequests,
 	}
 	return crawlerOptions, nil
 }
@@ -76,5 +94,6 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 // Close closes the crawler options resources
 func (c *CrawlerOptions) Close() error {
 	c.UniqueFilter.Close()
+  c.RawReqDumper.Close()
 	return c.OutputWriter.Close()
 }

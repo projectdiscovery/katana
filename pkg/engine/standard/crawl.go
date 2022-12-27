@@ -43,6 +43,8 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 		req.Header.Set(k, v)
 	}
 
+	c.options.RawReqDumper.Dump(req.Header, request.Body, httpReq, c.options.DumpRawRequests)
+
 	resp, err := httpclient.Do(req)
 	if resp != nil {
 		defer func() {
