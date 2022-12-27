@@ -142,8 +142,13 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if err != nil {
 			return
 		}
-		// Ignore blank URL items and only work on unique items
+		// Ignore the following cases
+		// - previously seen URLs
 		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+			return
+		}
+		// - URLs stuck in a loop
+		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
 			return
 		}
 

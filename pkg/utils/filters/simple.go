@@ -5,6 +5,15 @@ import (
 	"encoding/hex"
 
 	"github.com/projectdiscovery/hmap/store/hybrid"
+	stringsutil "github.com/projectdiscovery/utils/strings"
+)
+
+const (
+	// TODO: this should be lowered to a reasonable amount (eg: 1024-2048-4096)
+	MaxChromeURLLength = 2097152
+	// TODO: fine tune the number
+	MinSequenceLength = 10
+	MaxSequenceCount  = 10
 )
 
 // Simple is a simple unique URL filter.
@@ -50,4 +59,17 @@ func (s *Simple) UniqueContent(data []byte) bool {
 // Close closes the filter and relases associated resources
 func (s *Simple) Close() {
 	_ = s.data.Close()
+}
+
+// IsCycle attempts to determine if the url is a cycle loop
+func (s *Simple) IsCycle(url string) bool {
+	if len(url) > MaxChromeURLLength {
+		return true
+	}
+
+	if sequence := stringsutil.LongestRepeatingSequence(url); sequence.Count >= MaxSequenceCount && len(sequence.Sequence) > MinSequenceLength {
+		return true
+	}
+
+	return false
 }
