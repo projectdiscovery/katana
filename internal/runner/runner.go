@@ -2,12 +2,12 @@ package runner
 
 import (
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
+	fileutil "github.com/projectdiscovery/utils/file"
 	"go.uber.org/multierr"
 )
 
