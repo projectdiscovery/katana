@@ -130,12 +130,14 @@ RATE-LIMIT:
    -rlm, -rate-limit-minute int  maximum number of requests to send per minute
 
 OUTPUT:
-   -o, -output string  file to write output to
-   -j, -json           write output in JSONL(ines) format
-   -nc, -no-color      disable output content coloring (ANSI escape codes)
-   -silent             display output only
-   -v, -verbose        display verbose output
-   -version            display project version
+   -o, -output                string  file to write output to
+   -j, -json                  write output in JSONL(ines) format
+   -drr, -dump-raw-reqs       write raw requests to screen
+   -drrf, -dump-raw-reqs-file string  write raw requests to yaml file (eg -drrf raw-req.yaml)
+   -nc, -no-color             disable output content coloring (ANSI escape codes)
+   -silent                    display output only
+   -v, -verbose               display verbose output
+   -version                   display project version
 ```
 
 ## Running Katana
