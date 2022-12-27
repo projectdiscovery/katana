@@ -58,7 +58,7 @@ func (w *RawReqDumper) DumpToFile(data string) error {
 	}
 
 	re := regexp.MustCompile(`\n`)
-	data = "\n\t\t- |-\n\t\t\t" + re.ReplaceAllString(data, "\n\t\t\t")
+	data = "\n    - |-\n      " + re.ReplaceAllString(data, "\n      ")
 	w.outputMutex.Lock()
 	defer w.outputMutex.Unlock()
 
@@ -71,7 +71,7 @@ func (w *RawReqDumper) DumpToFile(data string) error {
 }
 
 func (w *RawReqDumper) StartFile() error {
-	if writeErr := w.outputFile.Write([]byte("requests:\n\t- raw:")); writeErr != nil {
+	if writeErr := w.outputFile.Write([]byte("requests:\n  - raw:")); writeErr != nil {
 		fmt.Println("could not write data in rawreqdumper.StartFile")
 		return errors.Wrap(writeErr, "could not write data in rawreqdumper.StartFile")
 	}
