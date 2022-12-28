@@ -95,6 +95,8 @@ type Options struct {
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
+	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
+	HeadlessNoIncognito bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
