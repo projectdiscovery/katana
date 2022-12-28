@@ -171,10 +171,19 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return errors.Wrap(err, "could not create http client")
 	}
 
-	// for each seed URL we use an incognito isolated session
-	incognitoBrowser, err := c.browser.Incognito()
-	if err != nil {
-		return err
+	// create a new browser instance (default to incognito mode)
+	var newBrowser *rod.Browser
+	if c.options.Options.HeadlessNoIncognito {
+		if err := c.browser.Connect(); err != nil {
+			return err
+		}
+		newBrowser = c.browser
+	} else {
+		var err error
+		newBrowser, err = c.browser.Incognito()
+		if err != nil {
+			return err
+		}
 	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -208,7 +217,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname)
+			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, newBrowser, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
