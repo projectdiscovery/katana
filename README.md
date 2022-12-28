@@ -108,6 +108,7 @@ HEADLESS:
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -noi, -no-incognito              start headless chrome without incognito mode
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -256,6 +257,7 @@ HEADLESS:
    -sb, -show-browser   show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -noi, -no-incognito              start headless chrome without incognito mode
 ```
 
 *`-no-sandbox`*
@@ -265,6 +267,15 @@ Runs headless chrome browser with **no-sandbox** option, useful when running as 
 
 ```console
 katana -u https://tesla.com -headless -no-sandbox
+```
+
+*`-no-incognito`*
+----
+
+Runs headless chrome browser without incognito mode, useful when using the local browser.
+
+```console
+katana -u https://tesla.com -headless -no-incognito
 ```
 
 *`-headless-options`*

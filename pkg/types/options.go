@@ -83,6 +83,8 @@ type Options struct {
 	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
+	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
+	HeadlessNoIncognito bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
