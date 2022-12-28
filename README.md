@@ -72,6 +72,31 @@ docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -h
 
 </details>
 
+<details>
+  <summary>Ubuntu</summary>
+
+> It's recommended to install the following prerequisites -
+
+```sh
+sudo apt update
+sudo snap refresh
+sudo apt install zip curl wget git
+sudo snap install golang --classic
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 
+sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+sudo apt update 
+sudo apt install google-chrome-stable
+```
+
+> install katana -
+
+
+```sh
+go install github.com/projectdiscovery/katana/cmd/katana@latest
+```
+
+</details>
+
 ## Usage
 
 ```console
@@ -108,6 +133,7 @@ HEADLESS:
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
    -noi, -no-incognito              start headless chrome without incognito mode
 
 SCOPE:
@@ -462,7 +488,7 @@ CONFIGURATION:
 *`-field`*
 ----
 
-Katana comes with build in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
+Katana comes with built in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
 
 ```
    -f, -field string  field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
@@ -660,6 +686,47 @@ OUTPUT:
    -version  
 ```
 
+## Katana as a library
+`katana` can be used as a library by creating an instance of the `Option` struct and populating it with the same options that would be specified via CLI. Using the options you can create `crawlerOptions` and so standard or hybrid `crawler`.
+`crawler.Crawl` method should be called to crawl the input.
+
+```
+package main
+
+import (
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/types"
+)
+
+func main() {
+	options := &types.Options{
+		MaxDepth:     1,               // Maximum depth to crawl
+		FieldScope:   "rdn",           // Crawling Scope Field
+		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
+		RateLimit:    150,             // Maximum requests to send per second
+		OnResult: func(result output.Result) { // Callback function to execute for result
+			gologger.Info().Msg(result.URL)
+		},
+	}
+	crawlerOptions, err := types.NewCrawlerOptions(options)
+	if err != nil {
+		gologger.Fatal().Msg(err.Error())
+	}
+	defer crawlerOptions.Close()
+	crawler, err := standard.New(crawlerOptions)
+	if err != nil {
+		gologger.Fatal().Msg(err.Error())
+	}
+	defer crawler.Close()
+	var input = "https://tesla.com"
+	err = crawler.Crawl(input)
+	if err != nil {
+		gologger.Warning().Msgf("Could not crawl %s: %s", input, err.Error())
+	}
+}
+```
 --------
 
 <div align="center">
