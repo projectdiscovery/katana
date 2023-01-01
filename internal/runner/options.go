@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	fileutil "github.com/projectdiscovery/utils/file"
 	"gopkg.in/yaml.v3"
 )
 
@@ -29,8 +29,20 @@ func validateOptions(options *types.Options) error {
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
 		return errors.New("no inputs specified for crawler")
 	}
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox) && !options.Headless {
-		return errors.New("headless mode (-hl) is required if -ho or -nos are set")
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
+		return errors.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
+	}
+	if options.SystemChromePath != "" {
+		if _, err := os.Stat(options.SystemChromePath); errors.Is(err, os.ErrNotExist) {
+			return errors.New("specified system chrome binary does not exist")
+		}
+	}
+	if options.StoreResponseDir != "" && !options.StoreResponse {
+		gologger.Debug().Msgf("store response directory specified, enabling \"sr\" flag automatically\n")
+		options.StoreResponse = true
+	}
+	if options.Headless && (options.StoreResponse || options.StoreResponseDir != "") {
+		return errors.New("store responses feature is not supported in headless mode")
 	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil

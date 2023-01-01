@@ -142,8 +142,13 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if err != nil {
 			return
 		}
-		// Ignore blank URL items and only work on unique items
+		// Ignore the following cases
+		// - previously seen URLs
 		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+			return
+		}
+		// - URLs stuck in a loop
+		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
 			return
 		}
 
@@ -164,9 +169,11 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		if scopeValidated || c.options.Options.DisplayOutScope {
-			_ = c.options.OutputWriter.Write(result)
+			_ = c.options.OutputWriter.Write(result, nil)
 		}
-
+		if c.options.Options.OnResult != nil {
+			c.options.Options.OnResult(*result)
+		}
 		// Do not add to crawl queue if max items are reached
 		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
 			return
