@@ -17,10 +17,20 @@ import (
 // it is used for parsing the header and body of request
 var CustomFieldsMap = make(map[string]CustomFieldConfig)
 
+type Part string
+
+const (
+	// RequestPart is the part of request
+	Header   Part = "header"
+	Body     Part = "body"
+	Response Part = "response"
+)
+
 // CustomFieldConfig contains suggestions for field filling
 type CustomFieldConfig struct {
 	Name         string           `yaml:"name,omitempty"`
 	Type         string           `yaml:"type,omitempty"`
+	Part         string           `yaml:"part,omitempty"`
 	Group        int              `yaml:"group,omitempty"`
 	Regex        []string         `yaml:"regex,omitempty"`
 	CompileRegex []*regexp.Regexp `yaml:"-"`
@@ -30,6 +40,7 @@ var DefaultFieldConfigData = []CustomFieldConfig{
 	{
 		Name:  "email",
 		Type:  "regex",
+		Part:  Response.ToString(),
 		Regex: []string{`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`},
 	},
 }
@@ -129,4 +140,8 @@ func initCustomFieldConfigFile() (string, error) {
 		return "", err
 	}
 	return defaultConfig, nil
+}
+
+func (p Part) ToString() string {
+	return string(p)
 }

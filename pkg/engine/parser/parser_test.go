@@ -542,9 +542,10 @@ func TestScriptParsers(t *testing.T) {
 	})
 }
 
-func TestRegexParsers(t *testing.T) {
+func TestRegexBodyParsers(t *testing.T) {
 	parsed, _ := url.Parse("https://security-crawl-maze.app/contact")
-	t.Run("regex", func(t *testing.T) {
+	t.Run("regexbody", func(t *testing.T) {
+		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
 		resp := navigation.Response{
 			Resp:  &http.Response{Request: &http.Request{URL: parsed}},
 			Depth: 0,
@@ -555,6 +556,7 @@ func TestRegexParsers(t *testing.T) {
 		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
 			Name:         "email",
 			Type:         "regex",
+			Part:         "body",
 			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`)},
 		}
 
@@ -563,6 +565,64 @@ func TestRegexParsers(t *testing.T) {
 			gotFields = resp.CustomFields
 		})
 		var requireFields = map[string][]string{"email": {"contact@example.com"}}
+		require.Equal(t, requireFields, gotFields, "could not get correct url")
+	})
+	t.Run("regexheader", func(t *testing.T) {
+		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
+		resp := navigation.Response{
+			Resp: &http.Response{Request: &http.Request{URL: parsed},
+				Header: http.Header{
+					"server": []string{"ECS (dcb/7F84)"},
+				},
+			},
+		}
+
+		// set required regex
+		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
+			Name:         "server",
+			Type:         "regex",
+			Part:         "header",
+			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`server: ECS`)},
+		}
+
+		var gotFields map[string][]string
+		customFieldRegexParser(resp, func(resp navigation.Request) {
+			gotFields = resp.CustomFields
+		})
+		var requireFields = map[string][]string{"server": {"server: ECS"}}
+		require.Equal(t, requireFields, gotFields, "could not get correct url")
+	})
+
+	t.Run("regexresponse", func(t *testing.T) {
+		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
+		resp := navigation.Response{
+			Resp: &http.Response{Request: &http.Request{URL: parsed},
+				Header: http.Header{
+					"server": []string{"ECS (dcb/7F84)"},
+				},
+			},
+			Body: []byte("some content contact@example.com"),
+		}
+
+		// set required regex
+		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
+			Name:         "server",
+			Type:         "regex",
+			Part:         "response",
+			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`ECS`)},
+		}
+		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
+			Name:         "email",
+			Type:         "regex",
+			Part:         "response",
+			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`)},
+		}
+
+		var gotFields map[string][]string
+		customFieldRegexParser(resp, func(resp navigation.Request) {
+			gotFields = resp.CustomFields
+		})
+		var requireFields = map[string][]string{"server": {"ECS"}, "email": {"contact@example.com"}}
 		require.Equal(t, requireFields, gotFields, "could not get correct url")
 	})
 }

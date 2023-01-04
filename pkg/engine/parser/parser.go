@@ -631,16 +631,24 @@ func bodyScrapeEndpointsParser(resp navigation.Response, callback func(navigatio
 func customFieldRegexParser(resp navigation.Response, callback func(navigation.Request)) {
 	var customField = make(map[string][]string)
 	for _, v := range output.CustomFieldsMap {
+		results := []string{}
 		for _, re := range v.CompileRegex {
-			results := []string{}
+			matches := [][]string{}
+
 			// read body
-			matches := re.FindAllStringSubmatch(string(resp.Body), -1)
+			if v.Part == output.Body.ToString() || v.Part == output.Response.ToString() {
+				matches = re.FindAllStringSubmatch(string(resp.Body), -1)
+			}
 
 			// read header
-			for _, v := range resp.Resp.Header {
-				headerMatches := re.FindAllStringSubmatch(strings.Join(v, "\n"), -1)
-				matches = append(matches, headerMatches...)
+			if v.Part == output.Header.ToString() || v.Part == output.Response.ToString() {
+				for key, v := range resp.Resp.Header {
+					header := key + ": " + strings.Join(v, "\n")
+					headerMatches := re.FindAllStringSubmatch(header, -1)
+					matches = append(matches, headerMatches...)
+				}
 			}
+
 			for _, match := range matches {
 				if len(match) < (v.Group + 1) {
 					continue
@@ -648,8 +656,8 @@ func customFieldRegexParser(resp navigation.Response, callback func(navigation.R
 				matchString := match[v.Group]
 				results = append(results, matchString)
 			}
-			customField[v.GetName()] = results
 		}
+		customField[v.GetName()] = results
 	}
 	if len(customField) != 0 {
 		callback(navigation.Request{
