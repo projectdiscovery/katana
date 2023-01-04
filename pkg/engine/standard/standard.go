@@ -146,6 +146,10 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
 			return
 		}
+		// - URLs stuck in a loop
+		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
+			return
+		}
 
 		// Write the found result to output
 		result := &output.Result{

@@ -72,6 +72,31 @@ docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -h
 
 </details>
 
+<details>
+  <summary>Ubuntu</summary>
+
+> It's recommended to install the following prerequisites -
+
+```sh
+sudo apt update
+sudo snap refresh
+sudo apt install zip curl wget git
+sudo snap install golang --classic
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 
+sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+sudo apt update 
+sudo apt install google-chrome-stable
+```
+
+> install katana -
+
+
+```sh
+go install github.com/projectdiscovery/katana/cmd/katana@latest
+```
+
+</details>
+
 ## Usage
 
 ```console
@@ -108,6 +133,8 @@ HEADLESS:
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
+   -noi, -no-incognito              start headless chrome without incognito mode
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -256,6 +283,7 @@ HEADLESS:
    -sb, -show-browser   show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -noi, -no-incognito              start headless chrome without incognito mode
 ```
 
 *`-no-sandbox`*
@@ -265,6 +293,15 @@ Runs headless chrome browser with **no-sandbox** option, useful when running as 
 
 ```console
 katana -u https://tesla.com -headless -no-sandbox
+```
+
+*`-no-incognito`*
+----
+
+Runs headless chrome browser without incognito mode, useful when using the local browser.
+
+```console
+katana -u https://tesla.com -headless -no-incognito
 ```
 
 *`-headless-options`*
@@ -694,7 +731,7 @@ func main() {
 
 <div align="center">
 
-katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE).
+katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io) team and distributed under [MIT License](LICENSE.md).
 
 
 <a href="https://discord.gg/projectdiscovery"><img src="https://raw.githubusercontent.com/projectdiscovery/nuclei-burp-plugin/main/static/join-discord.png" width="300" alt="Join Discord"></a>

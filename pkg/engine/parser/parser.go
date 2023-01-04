@@ -490,6 +490,11 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 			return
 		}
 
+		parsedURL, err := url.Parse(actionURL)
+		if err != nil {
+			return
+		}
+
 		isMultipartForm := strings.HasPrefix(encType, "multipart/")
 
 		queryValuesWriter := make(url.Values)
@@ -541,12 +546,8 @@ func bodyFormTagParser(resp navigation.Response, callback func(navigation.Reques
 		}
 		switch method {
 		case "GET":
-			value := queryValuesWriter.Encode()
-			sb.Reset()
-			sb.WriteString(req.URL)
-			sb.WriteString("?")
-			sb.WriteString(value)
-			req.URL = sb.String()
+			parsedURL.RawQuery = queryValuesWriter.Encode()
+			req.URL = parsedURL.String()
 		case "POST":
 			if multipartWriter != nil {
 				req.Body = sb.String()
