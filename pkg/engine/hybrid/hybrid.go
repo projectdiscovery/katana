@@ -244,9 +244,8 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		if err != nil {
 			return
 		}
-		// Ignore the following cases
-		// - previously seen URLs
-		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+		// Ignore blank URL items and only work on unique items
+		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
 			return
 		}
 		// - URLs stuck in a loop
@@ -256,12 +255,13 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 
 		// Write the found result to output
 		result := &output.Result{
-			Timestamp: time.Now(),
-			Body:      nr.Body,
-			URL:       nr.URL,
-			Source:    nr.Source,
-			Tag:       nr.Tag,
-			Attribute: nr.Attribute,
+			Timestamp:    time.Now(),
+			Body:         nr.Body,
+			URL:          nr.URL,
+			Source:       nr.Source,
+			Tag:          nr.Tag,
+			Attribute:    nr.Attribute,
+			CustomFields: nr.CustomFields,
 		}
 		if nr.Method != http.MethodGet {
 			result.Method = nr.Method

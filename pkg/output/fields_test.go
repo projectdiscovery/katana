@@ -1,7 +1,6 @@
 package output
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,23 +22,23 @@ func TestFormatField(t *testing.T) {
 	tests := []struct {
 		url    string
 		fields string
-		result []string
+		result []fieldOutput
 	}{
-		{url, "url", []string{url}},
-		{url, "path", []string{"/terms/file.php"}},
-		{url, "fqdn", []string{"policies.google.com"}},
-		{url, "rdn", []string{"google.com"}},
-		{url, "rurl", []string{"https://policies.google.com"}},
-		{url, "file", []string{"file.php"}},
-		{url, "key", []string{"hl", "fg"}},
-		{url, "kv", []string{"hl=en-IN", "fg=1"}},
-		{url, "value", []string{"en-IN", "1"}},
-		{url, "dir", []string{"/terms/"}},
-		{url, "udir", []string{"https://policies.google.com/terms/"}},
+		{url, "url", []fieldOutput{{"url", url}}},
+		{url, "path", []fieldOutput{{"path", "/terms/file.php"}}},
+		{url, "fqdn", []fieldOutput{{"fqdn", "policies.google.com"}}},
+		{url, "rdn", []fieldOutput{{"rdn", "google.com"}}},
+		{url, "rurl", []fieldOutput{{"rurl", "https://policies.google.com"}}},
+		{url, "file", []fieldOutput{{"file", "file.php"}}},
+		{url, "key", []fieldOutput{{"key", "hl"}, {"key", "fg"}}},
+		{url, "kv", []fieldOutput{{"kv", "hl=en-IN"}, {"kv", "fg=1"}}},
+		{url, "value", []fieldOutput{{"value", "en-IN"}, {"value", "1"}}},
+		{url, "dir", []fieldOutput{{"dir", "/terms/"}}},
+		{url, "udir", []fieldOutput{{"udir", "https://policies.google.com/terms/"}}},
 	}
 
 	for _, test := range tests {
 		result := formatField(&Result{URL: test.url}, test.fields)
-		require.ElementsMatch(t, test.result, strings.Split(result, "\n"), "could not equal value")
+		require.ElementsMatch(t, test.result, result, "could not equal value")
 	}
 }
