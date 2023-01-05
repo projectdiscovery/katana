@@ -105,6 +105,9 @@ func loadCustomFields(filePath string, fields string) error {
 			}
 			item.SetCompiledRegexp(regex)
 		}
+		if item.Part == "" {
+			item.Part = Response.ToString()
+		}
 		allCustomFields[item.Name] = item
 	}
 	// Set the passed custom field value globally
