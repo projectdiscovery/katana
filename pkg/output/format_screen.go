@@ -2,16 +2,25 @@ package output
 
 import (
 	"bytes"
+	"fmt"
 )
 
 // formatScreen formats the output for showing on screen.
 func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
-	// If fields are specified, use to format it
+	builder := &bytes.Buffer{}
 	if w.fields != "" {
 		result := formatField(output, w.fields)
-		return []byte(result), nil
+		for _, fop := range result {
+			if w.verbose {
+				builder.WriteRune('[')
+				builder.WriteString(w.aurora.Blue(fop.field).String())
+				builder.WriteRune(']')
+				builder.WriteRune(' ')
+			}
+			builder.WriteString(fmt.Sprintf("%s\n", fop.value))
+		}
+		return builder.Bytes(), nil
 	}
-	builder := &bytes.Buffer{}
 
 	if w.verbose {
 		builder.WriteRune('[')

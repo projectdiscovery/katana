@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/stringsutil"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -28,6 +29,11 @@ var FieldNames = []string{
 	"udir",
 }
 
+type fieldOutput struct {
+	field string
+	value string
+}
+
 // validateFieldNames validates provided field names
 func validateFieldNames(names string) error {
 	parts := strings.Split(names, ",")
@@ -37,6 +43,9 @@ func validateFieldNames(names string) error {
 	uniqueFields := make(map[string]struct{})
 	for _, field := range FieldNames {
 		uniqueFields[field] = struct{}{}
+	}
+	for _, field := range CustomFieldsMap {
+		uniqueFields[field.Name] = struct{}{}
 	}
 	for _, part := range parts {
 		if _, ok := uniqueFields[part]; !ok {
@@ -61,6 +70,12 @@ func storeFields(output *Result, storeFields []string) {
 		if result := getValueForField(output, parsed, hostname, etld, rootURL, field); result != "" {
 			appendToFileField(parsed, field, result)
 		}
+		if _, ok := CustomFieldsMap[field]; ok {
+			results := getValueForCustomField(output)
+			for _, result := range results {
+				appendToFileField(parsed, result.field, result.value)
+			}
+		}
 	}
 }
 
@@ -76,10 +91,11 @@ func appendToFileField(parsed *url.URL, field, data string) {
 }
 
 // formatField formats output results based on fields from fieldNames
-func formatField(output *Result, fields string) string {
+func formatField(output *Result, fields string) []fieldOutput {
+	var svalue []fieldOutput
 	parsed, _ := url.Parse(output.URL)
 	if parsed == nil {
-		return ""
+		return svalue
 	}
 
 	queryLen := len(parsed.Query())
@@ -95,45 +111,79 @@ func formatField(output *Result, fields string) string {
 			queryValues = append(queryValues, v...)
 		}
 	}
-	hostname := parsed.Hostname()
-	etld, _ := publicsuffix.EffectiveTLDPlusOne(hostname)
-	rootURL := fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
-	values := []string{
-		"url", output.URL,
-		"rurl", rootURL,
-		"rdn", etld,
-		"path", parsed.Path,
-		"fqdn", hostname,
-	}
-	if len(queryKeys) > 0 {
-		values = append(values, "qurl", output.URL)
-		values = append(values, "qpath", fmt.Sprintf("%s?%s", parsed.Path, parsed.Query().Encode()))
-	} else {
-		values = append(values, "qurl", "")
-		values = append(values, "qpath", "")
-	}
-	if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
-		values = append(values, "key", strings.Join(queryKeys, "\n"))
-		values = append(values, "kv", strings.Join(queryBoth, "\n"))
-		values = append(values, "value", strings.Join(queryValues, "\n"))
-	}
-	if parsed.Path != "" && parsed.Path != "/" {
-		basePath := path.Base(parsed.Path)
-		if strings.Contains(basePath, ".") {
-			values = append(values, "file", basePath)
+	for _, f := range stringsutil.SplitAny(fields, ",") {
+		switch f {
+		case "url":
+			svalue = append(svalue, fieldOutput{field: "url", value: output.URL})
+		case "rdn":
+			hostname := parsed.Hostname()
+			etld, _ := publicsuffix.EffectiveTLDPlusOne(hostname)
+			svalue = append(svalue, fieldOutput{field: "rdn", value: etld})
+		case "path":
+			if parsed.Path != "" {
+				svalue = append(svalue, fieldOutput{field: "path", value: parsed.Path})
+			}
+		case "fqdn":
+			svalue = append(svalue, fieldOutput{field: "fqdn", value: parsed.Hostname()})
+		case "rurl":
+			svalue = append(svalue, fieldOutput{field: "rurl", value: fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)})
+		case "qpath":
+			if len(queryKeys) > 0 {
+				svalue = append(svalue, fieldOutput{field: "qpath", value: fmt.Sprintf("%s?%s", parsed.Path, parsed.Query().Encode())})
+			}
+		case "qurl":
+			if len(queryKeys) > 0 {
+				svalue = append(svalue, fieldOutput{field: "qurl", value: output.URL})
+			}
+		case "key":
+			if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
+				for _, k := range queryKeys {
+					svalue = append(svalue, fieldOutput{field: "key", value: k})
+				}
+			}
+		case "kv":
+			if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
+				for _, k := range queryBoth {
+					svalue = append(svalue, fieldOutput{field: "kv", value: k})
+				}
+			}
+		case "value":
+			if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
+				for _, k := range queryValues {
+					svalue = append(svalue, fieldOutput{field: "value", value: k})
+				}
+			}
+		case "file":
+			if parsed.Path != "" && parsed.Path != "/" {
+				basePath := path.Base(parsed.Path)
+				if strings.Contains(basePath, ".") {
+					svalue = append(svalue, fieldOutput{field: "file", value: basePath})
+				}
+			}
+		case "udir":
+			if parsed.Path != "" && parsed.Path != "/" {
+				if strings.Contains(parsed.Path[1:], "/") {
+					directory := parsed.Path[:strings.LastIndex(parsed.Path[1:], "/")+2]
+					rootURL := fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+					svalue = append(svalue, fieldOutput{field: "udir", value: fmt.Sprintf("%s%s", rootURL, directory)})
+				}
+			}
+		case "dir":
+			if parsed.Path != "" && parsed.Path != "/" {
+				if strings.Contains(parsed.Path[1:], "/") {
+					directory := parsed.Path[:strings.LastIndex(parsed.Path[1:], "/")+2]
+					svalue = append(svalue, fieldOutput{field: "dir", value: directory})
+				}
+			}
+		default:
+			for k, v := range output.CustomFields {
+				for _, r := range v {
+					svalue = append(svalue, fieldOutput{field: k, value: r})
+				}
+			}
 		}
-		if strings.Contains(parsed.Path[1:], "/") {
-			directory := parsed.Path[:strings.LastIndex(parsed.Path[1:], "/")+2]
-			values = append(values, "udir", fmt.Sprintf("%s%s", rootURL, directory))
-			values = append(values, "dir", directory)
-		}
 	}
-	replacer := strings.NewReplacer(values...)
-	replaced := replacer.Replace(fields)
-	if replaced == fields {
-		return ""
-	}
-	return replaced
+	return svalue
 }
 
 // getValueForField returns value for a field
@@ -192,4 +242,14 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 		return strings.Join(values, "\n")
 	}
 	return ""
+}
+
+func getValueForCustomField(output *Result) []fieldOutput {
+	var svalue []fieldOutput
+	for k, v := range output.CustomFields {
+		for _, r := range v {
+			svalue = append(svalue, fieldOutput{field: k, value: r})
+		}
+	}
+	return svalue
 }
