@@ -21,19 +21,25 @@ var (
 )
 
 func main() {
-	if err := readFlags(); err != nil {
+	flagSet, err := readFlags()
+	if err != nil {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
 
-	runner, err := runner.New(options)
-	if err != nil || runner == nil {
+	if options.HealthCheck {
+		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
+		os.Exit(0)
+	}
+
+	katanaRunner, err := runner.New(options)
+	if err != nil || katanaRunner == nil {
 		if options.Version {
 			return
 		} else {
 			gologger.Fatal().Msgf("could not create runner: %s\n", err)
 		}
 	}
-	defer runner.Close()
+	defer katanaRunner.Close()
 
 	// close handler
 	go func() {
@@ -42,18 +48,18 @@ func main() {
 		go func() {
 			<-c
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			runner.Close()
+			katanaRunner.Close()
 			os.Exit(0)
 		}()
 	}()
 
-	if err := runner.ExecuteCrawling(); err != nil {
+	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
 
 }
 
-func readFlags() error {
+func readFlags() (*goflags.FlagSet, error) {
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription(`Katana is a fast crawler focused on execution in automation
 pipelines offering both headless and non-headless crawling.`)
@@ -75,6 +81,10 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
+	)
+
+	flagSet.CreateGroup("debug", "Debug",
+		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
 	)
 
 	flagSet.CreateGroup("headless", "Headless",
@@ -123,13 +133,13 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return errors.Wrap(err, "could not parse flags")
+		return nil, errors.Wrap(err, "could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return errors.Wrap(err, "could not read config file")
+			return nil, errors.Wrap(err, "could not read config file")
 		}
 	}
-	return nil
+	return flagSet, nil
 }

@@ -97,6 +97,8 @@ type Options struct {
 	StoreResponseDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
 	HeadlessNoIncognito bool
+	// HealthCheck determines if a self-healthcheck should be performed
+	HealthCheck bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
