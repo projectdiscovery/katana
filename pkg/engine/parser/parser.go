@@ -657,15 +657,14 @@ func customFieldRegexParser(resp navigation.Response, callback func(navigation.R
 				results = append(results, matchString)
 			}
 		}
-		customField[v.GetName()] = results
+		if len(results) > 0 {
+			customField[v.GetName()] = results
+		}
 	}
 	if len(customField) != 0 {
 		callback(navigation.Request{
 			Method:       "GET",
 			URL:          resp.Resp.Request.URL.String(),
-			Source:       resp.Resp.Request.URL.String(),
-			Attribute:    "regex",
-			Tag:          "regex",
 			Depth:        resp.Depth,
 			CustomFields: customField,
 		})

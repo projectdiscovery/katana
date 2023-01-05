@@ -67,7 +67,7 @@ type Result struct {
 	// Attribute is the attribute for the result
 	Attribute string `json:"attribute,omitempty"`
 	// customField matched output
-	CustomFields map[string][]string `json:"fields,omitempty"`
+	CustomFields map[string][]string `json:"-"`
 }
 
 const (
