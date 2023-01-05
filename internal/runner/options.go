@@ -33,7 +33,7 @@ func validateOptions(options *types.Options) error {
 		return errors.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {
-		if _, err := os.Stat(options.SystemChromePath); errors.Is(err, os.ErrNotExist) {
+		if !fileutil.FileExists(options.SystemChromePath) {
 			return errors.New("specified system chrome binary does not exist")
 		}
 	}
