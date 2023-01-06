@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.19
 	github.com/projectdiscovery/goflags v0.1.6
-	github.com/projectdiscovery/gologger v1.1.5
+	github.com/projectdiscovery/gologger v1.1.7
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
 	github.com/projectdiscovery/ratelimit v0.0.4
 	github.com/projectdiscovery/retryablehttp-go v1.0.7
@@ -48,12 +48,12 @@ require (
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/projectdiscovery/fileutil v0.0.3 // indirect
+	github.com/projectdiscovery/fileutil v0.0.3
 	github.com/projectdiscovery/iputil v0.0.2 // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.3 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.17 // indirect
-	github.com/projectdiscovery/sliceutil v0.0.1 // indirect
-	github.com/projectdiscovery/stringsutil v0.0.2 // indirect
+	github.com/projectdiscovery/sliceutil v0.0.1
+	github.com/projectdiscovery/stringsutil v0.0.2
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
