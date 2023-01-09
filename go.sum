@@ -113,8 +113,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c h1:ncq/mPwQF4JjgDlrVEn3C11VoGHZN7m8qihwgMEtzYw=
 github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/projectdiscovery/fastdialer v0.0.19 h1:0E9trACMtYq1JgkY+sM8b6XABjITRwHBSWwhH9csmgY=
-github.com/projectdiscovery/fastdialer v0.0.19/go.mod h1:9zV1eivctLQkBUykwBj5BaPkYz8A8j1Sou2UCgdCQ5I=
+github.com/projectdiscovery/fastdialer v0.0.20 h1:OWwAX5TdTTJs2W961nBj2D2tOa9AdcAdQeHGGXmLmKs=
+github.com/projectdiscovery/fastdialer v0.0.20/go.mod h1:+oUmNczJ912XkF6ckZi7W2fUS/7bvB8+0nHZzbIGEMw=
 github.com/projectdiscovery/fileutil v0.0.3 h1:GSsoey4p8ZHIRxWF2VXh4mhLr+wfEkpJwvF0Dxpn/gg=
 github.com/projectdiscovery/fileutil v0.0.3/go.mod h1:GLejWd3YerG3RNYD/Hk2pJlytlYRgHdkWfWUAdCH2YQ=
 github.com/projectdiscovery/goflags v0.1.6 h1:EXigzX4lJmn/fLMnULdc03O7WW+DjiYZhNgdGvfg+Z4=
