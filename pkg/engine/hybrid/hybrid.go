@@ -189,8 +189,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
 	for {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		// Quit the crawling for zero items or context timeout
 		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0) {
@@ -220,6 +220,15 @@ func (c *Crawler) Crawl(rootURL string) error {
 			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, newBrowser, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
+
+				outputError := &output.Error{
+					Timestamp: time.Now(),
+					Endpoint:  req.RequestURL(),
+					Source:    req.Source,
+					Error:     err.Error(),
+				}
+				_ = c.options.OutputWriter.WriteErr(outputError)
+
 				return
 			}
 			if resp == nil || resp.Resp == nil && resp.Reader == nil {

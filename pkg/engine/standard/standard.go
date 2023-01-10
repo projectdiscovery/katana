@@ -119,6 +119,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 			resp, err := c.makeRequest(ctx, req, hostname, req.Depth, httpclient)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
+				outputError := &output.Error{
+					Timestamp: time.Now(),
+					Endpoint:  req.RequestURL(),
+					Source:    req.Source,
+					Error:     err.Error(),
+				}
+				_ = c.options.OutputWriter.WriteErr(outputError)
 				return
 			}
 			if resp.Resp == nil || resp.Reader == nil {

@@ -86,6 +86,7 @@ pipelines offering both headless and non-headless crawling.`)
 
 	flagSet.CreateGroup("debug", "Debug",
 		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
+		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
 	)
 
 	flagSet.CreateGroup("headless", "Headless",

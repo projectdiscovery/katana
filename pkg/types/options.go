@@ -101,6 +101,8 @@ type Options struct {
 	HeadlessNoIncognito bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
+	// ErrorLogFile specifies a file to write with the errors of all requests
+	ErrorLogFile string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

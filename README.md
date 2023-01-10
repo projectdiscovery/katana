@@ -127,6 +127,10 @@ CONFIGURATION:
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
 
+DEBUG:
+   -health-check, -hc        run diagnostic check up
+   -elog, -error-log string  file to write sent requests error log
+
 HEADLESS:
    -hl, -headless                   enable headless hybrid crawling (experimental)
    -sc, -system-chrome              use local installed chrome browser instead of katana installed
