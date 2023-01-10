@@ -8,11 +8,21 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+)
+
+const (
+	storeFieldsDirectory = "katana_output"
+	indexFile            = "index.txt"
+	DefaultResponseDir   = "katana_responses"
+)
+
+var (
+	decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
 )
 
 // Writer is an interface which writes output to somewhere for katana events.
@@ -21,11 +31,8 @@ type Writer interface {
 	Close() error
 	// Write writes the event to file and/or screen.
 	Write(*Result, *http.Response) error
+	WriteErr(*Error) error
 }
-
-var (
-	decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
-)
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
@@ -38,102 +45,76 @@ type StandardWriter struct {
 	outputMutex      *sync.Mutex
 	storeResponse    bool
 	storeResponseDir string
+	errorFile        *fileWriter
 }
-
-// Options contains the configuration options for output writer
-type Options struct {
-	// Color
-	Colors bool
-	// JSON specifies to write output in JSON format
-	JSON string
-	// OutputFile is the optional file to write output to
-	OutputFile string
-}
-
-// Result is a result structure for the crawler
-type Result struct {
-	// Timestamp is the current timestamp
-	Timestamp time.Time `json:"timestamp,omitempty"`
-	// Method is the method for the result
-	Method string `json:"method,omitempty"`
-	// Body contains the body for the request
-	Body string `json:"body,omitempty"`
-	// URL is the URL of the result
-	URL string `json:"endpoint,omitempty"`
-	// Source is the source for the result
-	Source string `json:"source,omitempty"`
-	// Tag is the tag for the result
-	Tag string `json:"tag,omitempty"`
-	// Attribute is the attribute for the result
-	Attribute string `json:"attribute,omitempty"`
-	// customField matched output
-	CustomFields map[string][]string `json:"-"`
-}
-
-const (
-	storeFieldsDirectory = "katana_output"
-	indexFile            = "index.txt"
-	DefaultResponseDir   = "katana_responses"
-)
 
 // New returns a new output writer instance
-func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, storeResponseDir string, fieldConfig string) (Writer, error) {
+func New(options Options) (Writer, error) {
 	writer := &StandardWriter{
-		fields:           fields,
-		json:             json,
-		verbose:          verbose,
-		aurora:           aurora.NewAurora(colors),
+		fields:           options.Fields,
+		json:             options.JSON,
+		verbose:          options.Verbose,
+		aurora:           aurora.NewAurora(options.Colors),
 		outputMutex:      &sync.Mutex{},
-		storeResponse:    storeResponse,
-		storeResponseDir: storeResponseDir,
+		storeResponse:    options.StoreResponse,
+		storeResponseDir: options.StoreResponseDir,
 	}
 	// if fieldConfig empty get the default file
-	if fieldConfig == "" {
+	if options.FieldConfig == "" {
 		var err error
-		fieldConfig, err = initCustomFieldConfigFile()
+		options.FieldConfig, err = initCustomFieldConfigFile()
 		if err != nil {
 			return nil, err
 		}
 	}
-	err := parseCustomFieldName(fieldConfig)
+	err := parseCustomFieldName(options.FieldConfig)
 	if err != nil {
 		return nil, err
 	}
-	err = loadCustomFields(fieldConfig, fmt.Sprintf("%s,%s", fields, storeFields))
+	err = loadCustomFields(options.FieldConfig, fmt.Sprintf("%s,%s", options.Fields, options.StoreFields))
 	if err != nil {
 		return nil, err
 	}
 	// Perform validations for fields and store-fields
-	if fields != "" {
-		if err := validateFieldNames(fields); err != nil {
+	if options.Fields != "" {
+		if err := validateFieldNames(options.Fields); err != nil {
 			return nil, errors.Wrap(err, "could not validate fields")
 		}
 	}
-	if storeFields != "" {
+	if options.StoreFields != "" {
 		_ = os.MkdirAll(storeFieldsDirectory, os.ModePerm)
-		if err := validateFieldNames(storeFields); err != nil {
+		if err := validateFieldNames(options.StoreFields); err != nil {
 			return nil, errors.Wrap(err, "could not validate store fields")
 		}
-		writer.storeFields = append(writer.storeFields, strings.Split(storeFields, ",")...)
+		writer.storeFields = append(writer.storeFields, strings.Split(options.StoreFields, ",")...)
 	}
-	if file != "" {
-		output, err := newFileOutputWriter(file)
+	if options.OutputFile != "" {
+		output, err := newFileOutputWriter(options.OutputFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create output file")
 		}
 		writer.outputFile = output
 	}
-	if storeResponse {
+	if options.StoreResponse {
 		writer.storeResponseDir = DefaultResponseDir
-		if storeResponseDir != DefaultResponseDir && storeResponseDir != "" {
-			writer.storeResponseDir = storeResponseDir
+		if options.StoreResponseDir != DefaultResponseDir && options.StoreResponseDir != "" {
+			writer.storeResponseDir = options.StoreResponseDir
 		}
 		_ = os.RemoveAll(writer.storeResponseDir)
 		_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+		// todo: the index file seems never used?
 		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create index file")
 		}
+	}
+	if options.ErrorLogFile != "" {
+		errorFile, err := newFileOutputWriter(options.ErrorLogFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create error file")
+		}
+
+		writer.errorFile = errorFile
 	}
 	return writer, nil
 }
@@ -166,7 +147,7 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 			if !w.json {
 				data = decolorizerRegex.ReplaceAll(data, []byte(""))
 			}
-			if writeErr := w.outputFile.Write(data); writeErr != nil {
+			if err := w.outputFile.Write(data); err != nil {
 				return errors.Wrap(err, "could not write to output")
 			}
 		}
@@ -181,7 +162,7 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 			if err := updateIndex(w.storeResponseDir, resp); err != nil {
 				return errors.Wrap(err, "could not store response")
 			}
-			if writeErr := file.Write(data); writeErr != nil {
+			if err := file.Write(data); err != nil {
 				return errors.Wrap(err, "could not store response")
 			}
 			file.Close()
@@ -191,11 +172,38 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 	return nil
 }
 
+func (w *StandardWriter) WriteErr(errMessage *Error) error {
+	data, err := jsoniter.Marshal(errMessage)
+	if err != nil {
+		return errors.Wrap(err, "marshal")
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	w.outputMutex.Lock()
+	defer w.outputMutex.Unlock()
+
+	if w.errorFile != nil {
+		if err := w.errorFile.Write(data); err != nil {
+			return errors.Wrap(err, "write to error file")
+		}
+	}
+	return nil
+}
+
 // Close closes the output writer
 func (w *StandardWriter) Close() error {
-	var err error
 	if w.outputFile != nil {
-		err = w.outputFile.Close()
+		err := w.outputFile.Close()
+		if err != nil {
+			return err
+		}
 	}
-	return err
+	if w.errorFile != nil {
+		err := w.errorFile.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
