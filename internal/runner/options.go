@@ -2,8 +2,6 @@ package runner
 
 import (
 	"bufio"
-	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +13,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	fileutil "github.com/projectdiscovery/utils/file"
+	logutil "github.com/projectdiscovery/utils/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -101,9 +100,8 @@ func configureOutput(options *types.Options) {
 	if options.Verbose {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
-	// disable standard logger (ref: https://github.com/golang/go/issues/19895)
-	log.SetFlags(0)
-	log.SetOutput(io.Discard)
+
+	logutil.DisableDefaultLogger()
 }
 
 func initExampleFormFillConfig() error {
