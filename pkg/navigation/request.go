@@ -19,6 +19,8 @@ type Request struct {
 	Attribute    string
 	RootHostname string
 	Source       string // source is the source of the request
+
+	CustomFields map[string][]string // customField matched output
 }
 
 // RequestURL returns the request URL for the navigation

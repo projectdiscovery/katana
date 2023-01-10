@@ -23,7 +23,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/stringsutil"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
 	"go.uber.org/multierr"
@@ -68,8 +68,8 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 			return nil, errors.New("the chrome browser is not installed")
 		}
 	}
-    if options.Options.SystemChromePath != "" {
-		chromeLauncher.Bin(options.Options.SystemChromePath);
+	if options.Options.SystemChromePath != "" {
+		chromeLauncher.Bin(options.Options.SystemChromePath)
 	}
 
 	if options.Options.ShowBrowser {
@@ -160,10 +160,28 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
-	// for each seed URL we use an incognito isolated session
-	incognitoBrowser, err := c.browser.Incognito()
+	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+		body, _ := io.ReadAll(resp.Body)
+		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
+	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not create http client")
+	}
+
+	// create a new browser instance (default to incognito mode)
+	var newBrowser *rod.Browser
+	if c.options.Options.HeadlessNoIncognito {
+		if err := c.browser.Connect(); err != nil {
+			return err
+		}
+		newBrowser = c.browser
+	} else {
+		var err error
+		newBrowser, err = c.browser.Incognito()
+		if err != nil {
+			return err
+		}
 	}
 
 	var crawlerGraph *navigation.Graph
@@ -210,7 +228,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			// responses contains:
 			// index 0 => primary syncronous node
 			// indexes 1..n => secondary asyncronous nodes
-			responses, err := c.navigateRequest(parseResponseCallback, incognitoBrowser, req, hostname, crawlerGraph)
+			responses, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, incognitoBrowser, req, hostname, crawlerGraph)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
 				return
@@ -259,18 +277,23 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
+			return
+		}
+		// - URLs stuck in a loop
+		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
 			return
 		}
 
 		// Write the found result to output
 		result := &output.Result{
-			Timestamp: time.Now(),
-			Body:      nr.Body,
-			URL:       nr.URL,
-			Source:    nr.Source,
-			Tag:       nr.Tag,
-			Attribute: nr.Attribute,
+			Timestamp:    time.Now(),
+			Body:         nr.Body,
+			URL:          nr.URL,
+			Source:       nr.Source,
+			Tag:          nr.Tag,
+			Attribute:    nr.Attribute,
+			CustomFields: nr.CustomFields,
 		}
 		if nr.Method != http.MethodGet {
 			result.Method = nr.Method

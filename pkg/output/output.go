@@ -1,6 +1,7 @@
 package output
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,6 +66,8 @@ type Result struct {
 	Tag string `json:"tag,omitempty"`
 	// Attribute is the attribute for the result
 	Attribute string `json:"attribute,omitempty"`
+	// customField matched output
+	CustomFields map[string][]string `json:"-"`
 }
 
 const (
@@ -74,7 +77,7 @@ const (
 )
 
 // New returns a new output writer instance
-func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, storeResponseDir string) (Writer, error) {
+func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, storeResponseDir string, fieldConfig string) (Writer, error) {
 	writer := &StandardWriter{
 		fields:           fields,
 		json:             json,
@@ -83,6 +86,22 @@ func New(colors, json, verbose, storeResponse bool, file, fields, storeFields, s
 		outputMutex:      &sync.Mutex{},
 		storeResponse:    storeResponse,
 		storeResponseDir: storeResponseDir,
+	}
+	// if fieldConfig empty get the default file
+	if fieldConfig == "" {
+		var err error
+		fieldConfig, err = initCustomFieldConfigFile()
+		if err != nil {
+			return nil, err
+		}
+	}
+	err := parseCustomFieldName(fieldConfig)
+	if err != nil {
+		return nil, err
+	}
+	err = loadCustomFields(fieldConfig, fmt.Sprintf("%s,%s", fields, storeFields))
+	if err != nil {
+		return nil, err
 	}
 	// Perform validations for fields and store-fields
 	if fields != "" {

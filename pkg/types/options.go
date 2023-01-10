@@ -61,6 +61,8 @@ type Options struct {
 	Fields string
 	// StoreFields is the fields to store in separate per-host files
 	StoreFields string
+	// FieldConfig is the path to the custom field configuration file
+	FieldConfig string
 	// NoColors disables coloring of response output
 	NoColors bool
 	// JSON enables writing output in JSON format
@@ -97,6 +99,10 @@ type Options struct {
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
+	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
+	HeadlessNoIncognito bool
+	// HealthCheck determines if a self-healthcheck should be performed
+	HealthCheck bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
