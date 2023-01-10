@@ -529,7 +529,7 @@ https_www.tesla.com_qurl.txt
 *`-extension-match`*
 ---
 
-Crawl output can be easily matched for specfic extension using `-em` option to ensure to display only output containing given extension.
+Crawl output can be easily matched for specific extension using `-em` option to ensure to display only output containing given extension.
 
 ```
 katana -u https://tesla.com -silent -em js,jsp,json
@@ -538,13 +538,13 @@ katana -u https://tesla.com -silent -em js,jsp,json
 *`-extension-filter`*
 ---
 
-Crawl output can be easily filtered for specfic extension using `-ef` option which ensure to remove all the urls containing given extension.
+Crawl output can be easily filtered for specific extension using `-ef` option which ensure to remove all the urls containing given extension.
 
 ```
 katana -u https://tesla.com -silent -ef css,txt,md
 ```
 
-Here are additonal filter options -
+Here are additional filter options -
 
 ```console
    -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
