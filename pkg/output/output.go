@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	storeFieldsDirectory = "katana_output"
+	storeFieldsDirectory = "katana_field"
 	indexFile            = "index.txt"
-	DefaultResponseDir   = "katana_responses"
+	DefaultResponseDir   = "katana_response"
 )
 
 var (
