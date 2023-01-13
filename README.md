@@ -72,6 +72,31 @@ docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -h
 
 </details>
 
+<details>
+  <summary>Ubuntu</summary>
+
+> It's recommended to install the following prerequisites -
+
+```sh
+sudo apt update
+sudo snap refresh
+sudo apt install zip curl wget git
+sudo snap install golang --classic
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 
+sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+sudo apt update 
+sudo apt install google-chrome-stable
+```
+
+> install katana -
+
+
+```sh
+go install github.com/projectdiscovery/katana/cmd/katana@latest
+```
+
+</details>
+
 ## Usage
 
 ```console
@@ -102,12 +127,18 @@ CONFIGURATION:
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
 
+DEBUG:
+   -health-check, -hc        run diagnostic check up
+   -elog, -error-log string  file to write sent requests error log
+
 HEADLESS:
    -hl, -headless                   enable headless hybrid crawling (experimental)
    -sc, -system-chrome              use local installed chrome browser instead of katana installed
    -sb, -show-browser               show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
+   -noi, -no-incognito              start headless chrome without incognito mode
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -256,6 +287,7 @@ HEADLESS:
    -sb, -show-browser   show the browser on the screen with headless mode
    -ho, -headless-options string[]  start headless chrome with additional options
    -nos, -no-sandbox                start headless chrome in --no-sandbox mode
+   -noi, -no-incognito              start headless chrome without incognito mode
 ```
 
 *`-no-sandbox`*
@@ -265,6 +297,15 @@ Runs headless chrome browser with **no-sandbox** option, useful when running as 
 
 ```console
 katana -u https://tesla.com -headless -no-sandbox
+```
+
+*`-no-incognito`*
+----
+
+Runs headless chrome browser without incognito mode, useful when using the local browser.
+
+```console
+katana -u https://tesla.com -headless -no-incognito
 ```
 
 *`-headless-options`*
@@ -451,7 +492,7 @@ CONFIGURATION:
 *`-field`*
 ----
 
-Katana comes with build in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
+Katana comes with built in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
 
 ```
    -f, -field string  field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
@@ -491,39 +532,71 @@ https://www.tesla.com/about/legal?redirect=no
 https://www.tesla.com/findus/list?redirect=no
 ```
 
+### Custom Fields
+
+You can create custom fields to extract and store specific information from page responses using regex rules. These custom fields are defined using a YAML config file and are loaded from the default location at `$HOME/.config/katana/field-config.yaml`. Alternatively, you can use the `-flc` option to load a custom field config file from a different location.
+Here is example custom field.
+
+```yaml
+- name: email
+  type: regex
+  regex:
+  - '([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)'
+  - '([a-zA-Z0-9+._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)'
+
+- name: phone
+  type: regex
+  regex:
+  - '\d{3}-\d{8}|\d{4}-\d{7}'
+```
+
+When defining custom fields, following attributes are supported:
+
+- **name** (required)
+
+> The value of **name** attribute is used as the `-field` cli option value.
+
+- **type** (required)
+
+> The type of custom attribute, currenly supported option - `regex` 
+
+- **part** (optional)
+
+> The part of the response to extract the information from. The default value is `response`, which includes both the header and body. Other possible values are `header` and `body`.
+
+- group (optional)
+
+> You can use this attribute to select a specific matched group in regex, for example: `group: 1`
+
+#### Running katana using custom field:
+
+```console
+katana -u https://tesla.com -f email,phone
+```
+
 *`-store-field`*
 ---
 
-To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_output` directory sorted by target url.
+To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_field` directory sorted by target url.
 
 ```
 katana -u https://tesla.com -sf key,fqdn,qurl -silent
 ```
 
 ```bash
-$ ls katana_output/
+$ ls katana_field/
 
 https_www.tesla.com_fqdn.txt
 https_www.tesla.com_key.txt
 https_www.tesla.com_qurl.txt
 ```
 
-<table>
-<tr>
-<td>  
+The `-store-field` option can be useful for collecting information to build a targeted wordlist for various purposes, including but not limited to:
 
-> **Note**: 
-
-> `store-field` option can come handy to collect information to build a target aware wordlist for followings but not limited to - 
-
-- Most / commonly used **parameters**
-- Most / commonly used **paths**
-- Most / commonly **files**
-- Related / unknown **sub(domains)**
-
-</td>
-</tr>
-</table>
+- Identifying the most commonly used parameters
+- Discovering frequently used paths
+- Finding commonly used files
+- Identifying related or unknown subdomains
 
 
 *`-extension-match`*
@@ -554,7 +627,7 @@ Here are additional filter options -
 ```
 
 
-## Rate Limit & Delay
+## Rate Limit
 
 It's easy to get blocked / banned while crawling if not following target websites limits, katana comes with multiple option to tune the crawl to go as fast / slow we want.
 
@@ -616,10 +689,19 @@ RATE-LIMIT:
 
 ## Output
 
+Katana support both file output in plain text format as well as JSON which includes additional information like, `source`, `tag`, and `attribute` name to co-related the discovered endpoint.
+
+*`-output`*
+
+By default, katana outputs the crawled endpoints in plain text format. The results can be written to a file by using the -output option.
+
+
+```console
+katana -u https://example.com -no-scope -output example_endpoints.txt
+```
+
 *`-json`*
 ---
-
-Katana support both file output in plain text format as well as JSON which includes additional information like, `source`, `tag`, and `attribute` name to co-related the discovered endpoint.
 
 ```console
 katana -u https://example.com -json -do | jq .
@@ -635,20 +717,83 @@ katana -u https://example.com -json -do | jq .
 }
 ```
 
+*`-store-response`*
+----
+
+The `-store-response` option allows for writing all crawled endpoint requests and responses to a text file. When this option is used, text files including the request and response will be written to the **katana_response** directory. If you would like to specify a custom directory, you can use the `-store-response-dir` option.
+
+```console
+katana -u https://example.com -no-scope -store-response
+```
+
+```bash
+$ cat katana_response/index.txt
+
+katana_response/example.com/327c3fda87ce286848a574982ddd0b7c7487f816.txt https://example.com (200 OK)
+katana_response/www.iana.org/bfc096e6dd93b993ca8918bf4c08fdc707a70723.txt http://www.iana.org/domains/reserved (200 OK)
+```
+
+**Note:**
+
+*`-store-response` option is not supported in `-headless` mode.*
+
 Here are additional CLI options related to output -
 
 ```console
 katana -h output
 
 OUTPUT:
-   -o, -output string  file to write output to
-   -j, -json           write output in JSONL(ines) format
-   -nc, -no-color      disable output content coloring (ANSI escape codes)
-   -silent             display output only
-   -v, -verbose        display verbose output
-   -version  
+   -o, -output string                file to write output to
+   -sr, -store-response              store http requests/responses
+   -srd, -store-response-dir string  store http requests/responses to custom directory
+   -j, -json                         write output in JSONL(ines) format
+   -nc, -no-color                    disable output content coloring (ANSI escape codes)
+   -silent                           display output only
+   -v, -verbose                      display verbose output
+   -version                          display project version
 ```
 
+## Katana as a library
+`katana` can be used as a library by creating an instance of the `Option` struct and populating it with the same options that would be specified via CLI. Using the options you can create `crawlerOptions` and so standard or hybrid `crawler`.
+`crawler.Crawl` method should be called to crawl the input.
+
+```
+package main
+
+import (
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/types"
+)
+
+func main() {
+	options := &types.Options{
+		MaxDepth:     1,               // Maximum depth to crawl
+		FieldScope:   "rdn",           // Crawling Scope Field
+		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
+		RateLimit:    150,             // Maximum requests to send per second
+		OnResult: func(result output.Result) { // Callback function to execute for result
+			gologger.Info().Msg(result.URL)
+		},
+	}
+	crawlerOptions, err := types.NewCrawlerOptions(options)
+	if err != nil {
+		gologger.Fatal().Msg(err.Error())
+	}
+	defer crawlerOptions.Close()
+	crawler, err := standard.New(crawlerOptions)
+	if err != nil {
+		gologger.Fatal().Msg(err.Error())
+	}
+	defer crawler.Close()
+	var input = "https://tesla.com"
+	err = crawler.Crawl(input)
+	if err != nil {
+		gologger.Warning().Msgf("Could not crawl %s: %s", input, err.Error())
+	}
+}
+```
 --------
 
 <div align="center">

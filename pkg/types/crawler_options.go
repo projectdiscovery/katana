@@ -49,16 +49,28 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errors.Wrap(err, "could not create filter")
 	}
 
-	outputWriter, err := output.New(!options.NoColors, options.JSON, options.Verbose, options.OutputFile, options.Fields, options.StoreFields)
+	outputOptions := output.Options{
+		Colors:           !options.NoColors,
+		JSON:             options.JSON,
+		Verbose:          options.Verbose,
+		StoreResponse:    options.StoreResponse,
+		OutputFile:       options.OutputFile,
+		Fields:           options.Fields,
+		StoreFields:      options.StoreFields,
+		StoreResponseDir: options.StoreResponseDir,
+		FieldConfig:      options.FieldConfig,
+		ErrorLogFile:     options.ErrorLogFile,
+	}
+	outputWriter, err := output.New(outputOptions)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create output writer")
 	}
 
 	var ratelimiter ratelimit.Limiter
 	if options.RateLimit > 0 {
-		ratelimiter = *ratelimit.New(context.Background(), int64(options.RateLimitMinute), time.Second)
+		ratelimiter = *ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
 	} else if options.RateLimitMinute > 0 {
-		ratelimiter = *ratelimit.New(context.Background(), int64(options.RateLimitMinute), time.Minute)
+		ratelimiter = *ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
 	}
 
 	crawlerOptions := &CrawlerOptions{
