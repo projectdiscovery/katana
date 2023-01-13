@@ -21,19 +21,25 @@ var (
 )
 
 func main() {
-	if err := readFlags(); err != nil {
+	flagSet, err := readFlags()
+	if err != nil {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
 
-	runner, err := runner.New(options)
-	if err != nil || runner == nil {
+	if options.HealthCheck {
+		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
+		os.Exit(0)
+	}
+
+	katanaRunner, err := runner.New(options)
+	if err != nil || katanaRunner == nil {
 		if options.Version {
 			return
 		} else {
 			gologger.Fatal().Msgf("could not create runner: %s\n", err)
 		}
 	}
-	defer runner.Close()
+	defer katanaRunner.Close()
 
 	// close handler
 	go func() {
@@ -42,18 +48,18 @@ func main() {
 		go func() {
 			<-c
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			runner.Close()
+			katanaRunner.Close()
 			os.Exit(0)
 		}()
 	}()
 
-	if err := runner.ExecuteCrawling(); err != nil {
+	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
 
 }
 
-func readFlags() error {
+func readFlags() (*goflags.FlagSet, error) {
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription(`Katana is a fast crawler focused on execution in automation
 pipelines offering both headless and non-headless crawling.`)
@@ -75,6 +81,12 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
+		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
+	)
+
+	flagSet.CreateGroup("debug", "Debug",
+		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
+		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
 	)
 
 	flagSet.CreateGroup("headless", "Headless",
@@ -83,6 +95,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.HeadlessNoSandbox, "no-sandbox", "nos", false, "start headless chrome in --no-sandbox mode"),
+		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
+		flagSet.StringVarP(&options.SystemChromePath, "system-chrome-path", "scp", "", "use specified chrome browser for headless crawling"),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
@@ -95,8 +109,8 @@ pipelines offering both headless and non-headless crawling.`)
 
 	availableFields := strings.Join(output.FieldNames, ",")
 	flagSet.CreateGroup("filter", "Filter",
-		flagSet.StringVarP(&options.Fields, "fields", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
-		flagSet.StringVarP(&options.StoreFields, "store-fields", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
+		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
+		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
 	)
@@ -111,6 +125,8 @@ pipelines offering both headless and non-headless crawling.`)
 
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
+		flagSet.BoolVarP(&options.StoreResponse, "store-response", "sr", false, "store http requests/responses"),
+		flagSet.StringVarP(&options.StoreResponseDir, "store-response-dir", "srd", "", "store http requests/responses to custom directory"),
 		flagSet.BoolVarP(&options.JSON, "json", "j", false, "write output in JSONL(ines) format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
@@ -119,13 +135,13 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return errors.Wrap(err, "could not parse flags")
+		return nil, errors.Wrap(err, "could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return errors.Wrap(err, "could not read config file")
+			return nil, errors.Wrap(err, "could not read config file")
 		}
 	}
-	return nil
+	return flagSet, nil
 }
