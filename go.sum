@@ -113,8 +113,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c h1:ncq/mPwQF4JjgDlrVEn3C11VoGHZN7m8qihwgMEtzYw=
 github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/projectdiscovery/fastdialer v0.0.20 h1:OWwAX5TdTTJs2W961nBj2D2tOa9AdcAdQeHGGXmLmKs=
-github.com/projectdiscovery/fastdialer v0.0.20/go.mod h1:+oUmNczJ912XkF6ckZi7W2fUS/7bvB8+0nHZzbIGEMw=
+github.com/projectdiscovery/fastdialer v0.0.21 h1:KMUNcGtncvgaChm+YkcTzuQEId3OBAVOviwHofNZCXU=
+github.com/projectdiscovery/fastdialer v0.0.21/go.mod h1:RqBOi1z+HlU+U+6Tqqh/SNFNl3/ue0sVmVlWiLA8gN0=
 github.com/projectdiscovery/fileutil v0.0.3 h1:GSsoey4p8ZHIRxWF2VXh4mhLr+wfEkpJwvF0Dxpn/gg=
 github.com/projectdiscovery/fileutil v0.0.3/go.mod h1:GLejWd3YerG3RNYD/Hk2pJlytlYRgHdkWfWUAdCH2YQ=
 github.com/projectdiscovery/goflags v0.1.6 h1:EXigzX4lJmn/fLMnULdc03O7WW+DjiYZhNgdGvfg+Z4=
@@ -129,8 +129,8 @@ github.com/projectdiscovery/networkpolicy v0.0.3 h1:OZFPkMVY6SJxc1ncuRXB2VlT6xlz
 github.com/projectdiscovery/networkpolicy v0.0.3/go.mod h1:DIXwKs3sQyfCoWHKRLQiRrEorSQW4Zrh4ftu7oDVK6w=
 github.com/projectdiscovery/ratelimit v0.0.4 h1:2TOAhuOUMlKrzwissru2mFnSd8eg2WddIQKcAyYEkGs=
 github.com/projectdiscovery/ratelimit v0.0.4/go.mod h1:QK9+yt3ArGWINdj6unGjehtJA/NdlAiF59gaj2FtfEs=
-github.com/projectdiscovery/retryabledns v1.0.17 h1:XKzI26UKYt2g7YLJ/EcyYmM04sfD1vurETecPEpeA1w=
-github.com/projectdiscovery/retryabledns v1.0.17/go.mod h1:Dyhq/f0sGmXueso0+Ah3LbJfsX4PXpBrpfiyjZZ8SDk=
+github.com/projectdiscovery/retryabledns v1.0.19 h1:FJZtfchquXJNMkTgDyVtIRiw0PtD0obSUfE7f9GtpR8=
+github.com/projectdiscovery/retryabledns v1.0.19/go.mod h1:YcJDUCz8vXaUGl6Agm3bFZezQZe7zVlm1JoKY5ZQODg=
 github.com/projectdiscovery/retryablehttp-go v1.0.8 h1:F4UZ+3NkIPDj+tobHZY+sgvDVmiVCX/CUUh/jrKq7Oc=
 github.com/projectdiscovery/retryablehttp-go v1.0.8/go.mod h1:tD5TNOXKNuvqrUHHGoP6xJmVZTjSkLGsqcyD7gCsc3I=
 github.com/projectdiscovery/sliceutil v0.0.1 h1:YoCqCMcdwz+gqNfW5hFY8UvNHoA6SfyBSNkVahatleg=
@@ -141,7 +141,7 @@ github.com/projectdiscovery/utils v0.0.4-0.20221222195055-f7d250fc55af h1:2t0pB8
 github.com/projectdiscovery/utils v0.0.4-0.20221222195055-f7d250fc55af/go.mod h1:PCwA5YuCYWPgHaGiZmr53/SA9iGQmAnw7DSHuhr8VPQ=
 github.com/remeh/sizedwaitgroup v1.0.0 h1:VNGGFwNo/R5+MJBf6yrsr110p0m4/OX4S3DCy7Kyl5E=
 github.com/remeh/sizedwaitgroup v1.0.0/go.mod h1:3j2R4OIe/SeS6YDhICBy22RWjJC5eNCJ1V+9+NVNYlo=
-github.com/rogpeppe/go-internal v1.8.0 h1:FCbCCtXNOY3UtUuHUYaghJg4y7Fd14rXifAYUAtL9R8=
+github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rs/xid v1.4.0 h1:qd7wPTDkN6KQx2VmMBLrpHkiyQwgFXRnkOLacUiaSNY=
 github.com/rs/xid v1.4.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca h1:NugYot0LIVPxTvN8n+Kvkn6TrbMyxQiuvKdEwFdR9vI=
