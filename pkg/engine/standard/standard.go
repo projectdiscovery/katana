@@ -119,6 +119,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 			resp, err := c.makeRequest(ctx, req, hostname, req.Depth, httpclient)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
+				outputError := &output.Error{
+					Timestamp: time.Now(),
+					Endpoint:  req.RequestURL(),
+					Source:    req.Source,
+					Error:     err.Error(),
+				}
+				_ = c.options.OutputWriter.WriteErr(outputError)
 				return
 			}
 			if resp.Resp == nil || resp.Reader == nil {
@@ -143,18 +150,23 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 			return
 		}
 		// Ignore blank URL items and only work on unique items
-		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) {
+		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
+			return
+		}
+		// - URLs stuck in a loop
+		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
 			return
 		}
 
 		// Write the found result to output
 		result := &output.Result{
-			Timestamp: time.Now(),
-			Body:      nr.Body,
-			URL:       nr.URL,
-			Source:    nr.Source,
-			Tag:       nr.Tag,
-			Attribute: nr.Attribute,
+			Timestamp:    time.Now(),
+			Body:         nr.Body,
+			URL:          nr.URL,
+			Source:       nr.Source,
+			Tag:          nr.Tag,
+			Attribute:    nr.Attribute,
+			CustomFields: nr.CustomFields,
 		}
 		if nr.Method != http.MethodGet {
 			result.Method = nr.Method

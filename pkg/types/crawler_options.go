@@ -49,7 +49,19 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errors.Wrap(err, "could not create filter")
 	}
 
-	outputWriter, err := output.New(!options.NoColors, options.JSON, options.Verbose, options.StoreResponse, options.OutputFile, options.Fields, options.StoreFields, options.StoreResponseDir)
+	outputOptions := output.Options{
+		Colors:           !options.NoColors,
+		JSON:             options.JSON,
+		Verbose:          options.Verbose,
+		StoreResponse:    options.StoreResponse,
+		OutputFile:       options.OutputFile,
+		Fields:           options.Fields,
+		StoreFields:      options.StoreFields,
+		StoreResponseDir: options.StoreResponseDir,
+		FieldConfig:      options.FieldConfig,
+		ErrorLogFile:     options.ErrorLogFile,
+	}
+	outputWriter, err := output.New(outputOptions)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create output writer")
 	}

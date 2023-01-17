@@ -61,6 +61,8 @@ type Options struct {
 	Fields string
 	// StoreFields is the fields to store in separate per-host files
 	StoreFields string
+	// FieldConfig is the path to the custom field configuration file
+	FieldConfig string
 	// NoColors disables coloring of response output
 	NoColors bool
 	// JSON enables writing output in JSON format
@@ -87,6 +89,8 @@ type Options struct {
 	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
+	// SystemChromePath : Specify the chrome binary path for headless crawling
+	SystemChromePath string
 	// OnResult allows callback function on a result
 	OnResult OnResultCallback
 	// StoreResponse specifies if katana should store http requests/responses
@@ -94,7 +98,12 @@ type Options struct {
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
 	// ChromeDataDir : 	Specify the --user-data-dir to chrome binary to preserve sessions
-	ChromeDataDir string
+	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
+	HeadlessNoIncognito bool
+	// HealthCheck determines if a self-healthcheck should be performed
+	HealthCheck bool
+	// ErrorLogFile specifies a file to write with the errors of all requests
+	ErrorLogFile string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
