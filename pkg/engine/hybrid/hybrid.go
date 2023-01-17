@@ -49,9 +49,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		dataStore = options.Options.ChromeDataDir
 	} else {
 		dataStore, err = os.MkdirTemp("", "katana-*")
-			if err != nil {
+		if err != nil {
 			return nil, errors.Wrap(err, "could not create temporary directory")
-			}
+		}
 	}
 
 	previousPIDs := findChromeProcesses()
