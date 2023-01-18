@@ -43,9 +43,15 @@ type Crawler struct {
 
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	dataStore, err := os.MkdirTemp("", "katana-*")
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create temporary directory")
+	var dataStore string
+	var err error
+	if options.Options.ChromeDataDir != "" {
+		dataStore = options.Options.ChromeDataDir
+	} else {
+		dataStore, err = os.MkdirTemp("", "katana-*")
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create temporary directory")
+		}
 	}
 
 	previousPIDs := findChromeProcesses()
@@ -128,11 +134,11 @@ func (c *Crawler) Close() error {
 	if err := c.browser.Close(); err != nil {
 		return err
 	}
-
-	if err := os.RemoveAll(c.tempDir); err != nil {
-		return err
+	if c.options.Options.ChromeDataDir == "" {
+		if err := os.RemoveAll(c.tempDir); err != nil {
+			return err
+		}
 	}
-
 	return c.killChromeProcesses()
 }
 
