@@ -15,7 +15,6 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
@@ -25,6 +24,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
@@ -50,7 +50,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	} else {
 		dataStore, err = os.MkdirTemp("", "katana-*")
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create temporary directory")
+			return nil, errorutil.NewWithTag("hybrid", "could not create temporary directory").Wrap(err)
 		}
 	}
 
@@ -73,7 +73,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		if chromePath, hasChrome := launcher.LookPath(); hasChrome {
 			chromeLauncher.Bin(chromePath)
 		} else {
-			return nil, errors.New("the chrome browser is not installed")
+			return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
 		}
 	}
 	if options.Options.SystemChromePath != "" {
@@ -122,7 +122,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if options.Options.KnownFiles != "" {
 		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create http client")
+			return nil, errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
 		}
 		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
@@ -152,7 +152,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	parsed, err := url.Parse(rootURL)
 	if err != nil {
-		return errors.Wrap(err, "could not parse root URL")
+		return errorutil.NewWithTag("hybrid", "could not parse root URL").Wrap(err)
 	}
 	hostname := parsed.Hostname()
 
@@ -174,7 +174,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
 	})
 	if err != nil {
-		return errors.Wrap(err, "could not create http client")
+		return errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
 	}
 
 	// create a new browser instance (default to incognito mode)
@@ -225,7 +225,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			}
 			resp, err := c.navigateRequest(ctx, httpclient, queue, parseResponseCallback, newBrowser, req, hostname)
 			if err != nil {
-				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
+				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 
 				outputError := &output.Error{
 					Timestamp: time.Now(),

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -65,11 +65,10 @@ func (w *StandardWriter) formatResponse(resp *http.Response) ([]byte, error) {
 }
 
 func getResponseHost(URL string) (string, error) {
-	u, err := urlutil.ParseWithScheme(URL)
+	u, err := urlutil.Parse(URL)
 	if err != nil {
 		return "", err
 	}
-
 	return u.Host, nil
 }
 
@@ -85,7 +84,7 @@ func getResponseFile(storeResponseFolder, URL string) (*fileWriter, error) {
 	}
 	output, err := newFileOutputWriter(getResponseFileName(storeResponseFolder, domain, URL))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create output file")
+		return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
 	}
 
 	return output, nil
@@ -120,7 +119,7 @@ func updateIndex(storeResponseFolder string, resp *http.Response) error {
 	builder.WriteRune('\n')
 
 	if _, writeErr := index.Write(builder.Bytes()); writeErr != nil {
-		return errors.Wrap(err, "could not update index")
+		return errorutil.NewWithTag("output", "could not update index").Wrap(err)
 	}
 
 	return nil

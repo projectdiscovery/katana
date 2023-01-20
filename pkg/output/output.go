@@ -11,8 +11,8 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 const (
@@ -78,20 +78,20 @@ func New(options Options) (Writer, error) {
 	// Perform validations for fields and store-fields
 	if options.Fields != "" {
 		if err := validateFieldNames(options.Fields); err != nil {
-			return nil, errors.Wrap(err, "could not validate fields")
+			return nil, errorutil.NewWithTag("output", "could not validate fields").Wrap(err)
 		}
 	}
 	if options.StoreFields != "" {
 		_ = os.MkdirAll(storeFieldsDirectory, os.ModePerm)
 		if err := validateFieldNames(options.StoreFields); err != nil {
-			return nil, errors.Wrap(err, "could not validate store fields")
+			return nil, errorutil.NewWithTag("output", "could not validate store fields").Wrap(err)
 		}
 		writer.storeFields = append(writer.storeFields, strings.Split(options.StoreFields, ",")...)
 	}
 	if options.OutputFile != "" {
 		output, err := newFileOutputWriter(options.OutputFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create output file")
+			return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
 		}
 		writer.outputFile = output
 	}
@@ -105,13 +105,13 @@ func New(options Options) (Writer, error) {
 		// todo: the index file seems never used?
 		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create index file")
+			return nil, errorutil.NewWithTag("output", "could not create index file").Wrap(err)
 		}
 	}
 	if options.ErrorLogFile != "" {
 		errorFile, err := newFileOutputWriter(options.ErrorLogFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create error file")
+			return nil, errorutil.NewWithTag("output", "could not create error file").Wrap(err)
 		}
 
 		writer.errorFile = errorFile
@@ -134,7 +134,7 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 			data, err = w.formatScreen(event)
 		}
 		if err != nil {
-			return errors.Wrap(err, "could not format output")
+			return errorutil.NewWithTag("output", "could not format output").Wrap(err)
 		}
 		if len(data) == 0 {
 			return nil
@@ -148,7 +148,7 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 				data = decolorizerRegex.ReplaceAll(data, []byte(""))
 			}
 			if err := w.outputFile.Write(data); err != nil {
-				return errors.Wrap(err, "could not write to output")
+				return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
 			}
 		}
 	}
@@ -157,13 +157,13 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 		if file, err := getResponseFile(w.storeResponseDir, resp.Request.URL.String()); err == nil {
 			data, err := w.formatResponse(resp)
 			if err != nil {
-				return errors.Wrap(err, "could not store response")
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
 			if err := updateIndex(w.storeResponseDir, resp); err != nil {
-				return errors.Wrap(err, "could not store response")
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
 			if err := file.Write(data); err != nil {
-				return errors.Wrap(err, "could not store response")
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
 			file.Close()
 		}
@@ -175,7 +175,7 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 func (w *StandardWriter) WriteErr(errMessage *Error) error {
 	data, err := jsoniter.Marshal(errMessage)
 	if err != nil {
-		return errors.Wrap(err, "marshal")
+		return errorutil.NewWithTag("output", "marshal").Wrap(err)
 	}
 	if len(data) == 0 {
 		return nil
@@ -185,7 +185,7 @@ func (w *StandardWriter) WriteErr(errMessage *Error) error {
 
 	if w.errorFile != nil {
 		if err := w.errorFile.Write(data); err != nil {
-			return errors.Wrap(err, "write to error file")
+			return errorutil.NewWithTag("output", "write to error file").Wrap(err)
 		}
 	}
 	return nil
