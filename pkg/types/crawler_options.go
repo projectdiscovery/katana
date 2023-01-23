@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
 	"github.com/projectdiscovery/ratelimit"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 // CrawlerOptions contains helper utilities for the crawler
@@ -42,11 +42,11 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 	scopeManager, err := scope.NewManager(options.Scope, options.OutOfScope, options.FieldScope, options.NoScope)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create scope manager")
+		return nil, errorutil.NewWithErr(err).Msgf("could not create scope manager")
 	}
 	itemFilter, err := filters.NewSimple()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create filter")
+		return nil, errorutil.NewWithErr(err).Msgf("could not create filter")
 	}
 
 	outputOptions := output.Options{
@@ -63,7 +63,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 	outputWriter, err := output.New(outputOptions)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create output writer")
+		return nil, errorutil.NewWithErr(err).Msgf("could not create output writer")
 	}
 
 	var ratelimiter ratelimit.Limiter

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
@@ -20,6 +19,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -39,7 +39,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if options.Options.KnownFiles != "" {
 		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create http client")
+			return nil, errorutil.NewWithTag("standard", "could not create http client").Wrap(err)
 		}
 		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
@@ -55,7 +55,7 @@ func (c *Crawler) Close() error {
 func (c *Crawler) Crawl(rootURL string) error {
 	parsed, err := url.Parse(rootURL)
 	if err != nil {
-		return errors.Wrap(err, "could not parse root URL")
+		return errorutil.NewWithTag("standard", "could not parse root URL").Wrap(err)
 	}
 	hostname := parsed.Hostname()
 
@@ -82,7 +82,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
 	})
 	if err != nil {
-		return errors.Wrap(err, "could not create http client")
+		return errorutil.NewWithTag("standard", "could not create http client").Wrap(err)
 	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
@@ -118,7 +118,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			}
 			resp, err := c.makeRequest(ctx, req, hostname, req.Depth, httpclient)
 			if err != nil {
-				gologger.Warning().Msgf("Could not request seed URL: %s\n", err)
+				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 				outputError := &output.Error{
 					Timestamp: time.Now(),
 					Endpoint:  req.RequestURL(),

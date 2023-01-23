@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	logutil "github.com/projectdiscovery/utils/log"
 	"gopkg.in/yaml.v3"
@@ -20,20 +20,20 @@ import (
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
 	if options.MaxDepth <= 0 && options.CrawlDuration <= 0 {
-		return errors.New("either max-depth or crawl-duration must be specified")
+		return errorutil.New("either max-depth or crawl-duration must be specified")
 	}
 	if options.Verbose {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
-		return errors.New("no inputs specified for crawler")
+		return errorutil.New("no inputs specified for crawler")
 	}
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
-		return errors.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
+		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {
-			return errors.New("specified system chrome binary does not exist")
+			return errorutil.New("specified system chrome binary does not exist")
 		}
 	}
 	if options.StoreResponseDir != "" && !options.StoreResponse {
@@ -41,7 +41,7 @@ func validateOptions(options *types.Options) error {
 		options.StoreResponse = true
 	}
 	if options.Headless && (options.StoreResponse || options.StoreResponseDir != "") {
-		return errors.New("store responses feature is not supported in headless mode")
+		return errorutil.New("store responses feature is not supported in headless mode")
 	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
@@ -51,13 +51,13 @@ func validateOptions(options *types.Options) error {
 func readCustomFormConfig(options *types.Options) error {
 	file, err := os.Open(options.FormConfig)
 	if err != nil {
-		return errors.Wrap(err, "could not read form config")
+		return errorutil.NewWithErr(err).Msgf("could not read form config")
 	}
 	defer file.Close()
 
 	var data utils.FormFillData
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errors.Wrap(err, "could not decode form config")
+		return errorutil.NewWithErr(err).Msgf("could not decode form config")
 	}
 	utils.FormData = data
 	return nil
@@ -107,7 +107,7 @@ func configureOutput(options *types.Options) {
 func initExampleFormFillConfig() error {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
-		return errors.Wrap(err, "could not get home directory")
+		return errorutil.NewWithErr(err).Msgf("could not get home directory")
 	}
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
 
@@ -116,7 +116,7 @@ func initExampleFormFillConfig() error {
 	}
 	exampleConfig, err := os.Create(defaultConfig)
 	if err != nil {
-		return errors.Wrap(err, "could not get home directory")
+		return errorutil.NewWithErr(err).Msgf("could not get home directory")
 	}
 	defer exampleConfig.Close()
 

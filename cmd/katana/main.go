@@ -7,12 +7,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 var (
@@ -136,13 +136,20 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return nil, errors.Wrap(err, "could not parse flags")
+		return nil, errorutil.NewWithErr(err).Msgf("could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return nil, errors.Wrap(err, "could not read config file")
+			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
 		}
 	}
 	return flagSet, nil
+}
+
+func init() {
+	// show detailed stacktrace in debug mode
+	if os.Getenv("DEBUG") != "" {
+		errorutil.ShowStackTrace = true
+	}
 }

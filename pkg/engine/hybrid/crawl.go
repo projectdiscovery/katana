@@ -12,12 +12,12 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
@@ -30,7 +30,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create target")
+		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
 	defer page.Close()
 
@@ -93,7 +93,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
 	if err := page.Navigate(request.URL); err != nil {
-		return nil, errors.Wrap(err, "could not navigate target")
+		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
 	}
 	waitNavigation()
 
@@ -111,14 +111,14 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get dom")
+		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get html")
+		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
 	}
 
 	parsed, _ := url.Parse(request.URL)
@@ -142,7 +142,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	}
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(response.Body))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse html")
+		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
 	}
 	return response, nil
 }
