@@ -2,7 +2,6 @@ package common
 
 import (
 	"crypto/tls"
-	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 // BuildClient builds a http client based on a profile
@@ -49,7 +49,7 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 		Timeout:   time.Duration(options.Timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) == 10 {
-				return errors.New("stopped after 10 redirects")
+				return errorutil.New("stopped after 10 redirects")
 			}
 			depth, ok := req.Context().Value(navigation.Depth{}).(int)
 			if !ok {

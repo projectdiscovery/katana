@@ -137,8 +137,8 @@ github.com/projectdiscovery/sliceutil v0.0.1 h1:YoCqCMcdwz+gqNfW5hFY8UvNHoA6SfyB
 github.com/projectdiscovery/sliceutil v0.0.1/go.mod h1:0wBmhU5uTDwMfrEZfvwH9qa5k60Q4shPVOC9E6LGsDI=
 github.com/projectdiscovery/stringsutil v0.0.2 h1:uzmw3IVLJSMW1kEg8eCStG/cGbYYZAja8BH3LqqJXMA=
 github.com/projectdiscovery/stringsutil v0.0.2/go.mod h1:EJ3w6bC5fBYjVou6ryzodQq37D5c6qbAYQpGmAy+DC0=
-github.com/projectdiscovery/utils v0.0.4-0.20221222195055-f7d250fc55af h1:2t0pB8Dxj3yt87NGunXlp5lXRWY6nMHKHVh34E/dJx8=
-github.com/projectdiscovery/utils v0.0.4-0.20221222195055-f7d250fc55af/go.mod h1:PCwA5YuCYWPgHaGiZmr53/SA9iGQmAnw7DSHuhr8VPQ=
+github.com/projectdiscovery/utils v0.0.4 h1:eqEjsdIdeeLiHw28C6xyrL2dVdj/nY5ZtqFAmVNhaW8=
+github.com/projectdiscovery/utils v0.0.4/go.mod h1:PCwA5YuCYWPgHaGiZmr53/SA9iGQmAnw7DSHuhr8VPQ=
 github.com/remeh/sizedwaitgroup v1.0.0 h1:VNGGFwNo/R5+MJBf6yrsr110p0m4/OX4S3DCy7Kyl5E=
 github.com/remeh/sizedwaitgroup v1.0.0/go.mod h1:3j2R4OIe/SeS6YDhICBy22RWjJC5eNCJ1V+9+NVNYlo=
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=

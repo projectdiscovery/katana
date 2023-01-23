@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 type sitemapXmlCrawler struct {
@@ -23,18 +23,18 @@ func (r *sitemapXmlCrawler) Visit(URL string, callback func(navigation.Request))
 	requestURL := fmt.Sprintf("%s/sitemap.xml", URL)
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
-		return errors.Wrap(err, "could not create request")
+		return errorutil.NewWithTag("sitemapcrawler", "could not create request").Wrap(err)
 	}
 	req.Header.Set("User-Agent", utils.WebUserAgent())
 
 	resp, err := r.httpclient.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "could not do request")
+		return errorutil.NewWithTag("sitemapcrawler", "could not do request").Wrap(err)
 	}
 	defer resp.Body.Close()
 
 	if err := r.parseReader(resp.Body, resp, callback); err != nil {
-		return errors.Wrap(err, "could not parse sitemap")
+		return errorutil.NewWithTag("sitemapcrawler", "could not parse sitemap").Wrap(err)
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ type parsedURL struct {
 func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response, callback func(navigation.Request)) error {
 	sitemap := sitemapStruct{}
 	if err := xml.NewDecoder(reader).Decode(&sitemap); err != nil {
-		return errors.Wrap(err, "could not decode xml")
+		return errorutil.NewWithTag("sitemapcrawler", "could not decode xml").Wrap(err)
 	}
 	for _, url := range sitemap.URLs {
 		callback(navigation.NewNavigationRequestURLFromResponse(strings.Trim(url.Loc, " \t\n"), resp.Request.URL.String(), "file", "sitemapxml", navigation.Response{

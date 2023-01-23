@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 // makeRequest makes a request to a URL returning a response interface.
@@ -74,7 +74,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 	response.Resp = resp
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
 	if err != nil {
-		return response, errors.Wrap(err, "could not make document from reader")
+		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
 	}
 	return response, nil
 }

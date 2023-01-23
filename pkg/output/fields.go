@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pkg/errors"
-	"github.com/projectdiscovery/stringsutil"
+	errorutil "github.com/projectdiscovery/utils/errors"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -38,7 +38,7 @@ type fieldOutput struct {
 func validateFieldNames(names string) error {
 	parts := strings.Split(names, ",")
 	if len(parts) == 0 {
-		return errors.Errorf("no field names provided: %s", names)
+		return errorutil.NewWithTag("customfield", "no field names provided: %s", names)
 	}
 	uniqueFields := make(map[string]struct{})
 	for _, field := range FieldNames {
@@ -49,7 +49,7 @@ func validateFieldNames(names string) error {
 	}
 	for _, part := range parts {
 		if _, ok := uniqueFields[part]; !ok {
-			return errors.Errorf("invalid field %s specified: %s", part, names)
+			return errorutil.NewWithTag("customfield", "invalid field %s specified: %s", part, names)
 		}
 	}
 	return nil
