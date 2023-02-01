@@ -25,6 +25,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
@@ -171,7 +172,16 @@ func (c *Crawler) Crawl(rootURL string) error {
 	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		parser.ParseResponse(navigation.Response{Depth: depth + 1, Options: c.options, RootHostname: hostname, Resp: resp, Body: body, Reader: reader}, parseResponseCallback)
+		navigationResponse := navigation.Response{
+			Depth:        depth + 1,
+			Options:      c.options,
+			RootHostname: hostname,
+			Resp:         resp,
+			Body:         body,
+			Reader:       reader,
+			Technologies: mapsutil.GetKeys(c.options.Wappalyzer.Fingerprint(resp.Header, body)),
+		}
+		parser.ParseResponse(navigationResponse, parseResponseCallback)
 	})
 	if err != nil {
 		return errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
@@ -270,13 +280,14 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 
 		// Write the found result to output
 		result := &output.Result{
-			Timestamp:    time.Now(),
-			Body:         nr.Body,
-			URL:          nr.URL,
-			Source:       nr.Source,
-			Tag:          nr.Tag,
-			Attribute:    nr.Attribute,
-			CustomFields: nr.CustomFields,
+			Timestamp:          time.Now(),
+			Body:               nr.Body,
+			URL:                nr.URL,
+			Source:             nr.Source,
+			Tag:                nr.Tag,
+			Attribute:          nr.Attribute,
+			CustomFields:       nr.CustomFields,
+			SourceTechnologies: nr.SourceTechnologies,
 		}
 		if nr.Method != http.MethodGet {
 			result.Method = nr.Method

@@ -12,6 +12,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 // makeRequest makes a request to a URL returning a response interface.
@@ -66,6 +67,9 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 	if !c.options.UniqueFilter.UniqueContent(data) {
 		return navigation.Response{}, nil
 	}
+
+	technologies := c.options.Wappalyzer.Fingerprint(resp.Header, data)
+	response.Technologies = mapsutil.GetKeys(technologies)
 
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
 	_ = c.options.OutputWriter.Write(nil, resp)

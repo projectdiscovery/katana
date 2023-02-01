@@ -18,6 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
@@ -66,6 +67,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		}
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
 		resp := navigation.Response{
 			Resp:         httpresp,
 			Body:         []byte(body),
@@ -73,8 +75,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Options:      c.options,
 			Depth:        depth,
 			RootHostname: rootHostname,
+			Technologies: mapsutil.GetKeys(technologies),
 		}
-		_ = resp
 
 		// process the raw response
 		parser.ParseResponse(resp, parseResponseCallback)
