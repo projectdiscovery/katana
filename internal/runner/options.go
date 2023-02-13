@@ -53,7 +53,7 @@ func validateOptions(options *types.Options) error {
 		}
 		// check if project exists
 		if _, err := os.Stat(options.CrawlProject); err != nil {
-			gologger.Fatal().Msgf("project %v does not exist, try creating new project with `-np` flag")
+			gologger.Fatal().Msgf("project %v does not exist, try creating new project with `-np` flag", err)
 		}
 	}
 	if options.StoreResponseDir != "" && !options.StoreResponse {
