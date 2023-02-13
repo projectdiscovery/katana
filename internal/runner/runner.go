@@ -1,6 +1,9 @@
 package runner
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
@@ -41,6 +44,20 @@ func New(options *types.Options) (*Runner, error) {
 			return nil, err
 		}
 	}
+	if options.ListProject {
+		gologger.Info().Msg("katana saved projects:")
+		saveDir, err := os.ReadDir(getDefaultProjectDir())
+		if err != nil {
+			gologger.Fatal().Msgf("saved projects not found got %v", err)
+		}
+		for _, v := range saveDir {
+			if v.IsDir() {
+				fmt.Println(v.Name())
+			}
+		}
+		os.Exit(0)
+	}
+
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create crawler options")

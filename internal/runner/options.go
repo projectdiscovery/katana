@@ -25,9 +25,6 @@ func validateOptions(options *types.Options) error {
 	if options.Verbose {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
-	if len(options.URLs) == 0 && !fileutil.HasStdin() {
-		return errorutil.New("no inputs specified for crawler")
-	}
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
 		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
@@ -36,12 +33,38 @@ func validateOptions(options *types.Options) error {
 			return errorutil.New("specified system chrome binary does not exist")
 		}
 	}
+	if options.NewProject != "" && !filepath.IsAbs(options.NewProject) {
+		if _, err := os.Stat(getDefaultProjectDir()); err != nil {
+			// if default save directory does not exist create
+			if err := os.Mkdir(getDefaultProjectDir(), 0777); err != nil { //nolint
+				gologger.Fatal().Msgf("failed to create default root directory for katana got %v", err)
+			}
+		}
+		options.NewProject = filepath.Join(getDefaultProjectDir(), options.NewProject)
+		gologger.Verbose().Msgf("new project created at %v", options.NewProject)
+	}
+	if options.CrawlProject != "" {
+		if options.NewProject != "" {
+			gologger.Fatal().Msg("cannot create and crawl project at same time")
+		}
+		if !filepath.IsAbs(options.CrawlProject) {
+			// if not absolute path prepend default project directory
+			options.CrawlProject = filepath.Join(getDefaultProjectDir(), options.CrawlProject)
+		}
+		// check if project exists
+		if _, err := os.Stat(options.CrawlProject); err != nil {
+			gologger.Fatal().Msgf("project %v does not exist, try creating new project with `-np` flag")
+		}
+	}
 	if options.StoreResponseDir != "" && !options.StoreResponse {
 		gologger.Debug().Msgf("store response directory specified, enabling \"sr\" flag automatically\n")
 		options.StoreResponse = true
 	}
 	if options.Headless && (options.StoreResponse || options.StoreResponseDir != "") {
 		return errorutil.New("store responses feature is not supported in headless mode")
+	}
+	if len(options.URLs) == 0 && !fileutil.HasStdin() && options.NewProject == "" && !options.ListProject {
+		return errorutil.New("no inputs specified for crawler")
 	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
@@ -122,4 +145,12 @@ func initExampleFormFillConfig() error {
 
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err
+}
+
+func getDefaultProjectDir() string {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		gologger.Fatal().Msgf("failed to fetch user home directory got %v", err)
+	}
+	return filepath.Join(homedir, ".katana")
 }

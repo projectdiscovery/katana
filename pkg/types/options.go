@@ -97,14 +97,18 @@ type Options struct {
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
-	// ChromeDataDir : 	Specify the --user-data-dir to chrome binary to preserve sessions
-	ChromeDataDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
 	HeadlessNoIncognito bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
+	// OpenBrowser opens visible browser window to login
+	NewProject string
+	// CrawlProject uses saved session data while crawling
+	CrawlProject string
+	// ListProject lists all project
+	ListProject bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

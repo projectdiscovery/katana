@@ -86,7 +86,7 @@ func (v *VarietyQueue) Pop() interface{} {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	var x interface{}
+	var x interface{} = nil
 	if v.queueType == BreadthFirst {
 		x = v.priorityQueue.Pop()
 	} else if v.queueType == DepthFirst {
