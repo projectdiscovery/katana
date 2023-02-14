@@ -8,7 +8,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
-	github.com/projectdiscovery/fastdialer v0.0.22
+	github.com/projectdiscovery/fastdialer v0.0.23
 	github.com/projectdiscovery/goflags v0.1.6
 	github.com/projectdiscovery/gologger v1.1.7
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
