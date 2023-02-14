@@ -13,7 +13,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
-	logutil "github.com/projectdiscovery/utils/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -101,7 +100,7 @@ func configureOutput(options *types.Options) {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
 
-	logutil.DisableDefaultLogger()
+	// logutil.DisableDefaultLogger()
 }
 
 func initExampleFormFillConfig() error {
