@@ -13,17 +13,10 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
-// BuildClient builds a http client based on a profile
-func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback func(resp *http.Response, depth int)) (*retryablehttp.Client, *fastdialer.Dialer, error) {
-	var err error
-	var proxyURL *url.URL
-	if options.Proxy != "" {
-		proxyURL, err = url.Parse(options.Proxy)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
+type RedirectCallback func(resp *http.Response, depth int)
 
+// BuildClient builds a http client based on a profile
+func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback RedirectCallback) (*retryablehttp.Client, *fastdialer.Dialer, error) {
 	// Single Host
 	retryablehttpOptions := retryablehttp.DefaultOptionsSingle
 	retryablehttpOptions.RetryMax = options.Retries
@@ -39,9 +32,12 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 		DisableKeepAlives: false,
 	}
 
-	// Attempts to overwrite the dial function with the socks proxied version
-	if proxyURL != nil {
-		transport.Proxy = http.ProxyURL(proxyURL)
+	if options.Proxy != "" {
+		if proxyURL, err := url.Parse(options.Proxy); err != nil {
+			return nil, nil, err
+		} else {
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
 	}
 
 	client := retryablehttp.NewWithHTTPClient(&http.Client{

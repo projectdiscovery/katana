@@ -4,11 +4,12 @@ import (
 	"strings"
 
 	"github.com/lukasbob/srcset"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
 // IsURL returns true if a provided string is URL
 func IsURL(url string) bool {
-	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+	return stringsutil.HasPrefixAny(url, "http://", "https://")
 }
 
 // ParseSRCSetTag parses srcset tag returning found URLs
