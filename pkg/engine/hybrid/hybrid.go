@@ -121,7 +121,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		tempDir:      dataStore,
 	}
 	if options.Options.KnownFiles != "" {
-		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
+		httpclient, _, err := common.BuildHttpClient(options.Dialer, options.Options, nil)
 		if err != nil {
 			return nil, errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
 		}
@@ -169,7 +169,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
-	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+	httpclient, _, err := common.BuildHttpClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		navigationResponse := navigation.Response{

@@ -35,9 +35,8 @@ func main() {
 	if err != nil || katanaRunner == nil {
 		if options.Version {
 			return
-		} else {
-			gologger.Fatal().Msgf("could not create runner: %s\n", err)
 		}
+		gologger.Fatal().Msgf("could not create runner: %s\n", err)
 	}
 	defer katanaRunner.Close()
 
@@ -45,18 +44,16 @@ func main() {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-c
+		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
 			katanaRunner.Close()
 			os.Exit(0)
-		}()
+		}
 	}()
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
-
 }
 
 func readFlags() (*goflags.FlagSet, error) {

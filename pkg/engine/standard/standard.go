@@ -38,7 +38,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		options: options,
 	}
 	if options.Options.KnownFiles != "" {
-		httpclient, _, err := common.BuildClient(options.Dialer, options.Options, nil)
+		httpclient, _, err := common.BuildHttpClient(options.Dialer, options.Options, nil)
 		if err != nil {
 			return nil, errorutil.NewWithTag("standard", "could not create http client").Wrap(err)
 		}
@@ -77,7 +77,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
 		}
 	}
-	httpclient, _, err := common.BuildClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+	httpclient, _, err := common.BuildHttpClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := c.options.Wappalyzer.Fingerprint(resp.Header, body)
