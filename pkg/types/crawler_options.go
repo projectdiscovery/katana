@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
 	"github.com/projectdiscovery/ratelimit"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
 
 // CrawlerOptions contains helper utilities for the crawler
@@ -29,6 +30,8 @@ type CrawlerOptions struct {
 	ScopeManager *scope.Manager
 	// Dialer is instance of the dialer for global crawler
 	Dialer *fastdialer.Dialer
+	// Wappalyzer instance for technologies detection
+	Wappalyzer *wappalyzer.Wappalyze
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -66,22 +69,27 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create output writer")
 	}
 
-	var ratelimiter ratelimit.Limiter
-	if options.RateLimit > 0 {
-		ratelimiter = *ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
-	} else if options.RateLimitMinute > 0 {
-		ratelimiter = *ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
-	}
-
 	crawlerOptions := &CrawlerOptions{
 		ExtensionsValidator: extensionsValidator,
 		ScopeManager:        scopeManager,
 		UniqueFilter:        itemFilter,
-		RateLimit:           ratelimiter,
 		Options:             options,
 		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
 	}
+
+	if options.RateLimit > 0 {
+		crawlerOptions.RateLimit = *ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
+	} else if options.RateLimitMinute > 0 {
+		crawlerOptions.RateLimit = *ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
+	}
+
+	wappalyze, err := wappalyzer.New()
+	if err != nil {
+		return nil, err
+	}
+	crawlerOptions.Wappalyzer = wappalyze
+
 	return crawlerOptions, nil
 }
 

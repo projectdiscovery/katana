@@ -20,4 +20,6 @@ type Result struct {
 	Attribute string `json:"attribute,omitempty"`
 	// customField matched output
 	CustomFields map[string][]string `json:"-"`
+	// Technologies of the response
+	SourceTechnologies []string `json:"source-technologies,omitempty"`
 }

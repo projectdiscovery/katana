@@ -16,6 +16,7 @@ type Response struct {
 	Reader       *goquery.Document
 	Body         []byte
 	RootHostname string
+	Technologies []string
 
 	Options *types.CrawlerOptions
 }
