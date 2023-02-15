@@ -9,12 +9,12 @@ import (
 
 // Response is a response generated from crawler navigation
 type Response struct {
-	Resp         *http.Response
-	Depth        int
-	Reader       *goquery.Document
-	Body         []byte
-	RootHostname string
-	Technologies []string
+	Resp         *http.Response    `json:"-"`
+	Depth        int               `json:"-"`
+	Reader       *goquery.Document `json:"-"`
+	Body         string            `json:"body,omitempty"`
+	RootHostname string            `json:"root-hostname,omitempty"`
+	Technologies []string          `json:"technologies,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

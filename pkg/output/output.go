@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,7 +29,7 @@ type Writer interface {
 	// Close closes the output writer interface
 	Close() error
 	// Write writes the event to file and/or screen.
-	Write(*Result, *http.Response) error
+	Write(*Result) error
 	WriteErr(*Error) error
 }
 
@@ -120,7 +119,7 @@ func New(options Options) (Writer, error) {
 }
 
 // Write writes the event to file and/or screen.
-func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
+func (w *StandardWriter) Write(event *Result) error {
 	if event != nil {
 		if len(w.storeFields) > 0 {
 			storeFields(event, w.storeFields)
@@ -153,13 +152,13 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 		}
 	}
 
-	if w.storeResponse && resp != nil {
-		if file, err := getResponseFile(w.storeResponseDir, resp.Request.URL.String()); err == nil {
-			data, err := w.formatResponse(resp)
+	if w.storeResponse && event.Response.Resp != nil {
+		if file, err := getResponseFile(w.storeResponseDir, event.Response.Resp.Request.URL.String()); err == nil {
+			data, err := w.formatResponse(event.Response.Resp)
 			if err != nil {
 				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
-			if err := updateIndex(w.storeResponseDir, resp); err != nil {
+			if err := updateIndex(w.storeResponseDir, event.Response.Resp); err != nil {
 				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
 			if err := file.Write(data); err != nil {

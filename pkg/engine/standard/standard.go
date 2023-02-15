@@ -84,7 +84,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			Depth:        depth + 1,
 			RootHostname: hostname,
 			Resp:         resp,
-			Body:         body,
+			Body:         string(body),
 			Reader:       reader,
 			Technologies: mapsutil.GetKeys(technologies),
 		}
@@ -198,7 +198,7 @@ func (c *Crawler) output(navigationRequest navigation.Request, navigationRespons
 		Response:  navigationResponse,
 	}
 
-	_ = c.options.OutputWriter.Write(result, nil)
+	_ = c.options.OutputWriter.Write(result)
 
 	if c.options.Options.OnResult != nil {
 		c.options.Options.OnResult(*result)
