@@ -69,7 +69,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
 		resp := navigation.Response{
 			Resp:         httpresp,
-			Body:         []byte(body),
+			Body:         string(body),
 			Reader:       bodyReader,
 			Depth:        depth,
 			RootHostname: rootHostname,
@@ -127,22 +127,22 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response
-	responseCopy.Body = []byte(builder.String())
-	if !c.options.UniqueFilter.UniqueContent(responseCopy.Body) {
+	responseCopy.Body = builder.String()
+	if !c.options.UniqueFilter.UniqueContent([]byte(responseCopy.Body)) {
 		return &navigation.Response{}, nil
 	}
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseCopy.Body))
+	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
 		navigationRequests := parser.ParseResponse(responseCopy)
 		c.enqueue(queue, navigationRequests...)
 	}
 
-	response.Body = []byte(body)
-	if !c.options.UniqueFilter.UniqueContent(response.Body) {
+	response.Body = body
+	if !c.options.UniqueFilter.UniqueContent([]byte(response.Body)) {
 		return &navigation.Response{}, nil
 	}
-	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(response.Body))
+	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
 	}

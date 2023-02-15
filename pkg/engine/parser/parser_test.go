@@ -402,12 +402,12 @@ func TestScriptParsers(t *testing.T) {
 
 	t.Run("js", func(t *testing.T) {
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/data.js")
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: []byte("var endpoint='/test/html/script/body.do';")}
+		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: "var endpoint='/test/html/script/body.do';"}
 		navigationRequests := scriptJSFileRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/body.do", navigationRequests[0].URL, "could not get correct url")
 
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/")
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: []byte("var endpoint='/test/html/script/body-content-type.do';")}
+		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: "var endpoint='/test/html/script/body-content-type.do';"}
 		navigationRequests = scriptJSFileRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/body-content-type.do", navigationRequests[0].URL, "could not get correct url")
 
@@ -421,7 +421,7 @@ func TestRegexBodyParsers(t *testing.T) {
 		resp := navigation.Response{
 			Resp:  &http.Response{Request: &http.Request{URL: parsed}},
 			Depth: 0,
-			Body:  []byte("some content contact@example.com"),
+			Body:  "some content contact@example.com",
 		}
 
 		// set required regex
@@ -467,7 +467,7 @@ func TestRegexBodyParsers(t *testing.T) {
 					"server": []string{"ECS (dcb/7F84)"},
 				},
 			},
-			Body: []byte("some content contact@example.com"),
+			Body: "some content contact@example.com",
 		}
 
 		// set required regex
