@@ -68,14 +68,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	queue := queue.New(c.options.Options.Strategy)
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
-	parseResponseCallback := c.makeParseResponseCallback(queue)
 
 	if c.knownFiles != nil {
-		if err := c.knownFiles.Request(rootURL, func(nr navigation.Request) {
-			parseResponseCallback(nr)
-		}); err != nil {
+		navigationRequests, err := c.knownFiles.Request(rootURL)
+		if err != nil {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
 		}
+		c.enqueue(queue, navigationRequests...)
 	}
 	httpclient, _, err := common.BuildHttpClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
@@ -90,7 +89,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 			Reader:       reader,
 			Technologies: mapsutil.GetKeys(technologies),
 		}
-		parser.ParseResponse(navigationResponse, parseResponseCallback)
+		navigationRequests := parser.ParseResponse(navigationResponse)
+		c.enqueue(queue, navigationRequests...)
 	})
 	if err != nil {
 		return errorutil.NewWithTag("standard", "could not create http client").Wrap(err)
@@ -142,7 +142,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
-			parser.ParseResponse(resp, parseResponseCallback)
+			navigationRequests := parser.ParseResponse(resp)
+			c.enqueue(queue, navigationRequests...)
 		}()
 	}
 	wg.Wait()
@@ -151,22 +152,22 @@ func (c *Crawler) Crawl(rootURL string) error {
 }
 
 // makeParseResponseCallback returns a parse response function callback
-func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr navigation.Request) {
-	return func(nr navigation.Request) {
+func (c *Crawler) enqueue(queue *queue.VarietyQueue, navigationRequests ...navigation.Request) {
+	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
-			return
+			continue
 		}
 		parsed, err := url.Parse(nr.URL)
 		if err != nil {
-			return
+			continue
 		}
 		// Ignore blank URL items and only work on unique items
 		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
-			return
+			continue
 		}
 		// - URLs stuck in a loop
 		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
-			return
+			continue
 		}
 
 		// Write the found result to output
@@ -185,7 +186,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		}
 		scopeValidated, err := c.options.ScopeManager.Validate(parsed, nr.RootHostname)
 		if err != nil {
-			return
+			continue
 		}
 		if scopeValidated || c.options.Options.DisplayOutScope {
 			_ = c.options.OutputWriter.Write(result, nil)
@@ -195,7 +196,7 @@ func (c *Crawler) makeParseResponseCallback(queue *queue.VarietyQueue) func(nr n
 		}
 		// Do not add to crawl queue if max items are reached
 		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
-			return
+			continue
 		}
 		queue.Push(nr, nr.Depth)
 	}

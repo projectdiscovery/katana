@@ -21,7 +21,7 @@ import (
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
@@ -79,7 +79,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		}
 
 		// process the raw response
-		parser.ParseResponse(resp, parseResponseCallback)
+		navigationRequests := parser.ParseResponse(resp)
+		c.enqueue(queue, navigationRequests...)
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -135,7 +136,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		parser.ParseResponse(responseCopy, parseResponseCallback)
+		navigationRequests := parser.ParseResponse(responseCopy)
+		c.enqueue(queue, navigationRequests...)
 	}
 
 	response.Body = []byte(body)
