@@ -82,7 +82,6 @@ func (c *Crawler) Crawl(rootURL string) error {
 		technologies := c.options.Wappalyzer.Fingerprint(resp.Header, body)
 		navigationResponse := navigation.Response{
 			Depth:        depth + 1,
-			Options:      c.options,
 			RootHostname: hostname,
 			Resp:         resp,
 			Body:         body,
@@ -111,9 +110,11 @@ func (c *Crawler) Crawl(rootURL string) error {
 		if !ok {
 			continue
 		}
+
 		if !utils.IsURL(req.URL) {
 			continue
 		}
+
 		wg.Add()
 		atomic.AddInt32(&running, 1)
 
@@ -142,6 +143,9 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
+
+			c.output(req, resp)
+
 			navigationRequests := parser.ParseResponse(resp)
 			c.enqueue(queue, navigationRequests...)
 		}()
@@ -157,10 +161,7 @@ func (c *Crawler) enqueue(queue *queue.VarietyQueue, navigationRequests ...navig
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
 			continue
 		}
-		parsed, err := url.Parse(nr.URL)
-		if err != nil {
-			continue
-		}
+
 		// Ignore blank URL items and only work on unique items
 		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
 			continue
@@ -170,34 +171,36 @@ func (c *Crawler) enqueue(queue *queue.VarietyQueue, navigationRequests ...navig
 			continue
 		}
 
-		// Write the found result to output
-		result := &output.Result{
-			Timestamp:          time.Now(),
-			Body:               nr.Body,
-			URL:                nr.URL,
-			Source:             nr.Source,
-			Tag:                nr.Tag,
-			Attribute:          nr.Attribute,
-			CustomFields:       nr.CustomFields,
-			SourceTechnologies: nr.SourceTechnologies,
-		}
-		if nr.Method != http.MethodGet {
-			result.Method = nr.Method
-		}
-		scopeValidated, err := c.options.ScopeManager.Validate(parsed, nr.RootHostname)
-		if err != nil {
-			continue
-		}
-		if scopeValidated || c.options.Options.DisplayOutScope {
-			_ = c.options.OutputWriter.Write(result, nil)
-		}
-		if c.options.Options.OnResult != nil {
-			c.options.Options.OnResult(*result)
-		}
+		scopeValidated := c.validateScope(nr.URL, nr.RootHostname)
+
 		// Do not add to crawl queue if max items are reached
 		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
 			continue
 		}
 		queue.Push(nr, nr.Depth)
+	}
+}
+
+func (c *Crawler) validateScope(URL string, root string) bool {
+	parsedURL, err := url.Parse(URL)
+	if err != nil {
+		return false
+	}
+	scopeValidated, err := c.options.ScopeManager.Validate(parsedURL, root)
+	return err == nil && scopeValidated
+}
+
+func (c *Crawler) output(navigationRequest navigation.Request, navigationResponse navigation.Response) {
+	// Write the found result to output
+	result := &output.Result{
+		Timestamp: time.Now(),
+		Request:   navigationRequest,
+		Response:  navigationResponse,
+	}
+
+	_ = c.options.OutputWriter.Write(result, nil)
+
+	if c.options.Options.OnResult != nil {
+		c.options.Options.OnResult(*result)
 	}
 }

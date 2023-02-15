@@ -8,6 +8,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"golang.org/x/net/html"
 )
@@ -60,18 +61,23 @@ var responseParsers = []responseParser{
 	{bodyParser, bodyInputSrcTagParser},
 	{bodyParser, bodyIsindexActionTagParser},
 	{bodyParser, bodyScriptSrcTagParser},
-	{bodyParser, bodyFormTagParser},
 	{bodyParser, bodyMetaContentTagParser},
-	{bodyParser, scriptContentRegexParser},
 	{bodyParser, bodyHtmlManifestTagParser},
 	{bodyParser, bodyHtmlDoctypeTagParser},
 
-	// Optional JS relative endpoints parsers
-	{contentParser, scriptJSFileRegexParser},
-	{contentParser, bodyScrapeEndpointsParser},
-
 	// custom field regex parser
 	{bodyParser, customFieldRegexParser},
+}
+
+func InitWithOptions(options *types.Options) {
+	if options.AutomaticFormFill {
+		responseParsers = append(responseParsers, responseParser{bodyParser, bodyFormTagParser})
+	}
+	if options.ScrapeJSResponses {
+		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
+		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
+		responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
+	}
 }
 
 // parseResponse runs the response parsers on the navigation response
@@ -499,9 +505,6 @@ func bodyHtmlDoctypeTagParser(resp navigation.Response) (navigationRequests []na
 // bodyFormTagParser parses forms from response
 func bodyFormTagParser(resp navigation.Response) (navigationRequests []navigation.Request) {
 	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
-		if !resp.Options.Options.AutomaticFormFill {
-			return
-		}
 		href, _ := item.Attr("action")
 		encType, ok := item.Attr("enctype")
 		if !ok || encType == "" {
@@ -613,9 +616,6 @@ func bodyMetaContentTagParser(resp navigation.Response) (navigationRequests []na
 // scriptContentRegexParser parses script content endpoints from response
 func scriptContentRegexParser(resp navigation.Response) (navigationRequests []navigation.Request) {
 	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
-		if !resp.Options.Options.ScrapeJSResponses { // do not process if disabled
-			return
-		}
 		text := item.Text()
 		if text == "" {
 			return
@@ -630,10 +630,6 @@ func scriptContentRegexParser(resp navigation.Response) (navigationRequests []na
 
 // scriptJSFileRegexParser parses relative endpoints from js file pages
 func scriptJSFileRegexParser(resp navigation.Response) (navigationRequests []navigation.Request) {
-	if !resp.Options.Options.ScrapeJSResponses { // do not process if disabled
-		return
-	}
-
 	// Only process javascript file based on path or content type
 	// CSS, JS are supported for relative endpoint extraction.
 	contentType := resp.Resp.Header.Get("Content-Type")
@@ -650,10 +646,6 @@ func scriptJSFileRegexParser(resp navigation.Response) (navigationRequests []nav
 
 // bodyScrapeEndpointsParser parses scraped URLs from HTML body
 func bodyScrapeEndpointsParser(resp navigation.Response) (navigationRequests []navigation.Request) {
-	if !resp.Options.Options.ScrapeJSResponses { // do not process if disabled
-		return
-	}
-
 	endpoints := utils.ExtractBodyEndpoints(string(resp.Body))
 	for _, item := range endpoints {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "html", "regex", resp))

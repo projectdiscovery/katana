@@ -10,7 +10,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
-	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -344,17 +343,15 @@ func TestBodyParsers(t *testing.T) {
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/button/formaction.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("form", func(t *testing.T) {
-		opts := &types.CrawlerOptions{Options: &types.Options{AutomaticFormFill: true}}
-
 		t.Run("get", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-get.found\" method=\"GET\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader, Options: opts}
+			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyFormTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/action-get.found?test1=test&test2=test", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("post", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-post.found\" method=\"POST\" enctype=\"multipart/form-data\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader, Options: opts}
+			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyFormTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/action-post.found", navigationRequests[0].URL, "could not get correct url")
 			require.Equal(t, "POST", navigationRequests[0].Method, "could not get correct method")
@@ -398,19 +395,19 @@ func TestScriptParsers(t *testing.T) {
 
 	t.Run("content", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<script>var endpoint='/test/html/script/content.do';</script>"))
-		resp := navigation.Response{Options: &types.CrawlerOptions{Options: &types.Options{ScrapeJSResponses: true}}, Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := scriptContentRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/content.do", navigationRequests[0].URL, "could not get correct url")
 	})
 
 	t.Run("js", func(t *testing.T) {
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/data.js")
-		resp := navigation.Response{Options: &types.CrawlerOptions{Options: &types.Options{ScrapeJSResponses: true}}, Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: []byte("var endpoint='/test/html/script/body.do';")}
+		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: []byte("var endpoint='/test/html/script/body.do';")}
 		navigationRequests := scriptJSFileRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/body.do", navigationRequests[0].URL, "could not get correct url")
 
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/")
-		resp = navigation.Response{Options: &types.CrawlerOptions{Options: &types.Options{ScrapeJSResponses: true}}, Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: []byte("var endpoint='/test/html/script/body-content-type.do';")}
+		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: []byte("var endpoint='/test/html/script/body-content-type.do';")}
 		navigationRequests = scriptJSFileRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/body-content-type.do", navigationRequests[0].URL, "could not get correct url")
 

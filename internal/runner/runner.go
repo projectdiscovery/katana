@@ -4,6 +4,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -46,9 +47,9 @@ func New(options *types.Options) (*Runner, error) {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create crawler options")
 	}
 
-	var (
-		crawler engine.Engine
-	)
+	parser.InitWithOptions(options)
+
+	var crawler engine.Engine
 
 	switch {
 	case options.Headless:

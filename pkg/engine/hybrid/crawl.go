@@ -25,7 +25,6 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
-		Options:      c.options,
 		RootHostname: rootHostname,
 	}
 
@@ -72,7 +71,6 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Resp:         httpresp,
 			Body:         []byte(body),
 			Reader:       bodyReader,
-			Options:      c.options,
 			Depth:        depth,
 			RootHostname: rootHostname,
 			Technologies: mapsutil.GetKeys(technologies),
