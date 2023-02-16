@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	proxyutil "github.com/projectdiscovery/utils/http/proxy"
 )
 
 // BuildClient builds a http client based on a profile
@@ -41,6 +42,9 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 
 	// Attempts to overwrite the dial function with the socks proxied version
 	if proxyURL != nil {
+		if ok, err := proxyutil.IsBurp(proxyURL.String()); err == nil && ok {
+			transport.TLSClientConfig.MaxVersion = tls.VersionTLS12
+		}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}
 
