@@ -55,11 +55,21 @@ func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response) (
 		return nil, errorutil.NewWithTag("sitemapcrawler", "could not decode xml").Wrap(err)
 	}
 	for _, url := range sitemap.URLs {
-		navResp := navigation.Response{Depth: 2, Resp: resp}
+		navResp := navigation.Response{
+			Depth:      2,
+			Resp:       resp,
+			StatusCode: resp.StatusCode,
+			Headers:    utils.FlattenHeaders(resp.Header),
+		}
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(strings.Trim(url.Loc, " \t\n"), resp.Request.URL.String(), "file", "sitemapxml", navResp))
 	}
 	for _, url := range sitemap.Sitemap {
-		navResp := navigation.Response{Depth: 2, Resp: resp}
+		navResp := navigation.Response{
+			Depth:      2,
+			Resp:       resp,
+			StatusCode: resp.StatusCode,
+			Headers:    utils.FlattenHeaders(resp.Header),
+		}
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(strings.Trim(url.Loc, " \t\n"), resp.Request.URL.String(), "file", "sitemapxml", navResp))
 	}
 	return

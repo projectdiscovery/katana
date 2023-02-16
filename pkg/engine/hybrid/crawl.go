@@ -15,6 +15,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -74,6 +75,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Depth:        depth,
 			RootHostname: rootHostname,
 			Technologies: mapsutil.GetKeys(technologies),
+			StatusCode:   statuscode,
+			Headers:      utils.FlattenHeaders(headers),
 		}
 
 		// process the raw response

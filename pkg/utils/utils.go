@@ -61,3 +61,11 @@ func ParseRefreshTag(value string) string {
 func WebUserAgent() string {
 	return "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
 }
+
+func FlattenHeaders(headers map[string][]string) map[string]string {
+	h := make(map[string]string)
+	for k, v := range headers {
+		h[k] = strings.Join(v, ";")
+	}
+	return h
+}

@@ -178,6 +178,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 			Body:         string(body),
 			Reader:       reader,
 			Technologies: mapsutil.GetKeys(c.options.Wappalyzer.Fingerprint(resp.Header, body)),
+			StatusCode:   resp.StatusCode,
+			Headers:      utils.FlattenHeaders(resp.Header),
 		}
 		navigationRequests := parser.ParseResponse(navigationResponse)
 		c.enqueue(queue, navigationRequests...)
