@@ -87,6 +87,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 			Body:         string(body),
 			Reader:       reader,
 			Technologies: mapsutil.GetKeys(technologies),
+			StatusCode:   resp.StatusCode,
+			Headers:      utils.FlattenHeaders(resp.Header),
 		}
 		navigationRequests := parser.ParseResponse(navigationResponse)
 		c.enqueue(queue, navigationRequests...)

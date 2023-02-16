@@ -75,6 +75,8 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 	response.Body = string(data)
 	response.Resp = resp
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
+	response.StatusCode = resp.StatusCode
+	response.Headers = utils.FlattenHeaders(resp.Header)
 	if err != nil {
 		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
 	}

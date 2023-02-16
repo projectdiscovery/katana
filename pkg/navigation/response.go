@@ -12,8 +12,10 @@ type Response struct {
 	Resp         *http.Response    `json:"-"`
 	Depth        int               `json:"-"`
 	Reader       *goquery.Document `json:"-"`
+	StatusCode   int               `json:"status_code,omitempty"`
+	Headers      map[string]string `json:"headers,omitempty"`
 	Body         string            `json:"body,omitempty"`
-	RootHostname string            `json:"root-hostname,omitempty"`
+	RootHostname string            `json:"-"`
 	Technologies []string          `json:"technologies,omitempty"`
 }
 
