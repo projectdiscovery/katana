@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	proxyutil "github.com/projectdiscovery/utils/http/proxy"
 )
 
 type RedirectCallback func(resp *http.Response, depth int)
@@ -32,12 +33,12 @@ func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirect
 		DisableKeepAlives: false,
 	}
 
-	if options.Proxy != "" {
-		if proxyURL, err := url.Parse(options.Proxy); err != nil {
-			return nil, nil, err
-		} else {
-			transport.Proxy = http.ProxyURL(proxyURL)
+	// Attempts to overwrite the dial function with the socks proxied version
+	if proxyURL, err := url.Parse(options.Proxy); err == nil {
+		if ok, err := proxyutil.IsBurp(options.Proxy); err == nil && ok {
+			transport.TLSClientConfig.MaxVersion = tls.VersionTLS12
 		}
+		transport.Proxy = http.ProxyURL(proxyURL)
 	}
 
 	client := retryablehttp.NewWithHTTPClient(&http.Client{
