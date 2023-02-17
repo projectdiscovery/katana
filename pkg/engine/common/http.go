@@ -34,7 +34,7 @@ func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirect
 	}
 
 	// Attempts to overwrite the dial function with the socks proxied version
-	if proxyURL, err := url.Parse(options.Proxy); options.Proxy != "" &6 err == nil {
+	if proxyURL, err := url.Parse(options.Proxy); options.Proxy != "" && err == nil {
 		if ok, err := proxyutil.IsBurp(options.Proxy); err == nil && ok {
 			transport.TLSClientConfig.MaxVersion = tls.VersionTLS12
 		}
