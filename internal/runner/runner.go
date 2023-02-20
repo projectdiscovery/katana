@@ -6,6 +6,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"go.uber.org/multierr"
@@ -47,7 +48,7 @@ func New(options *types.Options) (*Runner, error) {
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
 		var err error
-		options.FieldConfig, err = getDefaultCustomConfigFile()
+		options.FieldConfig, err = utils.GetDefaultCustomConfigFile()
 		if err != nil {
 			return nil, errorutil.NewWithErr(err).Msgf("could not get default custom config file")
 		}

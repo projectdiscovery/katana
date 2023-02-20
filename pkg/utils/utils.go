@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/lukasbob/srcset"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 // IsURL returns true if a provided string is URL
@@ -59,4 +62,13 @@ func ParseRefreshTag(value string) string {
 // WebUserAgent returns the chrome-web user agent
 func WebUserAgent() string {
 	return "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+}
+
+func GetDefaultCustomConfigFile() (string, error) {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
+	}
+	defaultConfig := filepath.Join(homedir, ".config", "katana", "field-config.yaml")
+	return defaultConfig, nil
 }
