@@ -1,6 +1,7 @@
 module github.com/projectdiscovery/katana
 
 go 1.19
+
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/go-rod/rod v0.112.5
@@ -14,7 +15,7 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/projectdiscovery/retryablehttp-go v1.0.11
 	github.com/projectdiscovery/utils v0.0.9
-	github.com/projectdiscovery/wappalyzergo v0.0.80
+	github.com/projectdiscovery/wappalyzergo v0.0.83
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.23.1
