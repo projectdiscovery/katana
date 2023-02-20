@@ -6,7 +6,6 @@ import (
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/output"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -64,11 +63,6 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		StoreResponseDir: options.StoreResponseDir,
 		FieldConfig:      options.FieldConfig,
 		ErrorLogFile:     options.ErrorLogFile,
-	}
-	if outputOptions.FieldConfig == "" {
-		if outputOptions.FieldConfig, err = utils.GetDefaultCustomConfigFile(); err != nil {
-			return nil, err
-		}
 	}
 	outputWriter, err := output.New(outputOptions)
 	if err != nil {

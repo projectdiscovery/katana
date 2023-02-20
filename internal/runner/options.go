@@ -2,8 +2,6 @@ package runner
 
 import (
 	"bufio"
-	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +9,6 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
-	"github.com/projectdiscovery/katana"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -124,22 +121,4 @@ func initExampleFormFillConfig() error {
 
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err
-}
-
-func initCustomFieldConfigFile() error {
-	defaultConfig, err := utils.GetDefaultCustomConfigFile()
-	if err != nil {
-		return err
-	}
-	if fileutil.FileExists(defaultConfig) {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(defaultConfig, katana.FieldConfig, 0644)
-	if err != nil {
-		return errorutil.NewWithTag("customfield", fmt.Sprintf("could not create %v", &defaultConfig)).Wrap(err)
-	}
-	return nil
 }

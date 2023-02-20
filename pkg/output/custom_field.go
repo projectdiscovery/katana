@@ -1,9 +1,14 @@
 package output
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 
+	"github.com/projectdiscovery/fileutil"
+	"github.com/projectdiscovery/katana"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/sliceutil"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
@@ -109,4 +114,22 @@ func loadCustomFields(filePath string, fields string) error {
 
 func (p Part) ToString() string {
 	return string(p)
+}
+
+func initCustomFieldConfigFile() (string, error) {
+	defaultConfig, err := utils.GetDefaultCustomConfigFile()
+	if err != nil {
+		return "", err
+	}
+	if fileutil.FileExists(defaultConfig) {
+		return defaultConfig, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
+		return "", err
+	}
+	err = os.WriteFile(defaultConfig, katana.FieldConfig, 0644)
+	if err != nil {
+		return "", errorutil.NewWithTag("customfield", fmt.Sprintf("could not create %v", &defaultConfig)).Wrap(err)
+	}
+	return defaultConfig, nil
 }
