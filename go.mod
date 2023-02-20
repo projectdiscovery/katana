@@ -1,6 +1,7 @@
 module github.com/projectdiscovery/katana
 
 go 1.19
+
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/go-rod/rod v0.112.5
@@ -20,7 +21,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.1
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/multierr v1.9.0
-	golang.org/x/net v0.6.0
+	golang.org/x/net v0.7.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
