@@ -41,6 +41,18 @@ func New(options *types.Options) (*Runner, error) {
 			return nil, err
 		}
 	}
+	if err := initCustomFieldConfigFile(); err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not init custom field config file")
+	}
+	// if fieldConfig empty get the default file
+	if options.FieldConfig == "" {
+		var err error
+		options.FieldConfig, err = getDefaultCustomConfigFile()
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not get default custom config file")
+		}
+	}
+
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create crawler options")

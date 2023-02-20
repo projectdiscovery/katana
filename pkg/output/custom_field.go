@@ -2,10 +2,8 @@ package output
 
 import (
 	"os"
-	"path/filepath"
 	"regexp"
 
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/sliceutil"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
@@ -33,15 +31,6 @@ type CustomFieldConfig struct {
 	Group        int              `yaml:"group,omitempty"`
 	Regex        []string         `yaml:"regex,omitempty"`
 	CompileRegex []*regexp.Regexp `yaml:"-"`
-}
-
-var DefaultFieldConfigData = []CustomFieldConfig{
-	{
-		Name:  "email",
-		Type:  "regex",
-		Part:  Response.ToString(),
-		Regex: []string{`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`},
-	},
 }
 
 func (c *CustomFieldConfig) SetCompiledRegexp(r *regexp.Regexp) {
@@ -116,32 +105,6 @@ func loadCustomFields(filePath string, fields string) error {
 		}
 	}
 	return nil
-}
-
-func initCustomFieldConfigFile() (string, error) {
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
-	}
-	defaultConfig := filepath.Join(homedir, ".config", "katana", "field-config.yaml")
-
-	if fileutil.FileExists(defaultConfig) {
-		return defaultConfig, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
-		return "", err
-	}
-	customFieldConfig, err := os.Create(defaultConfig)
-	if err != nil {
-		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
-	}
-	defer customFieldConfig.Close()
-
-	err = yaml.NewEncoder(customFieldConfig).Encode(DefaultFieldConfigData)
-	if err != nil {
-		return "", err
-	}
-	return defaultConfig, nil
 }
 
 func (p Part) ToString() string {

@@ -122,3 +122,35 @@ func initExampleFormFillConfig() error {
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err
 }
+
+func initCustomFieldConfigFile() error {
+	defaultConfig, err := getDefaultCustomConfigFile()
+	if err != nil {
+		return err
+	}
+	if fileutil.FileExists(defaultConfig) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
+		return err
+	}
+	rootdir, err := os.Getwd()
+	if err != nil {
+		return errorutil.NewWithTag("customfield", "could not working directory").Wrap(err)
+	}
+	sourceFile := filepath.Join(rootdir, "field-config.yaml")
+	err = fileutil.CopyFile(sourceFile, defaultConfig)
+	if err != nil {
+		return errorutil.NewWithTag("customfield", "could not copy field-config.yaml to home directory").Wrap(err)
+	}
+	return nil
+}
+
+func getDefaultCustomConfigFile() (string, error) {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
+	}
+	defaultConfig := filepath.Join(homedir, ".config", "katana", "field-config.yaml")
+	return defaultConfig, nil
+}

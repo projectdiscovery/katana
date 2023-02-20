@@ -59,14 +59,6 @@ func New(options Options) (Writer, error) {
 		storeResponse:    options.StoreResponse,
 		storeResponseDir: options.StoreResponseDir,
 	}
-	// if fieldConfig empty get the default file
-	if options.FieldConfig == "" {
-		var err error
-		options.FieldConfig, err = initCustomFieldConfigFile()
-		if err != nil {
-			return nil, err
-		}
-	}
 	err := parseCustomFieldName(options.FieldConfig)
 	if err != nil {
 		return nil, err
