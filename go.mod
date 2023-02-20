@@ -1,6 +1,7 @@
 module github.com/projectdiscovery/katana
 
 go 1.19
+
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/go-rod/rod v0.112.5
@@ -9,7 +10,7 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/projectdiscovery/fastdialer v0.0.23
 	github.com/projectdiscovery/goflags v0.1.6
-	github.com/projectdiscovery/gologger v1.1.7
+	github.com/projectdiscovery/gologger v1.1.8
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/projectdiscovery/retryablehttp-go v1.0.11
