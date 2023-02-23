@@ -1,4 +1,4 @@
-FROM golang:1.20.0-alpine AS builder
+FROM golang:1.20.1-alpine AS builder
 RUN apk add --no-cache git
 RUN go install -v github.com/projectdiscovery/katana/cmd/katana@latest
 
