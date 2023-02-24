@@ -3,25 +3,25 @@ module github.com/projectdiscovery/katana
 go 1.19
 
 require (
-	github.com/PuerkitoBio/goquery v1.8.0
-	github.com/go-rod/rod v0.112.5
+	github.com/PuerkitoBio/goquery v1.8.1
+	github.com/go-rod/rod v0.112.6
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/projectdiscovery/fastdialer v0.0.23
 	github.com/projectdiscovery/goflags v0.1.6
-	github.com/projectdiscovery/gologger v1.1.7
+	github.com/projectdiscovery/gologger v1.1.8
 	github.com/projectdiscovery/hmap v0.0.2-0.20210917080408-0fd7bd286bfa
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/projectdiscovery/retryablehttp-go v1.0.11
 	github.com/projectdiscovery/utils v0.0.9
-	github.com/projectdiscovery/wappalyzergo v0.0.80
+	github.com/projectdiscovery/wappalyzergo v0.0.83
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.23.1
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/multierr v1.9.0
-	golang.org/x/net v0.6.0
+	golang.org/x/net v0.7.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
