@@ -22,18 +22,20 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 		return builder.Bytes(), nil
 	}
 
-	if w.verbose {
+	if w.verbose && output.Request.Tag != "" {
 		builder.WriteRune('[')
 		builder.WriteString(w.aurora.Blue(output.Request.Tag).String())
 		builder.WriteRune(']')
 		builder.WriteRune(' ')
 	}
+
 	if output.Request.Method != "" && w.verbose {
 		builder.WriteRune('[')
 		builder.WriteString(w.aurora.Green(output.Request.Method).String())
 		builder.WriteRune(']')
 		builder.WriteRune(' ')
 	}
+
 	builder.WriteString(output.Request.URL)
 
 	if output.Request.Body != "" && w.verbose {
@@ -42,5 +44,6 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 		builder.WriteString(output.Request.Body)
 		builder.WriteRune(']')
 	}
+
 	return builder.Bytes(), nil
 }
