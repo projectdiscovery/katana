@@ -157,7 +157,10 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 	hostname := parsed.Hostname()
 
-	queue := queue.New(c.options.Options.Strategy)
+	queue, err := queue.New(c.options.Options.Strategy, c.options.Options.Timeout)
+	if err != nil {
+		return err
+	}
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 
 	if c.knownFiles != nil {
@@ -205,15 +208,10 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
 	running := int32(0)
-	for {
+	for item := range queue.Pop() {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		// Quit the crawling for zero items or context timeout
-		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0) {
-			break
-		}
-		item := queue.Pop()
 		req, ok := item.(navigation.Request)
 		if !ok {
 			continue
@@ -265,7 +263,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 }
 
 // enqueue new navigation requests
-func (c *Crawler) enqueue(queue *queue.VarietyQueue, navigationRequests ...navigation.Request) {
+func (c *Crawler) enqueue(queue *queue.Queue, navigationRequests ...navigation.Request) {
 	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
 			continue
