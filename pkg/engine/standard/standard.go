@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -66,7 +65,10 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 	defer cancel()
 
-	queue := queue.New(c.options.Options.Strategy)
+	queue, err := queue.New(c.options.Options.Strategy, c.options.Options.Timeout)
+	if err != nil {
+		return err
+	}
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 
 	if c.knownFiles != nil {
@@ -98,16 +100,11 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
-	running := int32(0)
-	for {
+	for item := range queue.Pop() {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		// Quit the crawling for zero items or context timeout
-		if !(atomic.LoadInt32(&running) > 0) && (queue.Len() == 0) {
-			break
-		}
-		item := queue.Pop()
+
 		req, ok := item.(navigation.Request)
 		if !ok {
 			continue
@@ -118,11 +115,9 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 
 		wg.Add()
-		atomic.AddInt32(&running, 1)
 
 		go func() {
 			defer wg.Done()
-			defer atomic.AddInt32(&running, -1)
 
 			c.options.RateLimit.Take()
 
@@ -158,7 +153,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 }
 
 // makeParseResponseCallback returns a parse response function callback
-func (c *Crawler) enqueue(queue *queue.VarietyQueue, navigationRequests ...navigation.Request) {
+func (c *Crawler) enqueue(queue *queue.Queue, navigationRequests ...navigation.Request) {
 	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
 			continue
