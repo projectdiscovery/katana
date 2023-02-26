@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils/queue"
 )
 
 var libraryTestcases = map[string]TestCase{
@@ -20,6 +21,7 @@ func (h *goIntegrationTest) Execute() error {
 		BodyReadSize: 2 * 1024 * 1024,
 		RateLimit:    150,
 		Verbose:      debug,
+		Strategy:     queue.DepthFirst.String(),
 	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
