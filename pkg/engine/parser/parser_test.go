@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -545,7 +546,7 @@ func TestScriptParsers(t *testing.T) {
 func TestRegexBodyParsers(t *testing.T) {
 	parsed, _ := url.Parse("https://security-crawl-maze.app/contact")
 	t.Run("regexbody", func(t *testing.T) {
-		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
+		output.CustomFieldsMap = make(map[string]katana.CustomFieldConfig)
 		resp := navigation.Response{
 			Resp:  &http.Response{Request: &http.Request{URL: parsed}},
 			Depth: 0,
@@ -553,7 +554,7 @@ func TestRegexBodyParsers(t *testing.T) {
 		}
 
 		// set required regex
-		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
+		output.CustomFieldsMap["email"] = katana.CustomFieldConfig{
 			Name:         "email",
 			Type:         "regex",
 			Part:         "body",
@@ -568,7 +569,7 @@ func TestRegexBodyParsers(t *testing.T) {
 		require.Equal(t, requireFields, gotFields, "could not get correct url")
 	})
 	t.Run("regexheader", func(t *testing.T) {
-		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
+		output.CustomFieldsMap = make(map[string]katana.CustomFieldConfig)
 		resp := navigation.Response{
 			Resp: &http.Response{Request: &http.Request{URL: parsed},
 				Header: http.Header{
@@ -578,7 +579,7 @@ func TestRegexBodyParsers(t *testing.T) {
 		}
 
 		// set required regex
-		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
+		output.CustomFieldsMap["server"] = katana.CustomFieldConfig{
 			Name:         "server",
 			Type:         "regex",
 			Part:         "header",
@@ -594,7 +595,7 @@ func TestRegexBodyParsers(t *testing.T) {
 	})
 
 	t.Run("regexresponse", func(t *testing.T) {
-		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
+		output.CustomFieldsMap = make(map[string]katana.CustomFieldConfig)
 		resp := navigation.Response{
 			Resp: &http.Response{Request: &http.Request{URL: parsed},
 				Header: http.Header{
@@ -605,13 +606,13 @@ func TestRegexBodyParsers(t *testing.T) {
 		}
 
 		// set required regex
-		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
+		output.CustomFieldsMap["server"] = katana.CustomFieldConfig{
 			Name:         "server",
 			Type:         "regex",
 			Part:         "response",
 			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`ECS`)},
 		}
-		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
+		output.CustomFieldsMap["email"] = katana.CustomFieldConfig{
 			Name:         "email",
 			Type:         "regex",
 			Part:         "response",

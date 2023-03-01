@@ -1,14 +1,10 @@
 package output
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/katana"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/sliceutil"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
@@ -17,7 +13,7 @@ import (
 
 // CustomFieldsMap is the global custom field data instance
 // it is used for parsing the header and body of request
-var CustomFieldsMap = make(map[string]CustomFieldConfig)
+var CustomFieldsMap = make(map[string]katana.CustomFieldConfig)
 
 type Part string
 
@@ -28,24 +24,6 @@ const (
 	Response Part = "response"
 )
 
-// CustomFieldConfig contains suggestions for field filling
-type CustomFieldConfig struct {
-	Name         string           `yaml:"name,omitempty"`
-	Type         string           `yaml:"type,omitempty"`
-	Part         string           `yaml:"part,omitempty"`
-	Group        int              `yaml:"group,omitempty"`
-	Regex        []string         `yaml:"regex,omitempty"`
-	CompileRegex []*regexp.Regexp `yaml:"-"`
-}
-
-func (c *CustomFieldConfig) SetCompiledRegexp(r *regexp.Regexp) {
-	c.CompileRegex = append(c.CompileRegex, r)
-}
-
-func (c *CustomFieldConfig) GetName() string {
-	return c.Name
-}
-
 func parseCustomFieldName(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -53,11 +31,11 @@ func parseCustomFieldName(filePath string) error {
 	}
 	defer file.Close()
 
-	var data []CustomFieldConfig
+	var data []katana.CustomFieldConfig
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
 		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
 	}
-	passedCustomFieldMap := make(map[string]CustomFieldConfig)
+	passedCustomFieldMap := make(map[string]katana.CustomFieldConfig)
 	for _, item := range data {
 		if !regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(item.Name) {
 			return errorutil.New("wrong custom field name %s", item.Name)
@@ -84,12 +62,12 @@ func loadCustomFields(filePath string, fields string) error {
 	}
 	defer file.Close()
 
-	var data []CustomFieldConfig
+	var data []katana.CustomFieldConfig
 	// read the field config file
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
 		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
 	}
-	allCustomFields := make(map[string]CustomFieldConfig)
+	allCustomFields := make(map[string]katana.CustomFieldConfig)
 	for _, item := range data {
 		for _, rg := range item.Regex {
 			regex, err := regexp.Compile(rg)
@@ -114,22 +92,4 @@ func loadCustomFields(filePath string, fields string) error {
 
 func (p Part) ToString() string {
 	return string(p)
-}
-
-func initCustomFieldConfigFile() (string, error) {
-	defaultConfig, err := utils.GetDefaultCustomConfigFile()
-	if err != nil {
-		return "", err
-	}
-	if fileutil.FileExists(defaultConfig) {
-		return defaultConfig, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
-		return "", err
-	}
-	err = os.WriteFile(defaultConfig, katana.FieldConfig, 0644)
-	if err != nil {
-		return "", errorutil.NewWithTag("customfield", fmt.Sprintf("could not create %v", &defaultConfig)).Wrap(err)
-	}
-	return defaultConfig, nil
 }
