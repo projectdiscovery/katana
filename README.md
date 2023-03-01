@@ -485,6 +485,8 @@ CONFIGURATION:
    -H, -headers string[]         custom header/cookie to include in request
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
+   -flc, -field-config string    path to custom field configuration file
+   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
 ```
 
 ## Filters
