@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/projectdiscovery/katana"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"golang.org/x/net/publicsuffix"
@@ -34,6 +35,9 @@ type fieldOutput struct {
 	value string
 }
 
+// passed custom field
+var CustomFields = make(map[string]katana.CustomFieldConfig)
+
 // validateFieldNames validates provided field names
 func validateFieldNames(names string) error {
 	parts := strings.Split(names, ",")
@@ -44,12 +48,15 @@ func validateFieldNames(names string) error {
 	for _, field := range FieldNames {
 		uniqueFields[field] = struct{}{}
 	}
-	for _, field := range CustomFieldsMap {
+	for _, field := range katana.AllCustomFieldsMap {
 		uniqueFields[field.Name] = struct{}{}
 	}
 	for _, part := range parts {
 		if _, ok := uniqueFields[part]; !ok {
 			return errorutil.NewWithTag("customfield", "invalid field %s specified: %s", part, names)
+		}
+		if val, ok := katana.AllCustomFieldsMap[part]; ok {
+			CustomFields[part] = val
 		}
 	}
 	return nil
@@ -70,7 +77,7 @@ func storeFields(output *Result, storeFields []string) {
 		if result := getValueForField(output, parsed, hostname, etld, rootURL, field); result != "" {
 			appendToFileField(parsed, field, result)
 		}
-		if _, ok := CustomFieldsMap[field]; ok {
+		if _, ok := katana.AllCustomFieldsMap[field]; ok {
 			results := getValueForCustomField(output)
 			for _, result := range results {
 				appendToFileField(parsed, result.field, result.value)
@@ -252,4 +259,13 @@ func getValueForCustomField(output *Result) []fieldOutput {
 		}
 	}
 	return svalue
+}
+
+func validateCustomFieldNames() error {
+	for _, field := range FieldNames {
+		if _, ok := katana.AllCustomFieldsMap[field]; ok {
+			return errorutil.New("could not register custom field. \"%s\" custom field already exists", field)
+		}
+	}
+	return nil
 }

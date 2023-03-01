@@ -2,6 +2,7 @@ package runner
 
 import (
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
@@ -41,7 +42,12 @@ func New(options *types.Options) (*Runner, error) {
 			return nil, err
 		}
 	}
-
+	if options.FieldConfig != "" {
+		err := katana.LoadCustomFields(options.FieldConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create crawler options")

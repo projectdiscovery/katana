@@ -1,7 +1,6 @@
 package output
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -60,11 +59,7 @@ func New(options Options) (Writer, error) {
 		storeResponseDir: options.StoreResponseDir,
 	}
 
-	err := parseCustomFieldName(options.FieldConfig)
-	if err != nil {
-		return nil, err
-	}
-	err = loadCustomFields(options.FieldConfig, fmt.Sprintf("%s,%s", options.Fields, options.StoreFields))
+	err := validateCustomFieldNames()
 	if err != nil {
 		return nil, err
 	}

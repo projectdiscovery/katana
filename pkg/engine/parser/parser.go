@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -630,18 +631,18 @@ func bodyScrapeEndpointsParser(resp navigation.Response, callback func(navigatio
 // customFieldRegexParser parses custom regex from HTML body and header
 func customFieldRegexParser(resp navigation.Response, callback func(navigation.Request)) {
 	var customField = make(map[string][]string)
-	for _, v := range output.CustomFieldsMap {
+	for _, v := range output.CustomFields {
 		results := []string{}
 		for _, re := range v.CompileRegex {
 			matches := [][]string{}
 
 			// read body
-			if v.Part == output.Body.ToString() || v.Part == output.Response.ToString() {
+			if v.Part == katana.Body.ToString() || v.Part == katana.Response.ToString() {
 				matches = re.FindAllStringSubmatch(string(resp.Body), -1)
 			}
 
 			// read header
-			if v.Part == output.Header.ToString() || v.Part == output.Response.ToString() {
+			if v.Part == katana.Header.ToString() || v.Part == katana.Response.ToString() {
 				for key, v := range resp.Resp.Header {
 					header := key + ": " + strings.Join(v, "\n")
 					headerMatches := re.FindAllStringSubmatch(header, -1)

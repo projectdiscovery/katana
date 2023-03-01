@@ -9,11 +9,16 @@ import (
 
 	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
+	errorutil "github.com/projectdiscovery/utils/errors"
+
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"gopkg.in/yaml.v2"
 )
 
 //go:embed field-config.yaml
 var FieldConfig []byte
+
+var AllCustomFieldsMap = make(map[string]CustomFieldConfig)
 
 // CustomFieldConfig contains suggestions for field filling
 type CustomFieldConfig struct {
@@ -25,12 +30,25 @@ type CustomFieldConfig struct {
 	CompileRegex []*regexp.Regexp `yaml:"-"`
 }
 
+type Part string
+
+const (
+	// RequestPart is the part of request
+	Header   Part = "header"
+	Body     Part = "body"
+	Response Part = "response"
+)
+
 func (c *CustomFieldConfig) SetCompiledRegexp(r *regexp.Regexp) {
 	c.CompileRegex = append(c.CompileRegex, r)
 }
 
 func (c *CustomFieldConfig) GetName() string {
 	return c.Name
+}
+
+func (p Part) ToString() string {
+	return string(p)
 }
 
 func initCustomConfig(defaultConfig string) error {
@@ -48,64 +66,35 @@ func initCustomConfig(defaultConfig string) error {
 
 }
 
-// func ParseCustomFieldName(filePath string) error {
-// 	file, err := os.Open(filePath)
-// 	if err != nil {
-// 		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
-// 	}
-// 	defer file.Close()
+func LoadCustomFields(filePath string) error {
+	var err error
 
-// 	var data []CustomFieldConfig
-// 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-// 		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
-// 	}
-// 	passedCustomFieldMap := make(map[string]CustomFieldConfig)
-// 	for _, item := range data {
-// 		if !regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(item.Name) {
-// 			return errorutil.New("wrong custom field name %s", item.Name)
-// 		}
-// 		// check custom field name is pre-defined or not
-// 		if sliceutil.Contains(output.FieldNames, item.Name) {
-// 			return errorutil.New("could not register custom field. \"%s\" already pre-defined field", item.Name)
-// 		}
-// 		// check custom field name should be unqiue
-// 		if _, ok := passedCustomFieldMap[item.Name]; ok {
-// 			return errorutil.New("could not register custom field. \"%s\" custom field already exists", item.Name)
-// 		}
-// 		passedCustomFieldMap[item.Name] = item
-// 	}
-// 	return nil
-// }
+	file, err := os.Open(filePath)
+	if err != nil {
+		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
+	}
+	defer file.Close()
 
-// func LoadCustomFields(filePath string) error {
-// 	var err error
-
-// 	file, err := os.Open(filePath)
-// 	if err != nil {
-// 		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
-// 	}
-// 	defer file.Close()
-
-// 	var data []CustomFieldConfig
-// 	// read the field config file
-// 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-// 		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
-// 	}
-// 	for _, item := range data {
-// 		for _, rg := range item.Regex {
-// 			regex, err := regexp.Compile(rg)
-// 			if err != nil {
-// 				return errorutil.NewWithTag("customfield", "could not parse regex in field config").Wrap(err)
-// 			}
-// 			item.SetCompiledRegexp(regex)
-// 		}
-// 		if item.Part == "" {
-// 			item.Part = Response.ToString()
-// 		}
-// 		CustomFieldsMap[item.Name] = item
-// 	}
-// 	return nil
-// }
+	var data []CustomFieldConfig
+	// read the field config file
+	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
+		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
+	}
+	for _, item := range data {
+		for _, rg := range item.Regex {
+			regex, err := regexp.Compile(rg)
+			if err != nil {
+				return errorutil.NewWithTag("customfield", "could not parse regex in field config").Wrap(err)
+			}
+			item.SetCompiledRegexp(regex)
+		}
+		if item.Part == "" {
+			item.Part = Response.ToString()
+		}
+		AllCustomFieldsMap[item.Name] = item
+	}
+	return nil
+}
 
 func init() {
 	defaultConfig, err := utils.GetDefaultCustomConfigFile()
@@ -118,12 +107,8 @@ func init() {
 		gologger.Error().Label("customfield").Msg(err.Error())
 		return
 	}
-	// err = ParseCustomFieldName(defaultConfig)
-	// if err != nil {
-	// 	gologger.Error().Msg(err.Error())
-	// }
-	// err = LoadCustomFields(defaultConfig)
-	// if err != nil {
-	// 	gologger.Error().Msg(err.Error())
-	// }
+	err = LoadCustomFields(defaultConfig)
+	if err != nil {
+		gologger.Error().Label("customfield").Msg(err.Error())
+	}
 }
