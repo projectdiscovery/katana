@@ -8,10 +8,10 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
+// Part is the part of request
 type Part int8
 
 const (
-	// RequestPart is the part of request
 	Header Part = iota
 	Body
 	Response
