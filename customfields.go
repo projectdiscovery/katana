@@ -2,22 +2,20 @@ package katana
 
 import (
 	_ "embed"
-	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
 
-	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/katana/pkg/utils/customfield"
 	"gopkg.in/yaml.v2"
 )
 
 //go:embed field-config.yaml
 var FieldConfig []byte
 
+// AllCustomFieldsMap contains all default custom fields present in `field_config.yaml`
 var AllCustomFieldsMap = make(map[string]CustomFieldConfig)
 
 // CustomFieldConfig contains suggestions for field filling
@@ -30,40 +28,12 @@ type CustomFieldConfig struct {
 	CompileRegex []*regexp.Regexp `yaml:"-"`
 }
 
-type Part string
-
-const (
-	// RequestPart is the part of request
-	Header   Part = "header"
-	Body     Part = "body"
-	Response Part = "response"
-)
-
 func (c *CustomFieldConfig) SetCompiledRegexp(r *regexp.Regexp) {
 	c.CompileRegex = append(c.CompileRegex, r)
 }
 
 func (c *CustomFieldConfig) GetName() string {
 	return c.Name
-}
-
-func (p Part) ToString() string {
-	return string(p)
-}
-
-func initCustomConfig(defaultConfig string) error {
-	if fileutil.FileExists(defaultConfig) {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
-		return err
-	}
-	err := os.WriteFile(defaultConfig, FieldConfig, 0644)
-	if err != nil {
-		return fmt.Errorf("could not create %v", &defaultConfig)
-	}
-	return nil
-
 }
 
 func LoadCustomFields(filePath string) error {
@@ -89,7 +59,7 @@ func LoadCustomFields(filePath string) error {
 			item.SetCompiledRegexp(regex)
 		}
 		if item.Part == "" {
-			item.Part = Response.ToString()
+			item.Part = customfield.Response.ToString()
 		}
 		AllCustomFieldsMap[item.Name] = item
 	}
@@ -97,12 +67,12 @@ func LoadCustomFields(filePath string) error {
 }
 
 func init() {
-	defaultConfig, err := utils.GetDefaultCustomConfigFile()
+	defaultConfig, err := customfield.GetDefaultCustomConfigFile()
 	if err != nil {
 		gologger.Error().Msg(err.Error())
 		return
 	}
-	err = initCustomConfig(defaultConfig)
+	err = customfield.CreateDefaultFieldConfigIfNotExists(defaultConfig, FieldConfig)
 	if err != nil {
 		gologger.Error().Label("customfield").Msg(err.Error())
 		return
