@@ -8,7 +8,7 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
-// Part is the part of request
+// Part is the part of response
 type Part int8
 
 const (
