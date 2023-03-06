@@ -39,7 +39,11 @@ type CrawlerOptions struct {
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter)
 
-	fastdialerInstance, err := fastdialer.NewDialer(fastdialer.DefaultOptions)
+	dialerOpts := fastdialer.DefaultOptions
+	if len(options.Resolvers) > 0 {
+		dialerOpts.BaseResolvers = options.Resolvers
+	}
+	fastdialerInstance, err := fastdialer.NewDialer(dialerOpts)
 	if err != nil {
 		return nil, err
 	}
