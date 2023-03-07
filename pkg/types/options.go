@@ -105,7 +105,7 @@ type Options struct {
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
-	// Resolvers contains custom resolvers for the tlsx client
+	// Resolvers contains custom resolvers
 	Resolvers goflags.StringSlice
 }
 
