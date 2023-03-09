@@ -148,6 +148,8 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
+   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
    -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
@@ -626,6 +628,21 @@ Here are additional filter options -
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 ```
 
+
+*`-match-regex`*
+---
+The `-match-regex` or `-mr` flag allows you to filter output URLs using regular expressions. When using this flag, only URLs that match the specified regular expression will be printed in the output.
+
+```
+katana -u https://tesla.com -mr 'https://shop\.tesla\.com/*' -silent
+```
+*`-filter-regex`*
+---
+The `-filter-regex` or `-fr` flag allows you to filter output URLs using regular expressions. When using this flag, it will skip the URLs that are match the specified regular expression.
+
+```
+katana -u https://tesla.com -fr 'https://www\.tesla\.com/*' -silent
+```
 
 ## Rate Limit
 
