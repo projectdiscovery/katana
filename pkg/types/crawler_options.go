@@ -63,6 +63,8 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		StoreResponseDir: options.StoreResponseDir,
 		FieldConfig:      options.FieldConfig,
 		ErrorLogFile:     options.ErrorLogFile,
+		MatchRegex:       options.MatchRegex,
+		FilterRegex:      options.FilterRegex,
 	}
 	outputWriter, err := output.New(outputOptions)
 	if err != nil {
