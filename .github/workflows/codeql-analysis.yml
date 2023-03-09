@@ -5,11 +5,14 @@ on:
   pull_request:
     branches:
       - dev
+    paths:
+      - '**.go'
+      - '**.mod'
 
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores
     permissions:
       actions: read
       contents: read
