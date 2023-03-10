@@ -13,14 +13,14 @@ jobs:
     name: Lint Test
     runs-on: ubuntu-latest-16-cores
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
           cache: true
-
-      - name: Checkout code
-        uses: actions/checkout@v3
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3.4.0

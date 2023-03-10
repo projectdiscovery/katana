@@ -106,6 +106,8 @@ type Options struct {
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
+	// Resolvers contains custom resolvers
+	Resolvers goflags.StringSlice
 	// OutputMatchRegex is the regex to match output url
 	OutputMatchRegex goflags.StringSlice
 	// OutputFilterRegex is the regex to filter output url
