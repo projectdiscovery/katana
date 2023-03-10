@@ -45,6 +45,8 @@ type StandardWriter struct {
 	storeResponse    bool
 	storeResponseDir string
 	errorFile        *fileWriter
+	matchRegex       []*regexp.Regexp
+	filterRegex      []*regexp.Regexp
 }
 
 // New returns a new output writer instance
@@ -57,6 +59,8 @@ func New(options Options) (Writer, error) {
 		outputMutex:      &sync.Mutex{},
 		storeResponse:    options.StoreResponse,
 		storeResponseDir: options.StoreResponseDir,
+		matchRegex:       options.MatchRegex,
+		filterRegex:      options.FilterRegex,
 	}
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
@@ -123,6 +127,12 @@ func (w *StandardWriter) Write(event *Result) error {
 	if event != nil {
 		if len(w.storeFields) > 0 {
 			storeFields(event, w.storeFields)
+		}
+		if !w.matchOutput(event) {
+			return nil
+		}
+		if w.filterOutput(event) {
+			return nil
 		}
 		var data []byte
 		var err error
@@ -205,4 +215,30 @@ func (w *StandardWriter) Close() error {
 		}
 	}
 	return nil
+}
+
+// matchOutput checks if the event matches the output regex
+func (w *StandardWriter) matchOutput(event *Result) bool {
+	if w.matchRegex == nil {
+		return true
+	}
+	for _, regex := range w.matchRegex {
+		if regex.MatchString(event.URL) {
+			return true
+		}
+	}
+	return false
+}
+
+// filterOutput returns true if the event should be filtered out
+func (w *StandardWriter) filterOutput(event *Result) bool {
+	if w.filterRegex == nil {
+		return false
+	}
+	for _, regex := range w.filterRegex {
+		if regex.MatchString(event.URL) {
+			return true
+		}
+	}
+	return false
 }

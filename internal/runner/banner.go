@@ -13,7 +13,7 @@ var banner = fmt.Sprintf(`
 /_/\_\\_,_/\__/\_,_/_//_/\_,_/ %s							 
 `, version)
 
-var version = "v0.0.3"
+var version = "v0.0.4-dev"
 
 // showBanner is used to show the banner to the user
 func showBanner() {

@@ -66,6 +66,7 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	flagSet.CreateGroup("config", "Configuration",
+		flagSet.StringSliceVarP(&options.Resolvers, "resolvers", "r", nil, "list of custom resolver (file or comma separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 3, "maximum depth to crawl"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
@@ -108,6 +109,8 @@ pipelines offering both headless and non-headless crawling.`)
 
 	availableFields := strings.Join(output.FieldNames, ",")
 	flagSet.CreateGroup("filter", "Filter",
+		flagSet.StringSliceVarP(&options.OutputMatchRegex, "match-regex", "mr", nil, "regex or list of regex to match on output url (cli, file)", goflags.FileStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutputFilterRegex, "filter-regex", "fr", nil, "regex or list of regex to filter on output url (cli, file)", goflags.FileStringSliceOptions),
 		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),

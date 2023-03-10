@@ -1,6 +1,7 @@
 package types
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/projectdiscovery/goflags"
@@ -105,6 +106,16 @@ type Options struct {
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
+	// Resolvers contains custom resolvers
+	Resolvers goflags.StringSlice
+	// OutputMatchRegex is the regex to match output url
+	OutputMatchRegex goflags.StringSlice
+	// OutputFilterRegex is the regex to filter output url
+	OutputFilterRegex goflags.StringSlice
+	// FilterRegex is the slice regex to filter url
+	FilterRegex []*regexp.Regexp
+	// MatchRegex is the slice regex to match url
+	MatchRegex []*regexp.Regexp
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
