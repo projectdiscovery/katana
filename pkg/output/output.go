@@ -223,7 +223,7 @@ func (w *StandardWriter) matchOutput(event *Result) bool {
 		return true
 	}
 	for _, regex := range w.matchRegex {
-		if regex.MatchString(event.URL) {
+		if regex.MatchString(event.Request.URL) {
 			return true
 		}
 	}
@@ -236,7 +236,7 @@ func (w *StandardWriter) filterOutput(event *Result) bool {
 		return false
 	}
 	for _, regex := range w.filterRegex {
-		if regex.MatchString(event.URL) {
+		if regex.MatchString(event.Request.URL) {
 			return true
 		}
 	}
