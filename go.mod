@@ -20,7 +20,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/stretchr/testify v1.8.2
-	go.uber.org/multierr v1.9.0
+	go.uber.org/multierr v1.10.0
 	golang.org/x/net v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -103,7 +103,6 @@ require (
 	github.com/zmap/rc2 v0.0.0-20131011165748-24b9757f5521 // indirect
 	github.com/zmap/zcrypto v0.0.0-20220803033029-557f3e4940be // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/mod v0.8.0 // indirect
