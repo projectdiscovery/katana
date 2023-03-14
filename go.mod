@@ -9,7 +9,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/projectdiscovery/fastdialer v0.0.24
-	github.com/projectdiscovery/goflags v0.1.6
+	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.8
 	github.com/projectdiscovery/hmap v0.0.9
 	github.com/projectdiscovery/ratelimit v0.0.6
