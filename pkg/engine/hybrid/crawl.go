@@ -80,6 +80,10 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Headers:      utils.FlattenHeaders(headers),
 		}
 
+		if request.URL == e.Request.URL {
+			response = &resp
+		}
+
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
 		c.enqueue(queue, navigationRequests...)
