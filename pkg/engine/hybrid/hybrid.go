@@ -215,6 +215,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		if !ok {
 			continue
 		}
+
 		if !utils.IsURL(req.URL) {
 			continue
 		}
@@ -229,6 +230,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
+
 			resp, err := c.navigateRequest(ctx, httpclient, queue, newBrowser, req, hostname)
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)

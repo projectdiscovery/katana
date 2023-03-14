@@ -62,6 +62,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 				Body:   io.NopCloser(strings.NewReader(e.Request.PostData)),
 			},
 		}
+
 		if !c.options.UniqueFilter.UniqueContent(body) {
 			return FetchContinueRequest(page, e)
 		}
@@ -99,6 +100,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	if err := page.Navigate(request.URL); err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
 	}
+
 	waitNavigation()
 
 	// Wait for the window.onload event
@@ -131,9 +133,6 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response
 	responseCopy.Body = builder.String()
-	if !c.options.UniqueFilter.UniqueContent([]byte(responseCopy.Body)) {
-		return &navigation.Response{}, nil
-	}
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
@@ -142,9 +141,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	}
 
 	response.Body = body
-	if !c.options.UniqueFilter.UniqueContent([]byte(response.Body)) {
-		return &navigation.Response{}, nil
-	}
+
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
