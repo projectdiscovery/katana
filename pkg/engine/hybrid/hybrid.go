@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -174,13 +173,14 @@ func (c *Crawler) Crawl(rootURL string) error {
 	httpclient, _, err := common.BuildHttpClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		technologies := c.options.Wappalyzer.Fingerprint(resp.Header, body)
 		navigationResponse := navigation.Response{
 			Depth:        depth + 1,
 			RootHostname: hostname,
 			Resp:         resp,
 			Body:         string(body),
 			Reader:       reader,
-			Technologies: mapsutil.GetKeys(c.options.Wappalyzer.Fingerprint(resp.Header, body)),
+			Technologies: mapsutil.GetKeys(technologies),
 			StatusCode:   resp.StatusCode,
 			Headers:      utils.FlattenHeaders(resp.Header),
 		}
@@ -207,7 +207,6 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
-	running := int32(0)
 	for item := range queue.Pop() {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -220,11 +219,9 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 		wg.Add()
-		atomic.AddInt32(&running, 1)
 
 		go func() {
 			defer wg.Done()
-			defer atomic.AddInt32(&running, -1)
 
 			c.options.RateLimit.Take()
 
@@ -352,9 +349,8 @@ func (c *Crawler) output(navigationRequest navigation.Request, navigationRespons
 		Response:  navigationResponse,
 	}
 
-	if c.options.Options.DisplayOutScope {
-		_ = c.options.OutputWriter.Write(result)
-	}
+	_ = c.options.OutputWriter.Write(result)
+
 	if c.options.Options.OnResult != nil {
 		c.options.Options.OnResult(*result)
 	}
