@@ -22,6 +22,7 @@ var FieldNames = []string{
 	"qurl",
 	"qpath",
 	"file",
+	"ufile",
 	"key",
 	"value",
 	"kv",
@@ -160,6 +161,13 @@ func formatField(output *Result, fields string) []fieldOutput {
 					svalue = append(svalue, fieldOutput{field: "file", value: basePath})
 				}
 			}
+		case "ufile":
+			if parsed.Path != "" && parsed.Path != "/" {
+				basePath := path.Base(parsed.Path)
+				if strings.Contains(basePath, ".") {
+					svalue = append(svalue, fieldOutput{field: "ufile", value: parsed.String()})
+				}
+			}
 		case "udir":
 			if parsed.Path != "" && parsed.Path != "/" {
 				if strings.Contains(parsed.Path[1:], "/") {
@@ -199,6 +207,11 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 		return rdn
 	case "rurl":
 		return rurl
+	case "ufile":
+		basePath := path.Base(parsed.Path)
+		if parsed.Path != "" && parsed.Path != "/" && strings.Contains(basePath, ".") {
+			return parsed.String()
+		}
 	case "file":
 		basePath := path.Base(parsed.Path)
 		if parsed.Path != "" && parsed.Path != "/" && strings.Contains(basePath, ".") {
