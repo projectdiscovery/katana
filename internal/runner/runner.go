@@ -9,6 +9,7 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"go.uber.org/multierr"
+	updateutils "github.com/projectdiscovery/utils/update"
 )
 
 // Runner creates the required resources for crawling
@@ -28,6 +29,17 @@ func New(options *types.Options) (*Runner, error) {
 	if options.Version {
 		gologger.Info().Msgf("Current version: %s", version)
 		return nil, nil
+	}
+
+	if !options.DisableUpdateCheck {
+		latestVersion, err := updateutils.GetVersionCheckCallback("katana")()
+		if err != nil {
+			if options.Verbose {
+				gologger.Error().Msgf("katana version check failed: %v", err.Error())
+			}
+		} else {
+			gologger.Info().Msgf("Current katana version %v %v", version, updateutils.GetVersionDescription(version, latestVersion))
+		}
 	}
 
 	if err := initExampleFormFillConfig(); err != nil {
