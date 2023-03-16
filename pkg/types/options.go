@@ -116,6 +116,8 @@ type Options struct {
 	FilterRegex []*regexp.Regexp
 	// MatchRegex is the slice regex to match url
 	MatchRegex []*regexp.Regexp
+	//DisableUpdateCheck disables automatic update check
+	DisableUpdateCheck bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
