@@ -232,6 +232,9 @@ func (c *Crawler) Crawl(rootURL string) error {
 			}
 
 			resp, err := c.navigateRequest(ctx, httpclient, queue, newBrowser, req, hostname)
+
+			c.output(req, resp, err)
+
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 
@@ -248,8 +251,6 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if resp == nil || resp.Resp == nil && resp.Reader == nil {
 				return
 			}
-
-			c.output(req, *resp)
 
 			// process the dom-rendered response
 			navigationRequests := parser.ParseResponse(*resp)
@@ -343,12 +344,17 @@ func (c *Crawler) validateScope(URL string, root string) bool {
 	return err == nil && scopeValidated
 }
 
-func (c *Crawler) output(navigationRequest navigation.Request, navigationResponse navigation.Response) {
+func (c *Crawler) output(navigationRequest navigation.Request, navigationResponse *navigation.Response, err error) {
+	var errData string
+	if err != nil {
+		errData = err.Error()
+	}
 	// Write the found result to output
 	result := &output.Result{
 		Timestamp: time.Now(),
 		Request:   navigationRequest,
 		Response:  navigationResponse,
+		Error:     errData,
 	}
 
 	_ = c.options.OutputWriter.Write(result)

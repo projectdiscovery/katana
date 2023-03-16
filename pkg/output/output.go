@@ -162,7 +162,7 @@ func (w *StandardWriter) Write(event *Result) error {
 		}
 	}
 
-	if w.storeResponse && event.Response.Resp != nil {
+	if w.storeResponse && event.HasResponse() {
 		if file, err := getResponseFile(w.storeResponseDir, event.Response.Resp.Request.URL.String()); err == nil {
 			data, err := w.formatResponse(event.Response.Resp)
 			if err != nil {
