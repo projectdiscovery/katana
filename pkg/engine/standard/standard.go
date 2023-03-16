@@ -114,6 +114,13 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
+		if ok, err := c.options.ValidateScope(req.URL, hostname); err != nil || !ok {
+			continue
+		}
+		if !c.options.ValidatePath(req.URL) {
+			continue
+		}
+
 		wg.Add()
 
 		go func() {
