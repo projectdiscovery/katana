@@ -4,11 +4,8 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	errorutil "github.com/projectdiscovery/utils/errors"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -19,47 +16,17 @@ func getResponseHash(URL string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func (w *StandardWriter) formatResponse(resp *http.Response) ([]byte, error) {
+func (w *StandardWriter) formatResult(result *Result) ([]byte, error) {
 	builder := &bytes.Buffer{}
 
-	builder.WriteString(resp.Request.URL.String())
+	builder.WriteString(result.Request.URL)
 	builder.WriteString("\n\n\n")
 
-	builder.WriteString(resp.Request.Method)
-	builder.WriteString(" ")
-	path := resp.Request.URL.Path
-	if resp.Request.URL.Fragment != "" {
-		path = path + "#" + resp.Request.URL.Fragment
-	}
-	builder.WriteString(path)
-	builder.WriteString(" ")
-	builder.WriteString(resp.Request.Proto)
-	builder.WriteString("\n")
-	builder.WriteString("Host: " + resp.Request.Host)
-	builder.WriteRune('\n')
-	for k, v := range resp.Request.Header {
-		builder.WriteString(k + ": " + strings.Join(v, "; ") + "\n")
-	}
+	builder.WriteString(result.Request.Raw)
 
-	if resp.Request.Body != nil {
-		bodyResp, _ := io.ReadAll(resp.Request.Body)
-		if string(bodyResp) != "" {
-			builder.WriteString("\n")
-			builder.WriteString(string(bodyResp))
-		}
-	}
 	builder.WriteString("\n\n")
 
-	builder.WriteString(resp.Proto)
-	builder.WriteString(" ")
-	builder.WriteString(resp.Status)
-	builder.WriteString("\n")
-	for k, v := range resp.Header {
-		builder.WriteString(k + ": " + strings.Join(v, "; ") + "\n")
-	}
-	builder.WriteString("\n")
-	body, _ := io.ReadAll(resp.Body)
-	builder.WriteString(string(body))
+	builder.WriteString(result.Response.Raw)
 
 	return builder.Bytes(), nil
 }
@@ -96,7 +63,7 @@ func getResponseFileName(storeResponseFolder, domain, URL string) string {
 	return filepath.Join(folder, file)
 }
 
-func updateIndex(storeResponseFolder string, resp *http.Response) error {
+func updateIndex(storeResponseFolder string, result *Result) error {
 	index, err := os.OpenFile(filepath.Join(storeResponseFolder, indexFile), os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -106,16 +73,16 @@ func updateIndex(storeResponseFolder string, resp *http.Response) error {
 
 	builder := &bytes.Buffer{}
 
-	domain, err := getResponseHost(resp.Request.URL.String())
+	domain, err := getResponseHost(result.Request.URL)
 	if err != nil {
 		return err
 	}
 
-	builder.WriteString(getResponseFileName(storeResponseFolder, domain, resp.Request.URL.String()))
+	builder.WriteString(getResponseFileName(storeResponseFolder, domain, result.Request.URL))
 	builder.WriteRune(' ')
-	builder.WriteString(resp.Request.URL.String())
+	builder.WriteString(result.Request.URL)
 	builder.WriteRune(' ')
-	builder.WriteString("(" + resp.Status + ")")
+	builder.WriteString("(" + result.Response.Resp.Status + ")")
 	builder.WriteRune('\n')
 
 	if _, writeErr := index.Write(builder.Bytes()); writeErr != nil {

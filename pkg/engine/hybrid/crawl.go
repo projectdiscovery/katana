@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ import (
 	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.Queue, browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.Queue, browser *rod.Browser, request *navigation.Request, rootHostname string) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
@@ -48,21 +49,33 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		for _, h := range e.ResponseHeaders {
 			headers[h.Name] = []string{h.Value}
 		}
-		var statuscode int
+		var (
+			statusCode     int
+			statucCodeText string
+		)
 		if e.ResponseStatusCode != nil {
-			statuscode = *e.ResponseStatusCode
+			statusCode = *e.ResponseStatusCode
 		}
+		if e.ResponseStatusText != "" {
+			statucCodeText = e.ResponseStatusText
+		} else {
+			statucCodeText = http.StatusText(statusCode)
+		}
+		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		httpresp := &http.Response{
-			StatusCode: statuscode,
-			Status:     e.ResponseStatusText,
-			Header:     headers,
-			Body:       io.NopCloser(bytes.NewReader(body)),
-			Request: &http.Request{
-				Method: e.Request.Method,
-				URL:    URL,
-				Body:   io.NopCloser(strings.NewReader(e.Request.PostData)),
-			},
+			Proto:         "HTTP/1.1",
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			StatusCode:    statusCode,
+			Status:        statucCodeText,
+			Header:        headers,
+			Body:          io.NopCloser(bytes.NewReader(body)),
+			Request:       httpreq,
+			ContentLength: int64(len(body)),
 		}
+
+		rawBytesRequest, _ := httputil.DumpRequestOut(httpreq, true)
+		rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
@@ -73,14 +86,16 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Depth:        depth,
 			RootHostname: rootHostname,
 			Technologies: mapsutil.GetKeys(technologies),
-			StatusCode:   statuscode,
+			StatusCode:   statusCode,
 			Headers:      utils.FlattenHeaders(headers),
+			Raw:          string(rawBytesResponse),
 		}
 
 		// trim trailing /
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
 		if matchOriginalURL {
+			request.Raw = string(rawBytesRequest)
 			response = &resp
 		}
 

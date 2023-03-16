@@ -125,7 +125,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
-			resp, err := c.makeRequest(ctx, req, hostname, req.Depth, httpclient)
+			resp, err := c.makeRequest(ctx, &req, hostname, req.Depth, httpclient)
 
 			c.output(req, &resp, err)
 
