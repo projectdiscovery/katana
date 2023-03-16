@@ -20,6 +20,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
 func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.Queue, browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
@@ -63,10 +64,6 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			},
 		}
 
-		if !c.options.UniqueFilter.UniqueContent(body) {
-			return FetchContinueRequest(page, e)
-		}
-
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
 		resp := navigation.Response{
@@ -80,7 +77,10 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			Headers:      utils.FlattenHeaders(headers),
 		}
 
-		if request.URL == e.Request.URL {
+		// trim trailing /
+		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
+		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
+		if matchOriginalURL {
 			response = &resp
 		}
 
@@ -131,8 +131,11 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
 	}
 
-	parsed, _ := url.Parse(request.URL)
-	response.Resp = &http.Response{Header: make(http.Header), Request: &http.Request{URL: parsed}}
+	parsed, err := url.Parse(request.URL)
+	if err != nil {
+		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
+	}
+	response.Resp.Request.URL = parsed
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response
