@@ -5,7 +5,19 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	jsoniter "github.com/json-iterator/go"
 )
+
+type Headers map[string]string
+
+func (h *Headers) MarshalJSON() ([]byte, error) {
+	hCopy := make(Headers)
+	for k, v := range *h {
+		k := strings.ReplaceAll(strings.ToLower(k), "-", "_")
+		hCopy[k] = v
+	}
+	return jsoniter.Marshal(hCopy)
+}
 
 // Response is a response generated from crawler navigation
 type Response struct {
@@ -13,7 +25,7 @@ type Response struct {
 	Depth        int               `json:"-"`
 	Reader       *goquery.Document `json:"-"`
 	StatusCode   int               `json:"status_code,omitempty"`
-	Headers      map[string]string `json:"headers,omitempty"`
+	Headers      Headers           `json:"headers,omitempty"`
 	Body         string            `json:"body,omitempty"`
 	RootHostname string            `json:"-"`
 	Technologies []string          `json:"technologies,omitempty"`
