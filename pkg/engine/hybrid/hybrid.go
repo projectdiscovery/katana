@@ -231,7 +231,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
 			}
 
-			resp, err := c.navigateRequest(ctx, httpclient, queue, newBrowser, req, hostname)
+			resp, err := c.navigateRequest(ctx, httpclient, queue, newBrowser, &req, hostname)
 
 			c.output(req, resp, err)
 

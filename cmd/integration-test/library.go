@@ -1,6 +1,8 @@
 package main
 
 import (
+	"math"
+
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
@@ -18,7 +20,7 @@ func (h *goIntegrationTest) Execute() error {
 	options := &types.Options{
 		MaxDepth:     1,
 		FieldScope:   "rdn",
-		BodyReadSize: 2 * 1024 * 1024,
+		BodyReadSize: math.MaxInt,
 		RateLimit:    150,
 		Verbose:      debug,
 		Strategy:     queue.DepthFirst.String(),

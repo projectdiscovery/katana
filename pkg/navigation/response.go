@@ -29,6 +29,7 @@ type Response struct {
 	Body         string            `json:"body,omitempty"`
 	RootHostname string            `json:"-"`
 	Technologies []string          `json:"technologies,omitempty"`
+	Raw          string            `json:"raw,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

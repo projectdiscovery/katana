@@ -20,6 +20,7 @@ type Request struct {
 	RootHostname string              `json:"-"`
 	Source       string              `json:"source,omitempty"`
 	CustomFields map[string][]string `json:"-"`
+	Raw          string              `json:"raw,omitempty"`
 }
 
 // RequestURL returns the request URL for the navigation
