@@ -33,7 +33,7 @@ func New(strategyName string, timeout int) (*Queue, error) {
 
 	queue := &Queue{
 		Strategy:      strategy,
-		Timeout:       time.Duration(timeout) * time.Second,
+		Timeout:       time.Duration(0) * time.Second,
 		stack:         newStack(),
 		priorityQueue: newPriorityQueue(),
 	}
@@ -75,24 +75,24 @@ func (q *Queue) Pop() chan interface{} {
 	items := make(chan interface{})
 
 	go func() {
-		start := time.Now()
+		// start := time.Now()
 		for {
 			var item interface{}
-			q.Lock()
+			// q.Lock()
 			switch q.Strategy {
 			case BreadthFirst:
 				item = q.priorityQueue.Pop()
 			case DepthFirst:
 				item = q.stack.Pop()
 			}
-			q.Unlock()
+			// q.Unlock()
 
-			if item == nil && start.Add(q.Timeout).Before(time.Now()) {
+			if item == nil { //&& start.Add(q.Timeout).Before(time.Now()) {
 				close(items)
 				return
 			} else if item != nil {
 				items <- item
-				start = time.Now()
+				// start = time.Now()
 			}
 		}
 	}()
