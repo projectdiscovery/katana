@@ -22,25 +22,28 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 		return builder.Bytes(), nil
 	}
 
-	if w.verbose {
+	if w.verbose && output.Request.Tag != "" {
 		builder.WriteRune('[')
-		builder.WriteString(w.aurora.Blue(output.Tag).String())
+		builder.WriteString(w.aurora.Blue(output.Request.Tag).String())
 		builder.WriteRune(']')
 		builder.WriteRune(' ')
 	}
-	if output.Method != "" && w.verbose {
-		builder.WriteRune('[')
-		builder.WriteString(w.aurora.Green(output.Method).String())
-		builder.WriteRune(']')
-		builder.WriteRune(' ')
-	}
-	builder.WriteString(output.URL)
 
-	if output.Body != "" && w.verbose {
+	if output.Request.Method != "" && w.verbose {
+		builder.WriteRune('[')
+		builder.WriteString(w.aurora.Green(output.Request.Method).String())
+		builder.WriteRune(']')
+		builder.WriteRune(' ')
+	}
+
+	builder.WriteString(output.Request.URL)
+
+	if output.Request.Body != "" && w.verbose {
 		builder.WriteRune(' ')
 		builder.WriteRune('[')
-		builder.WriteString(output.Body)
+		builder.WriteString(output.Request.Body)
 		builder.WriteRune(']')
 	}
+
 	return builder.Bytes(), nil
 }
