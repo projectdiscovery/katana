@@ -2,6 +2,7 @@ package queue
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -33,7 +34,7 @@ func New(strategyName string, timeout int) (*Queue, error) {
 
 	queue := &Queue{
 		Strategy:      strategy,
-		Timeout:       time.Duration(0) * time.Second,
+		Timeout:       time.Duration(timeout) * time.Second,
 		stack:         newStack(),
 		priorityQueue: newPriorityQueue(),
 	}
@@ -75,24 +76,32 @@ func (q *Queue) Pop() chan interface{} {
 	items := make(chan interface{})
 
 	go func() {
-		// start := time.Now()
+		start := time.Now()
+		fmt.Println("start", start)
+		fmt.Println("timeout", q.Timeout)
 		for {
 			var item interface{}
-			// q.Lock()
+			q.Lock()
 			switch q.Strategy {
 			case BreadthFirst:
 				item = q.priorityQueue.Pop()
 			case DepthFirst:
 				item = q.stack.Pop()
 			}
-			// q.Unlock()
+			q.Unlock()
 
-			if item == nil { //&& start.Add(q.Timeout).Before(time.Now()) {
+			fmt.Println("item", item)
+			// start.Add(q.Timeout).Before(time.Now())
+			fmt.Println("time add", start.Add(q.Timeout))
+			fmt.Println("time now", time.Now())
+			if item == nil && start.Add(q.Timeout).Before(time.Now()) {
+				fmt.Println("inside if")
+				// time.Sleep(time.Duration(q.Timeout) * time.Second)
 				close(items)
 				return
 			} else if item != nil {
 				items <- item
-				// start = time.Now()
+				start = time.Now()
 			}
 		}
 	}()
