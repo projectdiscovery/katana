@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
@@ -103,4 +104,23 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 func (c *CrawlerOptions) Close() error {
 	c.UniqueFilter.Close()
 	return c.OutputWriter.Close()
+}
+
+func (c *CrawlerOptions) ValidatePath(path string) bool {
+	if c.ExtensionsValidator != nil {
+		return c.ExtensionsValidator.ValidatePath(path)
+	}
+	return true
+}
+
+// ValidateScope validates scope for an AbsURL
+func (c *CrawlerOptions) ValidateScope(absURL, rootHostname string) (bool, error) {
+	parsed, err := url.Parse(absURL)
+	if err != nil {
+		return false, err
+	}
+	if c.ScopeManager != nil {
+		return c.ScopeManager.Validate(parsed, rootHostname)
+	}
+	return true, nil
 }

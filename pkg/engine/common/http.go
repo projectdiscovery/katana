@@ -14,17 +14,10 @@ import (
 	proxyutil "github.com/projectdiscovery/utils/http/proxy"
 )
 
-// BuildClient builds a http client based on a profile
-func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback func(resp *http.Response, depth int)) (*retryablehttp.Client, *fastdialer.Dialer, error) {
-	var err error
-	var proxyURL *url.URL
-	if options.Proxy != "" {
-		proxyURL, err = url.Parse(options.Proxy)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
+type RedirectCallback func(resp *http.Response, depth int)
 
+// BuildClient builds a http client based on a profile
+func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback RedirectCallback) (*retryablehttp.Client, *fastdialer.Dialer, error) {
 	// Single Host
 	retryablehttpOptions := retryablehttp.DefaultOptionsSingle
 	retryablehttpOptions.RetryMax = options.Retries
@@ -41,8 +34,8 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 	}
 
 	// Attempts to overwrite the dial function with the socks proxied version
-	if proxyURL != nil {
-		if ok, err := proxyutil.IsBurp(proxyURL.String()); err == nil && ok {
+	if proxyURL, err := url.Parse(options.Proxy); options.Proxy != "" && err == nil {
+		if ok, err := proxyutil.IsBurp(options.Proxy); err == nil && ok {
 			transport.TLSClientConfig.MaxVersion = tls.VersionTLS12
 		}
 		transport.Proxy = http.ProxyURL(proxyURL)

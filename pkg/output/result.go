@@ -1,25 +1,20 @@
 package output
 
-import "time"
+import (
+	"time"
 
-// Result is a result structure for the crawler
+	"github.com/projectdiscovery/katana/pkg/navigation"
+)
+
+// Result of the crawling
 type Result struct {
-	// Timestamp is the current timestamp
-	Timestamp time.Time `json:"timestamp,omitempty"`
-	// Method is the method for the result
-	Method string `json:"method,omitempty"`
-	// Body contains the body for the request
-	Body string `json:"body,omitempty"`
-	// URL is the URL of the result
-	URL string `json:"endpoint,omitempty"`
-	// Source is the source for the result
-	Source string `json:"source,omitempty"`
-	// Tag is the tag for the result
-	Tag string `json:"tag,omitempty"`
-	// Attribute is the attribute for the result
-	Attribute string `json:"attribute,omitempty"`
-	// customField matched output
-	CustomFields map[string][]string `json:"-"`
-	// Technologies of the response
-	SourceTechnologies []string `json:"source-technologies,omitempty"`
+	Timestamp time.Time            `json:"timestamp,omitempty"`
+	Request   navigation.Request   `json:"request,omitempty"`
+	Response  *navigation.Response `json:"response,omitempty"`
+	Error     string               `json:"error,omitempty"`
+}
+
+// HasResponse checks if the result has a valid response
+func (r *Result) HasResponse() bool {
+	return r.Response != nil && r.Response.Resp != nil
 }

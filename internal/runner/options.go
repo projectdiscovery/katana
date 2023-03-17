@@ -40,9 +40,6 @@ func validateOptions(options *types.Options) error {
 		gologger.Debug().Msgf("store response directory specified, enabling \"sr\" flag automatically\n")
 		options.StoreResponse = true
 	}
-	if options.Headless && (options.StoreResponse || options.StoreResponseDir != "") {
-		return errorutil.New("store responses feature is not supported in headless mode")
-	}
 	for _, mr := range options.OutputMatchRegex {
 		cr, err := regexp.Compile(mr)
 		if err != nil {

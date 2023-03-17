@@ -1,10 +1,12 @@
 package queue
 
 import (
+	"errors"
 	"sync"
+	"time"
 )
 
-// VarietyQueue is a queue that implements bucket based depth-first
+// Queue is a queue that implements bucket based depth-first
 // or breadth-first queue.
 //
 // The breadth-first queues allow defining scores on whose
@@ -14,83 +16,86 @@ import (
 //
 // Depth-first queue uses a simple stack for LIFO operations and distributes
 // items as they come in.
-type VarietyQueue struct {
-	queueType     Type
+type Queue struct {
+	sync.Mutex
+	Timeout       time.Duration
+	Strategy      Strategy
 	stack         *stack
-	mutex         *sync.Mutex
 	priorityQueue *priorityQueue
 }
 
-// Type is the type of the queue to use.
-type Type int
-
-// Types of queues available for selection.
-const (
-	BreadthFirst Type = iota
-	DepthFirst
-)
-
-var queueTypeStringMap = map[string]Type{
-	"breadth-first": BreadthFirst,
-	"depth-first":   DepthFirst,
-}
-
 // New creates a new queue from the type specified.
-func New(queueType string) *VarietyQueue {
-	queueTypeItem, ok := queueTypeStringMap[queueType]
-	varietyQueue := &VarietyQueue{queueType: queueTypeItem, mutex: &sync.Mutex{}}
+func New(strategyName string, timeout int) (*Queue, error) {
+	strategy, ok := strategiesMap[strategyName]
 	if !ok {
-		varietyQueue.stack = newStack()
-		varietyQueue.queueType = DepthFirst
-		return varietyQueue
+		return nil, errors.New("unsupported strategy")
 	}
 
-	switch queueTypeItem {
-	case BreadthFirst:
-		varietyQueue.priorityQueue = newPriorityQueue()
-	case DepthFirst:
-		varietyQueue.stack = newStack()
+	queue := &Queue{
+		Strategy:      strategy,
+		Timeout:       time.Duration(timeout) * time.Second,
+		stack:         newStack(),
+		priorityQueue: newPriorityQueue(),
 	}
-	return varietyQueue
+
+	return queue, nil
 }
 
 // Len returns the number of items in queue.
-func (v *VarietyQueue) Len() int {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
+func (q *Queue) Len() int {
+	q.Lock()
+	defer q.Unlock()
 
-	var x int
-	if v.queueType == BreadthFirst {
-		x = v.priorityQueue.Len()
-	} else if v.queueType == DepthFirst {
-		x = v.stack.Len()
+	switch q.Strategy {
+	case BreadthFirst:
+		return q.priorityQueue.Len()
+	case DepthFirst:
+		return q.stack.Len()
 	}
-	return x
+
+	return 0
 }
 
 // Push pushes an element with an optional priority into the queue.
-func (v *VarietyQueue) Push(x interface{}, priority int) {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
+func (q *Queue) Push(x interface{}, priority int) {
+	q.Lock()
+	defer q.Unlock()
 
-	if v.queueType == BreadthFirst {
-		v.priorityQueue.Push(x, priority)
-	} else if v.queueType == DepthFirst {
-		v.stack.Push(x)
+	switch q.Strategy {
+	case BreadthFirst:
+		q.priorityQueue.Push(x, priority)
+	case DepthFirst:
+		q.stack.Push(x)
 	}
 }
 
 // Pop pops an element from the queue. Result can be nil if no more
 // elements are present in the queue.
-func (v *VarietyQueue) Pop() interface{} {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
+func (q *Queue) Pop() chan interface{} {
+	items := make(chan interface{})
 
-	var x interface{}
-	if v.queueType == BreadthFirst {
-		x = v.priorityQueue.Pop()
-	} else if v.queueType == DepthFirst {
-		x = v.stack.Pop()
-	}
-	return x
+	go func() {
+		start := time.Now()
+		for {
+			var item interface{}
+			q.Lock()
+			switch q.Strategy {
+			case BreadthFirst:
+				item = q.priorityQueue.Pop()
+			case DepthFirst:
+				item = q.stack.Pop()
+			}
+			q.Unlock()
+
+			if item == nil && start.Add(q.Timeout).Before(time.Now()) {
+				close(items)
+				return
+			} else if item != nil {
+				items <- item
+				start = time.Now()
+			}
+		}
+	}()
+
+	return items
 }

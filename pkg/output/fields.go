@@ -59,7 +59,7 @@ func validateFieldNames(names string) error {
 // storeFields stores fields for a result into individual files
 // based on name.
 func storeFields(output *Result, storeFields []string) {
-	parsed, err := url.Parse(output.URL)
+	parsed, err := url.Parse(output.Request.URL)
 	if err != nil {
 		return
 	}
@@ -94,7 +94,7 @@ func appendToFileField(parsed *url.URL, field, data string) {
 // formatField formats output results based on fields from fieldNames
 func formatField(output *Result, fields string) []fieldOutput {
 	var svalue []fieldOutput
-	parsed, _ := url.Parse(output.URL)
+	parsed, _ := url.Parse(output.Request.URL)
 	if parsed == nil {
 		return svalue
 	}
@@ -115,7 +115,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 	for _, f := range stringsutil.SplitAny(fields, ",") {
 		switch f {
 		case "url":
-			svalue = append(svalue, fieldOutput{field: "url", value: output.URL})
+			svalue = append(svalue, fieldOutput{field: "url", value: output.Request.URL})
 		case "rdn":
 			hostname := parsed.Hostname()
 			etld, _ := publicsuffix.EffectiveTLDPlusOne(hostname)
@@ -134,7 +134,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 			}
 		case "qurl":
 			if len(queryKeys) > 0 {
-				svalue = append(svalue, fieldOutput{field: "qurl", value: output.URL})
+				svalue = append(svalue, fieldOutput{field: "qurl", value: output.Request.URL})
 			}
 		case "key":
 			if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
@@ -184,7 +184,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 				}
 			}
 		default:
-			for k, v := range output.CustomFields {
+			for k, v := range output.Request.CustomFields {
 				for _, r := range v {
 					svalue = append(svalue, fieldOutput{field: k, value: r})
 				}
@@ -198,7 +198,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, field string) string {
 	switch field {
 	case "url":
-		return output.URL
+		return output.Request.URL
 	case "path":
 		return parsed.Path
 	case "fqdn":
@@ -259,7 +259,7 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 
 func getValueForCustomField(output *Result) []fieldOutput {
 	var svalue []fieldOutput
-	for k, v := range output.CustomFields {
+	for k, v := range output.Request.CustomFields {
 		for _, r := range v {
 			svalue = append(svalue, fieldOutput{field: k, value: r})
 		}

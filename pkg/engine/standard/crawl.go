@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -16,10 +17,9 @@ import (
 )
 
 // makeRequest makes a request to a URL returning a response interface.
-func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, rootHostname string, depth int, httpclient *retryablehttp.Client) (navigation.Response, error) {
+func (c *Crawler) makeRequest(ctx context.Context, request *navigation.Request, rootHostname string, depth int, httpclient *retryablehttp.Client) (navigation.Response, error) {
 	response := navigation.Response{
 		Depth:        request.Depth + 1,
-		Options:      c.options,
 		RootHostname: rootHostname,
 	}
 	ctx = context.WithValue(ctx, navigation.Depth{}, depth)
@@ -48,11 +48,15 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 	if resp != nil {
 		defer func() {
 			if resp.Body != nil && resp.StatusCode != http.StatusSwitchingProtocols {
-				_, _ = io.CopyN(io.Discard, resp.Body, 8*1024)
+				_, _ = io.Copy(io.Discard, resp.Body)
 			}
 			_ = resp.Body.Close()
 		}()
 	}
+
+	rawRequestBytes, _ := httputil.DumpRequestOut(req.Request, true)
+	request.Raw = string(rawRequestBytes)
+
 	if err != nil {
 		return response, err
 	}
@@ -72,13 +76,21 @@ func (c *Crawler) makeRequest(ctx context.Context, request navigation.Request, r
 	response.Technologies = mapsutil.GetKeys(technologies)
 
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
-	_ = c.options.OutputWriter.Write(nil, resp)
 
-	response.Body = data
+	response.Body = string(data)
 	response.Resp = resp
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
+	response.StatusCode = resp.StatusCode
+	response.Headers = utils.FlattenHeaders(resp.Header)
+
+	resp.ContentLength = int64(len(data))
+
+	rawResponseBytes, _ := httputil.DumpResponse(resp, true)
+	response.Raw = string(rawResponseBytes)
+
 	if err != nil {
 		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
 	}
+
 	return response, nil
 }
