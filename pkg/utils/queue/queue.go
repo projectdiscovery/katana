@@ -2,7 +2,6 @@ package queue
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -77,8 +76,6 @@ func (q *Queue) Pop() chan interface{} {
 
 	go func() {
 		start := time.Now()
-		fmt.Println("start", start)
-		fmt.Println("timeout", q.Timeout)
 		for {
 			var item interface{}
 			q.Lock()
@@ -90,13 +87,11 @@ func (q *Queue) Pop() chan interface{} {
 			}
 			q.Unlock()
 
-			fmt.Println("item", item)
-			// start.Add(q.Timeout).Before(time.Now())
-			fmt.Println("time add", start.Add(q.Timeout))
-			fmt.Println("time now", time.Now())
-			if item == nil && start.Add(q.Timeout).Before(time.Now()) {
-				fmt.Println("inside if")
-				// time.Sleep(time.Duration(q.Timeout) * time.Second)
+			if item == nil {
+				if !start.Add(q.Timeout).Before(time.Now()) {
+					time.Sleep(1 * time.Second)
+					continue
+				}
 				close(items)
 				return
 			} else if item != nil {
