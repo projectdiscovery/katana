@@ -1,8 +1,8 @@
 package runner
 
 import (
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -10,7 +10,7 @@ import (
 func (r *Runner) ExecuteCrawling() error {
 	inputs := r.parseInputs()
 	if len(inputs) == 0 {
-		return errors.New("no input provided for crawling")
+		return errorutil.New("no input provided for crawling")
 	}
 
 	defer r.crawler.Close()

@@ -1,7 +1,6 @@
 package extensions
 
 import (
-	"fmt"
 	"net/url"
 	"path"
 	"strings"
@@ -23,22 +22,14 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 		extensionsFilter: make(map[string]struct{}),
 	}
 
-	extensionNormalize := func(extension string) string {
-		extension = strings.ToLower(extension)
-		if !strings.HasPrefix(extension, ".") {
-			return fmt.Sprintf(".%s", extension)
-		}
-		return extension
-	}
-
 	for _, extension := range extensionsMatch {
-		validator.extensionsMatch[extensionNormalize(extension)] = struct{}{}
+		validator.extensionsMatch[normalizeExtension(extension)] = struct{}{}
 	}
 	for _, item := range defaultDenylist {
-		validator.extensionsFilter[extensionNormalize(item)] = struct{}{}
+		validator.extensionsFilter[normalizeExtension(item)] = struct{}{}
 	}
 	for _, extension := range extensionsFilter {
-		validator.extensionsFilter[extensionNormalize(extension)] = struct{}{}
+		validator.extensionsFilter[normalizeExtension(extension)] = struct{}{}
 	}
 	return validator
 }
@@ -61,8 +52,17 @@ func (e *Validator) ValidatePath(item string) bool {
 		}
 		return false
 	}
+
 	if _, ok := e.extensionsFilter[extension]; ok {
 		return false
 	}
 	return true
+}
+
+func normalizeExtension(extension string) string {
+	extension = strings.ToLower(extension)
+	if strings.HasPrefix(extension, ".") {
+		return extension
+	}
+	return "." + extension
 }

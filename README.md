@@ -109,36 +109,43 @@ This will display help for the tool. Here are all the switches it supports.
 Usage:
   ./katana [flags]
 
+Katana is a fast crawler focused on execution in automation
+pipelines offering both headless and non-headless crawling.
+
 Flags:
 INPUT:
    -u, -list string[]  target url / list to crawl
 
 CONFIGURATION:
-   -d, -depth int                maximum depth to crawl (default 2)
+   -r, -resolvers string[]       list of custom resolver (file or comma separated)
+   -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
    -ct, -crawl-duration int      maximum duration to crawl the target for
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
-   -mrs, -max-response-size int  maximum response size to read (default 2097152)
+   -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
-   -aff, -automatic-form-fill    enable optional automatic form filling (experimental)
+   -aff, -automatic-form-fill    enable automatic form filling (experimental)
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
+   -flc, -field-config string    path to custom field configuration file
+   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
    -elog, -error-log string  file to write sent requests error log
 
 HEADLESS:
-   -hl, -headless                   enable headless hybrid crawling (experimental)
-   -sc, -system-chrome              use local installed chrome browser instead of katana installed
-   -sb, -show-browser               show the browser on the screen with headless mode
-   -ho, -headless-options string[]  start headless chrome with additional options
-   -nos, -no-sandbox                start headless chrome in --no-sandbox mode
-   -scp, -system-chrome-path string use specified chrome binary path for headless crawling
-   -noi, -no-incognito              start headless chrome without incognito mode
+   -hl, -headless                    enable headless hybrid crawling (experimental)
+   -sc, -system-chrome               use local installed chrome browser instead of katana installed
+   -sb, -show-browser                show the browser on the screen with headless mode
+   -ho, -headless-options string[]   start headless chrome with additional options
+   -nos, -no-sandbox                 start headless chrome in --no-sandbox mode
+   -cdd, -chrome-data-dir string     path to store chrome browser data
+   -scp, -system-chrome-path string  use specified chrome browser for headless crawling
+   -noi, -no-incognito               start headless chrome without incognito mode
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -148,8 +155,10 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
-   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,key,value,kv,dir,udir)
+   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
+   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 
@@ -160,13 +169,19 @@ RATE-LIMIT:
    -rl, -rate-limit int          maximum requests to send per second (default 150)
    -rlm, -rate-limit-minute int  maximum number of requests to send per minute
 
+UPDATE:
+   -up, -update                 update katana to latest version
+   -duc, -disable-update-check  disable automatic katana update check
+
 OUTPUT:
-   -o, -output string  file to write output to
-   -j, -json           write output in JSONL(ines) format
-   -nc, -no-color      disable output content coloring (ANSI escape codes)
-   -silent             display output only
-   -v, -verbose        display verbose output
-   -version            display project version
+   -o, -output string                file to write output to
+   -sr, -store-response              store http requests/responses
+   -srd, -store-response-dir string  store http requests/responses to custom directory
+   -j, -json                         write output in JSONL(ines) format
+   -nc, -no-color                    disable output content coloring (ANSI escape codes)
+   -silent                           display output only
+   -v, -verbose                      display verbose output
+   -version                          display project version
 ```
 
 ## Running Katana
@@ -485,6 +500,8 @@ CONFIGURATION:
    -H, -headers string[]         custom header/cookie to include in request
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
+   -flc, -field-config string    path to custom field configuration file
+   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
 ```
 
 ## Filters
@@ -626,6 +643,21 @@ Here are additional filter options -
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 ```
 
+
+*`-match-regex`*
+---
+The `-match-regex` or `-mr` flag allows you to filter output URLs using regular expressions. When using this flag, only URLs that match the specified regular expression will be printed in the output.
+
+```
+katana -u https://tesla.com -mr 'https://shop\.tesla\.com/*' -silent
+```
+*`-filter-regex`*
+---
+The `-filter-regex` or `-fr` flag allows you to filter output URLs using regular expressions. When using this flag, it will skip the URLs that are match the specified regular expression.
+
+```
+katana -u https://tesla.com -fr 'https://www\.tesla\.com/*' -silent
+```
 
 ## Rate Limit
 

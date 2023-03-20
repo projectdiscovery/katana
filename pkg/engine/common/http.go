@@ -2,7 +2,6 @@ package common
 
 import (
 	"crypto/tls"
-	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -11,19 +10,14 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
+	errorutil "github.com/projectdiscovery/utils/errors"
+	proxyutil "github.com/projectdiscovery/utils/http/proxy"
 )
 
-// BuildClient builds a http client based on a profile
-func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback func(resp *http.Response, depth int)) (*retryablehttp.Client, *fastdialer.Dialer, error) {
-	var err error
-	var proxyURL *url.URL
-	if options.Proxy != "" {
-		proxyURL, err = url.Parse(options.Proxy)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
+type RedirectCallback func(resp *http.Response, depth int)
 
+// BuildClient builds a http client based on a profile
+func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback RedirectCallback) (*retryablehttp.Client, *fastdialer.Dialer, error) {
 	// Single Host
 	retryablehttpOptions := retryablehttp.DefaultOptionsSingle
 	retryablehttpOptions.RetryMax = options.Retries
@@ -40,7 +34,10 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 	}
 
 	// Attempts to overwrite the dial function with the socks proxied version
-	if proxyURL != nil {
+	if proxyURL, err := url.Parse(options.Proxy); options.Proxy != "" && err == nil {
+		if ok, err := proxyutil.IsBurp(options.Proxy); err == nil && ok {
+			transport.TLSClientConfig.MaxVersion = tls.VersionTLS12
+		}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}
 
@@ -49,7 +46,7 @@ func BuildClient(dialer *fastdialer.Dialer, options *types.Options, redirectCall
 		Timeout:   time.Duration(options.Timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) == 10 {
-				return errors.New("stopped after 10 redirects")
+				return errorutil.New("stopped after 10 redirects")
 			}
 			depth, ok := req.Context().Value(navigation.Depth{}).(int)
 			if !ok {

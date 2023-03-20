@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
@@ -12,25 +13,27 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
+	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.VarietyQueue, parseResponseCallback func(nr navigation.Request), browser *rod.Browser, request navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.Queue, browser *rod.Browser, request *navigation.Request, rootHostname string) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
-		Options:      c.options,
 		RootHostname: rootHostname,
 	}
 
 	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create target")
+		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
 	defer page.Close()
 
@@ -46,38 +49,59 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		for _, h := range e.ResponseHeaders {
 			headers[h.Name] = []string{h.Value}
 		}
-		var statuscode int
+		var (
+			statusCode     int
+			statucCodeText string
+		)
 		if e.ResponseStatusCode != nil {
-			statuscode = *e.ResponseStatusCode
+			statusCode = *e.ResponseStatusCode
 		}
+		if e.ResponseStatusText != "" {
+			statucCodeText = e.ResponseStatusText
+		} else {
+			statucCodeText = http.StatusText(statusCode)
+		}
+		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		httpresp := &http.Response{
-			StatusCode: statuscode,
-			Status:     e.ResponseStatusText,
-			Header:     headers,
-			Body:       io.NopCloser(bytes.NewReader(body)),
-			Request: &http.Request{
-				Method: e.Request.Method,
-				URL:    URL,
-				Body:   io.NopCloser(strings.NewReader(e.Request.PostData)),
-			},
+			Proto:         "HTTP/1.1",
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			StatusCode:    statusCode,
+			Status:        statucCodeText,
+			Header:        headers,
+			Body:          io.NopCloser(bytes.NewReader(body)),
+			Request:       httpreq,
+			ContentLength: int64(len(body)),
 		}
-		if !c.options.UniqueFilter.UniqueContent(body) {
-			return FetchContinueRequest(page, e)
-		}
+
+		rawBytesRequest, _ := httputil.DumpRequestOut(httpreq, true)
+		rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
 		resp := navigation.Response{
 			Resp:         httpresp,
-			Body:         []byte(body),
+			Body:         string(body),
 			Reader:       bodyReader,
-			Options:      c.options,
 			Depth:        depth,
 			RootHostname: rootHostname,
+			Technologies: mapsutil.GetKeys(technologies),
+			StatusCode:   statusCode,
+			Headers:      utils.FlattenHeaders(headers),
+			Raw:          string(rawBytesResponse),
 		}
-		_ = resp
+
+		// trim trailing /
+		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
+		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
+		if matchOriginalURL {
+			request.Raw = string(rawBytesRequest)
+			response = &resp
+		}
 
 		// process the raw response
-		parser.ParseResponse(resp, parseResponseCallback)
+		navigationRequests := parser.ParseResponse(resp)
+		c.enqueue(queue, navigationRequests...)
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -93,8 +117,9 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
 	if err := page.Navigate(request.URL); err != nil {
-		return nil, errors.Wrap(err, "could not navigate target")
+		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
 	}
+
 	waitNavigation()
 
 	// Wait for the window.onload event
@@ -111,38 +136,37 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get dom")
+		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get html")
+		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
 	}
 
-	parsed, _ := url.Parse(request.URL)
-	response.Resp = &http.Response{Header: make(http.Header), Request: &http.Request{URL: parsed}}
+	parsed, err := url.Parse(request.URL)
+	if err != nil {
+		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
+	}
+	response.Resp.Request.URL = parsed
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response
-	responseCopy.Body = []byte(builder.String())
-	if !c.options.UniqueFilter.UniqueContent(responseCopy.Body) {
-		return &navigation.Response{}, nil
-	}
+	responseCopy.Body = builder.String()
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(bytes.NewReader(responseCopy.Body))
+	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		parser.ParseResponse(responseCopy, parseResponseCallback)
+		navigationRequests := parser.ParseResponse(responseCopy)
+		c.enqueue(queue, navigationRequests...)
 	}
 
-	response.Body = []byte(body)
-	if !c.options.UniqueFilter.UniqueContent(response.Body) {
-		return &navigation.Response{}, nil
-	}
-	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(response.Body))
+	response.Body = body
+
+	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not parse html")
+		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
 	}
 	return response, nil
 }
