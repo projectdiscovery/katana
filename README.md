@@ -329,9 +329,9 @@ Crawling can be endless if not scoped, as such katana comes with multiple suppor
 ----
 Most handy option to define scope with predefined field name, `rdn` being default option for field scope.
 
-   - `rdn` - crawling scoped to root domain name and all subdomains (default)
-   - `fqdn` - crawling scoped to given sub(domain) 
-   - `dn` - crawling scoped to domain name keyword
+   - `rdn` - crawling scoped to root domain name and all subdomains (e.g. `*example.com`) (default)
+   - `fqdn` - crawling scoped to given sub(domain) (e.g. `www.example.com` or `api.example.com`)
+   - `dn` - crawling scoped to domain name keyword (e.g. `example`)
 
 ```console
 katana -u https://tesla.com -fs dn
