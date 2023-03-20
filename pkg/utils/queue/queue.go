@@ -87,7 +87,11 @@ func (q *Queue) Pop() chan interface{} {
 			}
 			q.Unlock()
 
-			if item == nil && start.Add(q.Timeout).Before(time.Now()) {
+			if item == nil {
+				if !start.Add(q.Timeout).Before(time.Now()) {
+					time.Sleep(1 * time.Second)
+					continue
+				}
 				close(items)
 				return
 			} else if item != nil {
