@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,9 +22,11 @@ func TestSitemapXmlParseReader(t *testing.T) {
 </sitemap>
 </sitemapindex>`
 	parsed, _ := url.Parse("http://security-crawl-maze.app/sitemap.xml")
-	_ = crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}}, func(r navigation.Request) {
-		requests = append(requests, r.URL)
-	})
+	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}})
+	require.Nil(t, err)
+	for _, navReq := range navigationRequests {
+		requests = append(requests, navReq.URL)
+	}
 	require.ElementsMatch(t, requests, []string{
 		"http://security-crawl-maze.app/test/misc/known-files/sitemap.xml.found",
 	}, "could not get correct elements")

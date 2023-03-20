@@ -1,6 +1,7 @@
 package types
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/projectdiscovery/goflags"
@@ -97,12 +98,26 @@ type Options struct {
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
+	// ChromeDataDir : 	Specify the --user-data-dir to chrome binary to preserve sessions
+	ChromeDataDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
 	HeadlessNoIncognito bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
+	// Resolvers contains custom resolvers
+	Resolvers goflags.StringSlice
+	// OutputMatchRegex is the regex to match output url
+	OutputMatchRegex goflags.StringSlice
+	// OutputFilterRegex is the regex to filter output url
+	OutputFilterRegex goflags.StringSlice
+	// FilterRegex is the slice regex to filter url
+	FilterRegex []*regexp.Regexp
+	// MatchRegex is the slice regex to match url
+	MatchRegex []*regexp.Regexp
+	//DisableUpdateCheck disables automatic update check
+	DisableUpdateCheck bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

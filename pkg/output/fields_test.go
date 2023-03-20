@@ -3,6 +3,7 @@ package output
 import (
 	"testing"
 
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +39,7 @@ func TestFormatField(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := formatField(&Result{URL: test.url}, test.fields)
+		result := formatField(&Result{Request: navigation.Request{URL: test.url}}, test.fields)
 		require.ElementsMatch(t, test.result, result, "could not equal value")
 	}
 }

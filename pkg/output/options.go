@@ -1,5 +1,7 @@
 package output
 
+import "regexp"
+
 // Options contains the configuration options for output writer
 type Options struct {
 	Colors           bool
@@ -12,4 +14,6 @@ type Options struct {
 	StoreResponseDir string
 	FieldConfig      string
 	ErrorLogFile     string
+	MatchRegex       []*regexp.Regexp
+	FilterRegex      []*regexp.Regexp
 }

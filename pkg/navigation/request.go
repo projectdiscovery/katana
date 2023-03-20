@@ -1,6 +1,7 @@
 package navigation
 
 import (
+	"net/http"
 	"strings"
 )
 
@@ -9,17 +10,17 @@ type Depth struct{}
 
 // Request is a navigation request for the crawler
 type Request struct {
-	Method       string
-	URL          string
-	Body         string
-	Depth        int
-	Headers      map[string]string
-	Tag          string
-	Attribute    string
-	RootHostname string
-	Source       string // source is the source of the request
-
-	CustomFields map[string][]string // customField matched output
+	Method       string              `json:"method,omitempty"`
+	URL          string              `json:"endpoint,omitempty"`
+	Body         string              `json:"body,omitempty"`
+	Depth        int                 `json:"-"`
+	Headers      map[string]string   `json:"headers,omitempty"`
+	Tag          string              `json:"tag,omitempty"`
+	Attribute    string              `json:"attribute,omitempty"`
+	RootHostname string              `json:"-"`
+	Source       string              `json:"source,omitempty"`
+	CustomFields map[string][]string `json:"-"`
+	Raw          string              `json:"raw,omitempty"`
 }
 
 // RequestURL returns the request URL for the navigation
@@ -41,5 +42,14 @@ func (n *Request) RequestURL() string {
 // newNavigationRequestURL generates a navigation request from a relative URL
 func NewNavigationRequestURLFromResponse(path, source, tag, attribute string, resp Response) Request {
 	requestURL := resp.AbsoluteURL(path)
-	return Request{Method: "GET", URL: requestURL, RootHostname: resp.RootHostname, Depth: resp.Depth, Source: source, Attribute: attribute, Tag: tag}
+	request := Request{
+		Method:       http.MethodGet,
+		URL:          requestURL,
+		RootHostname: resp.RootHostname,
+		Depth:        resp.Depth,
+		Source:       source,
+		Attribute:    attribute,
+		Tag:          tag,
+	}
+	return request
 }

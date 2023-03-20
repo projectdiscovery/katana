@@ -1,14 +1,13 @@
 package output
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/sliceutil"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"gopkg.in/yaml.v2"
 )
@@ -56,26 +55,26 @@ func (c *CustomFieldConfig) GetName() string {
 func parseCustomFieldName(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errors.Wrap(err, "could not read field config")
+		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
 	}
 	defer file.Close()
 
 	var data []CustomFieldConfig
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errors.Wrap(err, "could not decode field config")
+		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
 	}
 	passedCustomFieldMap := make(map[string]CustomFieldConfig)
 	for _, item := range data {
 		if !regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(item.Name) {
-			return fmt.Errorf("wrong custom field name %s", item.Name)
+			return errorutil.New("wrong custom field name %s", item.Name)
 		}
 		// check custom field name is pre-defined or not
 		if sliceutil.Contains(FieldNames, item.Name) {
-			return fmt.Errorf("could not register custom field. \"%s\" already pre-defined field", item.Name)
+			return errorutil.New("could not register custom field. \"%s\" already pre-defined field", item.Name)
 		}
 		// check custom field name should be unqiue
 		if _, ok := passedCustomFieldMap[item.Name]; ok {
-			return fmt.Errorf("could not register custom field. \"%s\" custom field already exists", item.Name)
+			return errorutil.New("could not register custom field. \"%s\" custom field already exists", item.Name)
 		}
 		passedCustomFieldMap[item.Name] = item
 	}
@@ -87,21 +86,21 @@ func loadCustomFields(filePath string, fields string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errors.Wrap(err, "could not read field config")
+		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
 	}
 	defer file.Close()
 
 	var data []CustomFieldConfig
 	// read the field config file
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errors.Wrap(err, "could not decode field config")
+		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
 	}
 	allCustomFields := make(map[string]CustomFieldConfig)
 	for _, item := range data {
 		for _, rg := range item.Regex {
 			regex, err := regexp.Compile(rg)
 			if err != nil {
-				return errors.Wrap(err, "could not parse regex in field config")
+				return errorutil.NewWithTag("customfield", "could not parse regex in field config").Wrap(err)
 			}
 			item.SetCompiledRegexp(regex)
 		}
@@ -122,7 +121,7 @@ func loadCustomFields(filePath string, fields string) error {
 func initCustomFieldConfigFile() (string, error) {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
-		return "", errors.Wrap(err, "could not get home directory")
+		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
 	}
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "field-config.yaml")
 
@@ -134,7 +133,7 @@ func initCustomFieldConfigFile() (string, error) {
 	}
 	customFieldConfig, err := os.Create(defaultConfig)
 	if err != nil {
-		return "", errors.Wrap(err, "could not get home directory")
+		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
 	}
 	defer customFieldConfig.Close()
 

@@ -2,17 +2,18 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 var (
@@ -35,9 +36,8 @@ func main() {
 	if err != nil || katanaRunner == nil {
 		if options.Version {
 			return
-		} else {
-			gologger.Fatal().Msgf("could not create runner: %s\n", err)
 		}
+		gologger.Fatal().Msgf("could not create runner: %s\n", err)
 	}
 	defer katanaRunner.Close()
 
@@ -45,18 +45,16 @@ func main() {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-c
+		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
 			katanaRunner.Close()
 			os.Exit(0)
-		}()
+		}
 	}()
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
-
 }
 
 func readFlags() (*goflags.FlagSet, error) {
@@ -69,11 +67,12 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	flagSet.CreateGroup("config", "Configuration",
-		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 2, "maximum depth to crawl"),
+		flagSet.StringSliceVarP(&options.Resolvers, "resolvers", "r", nil, "list of custom resolver (file or comma separated)", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 3, "maximum depth to crawl"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
 		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml)"),
-		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", 2*1024*1024, "maximum response size to read"),
+		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", math.MaxInt, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.BoolVarP(&options.AutomaticFormFill, "automatic-form-fill", "aff", false, "enable automatic form filling (experimental)"),
 		flagSet.IntVar(&options.Retries, "retry", 1, "number of times to retry the request"),
@@ -82,6 +81,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
 		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
+		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first)"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
@@ -95,8 +95,9 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.HeadlessNoSandbox, "no-sandbox", "nos", false, "start headless chrome in --no-sandbox mode"),
-		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
+		flagSet.StringVarP(&options.ChromeDataDir, "chrome-data-dir", "cdd", "", "path to store chrome browser data"),
 		flagSet.StringVarP(&options.SystemChromePath, "system-chrome-path", "scp", "", "use specified chrome browser for headless crawling"),
+		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
@@ -109,6 +110,8 @@ pipelines offering both headless and non-headless crawling.`)
 
 	availableFields := strings.Join(output.FieldNames, ",")
 	flagSet.CreateGroup("filter", "Filter",
+		flagSet.StringSliceVarP(&options.OutputMatchRegex, "match-regex", "mr", nil, "regex or list of regex to match on output url (cli, file)", goflags.FileStringSliceOptions),
+		flagSet.StringSliceVarP(&options.OutputFilterRegex, "filter-regex", "fr", nil, "regex or list of regex to filter on output url (cli, file)", goflags.FileStringSliceOptions),
 		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
@@ -123,6 +126,11 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVarP(&options.RateLimitMinute, "rate-limit-minute", "rlm", 0, "maximum number of requests to send per minute"),
 	)
 
+	flagSet.CreateGroup("update", "Update",
+		flagSet.CallbackVarP(runner.GetUpdateCallback(), "update", "up", "update katana to latest version"),
+		flagSet.BoolVarP(&options.DisableUpdateCheck, "disable-update-check", "duc", false, "disable automatic katana update check"),
+	)
+
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.BoolVarP(&options.StoreResponse, "store-response", "sr", false, "store http requests/responses"),
@@ -135,13 +143,20 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return nil, errors.Wrap(err, "could not parse flags")
+		return nil, errorutil.NewWithErr(err).Msgf("could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return nil, errors.Wrap(err, "could not read config file")
+			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
 		}
 	}
 	return flagSet, nil
+}
+
+func init() {
+	// show detailed stacktrace in debug mode
+	if os.Getenv("DEBUG") != "" {
+		errorutil.ShowStackTrace = true
+	}
 }

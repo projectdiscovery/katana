@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,9 +24,12 @@ Disallow: /test/includes/
 
 Sitemap: https://example.com/sitemap.xml`
 	parsed, _ := url.Parse("http://localhost/robots.txt")
-	crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}}, func(r navigation.Request) {
-		requests = append(requests, r.URL)
-	})
+	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}})
+	require.Nil(t, err)
+
+	for _, navReq := range navigationRequests {
+		requests = append(requests, navReq.URL)
+	}
 	require.ElementsMatch(t, requests, []string{
 		"http://localhost/test/includes/",
 		"http://localhost/test/misc/known-files/robots.txt.found",

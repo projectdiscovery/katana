@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,8 +10,8 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
 const (
@@ -30,7 +29,7 @@ type Writer interface {
 	// Close closes the output writer interface
 	Close() error
 	// Write writes the event to file and/or screen.
-	Write(*Result, *http.Response) error
+	Write(*Result) error
 	WriteErr(*Error) error
 }
 
@@ -46,6 +45,8 @@ type StandardWriter struct {
 	storeResponse    bool
 	storeResponseDir string
 	errorFile        *fileWriter
+	matchRegex       []*regexp.Regexp
+	filterRegex      []*regexp.Regexp
 }
 
 // New returns a new output writer instance
@@ -58,6 +59,8 @@ func New(options Options) (Writer, error) {
 		outputMutex:      &sync.Mutex{},
 		storeResponse:    options.StoreResponse,
 		storeResponseDir: options.StoreResponseDir,
+		matchRegex:       options.MatchRegex,
+		filterRegex:      options.FilterRegex,
 	}
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
@@ -78,20 +81,20 @@ func New(options Options) (Writer, error) {
 	// Perform validations for fields and store-fields
 	if options.Fields != "" {
 		if err := validateFieldNames(options.Fields); err != nil {
-			return nil, errors.Wrap(err, "could not validate fields")
+			return nil, errorutil.NewWithTag("output", "could not validate fields").Wrap(err)
 		}
 	}
 	if options.StoreFields != "" {
 		_ = os.MkdirAll(storeFieldsDirectory, os.ModePerm)
 		if err := validateFieldNames(options.StoreFields); err != nil {
-			return nil, errors.Wrap(err, "could not validate store fields")
+			return nil, errorutil.NewWithTag("output", "could not validate store fields").Wrap(err)
 		}
 		writer.storeFields = append(writer.storeFields, strings.Split(options.StoreFields, ",")...)
 	}
 	if options.OutputFile != "" {
 		output, err := newFileOutputWriter(options.OutputFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create output file")
+			return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
 		}
 		writer.outputFile = output
 	}
@@ -105,13 +108,13 @@ func New(options Options) (Writer, error) {
 		// todo: the index file seems never used?
 		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create index file")
+			return nil, errorutil.NewWithTag("output", "could not create index file").Wrap(err)
 		}
 	}
 	if options.ErrorLogFile != "" {
 		errorFile, err := newFileOutputWriter(options.ErrorLogFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not create error file")
+			return nil, errorutil.NewWithTag("output", "could not create error file").Wrap(err)
 		}
 
 		writer.errorFile = errorFile
@@ -119,22 +122,28 @@ func New(options Options) (Writer, error) {
 	return writer, nil
 }
 
-// Write writes the event to file and/or screen.
-func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
-	if event != nil {
+// Write writes the result to file and/or screen.
+func (w *StandardWriter) Write(result *Result) error {
+	if result != nil {
 		if len(w.storeFields) > 0 {
-			storeFields(event, w.storeFields)
+			storeFields(result, w.storeFields)
+		}
+		if !w.matchOutput(result) {
+			return nil
+		}
+		if w.filterOutput(result) {
+			return nil
 		}
 		var data []byte
 		var err error
 
 		if w.json {
-			data, err = w.formatJSON(event)
+			data, err = w.formatJSON(result)
 		} else {
-			data, err = w.formatScreen(event)
+			data, err = w.formatScreen(result)
 		}
 		if err != nil {
-			return errors.Wrap(err, "could not format output")
+			return errorutil.NewWithTag("output", "could not format output").Wrap(err)
 		}
 		if len(data) == 0 {
 			return nil
@@ -148,22 +157,22 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 				data = decolorizerRegex.ReplaceAll(data, []byte(""))
 			}
 			if err := w.outputFile.Write(data); err != nil {
-				return errors.Wrap(err, "could not write to output")
+				return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
 			}
 		}
 	}
 
-	if w.storeResponse && resp != nil {
-		if file, err := getResponseFile(w.storeResponseDir, resp.Request.URL.String()); err == nil {
-			data, err := w.formatResponse(resp)
+	if w.storeResponse && result.HasResponse() {
+		if file, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+			data, err := w.formatResult(result)
 			if err != nil {
-				return errors.Wrap(err, "could not store response")
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
-			if err := updateIndex(w.storeResponseDir, resp); err != nil {
-				return errors.Wrap(err, "could not store response")
+			if err := updateIndex(w.storeResponseDir, result); err != nil {
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
 			if err := file.Write(data); err != nil {
-				return errors.Wrap(err, "could not store response")
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
 			file.Close()
 		}
@@ -175,7 +184,7 @@ func (w *StandardWriter) Write(event *Result, resp *http.Response) error {
 func (w *StandardWriter) WriteErr(errMessage *Error) error {
 	data, err := jsoniter.Marshal(errMessage)
 	if err != nil {
-		return errors.Wrap(err, "marshal")
+		return errorutil.NewWithTag("output", "marshal").Wrap(err)
 	}
 	if len(data) == 0 {
 		return nil
@@ -185,7 +194,7 @@ func (w *StandardWriter) WriteErr(errMessage *Error) error {
 
 	if w.errorFile != nil {
 		if err := w.errorFile.Write(data); err != nil {
-			return errors.Wrap(err, "write to error file")
+			return errorutil.NewWithTag("output", "write to error file").Wrap(err)
 		}
 	}
 	return nil
@@ -206,4 +215,30 @@ func (w *StandardWriter) Close() error {
 		}
 	}
 	return nil
+}
+
+// matchOutput checks if the event matches the output regex
+func (w *StandardWriter) matchOutput(event *Result) bool {
+	if w.matchRegex == nil {
+		return true
+	}
+	for _, regex := range w.matchRegex {
+		if regex.MatchString(event.Request.URL) {
+			return true
+		}
+	}
+	return false
+}
+
+// filterOutput returns true if the event should be filtered out
+func (w *StandardWriter) filterOutput(event *Result) bool {
+	if w.filterRegex == nil {
+		return false
+	}
+	for _, regex := range w.filterRegex {
+		if regex.MatchString(event.Request.URL) {
+			return true
+		}
+	}
+	return false
 }

@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pkg/errors"
-	"github.com/projectdiscovery/stringsutil"
+	errorutil "github.com/projectdiscovery/utils/errors"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -22,6 +22,7 @@ var FieldNames = []string{
 	"qurl",
 	"qpath",
 	"file",
+	"ufile",
 	"key",
 	"value",
 	"kv",
@@ -38,7 +39,7 @@ type fieldOutput struct {
 func validateFieldNames(names string) error {
 	parts := strings.Split(names, ",")
 	if len(parts) == 0 {
-		return errors.Errorf("no field names provided: %s", names)
+		return errorutil.NewWithTag("customfield", "no field names provided: %s", names)
 	}
 	uniqueFields := make(map[string]struct{})
 	for _, field := range FieldNames {
@@ -49,7 +50,7 @@ func validateFieldNames(names string) error {
 	}
 	for _, part := range parts {
 		if _, ok := uniqueFields[part]; !ok {
-			return errors.Errorf("invalid field %s specified: %s", part, names)
+			return errorutil.NewWithTag("customfield", "invalid field %s specified: %s", part, names)
 		}
 	}
 	return nil
@@ -58,7 +59,7 @@ func validateFieldNames(names string) error {
 // storeFields stores fields for a result into individual files
 // based on name.
 func storeFields(output *Result, storeFields []string) {
-	parsed, err := url.Parse(output.URL)
+	parsed, err := url.Parse(output.Request.URL)
 	if err != nil {
 		return
 	}
@@ -93,7 +94,7 @@ func appendToFileField(parsed *url.URL, field, data string) {
 // formatField formats output results based on fields from fieldNames
 func formatField(output *Result, fields string) []fieldOutput {
 	var svalue []fieldOutput
-	parsed, _ := url.Parse(output.URL)
+	parsed, _ := url.Parse(output.Request.URL)
 	if parsed == nil {
 		return svalue
 	}
@@ -114,7 +115,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 	for _, f := range stringsutil.SplitAny(fields, ",") {
 		switch f {
 		case "url":
-			svalue = append(svalue, fieldOutput{field: "url", value: output.URL})
+			svalue = append(svalue, fieldOutput{field: "url", value: output.Request.URL})
 		case "rdn":
 			hostname := parsed.Hostname()
 			etld, _ := publicsuffix.EffectiveTLDPlusOne(hostname)
@@ -133,7 +134,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 			}
 		case "qurl":
 			if len(queryKeys) > 0 {
-				svalue = append(svalue, fieldOutput{field: "qurl", value: output.URL})
+				svalue = append(svalue, fieldOutput{field: "qurl", value: output.Request.URL})
 			}
 		case "key":
 			if len(queryKeys) > 0 || len(queryValues) > 0 || len(queryBoth) > 0 {
@@ -160,6 +161,13 @@ func formatField(output *Result, fields string) []fieldOutput {
 					svalue = append(svalue, fieldOutput{field: "file", value: basePath})
 				}
 			}
+		case "ufile":
+			if parsed.Path != "" && parsed.Path != "/" {
+				basePath := path.Base(parsed.Path)
+				if strings.Contains(basePath, ".") {
+					svalue = append(svalue, fieldOutput{field: "ufile", value: parsed.String()})
+				}
+			}
 		case "udir":
 			if parsed.Path != "" && parsed.Path != "/" {
 				if strings.Contains(parsed.Path[1:], "/") {
@@ -176,7 +184,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 				}
 			}
 		default:
-			for k, v := range output.CustomFields {
+			for k, v := range output.Request.CustomFields {
 				for _, r := range v {
 					svalue = append(svalue, fieldOutput{field: k, value: r})
 				}
@@ -190,7 +198,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, field string) string {
 	switch field {
 	case "url":
-		return output.URL
+		return output.Request.URL
 	case "path":
 		return parsed.Path
 	case "fqdn":
@@ -199,6 +207,11 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 		return rdn
 	case "rurl":
 		return rurl
+	case "ufile":
+		basePath := path.Base(parsed.Path)
+		if parsed.Path != "" && parsed.Path != "/" && strings.Contains(basePath, ".") {
+			return parsed.String()
+		}
 	case "file":
 		basePath := path.Base(parsed.Path)
 		if parsed.Path != "" && parsed.Path != "/" && strings.Contains(basePath, ".") {
@@ -246,7 +259,7 @@ func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, fiel
 
 func getValueForCustomField(output *Result) []fieldOutput {
 	var svalue []fieldOutput
-	for k, v := range output.CustomFields {
+	for k, v := range output.Request.CustomFields {
 		for _, r := range v {
 			svalue = append(svalue, fieldOutput{field: k, value: r})
 		}
