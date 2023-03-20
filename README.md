@@ -527,6 +527,7 @@ Here is a table with examples of each field and expected output when used -
 | `fqdn`  | Fully Qualified Domain name | `admin.projectdiscovery.io`                                  |
 | `rdn`   | Root Domain name            | `projectdiscovery.io`                                        |
 | `rurl`  | Root URL                    | `https://admin.projectdiscovery.io`                          |
+| `ufile` | URL with File               | `https://admin.projectdiscovery.io/login.js`                 |
 | `file`  | Filename in URL             | `login.php`                                                  |
 | `key`   | Parameter keys in URL       | `user,password`                                              |
 | `value` | Parameter values in URL     | `admin,admin`                                                |
@@ -736,16 +737,42 @@ katana -u https://example.com -no-scope -output example_endpoints.txt
 ---
 
 ```console
-katana -u https://example.com -json -do | jq .
+katana -u https://example.com -json | jq .
 ```
 
 ```json
 {
-  "timestamp": "2022-11-05T22:33:27.745815+05:30",
-  "endpoint": "https://www.iana.org/domains/example",
-  "source": "https://example.com",
-  "tag": "a",
-  "attribute": "href"
+  "timestamp": "2023-03-20T16:23:58.027559+05:30",
+  "request": {
+    "method": "GET",
+    "endpoint": "https://example.com",
+    "raw": "GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36\r\nAccept-Encoding: gzip\r\n\r\n"
+  },
+  "response": {
+    "status_code": 200,
+    "headers": {
+      "accept_ranges": "bytes",
+      "expires": "Mon, 27 Mar 2023 10:53:58 GMT",
+      "last_modified": "Thu, 17 Oct 2019 07:18:26 GMT",
+      "content_type": "text/html; charset=UTF-8",
+      "server": "ECS (dcb/7EA3)",
+      "vary": "Accept-Encoding",
+      "etag": "\"3147526947\"",
+      "cache_control": "max-age=604800",
+      "x_cache": "HIT",
+      "date": "Mon, 20 Mar 2023 10:53:58 GMT",
+      "age": "331239"
+    },
+    "body": "<!doctype html>\n<html>\n<head>\n    <title>Example Domain</title>\n\n    <meta charset=\"utf-8\" />\n    <meta http-equiv=\"Content-type\" content=\"text/html; charset=utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <style type=\"text/css\">\n    body {\n        background-color: #f0f0f2;\n        margin: 0;\n        padding: 0;\n        font-family: -apple-system, system-ui, BlinkMacSystemFont, \"Segoe UI\", \"Open Sans\", \"Helvetica Neue\", Helvetica, Arial, sans-serif;\n        \n    }\n    div {\n        width: 600px;\n        margin: 5em auto;\n        padding: 2em;\n        background-color: #fdfdff;\n        border-radius: 0.5em;\n        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);\n    }\n    a:link, a:visited {\n        color: #38488f;\n        text-decoration: none;\n    }\n    @media (max-width: 700px) {\n        div {\n            margin: 0 auto;\n            width: auto;\n        }\n    }\n    </style>    \n</head>\n\n<body>\n<div>\n    <h1>Example Domain</h1>\n    <p>This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.</p>\n    <p><a href=\"https://www.iana.org/domains/example\">More information...</a></p>\n</div>\n</body>\n</html>\n",
+    "technologies": [
+      "Azure",
+      "Amazon ECS",
+      "Amazon Web Services",
+      "Docker",
+      "Azure CDN"
+    ],
+    "raw": "HTTP/1.1 200 OK\r\nContent-Length: 1256\r\nAccept-Ranges: bytes\r\nAge: 331239\r\nCache-Control: max-age=604800\r\nContent-Type: text/html; charset=UTF-8\r\nDate: Mon, 20 Mar 2023 10:53:58 GMT\r\nEtag: \"3147526947\"\r\nExpires: Mon, 27 Mar 2023 10:53:58 GMT\r\nLast-Modified: Thu, 17 Oct 2019 07:18:26 GMT\r\nServer: ECS (dcb/7EA3)\r\nVary: Accept-Encoding\r\nX-Cache: HIT\r\n\r\n<!doctype html>\n<html>\n<head>\n    <title>Example Domain</title>\n\n    <meta charset=\"utf-8\" />\n    <meta http-equiv=\"Content-type\" content=\"text/html; charset=utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <style type=\"text/css\">\n    body {\n        background-color: #f0f0f2;\n        margin: 0;\n        padding: 0;\n        font-family: -apple-system, system-ui, BlinkMacSystemFont, \"Segoe UI\", \"Open Sans\", \"Helvetica Neue\", Helvetica, Arial, sans-serif;\n        \n    }\n    div {\n        width: 600px;\n        margin: 5em auto;\n        padding: 2em;\n        background-color: #fdfdff;\n        border-radius: 0.5em;\n        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);\n    }\n    a:link, a:visited {\n        color: #38488f;\n        text-decoration: none;\n    }\n    @media (max-width: 700px) {\n        div {\n            margin: 0 auto;\n            width: auto;\n        }\n    }\n    </style>    \n</head>\n\n<body>\n<div>\n    <h1>Example Domain</h1>\n    <p>This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.</p>\n    <p><a href=\"https://www.iana.org/domains/example\">More information...</a></p>\n</div>\n</body>\n</html>\n"
+  }
 }
 ```
 
