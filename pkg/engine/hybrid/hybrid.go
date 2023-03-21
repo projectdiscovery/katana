@@ -17,7 +17,6 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
-	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -33,10 +32,9 @@ import (
 
 // Crawler is a standard crawler instance
 type Crawler struct {
-	headers      map[string]string
-	options      *types.CrawlerOptions
+	*common.Shared
+
 	browser      *rod.Browser
-	knownFiles   *files.KnownFiles
 	previousPIDs map[int32]struct{} // track already running PIDs
 	tempDir      string
 }
@@ -112,20 +110,18 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		return nil, browserErr
 	}
 
+	shared, err := common.NewShared(options)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).WithTag("hybrid")
+	}
+
 	crawler := &Crawler{
-		headers:      options.Options.ParseCustomHeaders(),
-		options:      options,
+		Shared:       shared,
 		browser:      browser,
 		previousPIDs: previousPIDs,
 		tempDir:      dataStore,
 	}
-	if options.Options.KnownFiles != "" {
-		httpclient, _, err := common.BuildHttpClient(options.Dialer, options.Options, nil)
-		if err != nil {
-			return nil, errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
-		}
-		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
-	}
+
 	return crawler, nil
 }
 
@@ -134,7 +130,7 @@ func (c *Crawler) Close() error {
 	if err := c.browser.Close(); err != nil {
 		return err
 	}
-	if c.options.Options.ChromeDataDir == "" {
+	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
 		}
@@ -145,8 +141,8 @@ func (c *Crawler) Close() error {
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	if c.options.Options.CrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
+	if c.Options.Options.CrawlDuration > 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.Options.Options.CrawlDuration)*time.Second)
 	}
 	defer cancel()
 
@@ -156,24 +152,24 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 	hostname := parsed.Hostname()
 
-	queue, err := queue.New(c.options.Options.Strategy, c.options.Options.Timeout)
+	queue, err := queue.New(c.Options.Options.Strategy, c.Options.Options.Timeout)
 	if err != nil {
 		return err
 	}
 	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
 
-	if c.knownFiles != nil {
-		navigationRequests, err := c.knownFiles.Request(rootURL)
+	if c.KnownFiles != nil {
+		navigationRequests, err := c.KnownFiles.Request(rootURL)
 		if err != nil {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
 		}
-		c.enqueue(queue, navigationRequests...)
+		c.Enqueue(queue, navigationRequests...)
 	}
 
-	httpclient, _, err := common.BuildHttpClient(c.options.Dialer, c.options.Options, func(resp *http.Response, depth int) {
+	httpclient, _, err := common.BuildHttpClient(c.Options.Dialer, c.Options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := c.options.Wappalyzer.Fingerprint(resp.Header, body)
+		technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, body)
 		navigationResponse := navigation.Response{
 			Depth:        depth + 1,
 			RootHostname: hostname,
@@ -185,7 +181,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			Headers:      utils.FlattenHeaders(resp.Header),
 		}
 		navigationRequests := parser.ParseResponse(navigationResponse)
-		c.enqueue(queue, navigationRequests...)
+		c.Enqueue(queue, navigationRequests...)
 	})
 	if err != nil {
 		return errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
@@ -193,7 +189,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	// create a new browser instance (default to incognito mode)
 	var newBrowser *rod.Browser
-	if c.options.Options.HeadlessNoIncognito {
+	if c.Options.Options.HeadlessNoIncognito {
 		if err := c.browser.Connect(); err != nil {
 			return err
 		}
@@ -206,7 +202,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
-	wg := sizedwaitgroup.New(c.options.Options.Concurrency)
+	wg := sizedwaitgroup.New(c.Options.Options.Concurrency)
 	for item := range queue.Pop() {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -220,10 +216,10 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
-		if ok, err := c.options.ValidateScope(req.URL, hostname); err != nil || !ok {
+		if ok, err := c.Options.ValidateScope(req.URL, hostname); err != nil || !ok {
 			continue
 		}
-		if !c.options.ValidatePath(req.URL) {
+		if !c.Options.ValidatePath(req.URL) {
 			continue
 		}
 
@@ -232,16 +228,16 @@ func (c *Crawler) Crawl(rootURL string) error {
 		go func() {
 			defer wg.Done()
 
-			c.options.RateLimit.Take()
+			c.Options.RateLimit.Take()
 
 			// Delay if the user has asked for it
-			if c.options.Options.Delay > 0 {
-				time.Sleep(time.Duration(c.options.Options.Delay) * time.Second)
+			if c.Options.Options.Delay > 0 {
+				time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
 			}
 
 			resp, err := c.navigateRequest(ctx, httpclient, queue, newBrowser, &req, hostname)
 
-			c.output(req, resp, err)
+			c.Output(req, resp, err)
 
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
@@ -252,7 +248,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 					Source:    req.Source,
 					Error:     err.Error(),
 				}
-				_ = c.options.OutputWriter.WriteErr(outputError)
+				_ = c.Options.OutputWriter.WriteErr(outputError)
 
 				return
 			}
@@ -262,38 +258,12 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 			// process the dom-rendered response
 			navigationRequests := parser.ParseResponse(*resp)
-			c.enqueue(queue, navigationRequests...)
+			c.Enqueue(queue, navigationRequests...)
 		}()
 	}
 	wg.Wait()
 
 	return nil
-}
-
-// enqueue new navigation requests
-func (c *Crawler) enqueue(queue *queue.Queue, navigationRequests ...navigation.Request) {
-	for _, nr := range navigationRequests {
-		if nr.URL == "" || !utils.IsURL(nr.URL) {
-			continue
-		}
-
-		// Ignore blank URL items and only work on unique items
-		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
-			continue
-		}
-		// - URLs stuck in a loop
-		if c.options.UniqueFilter.IsCycle(nr.RequestURL()) {
-			continue
-		}
-
-		scopeValidated := c.validateScope(nr.URL, nr.RootHostname)
-
-		// Do not add to crawl queue if max items are reached
-		if nr.Depth >= c.options.Options.MaxDepth || !scopeValidated {
-			continue
-		}
-		queue.Push(nr, nr.Depth)
-	}
 }
 
 // killChromeProcesses any and all new chrome processes started after
@@ -341,33 +311,4 @@ func isChromeProcess(process *ps.Process) bool {
 	name, _ := process.Name()
 	executable, _ := process.Exe()
 	return stringsutil.ContainsAny(name, "chrome", "chromium") || stringsutil.ContainsAny(executable, "chrome", "chromium")
-}
-
-func (c *Crawler) validateScope(URL string, root string) bool {
-	parsedURL, err := url.Parse(URL)
-	if err != nil {
-		return false
-	}
-	scopeValidated, err := c.options.ScopeManager.Validate(parsedURL, root)
-	return err == nil && scopeValidated
-}
-
-func (c *Crawler) output(navigationRequest navigation.Request, navigationResponse *navigation.Response, err error) {
-	var errData string
-	if err != nil {
-		errData = err.Error()
-	}
-	// Write the found result to output
-	result := &output.Result{
-		Timestamp: time.Now(),
-		Request:   navigationRequest,
-		Response:  navigationResponse,
-		Error:     errData,
-	}
-
-	_ = c.options.OutputWriter.Write(result)
-
-	if c.options.Options.OnResult != nil {
-		c.options.Options.OnResult(*result)
-	}
 }
