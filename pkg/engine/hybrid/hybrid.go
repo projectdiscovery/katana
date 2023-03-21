@@ -4,21 +4,14 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
-	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
-	"github.com/projectdiscovery/katana/pkg/navigation"
-	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
-	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
 	"go.uber.org/multierr"
 )
@@ -139,81 +132,22 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	// create a new browser instance (default to incognito mode)
-	var newBrowser *rod.Browser
 	if c.Options.Options.HeadlessNoIncognito {
 		if err := c.browser.Connect(); err != nil {
 			return err
 		}
-		newBrowser = c.browser
+		crawlSession.Browser = c.browser
 	} else {
 		var err error
-		newBrowser, err = c.browser.Incognito()
+		crawlSession.Browser, err = c.browser.Incognito()
 		if err != nil {
 			return err
 		}
 	}
 
-	wg := sizedwaitgroup.New(c.Options.Options.Concurrency)
-	for item := range crawlSession.Queue.Pop() {
-		if err := crawlSession.Ctx.Err(); err != nil {
-			return err
-		}
-		req, ok := item.(navigation.Request)
-		if !ok {
-			continue
-		}
-
-		if !utils.IsURL(req.URL) {
-			continue
-		}
-
-		if ok, err := c.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
-			continue
-		}
-		if !c.Options.ValidatePath(req.URL) {
-			continue
-		}
-
-		wg.Add()
-
-		go func() {
-			defer wg.Done()
-
-			c.Options.RateLimit.Take()
-
-			// Delay if the user has asked for it
-			if c.Options.Options.Delay > 0 {
-				time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
-			}
-
-			resp, err := c.navigateRequest(crawlSession.Ctx, crawlSession.HttpClient, crawlSession.Queue, newBrowser, &req, crawlSession.Hostname)
-
-			c.Output(req, resp, err)
-
-			if err != nil {
-				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
-
-				outputError := &output.Error{
-					Timestamp: time.Now(),
-					Endpoint:  req.RequestURL(),
-					Source:    req.Source,
-					Error:     err.Error(),
-				}
-				_ = c.Options.OutputWriter.WriteErr(outputError)
-
-				return
-			}
-			if resp == nil || resp.Resp == nil && resp.Reader == nil {
-				return
-			}
-
-			// process the dom-rendered response
-			navigationRequests := parser.ParseResponse(*resp)
-			c.Enqueue(crawlSession.Queue, navigationRequests...)
-		}()
+	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
+		return errorutil.NewWithErr(err).WithTag("standard")
 	}
-	wg.Wait()
-
 	return nil
 }
 

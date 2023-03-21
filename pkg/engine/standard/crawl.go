@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
@@ -17,12 +18,12 @@ import (
 )
 
 // makeRequest makes a request to a URL returning a response interface.
-func (c *Crawler) makeRequest(ctx context.Context, request *navigation.Request, rootHostname string, depth int, httpclient *retryablehttp.Client) (navigation.Response, error) {
-	response := navigation.Response{
+func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Request) (*navigation.Response, error) {
+	response := &navigation.Response{
 		Depth:        request.Depth + 1,
-		RootHostname: rootHostname,
+		RootHostname: s.Hostname,
 	}
-	ctx = context.WithValue(ctx, navigation.Depth{}, depth)
+	ctx := context.WithValue(s.Ctx, navigation.Depth{}, request.Depth)
 	httpReq, err := http.NewRequestWithContext(ctx, request.Method, request.URL, nil)
 	if err != nil {
 		return response, err
@@ -44,7 +45,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request *navigation.Request, 
 		req.Header.Set(k, v)
 	}
 
-	resp, err := httpclient.Do(req)
+	resp, err := s.HttpClient.Do(req)
 	if resp != nil {
 		defer func() {
 			if resp.Body != nil && resp.StatusCode != http.StatusSwitchingProtocols {
@@ -69,7 +70,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request *navigation.Request, 
 		return response, err
 	}
 	if !c.Options.UniqueFilter.UniqueContent(data) {
-		return navigation.Response{}, nil
+		return &navigation.Response{}, nil
 	}
 
 	technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, data)
