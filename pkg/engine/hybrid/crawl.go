@@ -78,7 +78,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
+		technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
 		resp := navigation.Response{
 			Resp:         httpresp,
 			Body:         string(body),
@@ -101,7 +101,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
-		c.enqueue(queue, navigationRequests...)
+		c.Enqueue(queue, navigationRequests...)
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -110,7 +110,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		}
 	}()
 
-	timeout := time.Duration(c.options.Options.Timeout) * time.Second
+	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	page = page.Timeout(timeout)
 
 	// wait the page to be fully loaded and becoming idle
@@ -159,7 +159,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
 		navigationRequests := parser.ParseResponse(responseCopy)
-		c.enqueue(queue, navigationRequests...)
+		c.Enqueue(queue, navigationRequests...)
 	}
 
 	response.Body = body

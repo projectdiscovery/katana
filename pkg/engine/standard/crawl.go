@@ -40,7 +40,7 @@ func (c *Crawler) makeRequest(ctx context.Context, request *navigation.Request, 
 	for k, v := range request.Headers {
 		req.Header.Set(k, v)
 	}
-	for k, v := range c.headers {
+	for k, v := range c.Headers {
 		req.Header.Set(k, v)
 	}
 
@@ -63,16 +63,16 @@ func (c *Crawler) makeRequest(ctx context.Context, request *navigation.Request, 
 	if resp.StatusCode == http.StatusSwitchingProtocols {
 		return response, nil
 	}
-	limitReader := io.LimitReader(resp.Body, int64(c.options.Options.BodyReadSize))
+	limitReader := io.LimitReader(resp.Body, int64(c.Options.Options.BodyReadSize))
 	data, err := io.ReadAll(limitReader)
 	if err != nil {
 		return response, err
 	}
-	if !c.options.UniqueFilter.UniqueContent(data) {
+	if !c.Options.UniqueFilter.UniqueContent(data) {
 		return navigation.Response{}, nil
 	}
 
-	technologies := c.options.Wappalyzer.Fingerprint(resp.Header, data)
+	technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, data)
 	response.Technologies = mapsutil.GetKeys(technologies)
 
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
