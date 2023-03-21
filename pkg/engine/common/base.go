@@ -1,16 +1,25 @@
 package common
 
 import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 type Shared struct {
@@ -86,4 +95,70 @@ func (s *Shared) Output(navigationRequest navigation.Request, navigationResponse
 	if s.Options.Options.OnResult != nil {
 		s.Options.Options.OnResult(*result)
 	}
+}
+
+type CrawlSession struct {
+	Ctx        context.Context
+	CancelFunc context.CancelFunc
+	URL        *url.URL
+	Hostname   string
+	Queue      *queue.Queue
+	HttpClient *retryablehttp.Client
+}
+
+func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	if s.Options.Options.CrawlDuration > 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
+	}
+	defer cancel()
+
+	parsed, err := url.Parse(URL)
+	if err != nil {
+		return nil, errorutil.New("could not parse root URL").Wrap(err)
+	}
+	hostname := parsed.Hostname()
+
+	queue, err := queue.New(s.Options.Options.Strategy, s.Options.Options.Timeout)
+	if err != nil {
+		return nil, err
+	}
+	queue.Push(navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
+
+	if s.KnownFiles != nil {
+		navigationRequests, err := s.KnownFiles.Request(URL)
+		if err != nil {
+			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", URL, err)
+		}
+		s.Enqueue(queue, navigationRequests...)
+	}
+	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
+		body, _ := io.ReadAll(resp.Body)
+		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
+		technologies := s.Options.Wappalyzer.Fingerprint(resp.Header, body)
+		navigationResponse := navigation.Response{
+			Depth:        depth + 1,
+			RootHostname: hostname,
+			Resp:         resp,
+			Body:         string(body),
+			Reader:       reader,
+			Technologies: mapsutil.GetKeys(technologies),
+			StatusCode:   resp.StatusCode,
+			Headers:      utils.FlattenHeaders(resp.Header),
+		}
+		navigationRequests := parser.ParseResponse(navigationResponse)
+		s.Enqueue(queue, navigationRequests...)
+	})
+	if err != nil {
+		return nil, errorutil.New("could not create http client").Wrap(err)
+	}
+	crawlSession := &CrawlSession{
+		Ctx:        ctx,
+		CancelFunc: cancel,
+		URL:        parsed,
+		Hostname:   hostname,
+		Queue:      queue,
+		HttpClient: httpclient,
+	}
+	return crawlSession, nil
 }

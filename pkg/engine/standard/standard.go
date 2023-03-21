@@ -1,14 +1,8 @@
 package standard
 
 import (
-	"bytes"
-	"context"
-	"io"
-	"net/http"
-	"net/url"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
@@ -16,9 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	mapsutil "github.com/projectdiscovery/utils/maps"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -43,55 +35,14 @@ func (c *Crawler) Close() error {
 
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
-	parsed, err := url.Parse(rootURL)
+	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
 	if err != nil {
-		return errorutil.NewWithTag("standard", "could not parse root URL").Wrap(err)
-	}
-	hostname := parsed.Hostname()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	if c.Options.Options.CrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.Options.Options.CrawlDuration)*time.Second)
-	}
-	defer cancel()
-
-	queue, err := queue.New(c.Options.Options.Strategy, c.Options.Options.Timeout)
-	if err != nil {
-		return err
-	}
-	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
-
-	if c.KnownFiles != nil {
-		navigationRequests, err := c.KnownFiles.Request(rootURL)
-		if err != nil {
-			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
-		}
-		c.Enqueue(queue, navigationRequests...)
-	}
-	httpclient, _, err := common.BuildHttpClient(c.Options.Dialer, c.Options.Options, func(resp *http.Response, depth int) {
-		body, _ := io.ReadAll(resp.Body)
-		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, body)
-		navigationResponse := navigation.Response{
-			Depth:        depth + 1,
-			RootHostname: hostname,
-			Resp:         resp,
-			Body:         string(body),
-			Reader:       reader,
-			Technologies: mapsutil.GetKeys(technologies),
-			StatusCode:   resp.StatusCode,
-			Headers:      utils.FlattenHeaders(resp.Header),
-		}
-		navigationRequests := parser.ParseResponse(navigationResponse)
-		c.Enqueue(queue, navigationRequests...)
-	})
-	if err != nil {
-		return errorutil.NewWithTag("standard", "could not create http client").Wrap(err)
+		return errorutil.NewWithErr(err).WithTag("standard")
 	}
 
 	wg := sizedwaitgroup.New(c.Options.Options.Concurrency)
-	for item := range queue.Pop() {
-		if ctxErr := ctx.Err(); ctxErr != nil {
+	for item := range crawlSession.Queue.Pop() {
+		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
 
@@ -104,7 +55,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
-		if ok, err := c.Options.ValidateScope(req.URL, hostname); err != nil || !ok {
+		if ok, err := c.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
 			continue
 		}
 		if !c.Options.ValidatePath(req.URL) {
@@ -122,7 +73,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			if c.Options.Options.Delay > 0 {
 				time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
 			}
-			resp, err := c.makeRequest(ctx, &req, hostname, req.Depth, httpclient)
+			resp, err := c.makeRequest(crawlSession.Ctx, &req, crawlSession.Hostname, req.Depth, crawlSession.HttpClient)
 
 			c.Output(req, &resp, err)
 
@@ -142,7 +93,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			}
 
 			navigationRequests := parser.ParseResponse(resp)
-			c.Enqueue(queue, navigationRequests...)
+			c.Enqueue(crawlSession.Queue, navigationRequests...)
 		}()
 	}
 	wg.Wait()
