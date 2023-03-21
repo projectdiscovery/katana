@@ -130,6 +130,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	if err != nil {
 		return errorutil.NewWithErr(err).WithTag("hybrid")
 	}
+	defer crawlSession.CancelFunc()
 
 	// create a new browser instance (default to incognito mode)
 	if c.Options.Options.HeadlessNoIncognito {
