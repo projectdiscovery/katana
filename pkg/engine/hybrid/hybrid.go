@@ -119,14 +119,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		previousPIDs: previousPIDs,
 		tempDir:      dataStore,
 	}
-	if options.Options.KnownFiles != "" {
-		httpclient, _, err := common.BuildHttpClient(options.Dialer, options.Options, nil)
-		if err != nil {
-			return nil, errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
-		}
-		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
-	}
-	return crawler, nil
+
+	crawler.knownFiles, err = common.KnownFilesFromOptions(options)
+	return crawler, err
 }
 
 // Close closes the crawler process

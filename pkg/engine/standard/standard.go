@@ -36,14 +36,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		headers: options.Options.ParseCustomHeaders(),
 		options: options,
 	}
-	if options.Options.KnownFiles != "" {
-		httpclient, _, err := common.BuildHttpClient(options.Dialer, options.Options, nil)
-		if err != nil {
-			return nil, errorutil.NewWithTag("standard", "could not create http client").Wrap(err)
-		}
-		crawler.knownFiles = files.New(httpclient, options.Options.KnownFiles)
-	}
-	return crawler, nil
+	var err error
+	crawler.knownFiles, err = common.KnownFilesFromOptions(options)
+	return crawler, err
 }
 
 // Close closes the crawler process
