@@ -112,11 +112,13 @@ type CrawlSession struct {
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	if s.Options.Options.CrawlDuration > 0 {
+		//nolint
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
 	}
 
 	parsed, err := url.Parse(URL)
 	if err != nil {
+		//nolint
 		return nil, errorutil.New("could not parse root URL").Wrap(err)
 	}
 	hostname := parsed.Hostname()
@@ -125,7 +127,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	queue.Push(navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
+	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
 
 	if s.KnownFiles != nil {
 		navigationRequests, err := s.KnownFiles.Request(URL)
@@ -174,7 +176,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			return ctxErr
 		}
 
-		req, ok := item.(navigation.Request)
+		req, ok := item.(*navigation.Request)
 		if !ok {
 			continue
 		}
@@ -202,9 +204,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				time.Sleep(time.Duration(s.Options.Options.Delay) * time.Second)
 			}
 
-			resp, err := doRequest(crawlSession, &req)
+			resp, err := doRequest(crawlSession, req)
 
-			s.Output(&req, resp, err)
+			s.Output(req, resp, err)
 
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
