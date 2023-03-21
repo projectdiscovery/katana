@@ -1,16 +1,11 @@
 package hybrid
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
@@ -21,9 +16,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"github.com/remeh/sizedwaitgroup"
 	ps "github.com/shirou/gopsutil/v3/process"
@@ -140,51 +133,9 @@ func (c *Crawler) Close() error {
 
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	if c.Options.Options.CrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.Options.Options.CrawlDuration)*time.Second)
-	}
-	defer cancel()
-
-	parsed, err := url.Parse(rootURL)
+	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
 	if err != nil {
-		return errorutil.NewWithTag("hybrid", "could not parse root URL").Wrap(err)
-	}
-	hostname := parsed.Hostname()
-
-	queue, err := queue.New(c.Options.Options.Strategy, c.Options.Options.Timeout)
-	if err != nil {
-		return err
-	}
-	queue.Push(navigation.Request{Method: http.MethodGet, URL: rootURL, Depth: 0}, 0)
-
-	if c.KnownFiles != nil {
-		navigationRequests, err := c.KnownFiles.Request(rootURL)
-		if err != nil {
-			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", rootURL, err)
-		}
-		c.Enqueue(queue, navigationRequests...)
-	}
-
-	httpclient, _, err := common.BuildHttpClient(c.Options.Dialer, c.Options.Options, func(resp *http.Response, depth int) {
-		body, _ := io.ReadAll(resp.Body)
-		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, body)
-		navigationResponse := navigation.Response{
-			Depth:        depth + 1,
-			RootHostname: hostname,
-			Resp:         resp,
-			Body:         string(body),
-			Reader:       reader,
-			Technologies: mapsutil.GetKeys(technologies),
-			StatusCode:   resp.StatusCode,
-			Headers:      utils.FlattenHeaders(resp.Header),
-		}
-		navigationRequests := parser.ParseResponse(navigationResponse)
-		c.Enqueue(queue, navigationRequests...)
-	})
-	if err != nil {
-		return errorutil.NewWithTag("hybrid", "could not create http client").Wrap(err)
+		return errorutil.NewWithErr(err).WithTag("hybrid")
 	}
 
 	// create a new browser instance (default to incognito mode)
@@ -203,8 +154,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	wg := sizedwaitgroup.New(c.Options.Options.Concurrency)
-	for item := range queue.Pop() {
-		if err := ctx.Err(); err != nil {
+	for item := range crawlSession.Queue.Pop() {
+		if err := crawlSession.Ctx.Err(); err != nil {
 			return err
 		}
 		req, ok := item.(navigation.Request)
@@ -216,7 +167,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
-		if ok, err := c.Options.ValidateScope(req.URL, hostname); err != nil || !ok {
+		if ok, err := c.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
 			continue
 		}
 		if !c.Options.ValidatePath(req.URL) {
@@ -235,7 +186,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 				time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
 			}
 
-			resp, err := c.navigateRequest(ctx, httpclient, queue, newBrowser, &req, hostname)
+			resp, err := c.navigateRequest(crawlSession.Ctx, crawlSession.HttpClient, crawlSession.Queue, newBrowser, &req, crawlSession.Hostname)
 
 			c.Output(req, resp, err)
 
@@ -258,7 +209,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 			// process the dom-rendered response
 			navigationRequests := parser.ParseResponse(*resp)
-			c.Enqueue(queue, navigationRequests...)
+			c.Enqueue(crawlSession.Queue, navigationRequests...)
 		}()
 	}
 	wg.Wait()
