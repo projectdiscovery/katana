@@ -71,14 +71,14 @@ func FlattenHeaders(headers map[string][]string) map[string]string {
 	return h
 }
 
-//ReplaceAllQueryParam replaces all the query param with the given value
+// ReplaceAllQueryParam replaces all the query param with the given value
 func ReplaceAllQueryParam(reqUrl, val string) string {
 	u, err := url.Parse(reqUrl)
 	if err != nil {
 		return reqUrl
 	}
 	params := u.Query()
-	for k, _ := range params {
+	for k := range params {
 		params.Set(k, "")
 	}
 	u.RawQuery = params.Encode()
