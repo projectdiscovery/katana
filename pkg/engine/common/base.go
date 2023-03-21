@@ -114,7 +114,6 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	if s.Options.Options.CrawlDuration > 0 {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
 	}
-	defer cancel()
 
 	parsed, err := url.Parse(URL)
 	if err != nil {

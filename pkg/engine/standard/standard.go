@@ -31,6 +31,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	if err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}
+	defer crawlSession.CancelFunc()
 
 	if err := c.Do(crawlSession, c.makeRequest); err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
