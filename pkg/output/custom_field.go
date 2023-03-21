@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/projectdiscovery/fileutil"
-	"github.com/projectdiscovery/sliceutil"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	fileutil "github.com/projectdiscovery/utils/file"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	"gopkg.in/yaml.v2"
 )
