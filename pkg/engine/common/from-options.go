@@ -1,6 +1,9 @@
 package common
 
 import (
+	"context"
+	"time"
+
 	"github.com/bxcodec/faker/v4/pkg/options"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -17,4 +20,11 @@ func KnownFilesFromOptions(crawlerOptions *types.CrawlerOptions) (*files.KnownFi
 	}
 
 	return nil, nil
+}
+
+func ContextFromOptions(crawlerOptions *types.CrawlerOptions) (context.Context, context.CancelFunc) {
+	if crawlerOptions.Options.CrawlDuration > 0 {
+		return context.WithTimeout(context.Background(), time.Duration(crawlerOptions.Options.CrawlDuration)*time.Second)
+	}
+	return context.WithCancel(context.Background())
 }

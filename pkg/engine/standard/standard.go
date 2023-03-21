@@ -2,7 +2,6 @@ package standard
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -54,10 +53,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 	hostname := parsed.Hostname()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	if c.options.Options.CrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
-	}
+	ctx, cancel := common.ContextFromOptions(c.options)
 	defer cancel()
 
 	queue, err := queue.New(c.options.Options.Strategy, c.options.Options.Timeout)

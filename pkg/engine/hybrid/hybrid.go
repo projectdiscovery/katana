@@ -2,7 +2,6 @@ package hybrid
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -139,10 +138,7 @@ func (c *Crawler) Close() error {
 
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	if c.options.Options.CrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(c.options.Options.CrawlDuration)*time.Second)
-	}
+	ctx, cancel := common.ContextFromOptions(c.options)
 	defer cancel()
 
 	parsed, err := url.Parse(rootURL)
