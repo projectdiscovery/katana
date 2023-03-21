@@ -2,7 +2,6 @@ package hybrid
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -11,27 +10,25 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	"github.com/projectdiscovery/katana/pkg/utils/queue"
-	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.Queue, browser *rod.Browser, request *navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Request) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
-		RootHostname: rootHostname,
+		RootHostname: s.Hostname,
 	}
 
-	page, err := browser.Page(proto.TargetCreateTarget{})
+	page, err := s.Browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
@@ -79,12 +76,12 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
-		resp := navigation.Response{
+		resp := &navigation.Response{
 			Resp:         httpresp,
 			Body:         string(body),
 			Reader:       bodyReader,
 			Depth:        depth,
-			RootHostname: rootHostname,
+			RootHostname: s.Hostname,
 			Technologies: mapsutil.GetKeys(technologies),
 			StatusCode:   statusCode,
 			Headers:      utils.FlattenHeaders(headers),
@@ -96,12 +93,12 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
 		if matchOriginalURL {
 			request.Raw = string(rawBytesRequest)
-			response = &resp
+			response = resp
 		}
 
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
-		c.Enqueue(queue, navigationRequests...)
+		c.Enqueue(s.Queue, navigationRequests...)
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -158,8 +155,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		navigationRequests := parser.ParseResponse(responseCopy)
-		c.Enqueue(queue, navigationRequests...)
+		navigationRequests := parser.ParseResponse(&responseCopy)
+		c.Enqueue(s.Queue, navigationRequests...)
 	}
 
 	response.Body = body

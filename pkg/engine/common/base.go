@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
@@ -20,6 +21,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	"github.com/remeh/sizedwaitgroup"
 )
 
 type Shared struct {
@@ -43,7 +45,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	return shared, nil
 }
 
-func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...navigation.Request) {
+func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.Request) {
 	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
 			continue
@@ -77,7 +79,7 @@ func (s *Shared) ValidateScope(URL string, root string) bool {
 	return err == nil && scopeValidated
 }
 
-func (s *Shared) Output(navigationRequest navigation.Request, navigationResponse *navigation.Response, err error) {
+func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, err error) {
 	var errData string
 	if err != nil {
 		errData = err.Error()
@@ -104,6 +106,7 @@ type CrawlSession struct {
 	Hostname   string
 	Queue      *queue.Queue
 	HttpClient *retryablehttp.Client
+	Browser    *rod.Browser
 }
 
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
@@ -136,7 +139,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := s.Options.Wappalyzer.Fingerprint(resp.Header, body)
-		navigationResponse := navigation.Response{
+		navigationResponse := &navigation.Response{
 			Depth:        depth + 1,
 			RootHostname: hostname,
 			Resp:         resp,
@@ -161,4 +164,68 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		HttpClient: httpclient,
 	}
 	return crawlSession, nil
+}
+
+type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*navigation.Response, error)
+
+func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
+	wg := sizedwaitgroup.New(s.Options.Options.Concurrency)
+	for item := range crawlSession.Queue.Pop() {
+		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		req, ok := item.(navigation.Request)
+		if !ok {
+			continue
+		}
+
+		if !utils.IsURL(req.URL) {
+			continue
+		}
+
+		if ok, err := s.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
+			continue
+		}
+		if !s.Options.ValidatePath(req.URL) {
+			continue
+		}
+
+		wg.Add()
+
+		go func() {
+			defer wg.Done()
+
+			s.Options.RateLimit.Take()
+
+			// Delay if the user has asked for it
+			if s.Options.Options.Delay > 0 {
+				time.Sleep(time.Duration(s.Options.Options.Delay) * time.Second)
+			}
+
+			resp, err := doRequest(crawlSession, &req)
+
+			s.Output(&req, resp, err)
+
+			if err != nil {
+				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
+				outputError := &output.Error{
+					Timestamp: time.Now(),
+					Endpoint:  req.RequestURL(),
+					Source:    req.Source,
+					Error:     err.Error(),
+				}
+				_ = s.Options.OutputWriter.WriteErr(outputError)
+				return
+			}
+			if resp.Resp == nil || resp.Reader == nil {
+				return
+			}
+
+			navigationRequests := parser.ParseResponse(resp)
+			s.Enqueue(crawlSession.Queue, navigationRequests...)
+		}()
+	}
+	wg.Wait()
+	return nil
 }

@@ -17,22 +17,22 @@ func TestHeaderParsers(t *testing.T) {
 	parsed, _ := url.Parse("https://security-crawl-maze.app/headers/xyz/")
 
 	t.Run("content-location", func(t *testing.T) {
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Location": []string{"/test/headers/content-location.found"}}}}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Location": []string{"/test/headers/content-location.found"}}}}
 		navigationRequests := headerContentLocationParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/headers/content-location.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("link", func(t *testing.T) {
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Link": []string{"</test/headers/link.found>; rel=\"preload\""}}}}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Link": []string{"</test/headers/link.found>; rel=\"preload\""}}}}
 		navigationRequests := headerLinkParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/headers/link.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("location", func(t *testing.T) {
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Location": []string{"http://security-crawl-maze.app/test/headers/location.found"}}}}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Location": []string{"http://security-crawl-maze.app/test/headers/location.found"}}}}
 		navigationRequests := headerLocationParser(resp)
 		require.Equal(t, "http://security-crawl-maze.app/test/headers/location.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("refresh", func(t *testing.T) {
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Refresh": []string{"999; url=/test/headers/refresh.found"}}}}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Refresh": []string{"999; url=/test/headers/refresh.found"}}}}
 		navigationRequests := headerRefreshParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/headers/refresh.found", navigationRequests[0].URL, "could not get correct url")
 	})
@@ -43,24 +43,24 @@ func TestBodyParsers(t *testing.T) {
 
 	t.Run("a", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<a href=/test/html/body/a/href.found>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyATagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/a/href.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader("<a ping=/test/html/body/a/ping.found>"))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyATagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/a/ping.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("background", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<body background=\"/test/html/body/background.found\"></body>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyBackgroundTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/background.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("blockquote", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<blockquote cite="/test/html/body/blockquote/cite.found"></blockquote>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyBlockquoteCiteTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/blockquote/cite.found", navigationRequests[0].URL, "could not get correct url")
 	})
@@ -68,21 +68,21 @@ func TestBodyParsers(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<map name="map">
 		<area ping="/test/html/body/map/area/ping.found" shape="rect" coords="0,0,150,150" href="#">
 	  </map>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyMapAreaPingTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/map/area/ping.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("audio", func(t *testing.T) {
 		t.Run("src", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<audio src=\"/test/html/body/audio/src.found\"></audio>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyAudioTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/audio/src.found", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("source", func(t *testing.T) {
 			t.Run("src", func(t *testing.T) {
 				documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<audio controls><source src=\"/test/html/body/audio/source/src.found\" type=\"audio/mpeg\"></audio>"))
-				resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+				resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 				navigationRequests := bodyAudioTagParser(resp)
 				require.Equal(t, "https://security-crawl-maze.app/test/html/body/audio/source/src.found", navigationRequests[0].URL, "could not get correct url")
 			})
@@ -92,7 +92,7 @@ func TestBodyParsers(t *testing.T) {
 				<source srcset="/test/html/body/audio/source/srcset1x.found 1x,
 								/test/html/body/audio/source/srcset2x.found 2x">
 			</audio>`))
-				resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+				resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 				for _, navigationRequest := range bodyAudioTagParser(resp) {
 					gotURL = append(gotURL, navigationRequest.URL)
 				}
@@ -106,25 +106,25 @@ func TestBodyParsers(t *testing.T) {
 	t.Run("img", func(t *testing.T) {
 		t.Run("dynsrc", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<img dynsrc="/test/html/body/img/dynsrc.found">`))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyImgTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/img/dynsrc.found", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("longdesc", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<img alt="" src="#" longdesc="/test/html/body/img/longdesc.found">`))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyImgTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/img/longdesc.found", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("lowsrc", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<img lowsrc="/test/html/body/img/lowsrc.found">`))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyImgTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/img/lowsrc.found", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("src", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<img src="/test/html/body/img/src.found">`))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyImgTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/img/src.found", navigationRequests[0].URL, "could not get correct url")
 		})
@@ -132,7 +132,7 @@ func TestBodyParsers(t *testing.T) {
 			var gotURL []string
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<img srcset="/test/html/body/img/srcset1x.found 1x,
 				/test/html/body/img/srcset2x.found 2x">`))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			for _, navigationResponse := range bodyImgTagParser(resp) {
 				gotURL = append(gotURL, navigationResponse.URL)
 			}
@@ -165,19 +165,19 @@ func TestBodyParsers(t *testing.T) {
 	})
 	t.Run("object", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<object data="/test/html/body/object/data.found"></object>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyObjectTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/object/data.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<object codebase="/test/html/body/object/codebase.found"></object>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyObjectTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/object/codebase.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<object classid="clsid:6BF52A52-394A-11d3-B153-00C04F79FAA6">
 		<param name="ref" value="/test/html/body/object/param/value.found"></param>
 	  </object>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyObjectTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/object/param/value.found", navigationRequests[0].URL, "could not get correct url")
 	})
@@ -185,20 +185,20 @@ func TestBodyParsers(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 		<image xlink:href="/test/html/body/svg/image/xlink.found"/>
 	  </svg>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodySvgTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/svg/image/xlink.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 		<script xlink:href="/test/html/body/svg/script/xlink.found"></script>
 	  </svg>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodySvgTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/svg/script/xlink.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("table", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<table background="/test/html/body/table/background.found"></table>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyTableTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/table/background.found", navigationRequests[0].URL, "could not get correct url")
 
@@ -207,80 +207,80 @@ func TestBodyParsers(t *testing.T) {
 			<td background="/test/html/body/table/td/background.found"></td>
 		</tr>
 	</table>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyTableTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/table/td/background.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("video", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<video poster="/test/html/body/video/poster.found"></video>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyVideoTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/video/poster.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<video src="/test/html/body/video/src.found"></video>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyVideoTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/video/src.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<video width="320" height="240" controls>
 		<track src="/test/html/body/video/track/src.found" kind="subtitles" srclang="en" label="English">
 	</video>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyVideoTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/video/track/src.found", navigationRequests[0].URL, "could not get correct url")
 
 	})
 	t.Run("applet", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<applet archive="/test/html/body/applet/archive.found"></applet>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyAppletTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/applet/archive.found", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<applet code = "Test" codebase="/test/html/body/applet/codebase.found"></applet>`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyAppletTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/applet/codebase.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("link", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<link rel=\"stylesheet\" href=\"/css/font-face.css\">"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyLinkHrefTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/css/font-face.css", navigationRequests[0].URL, "could not get correct url")
 
 		documentReader, _ = goquery.NewDocumentFromReader(strings.NewReader(`<link rel="prefetch" href="/test/html/head/link/href.found" />`))
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests = bodyLinkHrefTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/head/link/href.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("base", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<base href="/test/html/head/base/href.found">`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyBaseHrefTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/head/base/href.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("manifest", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<html xmlns="http://www.w3.org/1999/xhtml" manifest="/test/html/manifest.found">`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyHtmlManifestTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/manifest.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("doctype", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<!DOCTYPE html SYSTEM "/test/html/doctype.found">
 <meta charset="utf-8">`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyHtmlDoctypeTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/doctype.found", navigationRequests[0].URL, "could not get correct url")
 
 	})
 	t.Run("import", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<IMPORT namespace="myNS" implementation="/test/html/head/import/implementation.found" /></IMPORT>`))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyImportImplementationTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/head/import/implementation.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("embed", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<embed src=\"/test/html/body/embed/src.found\"></embed>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyEmbedTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/embed/src.found", navigationRequests[0].URL, "could not get correct url")
 	})
@@ -304,7 +304,7 @@ func TestBodyParsers(t *testing.T) {
 	t.Run("iframe", func(t *testing.T) {
 		t.Run("src", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<iframe src=\"/test/html/body/iframe/src.found\"></iframe>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyIframeTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/iframe/src.found", navigationRequests[0].URL, "could not get correct url")
 		})
@@ -320,38 +320,38 @@ func TestBodyParsers(t *testing.T) {
 	})
 	t.Run("input", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<input type=\"image\" src=\"/test/html/body/input/src.found\" name=\"test\" value=\"test\">"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyInputSrcTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/input/src.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("isindex", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<isindex action=\"/test/html/body/isindex/action.found\"></isindex>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyIsindexActionTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/isindex/action.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("script", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<script src=\"/test/html/body/script/src.found\"></script>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyScriptSrcTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/script/src.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("button", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form id=\"test\"><button form=\"test\" formaction=\"/test/html/body/form/button/formaction.found\" type=\"submit\">CLICKME</button></form>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := bodyButtonFormactionTagParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/button/formaction.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("form", func(t *testing.T) {
 		t.Run("get", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-get.found\" method=\"GET\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyFormTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/action-get.found?test1=test&test2=test", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("post", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-post.found\" method=\"POST\" enctype=\"multipart/form-data\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
-			resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 			navigationRequests := bodyFormTagParser(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/action-post.found", navigationRequests[0].URL, "could not get correct url")
 			require.Equal(t, "POST", navigationRequests[0].Method, "could not get correct method")
@@ -395,19 +395,19 @@ func TestScriptParsers(t *testing.T) {
 
 	t.Run("content", func(t *testing.T) {
 		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<script>var endpoint='/test/html/script/content.do';</script>"))
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Reader: documentReader}
 		navigationRequests := scriptContentRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/content.do", navigationRequests[0].URL, "could not get correct url")
 	})
 
 	t.Run("js", func(t *testing.T) {
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/data.js")
-		resp := navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: "var endpoint='/test/html/script/body.do';"}
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}}, Body: "var endpoint='/test/html/script/body.do';"}
 		navigationRequests := scriptJSFileRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/body.do", navigationRequests[0].URL, "could not get correct url")
 
 		parsed, _ = url.Parse("https://security-crawl-maze.app/html/script/xyz/")
-		resp = navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: "var endpoint='/test/html/script/body-content-type.do';"}
+		resp = &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed}, Header: http.Header{"Content-Type": []string{"application/javascript"}}}, Body: "var endpoint='/test/html/script/body-content-type.do';"}
 		navigationRequests = scriptJSFileRegexParser(resp)
 		require.Equal(t, "https://security-crawl-maze.app/test/html/script/body-content-type.do", navigationRequests[0].URL, "could not get correct url")
 
@@ -418,7 +418,7 @@ func TestRegexBodyParsers(t *testing.T) {
 	parsed, _ := url.Parse("https://security-crawl-maze.app/contact")
 	t.Run("regexbody", func(t *testing.T) {
 		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		resp := navigation.Response{
+		resp := &navigation.Response{
 			Resp:  &http.Response{Request: &http.Request{URL: parsed}},
 			Depth: 0,
 			Body:  "some content contact@example.com",
@@ -438,7 +438,7 @@ func TestRegexBodyParsers(t *testing.T) {
 	})
 	t.Run("regexheader", func(t *testing.T) {
 		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		resp := navigation.Response{
+		resp := &navigation.Response{
 			Resp: &http.Response{Request: &http.Request{URL: parsed},
 				Header: http.Header{
 					"server": []string{"ECS (dcb/7F84)"},
@@ -461,7 +461,7 @@ func TestRegexBodyParsers(t *testing.T) {
 
 	t.Run("regexresponse", func(t *testing.T) {
 		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		resp := navigation.Response{
+		resp := &navigation.Response{
 			Resp: &http.Response{Request: &http.Request{URL: parsed},
 				Header: http.Header{
 					"server": []string{"ECS (dcb/7F84)"},

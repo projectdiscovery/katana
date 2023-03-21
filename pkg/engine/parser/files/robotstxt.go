@@ -18,7 +18,7 @@ type robotsTxtCrawler struct {
 }
 
 // Visit visits the provided URL with file crawlers
-func (r *robotsTxtCrawler) Visit(URL string) ([]navigation.Request, error) {
+func (r *robotsTxtCrawler) Visit(URL string) ([]*navigation.Request, error) {
 	URL = strings.TrimSuffix(URL, "/")
 	requestURL := fmt.Sprintf("%s/robots.txt", URL)
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
@@ -36,7 +36,7 @@ func (r *robotsTxtCrawler) Visit(URL string) ([]navigation.Request, error) {
 	return r.parseReader(resp.Body, resp)
 }
 
-func (r *robotsTxtCrawler) parseReader(reader io.Reader, resp *http.Response) (navigationRequests []navigation.Request, err error) {
+func (r *robotsTxtCrawler) parseReader(reader io.Reader, resp *http.Response) (navigationRequests []*navigation.Request, err error) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		text := scanner.Text()
@@ -46,7 +46,7 @@ func (r *robotsTxtCrawler) parseReader(reader io.Reader, resp *http.Response) (n
 		}
 		directive := strings.ToLower(splitted[0])
 		if strings.HasPrefix(directive, "allow") || strings.EqualFold(directive, "disallow") {
-			navResp := navigation.Response{
+			navResp := &navigation.Response{
 				Depth:      2,
 				Resp:       resp,
 				StatusCode: resp.StatusCode,
