@@ -297,12 +297,14 @@ katana -h headless
 
 Flags:
 HEADLESS:
-   -hl, -headless       enable experimental headless hybrid crawling
-   -sc, -system-chrome  use local installed chrome browser instead of katana installed
-   -sb, -show-browser   show the browser on the screen with headless mode
-   -ho, -headless-options string[]  start headless chrome with additional options
-   -nos, -no-sandbox                start headless chrome in --no-sandbox mode
-   -noi, -no-incognito              start headless chrome without incognito mode
+   -hl, -headless                    enable headless hybrid crawling (experimental)
+   -sc, -system-chrome               use local installed chrome browser instead of katana installed
+   -sb, -show-browser                show the browser on the screen with headless mode
+   -ho, -headless-options string[]   start headless chrome with additional options
+   -nos, -no-sandbox                 start headless chrome in --no-sandbox mode
+   -cdd, -chrome-data-dir string     path to store chrome browser data
+   -scp, -system-chrome-path string  use specified chrome browser for headless crawling
+   -noi, -no-incognito               start headless chrome without incognito mode
 ```
 
 *`-no-sandbox`*
@@ -479,7 +481,7 @@ Option to enable automatic form filling for known / unknown fields, known field 
 Automatic form filling is experimental feature.
 
 ```
-   -aff, -automatic-form-fill  enable optional automatic form filling (experimental)
+katana -u https://tesla.com -aff
 ```
 
 There are more options to configure when needed, here is all the config related CLI options - 
@@ -489,12 +491,14 @@ katana -h config
 
 Flags:
 CONFIGURATION:
-   -d, -depth int                maximum depth to crawl (default 2)
+   -r, -resolvers string[]       list of custom resolver (file or comma separated)
+   -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
    -ct, -crawl-duration int      maximum duration to crawl the target for
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
-   -mrs, -max-response-size int  maximum response size to read (default 2097152)
+   -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
+   -aff, -automatic-form-fill    enable automatic form filling (experimental)
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
@@ -635,16 +639,6 @@ Crawl output can be easily filtered for specific extension using `-ef` option wh
 katana -u https://tesla.com -silent -ef css,txt,md
 ```
 
-Here are additional filter options -
-
-```console
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
-   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,file,key,value,kv,dir,udir)
-   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
-   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
-```
-
-
 *`-match-regex`*
 ---
 The `-match-regex` or `-mr` flag allows you to filter output URLs using regular expressions. When using this flag, only URLs that match the specified regular expression will be printed in the output.
@@ -658,6 +652,21 @@ The `-filter-regex` or `-fr` flag allows you to filter output URLs using regular
 
 ```
 katana -u https://tesla.com -fr 'https://www\.tesla\.com/*' -silent
+```
+
+Here are additional filter options -
+
+```console
+katana -h filter
+
+Flags:
+FILTER:
+   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
+   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
+   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
 ```
 
 ## Rate Limit
