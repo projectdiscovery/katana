@@ -82,6 +82,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
 		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
 		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first)"),
+		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
