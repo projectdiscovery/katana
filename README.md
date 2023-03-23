@@ -132,6 +132,7 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
 
 DEBUG:
    -health-check, -hc        run diagnostic check up

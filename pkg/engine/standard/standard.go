@@ -167,8 +167,13 @@ func (c *Crawler) enqueue(queue *queue.Queue, navigationRequests ...navigation.R
 			continue
 		}
 
+		reqUrl := nr.RequestURL()
+		if c.options.Options.IgnoreQueryParams {
+			reqUrl = utils.ReplaceAllQueryParam(reqUrl, "")
+		}
+
 		// Ignore blank URL items and only work on unique items
-		if !c.options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
+		if !c.options.UniqueFilter.UniqueURL(reqUrl) && len(nr.CustomFields) == 0 {
 			continue
 		}
 		// - URLs stuck in a loop
