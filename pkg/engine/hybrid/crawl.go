@@ -16,6 +16,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
@@ -71,8 +72,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			ContentLength: int64(len(body)),
 		}
 
-		rawBytesRequest, _ := httputil.DumpRequestOut(httpreq, true)
-		rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
+		var rawBytesRequest, rawBytesResponse []byte
+		if r, err := retryablehttp.FromRequest(httpreq); err == nil {
+			rawBytesRequest, _ = r.Dump()
+		} else {
+			rawBytesRequest, _ = httputil.DumpRequestOut(httpreq, true)
+		}
+		rawBytesResponse, _ = httputil.DumpResponse(httpresp, true)
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
