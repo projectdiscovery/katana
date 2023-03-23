@@ -55,7 +55,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		}()
 	}
 
-	rawRequestBytes, _ := httputil.DumpRequestOut(req.Request, true)
+	rawRequestBytes, _ := req.Dump()
 	request.Raw = string(rawRequestBytes)
 
 	if err != nil {
