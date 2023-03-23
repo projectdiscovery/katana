@@ -51,8 +51,13 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 
+		reqUrl := nr.RequestURL()
+		if s.Options.Options.IgnoreQueryParams {
+			reqUrl = utils.ReplaceAllQueryParam(reqUrl, "")
+		}
+
 		// Ignore blank URL items and only work on unique items
-		if !s.Options.UniqueFilter.UniqueURL(nr.RequestURL()) && len(nr.CustomFields) == 0 {
+		if !s.Options.UniqueFilter.UniqueURL(reqUrl) && len(nr.CustomFields) == 0 {
 			continue
 		}
 		// - URLs stuck in a loop
