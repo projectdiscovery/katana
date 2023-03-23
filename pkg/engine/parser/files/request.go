@@ -5,7 +5,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-type visitFunc func(URL string) ([]navigation.Request, error)
+type visitFunc func(URL string) ([]*navigation.Request, error)
 
 type KnownFiles struct {
 	parsers    []visitFunc
@@ -34,7 +34,7 @@ func New(httpclient *retryablehttp.Client, files string) *KnownFiles {
 }
 
 // Request requests all known files with visitors
-func (k *KnownFiles) Request(URL string) (navigationRequests []navigation.Request, err error) {
+func (k *KnownFiles) Request(URL string) (navigationRequests []*navigation.Request, err error) {
 	for _, visitor := range k.parsers {
 		navRequests, err := visitor(URL)
 		if err != nil {
