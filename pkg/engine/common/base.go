@@ -65,10 +65,19 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 
-		scopeValidated := s.ValidateScope(nr.URL, nr.RootHostname)
+		// skip crawling if the endpoint is not in scope
+		inScope := s.ValidateScope(nr.URL, nr.RootHostname)
+		if !inScope {
+			// if the user requested anyway out of scope items
+			// they are sent to output without visiting
+			if s.Options.Options.DisplayOutScope {
+				s.Output(nr, nil, ErrOutOfScope)
+			}
+			continue
+		}
 
 		// Do not add to crawl queue if max items are reached
-		if nr.Depth >= s.Options.Options.MaxDepth || !scopeValidated {
+		if nr.Depth >= s.Options.Options.MaxDepth {
 			continue
 		}
 		queue.Push(nr, nr.Depth)
