@@ -834,7 +834,7 @@ func main() {
 		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
 		RateLimit:    150,             // Maximum requests to send per second
 		OnResult: func(result output.Result) { // Callback function to execute for result
-			gologger.Info().Msg(result.URL)
+			gologger.Info().Msg(result.Request.URL)
 		},
 	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)
