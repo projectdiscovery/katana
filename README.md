@@ -841,6 +841,7 @@ func main() {
 		FieldScope:   "rdn",           // Crawling Scope Field
 		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
 		RateLimit:    150,             // Maximum requests to send per second
+		Strategy:     "depth-first",   // Visit strategy (depth-first, breadth-first)
 		OnResult: func(result output.Result) { // Callback function to execute for result
 			gologger.Info().Msg(result.URL)
 		},
