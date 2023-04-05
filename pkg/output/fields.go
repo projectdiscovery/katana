@@ -2,13 +2,14 @@ package output
 
 import (
 	"fmt"
-	"net/url"
+
 	"os"
 	"path"
 	"strings"
 
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -59,7 +60,7 @@ func validateFieldNames(names string) error {
 // storeFields stores fields for a result into individual files
 // based on name.
 func storeFields(output *Result, storeFields []string) {
-	parsed, err := url.Parse(output.Request.URL)
+	parsed, err := urlutil.Parse(output.Request.URL)
 	if err != nil {
 		return
 	}
@@ -80,7 +81,7 @@ func storeFields(output *Result, storeFields []string) {
 	}
 }
 
-func appendToFileField(parsed *url.URL, field, data string) {
+func appendToFileField(parsed *urlutil.URL, field, data string) {
 	file, err := os.OpenFile(path.Join(storeFieldsDirectory, fmt.Sprintf("%s_%s_%s.txt", parsed.Scheme, parsed.Hostname(), field)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return
@@ -94,7 +95,7 @@ func appendToFileField(parsed *url.URL, field, data string) {
 // formatField formats output results based on fields from fieldNames
 func formatField(output *Result, fields string) []fieldOutput {
 	var svalue []fieldOutput
-	parsed, _ := url.Parse(output.Request.URL)
+	parsed, _ := urlutil.Parse(output.Request.URL)
 	if parsed == nil {
 		return svalue
 	}
@@ -195,7 +196,7 @@ func formatField(output *Result, fields string) []fieldOutput {
 }
 
 // getValueForField returns value for a field
-func getValueForField(output *Result, parsed *url.URL, hostname, rdn, rurl, field string) string {
+func getValueForField(output *Result, parsed *urlutil.URL, hostname, rdn, rurl, field string) string {
 	switch field {
 	case "url":
 		return output.Request.URL

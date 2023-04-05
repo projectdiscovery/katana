@@ -1,9 +1,10 @@
 package extensions
 
 import (
-	"net/url"
 	"path"
 	"strings"
+
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // defaultDenylist is the default list of extensions to be denied
@@ -37,7 +38,7 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 // ValidatePath returns true if an extension is allowed by the validator
 func (e *Validator) ValidatePath(item string) bool {
 	var extension string
-	u, _ := url.Parse(item)
+	u, _ := urlutil.Parse(item)
 	if u != nil {
 		extension = strings.ToLower(path.Ext(u.Path))
 	} else {

@@ -2,7 +2,6 @@ package types
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
@@ -12,6 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
 	"github.com/projectdiscovery/ratelimit"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	urlutil "github.com/projectdiscovery/utils/url"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
 
@@ -115,7 +115,7 @@ func (c *CrawlerOptions) ValidatePath(path string) bool {
 
 // ValidateScope validates scope for an AbsURL
 func (c *CrawlerOptions) ValidateScope(absURL, rootHostname string) (bool, error) {
-	parsed, err := url.Parse(absURL)
+	parsed, err := urlutil.Parse(absURL)
 	if err != nil {
 		return false, err
 	}

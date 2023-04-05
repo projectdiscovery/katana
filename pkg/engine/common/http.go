@@ -3,7 +3,7 @@ package common
 import (
 	"crypto/tls"
 	"net/http"
-	"net/url"
+
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
@@ -12,6 +12,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	proxyutil "github.com/projectdiscovery/utils/http/proxy"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 type RedirectCallback func(resp *http.Response, depth int)
@@ -34,11 +35,11 @@ func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirect
 	}
 
 	// Attempts to overwrite the dial function with the socks proxied version
-	if proxyURL, err := url.Parse(options.Proxy); options.Proxy != "" && err == nil {
+	if proxy, err := urlutil.Parse(options.Proxy); options.Proxy != "" && err == nil {
 		if ok, err := proxyutil.IsBurp(options.Proxy); err == nil && ok {
 			transport.TLSClientConfig.MaxVersion = tls.VersionTLS12
 		}
-		transport.Proxy = http.ProxyURL(proxyURL)
+		transport.Proxy = http.ProxyURL(proxy.URL)
 	}
 
 	client := retryablehttp.NewWithHTTPClient(&http.Client{

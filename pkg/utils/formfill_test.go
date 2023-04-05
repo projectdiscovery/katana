@@ -1,11 +1,11 @@
 package utils
 
 import (
-	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +43,7 @@ func TestFormInputFillSuggestions(t *testing.T) {
 	require.NoError(t, err, "could not read document")
 
 	document.Find("form[action]").Each(func(i int, item *goquery.Selection) {
-		queryValuesWriter := make(url.Values)
+		queryValuesWriter := make(urlutil.Params)
 		formInputs := []FormInput{}
 
 		item.Find("input").Each(func(index int, item *goquery.Selection) {
@@ -62,6 +62,6 @@ func TestFormInputFillSuggestions(t *testing.T) {
 		}
 
 		value := queryValuesWriter.Encode()
-		require.Equal(t, "Startdate=katana&color=red&firstname=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
+		require.Equal(t, "Startdate=katana&color=red&firstname=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP@assw0rd1&upclick=#a52a2a", value, "could not get correct encoded form")
 	})
 }

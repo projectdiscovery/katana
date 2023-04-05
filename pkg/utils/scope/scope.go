@@ -3,10 +3,11 @@ package scope
 import (
 	"fmt"
 	"net"
-	"net/url"
+
 	"regexp"
 	"strings"
 
+	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -61,7 +62,7 @@ func NewManager(inScope, outOfScope []string, fieldScope string, noScope bool) (
 }
 
 // Validate returns true if the URL matches scope rules
-func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
+func (m *Manager) Validate(URL *urlutil.URL, rootHostname string) (bool, error) {
 	if m.noScope {
 		return true, nil
 	}

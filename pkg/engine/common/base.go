@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -21,6 +20,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -85,7 +85,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 }
 
 func (s *Shared) ValidateScope(URL string, root string) bool {
-	parsedURL, err := url.Parse(URL)
+	parsedURL, err := urlutil.Parse(URL)
 	if err != nil {
 		return false
 	}
@@ -116,7 +116,7 @@ func (s *Shared) Output(navigationRequest *navigation.Request, navigationRespons
 type CrawlSession struct {
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
-	URL        *url.URL
+	URL        *urlutil.URL
 	Hostname   string
 	Queue      *queue.Queue
 	HttpClient *retryablehttp.Client
@@ -130,7 +130,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
 	}
 
-	parsed, err := url.Parse(URL)
+	parsed, err := urlutil.Parse(URL)
 	if err != nil {
 		//nolint
 		return nil, errorutil.New("could not parse root URL").Wrap(err)

@@ -2,7 +2,6 @@ package hybrid
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 
 	"github.com/go-rod/rod"
@@ -12,6 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 	ps "github.com/shirou/gopsutil/v3/process"
 	"go.uber.org/multierr"
 )
@@ -75,7 +75,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	}
 
 	if options.Options.Proxy != "" && options.Options.Headless {
-		proxyURL, err := url.Parse(options.Options.Proxy)
+		proxyURL, err := urlutil.Parse(options.Options.Proxy)
 		if err != nil {
 			return nil, err
 		}
