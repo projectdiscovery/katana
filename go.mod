@@ -20,7 +20,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/stretchr/testify v1.8.2
-	go.uber.org/multierr v1.10.0
+	go.uber.org/multierr v1.11.0
 	golang.org/x/net v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
