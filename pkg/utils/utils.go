@@ -1,11 +1,11 @@
 package utils
 
 import (
-	"net/url"
 	"strings"
 
 	"github.com/lukasbob/srcset"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // IsURL returns true if a provided string is URL
@@ -73,7 +73,7 @@ func FlattenHeaders(headers map[string][]string) map[string]string {
 
 // ReplaceAllQueryParam replaces all the query param with the given value
 func ReplaceAllQueryParam(reqUrl, val string) string {
-	u, err := url.Parse(reqUrl)
+	u, err := urlutil.Parse(reqUrl)
 	if err != nil {
 		return reqUrl
 	}

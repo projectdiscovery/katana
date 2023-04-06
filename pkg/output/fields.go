@@ -9,6 +9,7 @@ import (
 
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -59,7 +60,7 @@ func validateFieldNames(names string) error {
 // storeFields stores fields for a result into individual files
 // based on name.
 func storeFields(output *Result, storeFields []string) {
-	parsed, err := url.Parse(output.Request.URL)
+	parsed, err := urlutil.Parse(output.Request.URL)
 	if err != nil {
 		return
 	}
@@ -68,13 +69,13 @@ func storeFields(output *Result, storeFields []string) {
 	etld, _ := publicsuffix.EffectiveTLDPlusOne(hostname)
 	rootURL := fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
 	for _, field := range storeFields {
-		if result := getValueForField(output, parsed, hostname, etld, rootURL, field); result != "" {
-			appendToFileField(parsed, field, result)
+		if result := getValueForField(output, parsed.URL, hostname, etld, rootURL, field); result != "" {
+			appendToFileField(parsed.URL, field, result)
 		}
 		if _, ok := CustomFieldsMap[field]; ok {
 			results := getValueForCustomField(output)
 			for _, result := range results {
-				appendToFileField(parsed, result.field, result.value)
+				appendToFileField(parsed.URL, result.field, result.value)
 			}
 		}
 	}
@@ -94,7 +95,7 @@ func appendToFileField(parsed *url.URL, field, data string) {
 // formatField formats output results based on fields from fieldNames
 func formatField(output *Result, fields string) []fieldOutput {
 	var svalue []fieldOutput
-	parsed, _ := url.Parse(output.Request.URL)
+	parsed, _ := urlutil.Parse(output.Request.URL)
 	if parsed == nil {
 		return svalue
 	}

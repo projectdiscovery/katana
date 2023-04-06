@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/html"
 )
 
@@ -522,7 +523,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 			return
 		}
 
-		parsedURL, err := url.Parse(actionURL)
+		parsed, err := urlutil.Parse(actionURL)
 		if err != nil {
 			return
 		}
@@ -578,8 +579,9 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		}
 		switch method {
 		case "GET":
-			parsedURL.RawQuery = queryValuesWriter.Encode()
-			req.URL = parsedURL.String()
+			parsed.Update()
+			parsed.RawQuery = queryValuesWriter.Encode()
+			req.URL = parsed.URL.String()
 		case "POST":
 			if multipartWriter != nil {
 				req.Body = sb.String()

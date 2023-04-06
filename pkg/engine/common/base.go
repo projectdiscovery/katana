@@ -21,6 +21,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -85,11 +86,11 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 }
 
 func (s *Shared) ValidateScope(URL string, root string) bool {
-	parsedURL, err := url.Parse(URL)
+	parsed, err := urlutil.Parse(URL)
 	if err != nil {
 		return false
 	}
-	scopeValidated, err := s.Options.ScopeManager.Validate(parsedURL, root)
+	scopeValidated, err := s.Options.ScopeManager.Validate(parsed.URL, root)
 	return err == nil && scopeValidated
 }
 
@@ -130,7 +131,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
 	}
 
-	parsed, err := url.Parse(URL)
+	parsed, err := urlutil.Parse(URL)
 	if err != nil {
 		//nolint
 		return nil, errorutil.New("could not parse root URL").Wrap(err)
@@ -173,7 +174,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	crawlSession := &CrawlSession{
 		Ctx:        ctx,
 		CancelFunc: cancel,
-		URL:        parsed,
+		URL:        parsed.URL,
 		Hostname:   hostname,
 		Queue:      queue,
 		HttpClient: httpclient,

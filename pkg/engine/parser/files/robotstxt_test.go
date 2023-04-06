@@ -2,10 +2,11 @@ package files
 
 import (
 	"net/http"
-	"net/url"
+
 	"strings"
 	"testing"
 
+	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +24,8 @@ Disallow: /test/includes/
 # Allow: /random/
 
 Sitemap: https://example.com/sitemap.xml`
-	parsed, _ := url.Parse("http://localhost/robots.txt")
-	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}})
+	parsed, _ := urlutil.Parse("http://localhost/robots.txt")
+	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed.URL}})
 	require.Nil(t, err)
 
 	for _, navReq := range navigationRequests {
