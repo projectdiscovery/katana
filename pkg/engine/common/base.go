@@ -207,7 +207,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			continue
 		}
 		if !s.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("`%v` not a valid path. skipping", req.URL)
+			gologger.Debug().Msgf("skipping url with blacklisted extension %v", req.URL)
 			continue
 		}
 
