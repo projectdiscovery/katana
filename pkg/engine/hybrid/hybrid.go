@@ -7,6 +7,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -146,6 +147,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
+	gologger.Info().Msgf("Started Headless Crawling Target: %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}

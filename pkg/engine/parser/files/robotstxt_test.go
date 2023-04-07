@@ -24,7 +24,8 @@ Disallow: /test/includes/
 # Allow: /random/
 
 Sitemap: https://example.com/sitemap.xml`
-	parsed, _ := urlutil.Parse("http://localhost/robots.txt")
+	parsed, err := urlutil.Parse("http://localhost/robots.txt")
+	require.Nil(t, err)
 	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed.URL}})
 	require.Nil(t, err)
 

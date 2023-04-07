@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/logrusorgru/aurora"
+	"github.com/projectdiscovery/gologger"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -171,7 +172,10 @@ func colorizeText(text string, value bool) string {
 }
 
 func strippedLink(link string) string {
-	parsed, _ := urlutil.Parse(link)
+	parsed, err := urlutil.Parse(link)
+	if err != nil {
+		gologger.Warning().Msgf("failed to parse link while extracting path: %v", err)
+	}
 	return parsed.Path
 }
 

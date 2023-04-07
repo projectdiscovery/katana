@@ -2,10 +2,10 @@ package parser
 
 import (
 	"mime/multipart"
-	"net/url"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -525,12 +525,13 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 
 		parsed, err := urlutil.Parse(actionURL)
 		if err != nil {
+			gologger.Warning().Msgf("bodyFormTagParser :failed to parse url %v got %v", actionURL, err)
 			return
 		}
 
 		isMultipartForm := strings.HasPrefix(encType, "multipart/")
 
-		queryValuesWriter := make(url.Values)
+		queryValuesWriter := make(urlutil.Params)
 		var sb strings.Builder
 		var multipartWriter *multipart.Writer
 
@@ -579,8 +580,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		}
 		switch method {
 		case "GET":
-			parsed.Update()
-			parsed.RawQuery = queryValuesWriter.Encode()
+			parsed.Params.Merge(queryValuesWriter)
 			req.URL = parsed.URL.String()
 		case "POST":
 			if multipartWriter != nil {

@@ -4,6 +4,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/projectdiscovery/gologger"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -38,7 +39,10 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 // ValidatePath returns true if an extension is allowed by the validator
 func (e *Validator) ValidatePath(item string) bool {
 	var extension string
-	u, _ := urlutil.Parse(item)
+	u, err := urlutil.Parse(item)
+	if err != nil {
+		gologger.Warning().Msgf("validatepath: failed to parse url %v got %v", item, err)
+	}
 	if u.Path != "" {
 		extension = strings.ToLower(path.Ext(u.Path))
 	} else {

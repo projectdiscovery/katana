@@ -4,13 +4,18 @@ import (
 	"strings"
 
 	"github.com/lukasbob/srcset"
-	stringsutil "github.com/projectdiscovery/utils/strings"
+	"github.com/projectdiscovery/gologger"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // IsURL returns true if a provided string is URL
 func IsURL(url string) bool {
-	return stringsutil.HasPrefixAny(url, "http://", "https://")
+	if value, err := urlutil.Parse(url); err == nil {
+		return value.Hostname() != ""
+	} else {
+		gologger.Debug().Msgf("IsURL: failed to parse url %v got %v", url, err)
+	}
+	return false
 }
 
 // ParseSRCSetTag parses srcset tag returning found URLs

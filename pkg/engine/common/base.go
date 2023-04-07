@@ -88,6 +88,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 func (s *Shared) ValidateScope(URL string, root string) bool {
 	parsed, err := urlutil.Parse(URL)
 	if err != nil {
+		gologger.Warning().Msgf("failed to parse url while validating scope: %v", err)
 		return false
 	}
 	scopeValidated, err := s.Options.ScopeManager.Validate(parsed.URL, root)
@@ -197,18 +198,21 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}
 
 		if !utils.IsURL(req.URL) {
+			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
 			continue
 		}
 
 		if ok, err := s.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
+			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
 			continue
 		}
 		if !s.Options.ValidatePath(req.URL) {
+			gologger.Debug().Msgf("`%v` not a valid path. skipping", req.URL)
 			continue
 		}
 
 		wg.Add()
-
+		// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
 		go func() {
 			defer wg.Done()
 

@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -62,6 +63,7 @@ func validateFieldNames(names string) error {
 func storeFields(output *Result, storeFields []string) {
 	parsed, err := urlutil.Parse(output.Request.URL)
 	if err != nil {
+		gologger.Warning().Msgf("storeFields: failed to parse url %v got %v", output.Request.URL, err)
 		return
 	}
 
