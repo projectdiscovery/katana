@@ -106,6 +106,9 @@ katana -h
 This will display help for the tool. Here are all the switches it supports.
 
 ```console
+Katana is a fast crawler focused on execution in automation
+pipelines offering both headless and non-headless crawling.
+
 Usage:
   ./katana [flags]
 
