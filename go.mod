@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
-	github.com/go-rod/rod v0.112.6
+	github.com/go-rod/rod v0.112.8
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
@@ -15,12 +15,12 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/projectdiscovery/retryablehttp-go v1.0.14
 	github.com/projectdiscovery/utils v0.0.19
-	github.com/projectdiscovery/wappalyzergo v0.0.87
+	github.com/projectdiscovery/wappalyzergo v0.0.89
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/stretchr/testify v1.8.2
-	go.uber.org/multierr v1.10.0
+	go.uber.org/multierr v1.11.0
 	golang.org/x/net v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
