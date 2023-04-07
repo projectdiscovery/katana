@@ -581,7 +581,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		switch method {
 		case "GET":
 			parsed.Params.Merge(queryValuesWriter)
-			req.URL = parsed.URL.String()
+			req.URL = parsed.String()
 		case "POST":
 			if multipartWriter != nil {
 				req.Body = sb.String()
