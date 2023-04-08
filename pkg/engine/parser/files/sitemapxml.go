@@ -18,7 +18,7 @@ type sitemapXmlCrawler struct {
 }
 
 // Visit visits the provided URL with file crawlers
-func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []navigation.Request, err error) {
+func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []*navigation.Request, err error) {
 	URL = strings.TrimSuffix(URL, "/")
 	requestURL := fmt.Sprintf("%s/sitemap.xml", URL)
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
@@ -49,13 +49,13 @@ type parsedURL struct {
 	Loc string `xml:"loc"`
 }
 
-func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response) (navigationRequests []navigation.Request, err error) {
+func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response) (navigationRequests []*navigation.Request, err error) {
 	sitemap := sitemapStruct{}
 	if err := xml.NewDecoder(reader).Decode(&sitemap); err != nil {
 		return nil, errorutil.NewWithTag("sitemapcrawler", "could not decode xml").Wrap(err)
 	}
 	for _, url := range sitemap.URLs {
-		navResp := navigation.Response{
+		navResp := &navigation.Response{
 			Depth:      2,
 			Resp:       resp,
 			StatusCode: resp.StatusCode,
@@ -64,7 +64,7 @@ func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response) (
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(strings.Trim(url.Loc, " \t\n"), resp.Request.URL.String(), "file", "sitemapxml", navResp))
 	}
 	for _, url := range sitemap.Sitemap {
-		navResp := navigation.Response{
+		navResp := &navigation.Response{
 			Depth:      2,
 			Resp:       resp,
 			StatusCode: resp.StatusCode,

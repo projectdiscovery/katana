@@ -118,6 +118,10 @@ type Options struct {
 	MatchRegex []*regexp.Regexp
 	//DisableUpdateCheck disables automatic update check
 	DisableUpdateCheck bool
+	//IgnoreQueryParams ignore crawling same path with different query-param values
+	IgnoreQueryParams bool
+	// Debug
+	Debug bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

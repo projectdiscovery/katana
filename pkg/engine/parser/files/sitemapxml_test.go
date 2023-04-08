@@ -2,10 +2,10 @@ package files
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
+	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,8 +21,9 @@ func TestSitemapXmlParseReader(t *testing.T) {
 	<lastmod>2019-06-19T12:00:00+00:00</lastmod>
 </sitemap>
 </sitemapindex>`
-	parsed, _ := url.Parse("http://security-crawl-maze.app/sitemap.xml")
-	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed}})
+	parsed, err := urlutil.Parse("http://security-crawl-maze.app/sitemap.xml")
+	require.Nil(t, err)
+	navigationRequests, err := crawler.parseReader(strings.NewReader(content), &http.Response{Request: &http.Request{URL: parsed.URL}})
 	require.Nil(t, err)
 	for _, navReq := range navigationRequests {
 		requests = append(requests, navReq.URL)
