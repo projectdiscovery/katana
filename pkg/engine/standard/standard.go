@@ -33,7 +33,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}
 	defer crawlSession.CancelFunc()
-	gologger.Info().Msgf("Started Crawling Target: %v", rootURL)
+	gologger.Info().Msgf("Started standard crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.makeRequest); err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}

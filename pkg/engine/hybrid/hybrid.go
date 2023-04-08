@@ -147,7 +147,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
-	gologger.Info().Msgf("Started Headless Crawling Target: %v", rootURL)
+	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}
