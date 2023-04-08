@@ -1,13 +1,15 @@
 package extensions
 
 import (
-	"net/url"
 	"path"
 	"strings"
+
+	"github.com/projectdiscovery/gologger"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // defaultDenylist is the default list of extensions to be denied
-var defaultDenylist = []string{".3g2", ".3gp", ".7z", ".apk", ".arj", ".avi", ".axd", ".bmp", ".csv", ".deb", ".dll", ".doc", ".drv", ".eot", ".exe", ".flv", ".gif", ".gifv", ".gz", ".h264", ".ico", ".iso", ".jar", ".jpeg", ".jpg", ".lock", ".m4a", ".m4v", ".map", ".mkv", ".mov", ".mp3", ".mp4", ".mpeg", ".mpg", ".msi", ".ogg", ".ogm", ".ogv", ".otf", ".pdf", ".pkg", ".png", ".ppt", ".psd", ".rar", ".rm", ".rpm", ".svg", ".swf", ".sys", ".tar.gz", ".tar", ".tif", ".tiff", ".ttf", ".txt", ".vob", ".wav", ".webm", ".wmv", ".woff", ".woff2", ".xcf", ".xls", ".xlsx", ".zip"}
+var defaultDenylist = []string{".3g2", ".3gp", ".7z", ".apk", ".arj", ".avi", ".axd", ".bmp", ".csv", ".deb", ".dll", ".doc", ".drv", ".eot", ".exe", ".flv", ".gif", ".gifv", ".gz", ".h264", ".ico", ".iso", ".jar", ".jpeg", ".jpg", ".lock", ".m4a", ".m4v", ".map", ".mkv", ".mov", ".mp3", ".mp4", ".mpeg", ".mpg", ".msi", ".ogg", ".ogm", ".ogv", ".otf", ".pdf", ".pkg", ".png", ".ppt", ".psd", ".rar", ".rm", ".rpm", ".svg", ".swf", ".sys", ".tar.gz", ".tar", ".tif", ".tiff", ".ttf", ".txt", ".vob", ".wav", ".webm", ".webp", ".wmv", ".woff", ".woff2", ".xcf", ".xls", ".xlsx", ".zip"}
 
 // Validator is a validator for file extension
 type Validator struct {
@@ -37,8 +39,11 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 // ValidatePath returns true if an extension is allowed by the validator
 func (e *Validator) ValidatePath(item string) bool {
 	var extension string
-	u, _ := url.Parse(item)
-	if u != nil {
+	u, err := urlutil.Parse(item)
+	if err != nil {
+		gologger.Warning().Msgf("validatepath: failed to parse url %v got %v", item, err)
+	}
+	if u.Path != "" {
 		extension = strings.ToLower(path.Ext(u.Path))
 	} else {
 		extension = strings.ToLower(path.Ext(item))

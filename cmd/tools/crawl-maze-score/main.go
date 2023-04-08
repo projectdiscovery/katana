@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/url"
 	"os"
 	"strings"
 
 	"github.com/logrusorgru/aurora"
+	"github.com/projectdiscovery/gologger"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // expectedResults is the list of expected endpoints from security-crawl-maze
@@ -171,7 +172,10 @@ func colorizeText(text string, value bool) string {
 }
 
 func strippedLink(link string) string {
-	parsed, _ := url.Parse(link)
+	parsed, err := urlutil.Parse(link)
+	if err != nil {
+		gologger.Warning().Msgf("failed to parse link while extracting path: %v", err)
+	}
 	return parsed.Path
 }
 

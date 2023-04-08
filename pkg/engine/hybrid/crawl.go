@@ -2,36 +2,35 @@ package hybrid
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
+
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
-func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp.Client, queue *queue.Queue, browser *rod.Browser, request *navigation.Request, rootHostname string) (*navigation.Response, error) {
+func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Request) (*navigation.Response, error) {
 	depth := request.Depth + 1
 	response := &navigation.Response{
 		Depth:        depth,
-		RootHostname: rootHostname,
+		RootHostname: s.Hostname,
 	}
 
-	page, err := browser.Page(proto.TargetCreateTarget{})
+	page, err := s.Browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
@@ -43,7 +42,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		RequestStage: proto.FetchRequestStageResponse,
 	})
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
-		URL, _ := url.Parse(e.Request.URL)
+		URL, _ := urlutil.Parse(e.Request.URL)
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
@@ -74,17 +73,22 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 			ContentLength: int64(len(body)),
 		}
 
-		rawBytesRequest, _ := httputil.DumpRequestOut(httpreq, true)
-		rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
+		var rawBytesRequest, rawBytesResponse []byte
+		if r, err := retryablehttp.FromRequest(httpreq); err == nil {
+			rawBytesRequest, _ = r.Dump()
+		} else {
+			rawBytesRequest, _ = httputil.DumpRequestOut(httpreq, true)
+		}
+		rawBytesResponse, _ = httputil.DumpResponse(httpresp, true)
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := c.options.Wappalyzer.Fingerprint(headers, body)
-		resp := navigation.Response{
+		technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
+		resp := &navigation.Response{
 			Resp:         httpresp,
 			Body:         string(body),
 			Reader:       bodyReader,
 			Depth:        depth,
-			RootHostname: rootHostname,
+			RootHostname: s.Hostname,
 			Technologies: mapsutil.GetKeys(technologies),
 			StatusCode:   statusCode,
 			Headers:      utils.FlattenHeaders(headers),
@@ -96,12 +100,12 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
 		if matchOriginalURL {
 			request.Raw = string(rawBytesRequest)
-			response = &resp
+			response = resp
 		}
 
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
-		c.enqueue(queue, navigationRequests...)
+		c.Enqueue(s.Queue, navigationRequests...)
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -110,7 +114,7 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		}
 	}()
 
-	timeout := time.Duration(c.options.Options.Timeout) * time.Second
+	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	page = page.Timeout(timeout)
 
 	// wait the page to be fully loaded and becoming idle
@@ -146,11 +150,11 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
 	}
 
-	parsed, err := url.Parse(request.URL)
+	parsed, err := urlutil.Parse(request.URL)
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
 	}
-	response.Resp.Request.URL = parsed
+	response.Resp.Request.URL = parsed.URL
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response
@@ -158,8 +162,8 @@ func (c *Crawler) navigateRequest(ctx context.Context, httpclient *retryablehttp
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		navigationRequests := parser.ParseResponse(responseCopy)
-		c.enqueue(queue, navigationRequests...)
+		navigationRequests := parser.ParseResponse(&responseCopy)
+		c.Enqueue(s.Queue, navigationRequests...)
 	}
 
 	response.Body = body

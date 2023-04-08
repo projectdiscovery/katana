@@ -106,11 +106,11 @@ katana -h
 This will display help for the tool. Here are all the switches it supports.
 
 ```console
-Usage:
-  ./katana [flags]
-
 Katana is a fast crawler focused on execution in automation
 pipelines offering both headless and non-headless crawling.
+
+Usage:
+  ./katana [flags]
 
 Flags:
 INPUT:
@@ -132,6 +132,7 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
@@ -181,6 +182,7 @@ OUTPUT:
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
    -v, -verbose                      display verbose output
+   -debug                            display debug output
    -version                          display project version
 ```
 
@@ -843,7 +845,7 @@ func main() {
 		RateLimit:    150,             // Maximum requests to send per second
 		Strategy:     "depth-first",   // Visit strategy (depth-first, breadth-first)
 		OnResult: func(result output.Result) { // Callback function to execute for result
-			gologger.Info().Msg(result.URL)
+			gologger.Info().Msg(result.Request.URL)
 		},
 	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)

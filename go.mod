@@ -4,23 +4,23 @@ go 1.19
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
-	github.com/go-rod/rod v0.112.6
+	github.com/go-rod/rod v0.112.8
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/projectdiscovery/fastdialer v0.0.24
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.8
-	github.com/projectdiscovery/hmap v0.0.10
+	github.com/projectdiscovery/hmap v0.0.11
 	github.com/projectdiscovery/ratelimit v0.0.6
-	github.com/projectdiscovery/retryablehttp-go v1.0.12
-	github.com/projectdiscovery/utils v0.0.16
-	github.com/projectdiscovery/wappalyzergo v0.0.86
+	github.com/projectdiscovery/retryablehttp-go v1.0.14
+	github.com/projectdiscovery/utils v0.0.19
+	github.com/projectdiscovery/wappalyzergo v0.0.89
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
 	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/stretchr/testify v1.8.2
-	go.uber.org/multierr v1.10.0
+	go.uber.org/multierr v1.11.0
 	golang.org/x/net v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -87,11 +87,9 @@ require (
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/projectdiscovery/fileutil v0.0.3
 	github.com/projectdiscovery/iputil v0.0.2 // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.4 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.21 // indirect
-	github.com/projectdiscovery/sliceutil v0.0.1
 	github.com/projectdiscovery/stringsutil v0.0.2 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
