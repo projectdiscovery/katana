@@ -21,6 +21,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
 )
 
@@ -85,11 +86,12 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 }
 
 func (s *Shared) ValidateScope(URL string, root string) bool {
-	parsedURL, err := url.Parse(URL)
+	parsed, err := urlutil.Parse(URL)
 	if err != nil {
+		gologger.Warning().Msgf("failed to parse url while validating scope: %v", err)
 		return false
 	}
-	scopeValidated, err := s.Options.ScopeManager.Validate(parsedURL, root)
+	scopeValidated, err := s.Options.ScopeManager.Validate(parsed.URL, root)
 	return err == nil && scopeValidated
 }
 
@@ -130,7 +132,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
 	}
 
-	parsed, err := url.Parse(URL)
+	parsed, err := urlutil.Parse(URL)
 	if err != nil {
 		//nolint
 		return nil, errorutil.New("could not parse root URL").Wrap(err)
@@ -173,7 +175,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	crawlSession := &CrawlSession{
 		Ctx:        ctx,
 		CancelFunc: cancel,
-		URL:        parsed,
+		URL:        parsed.URL,
 		Hostname:   hostname,
 		Queue:      queue,
 		HttpClient: httpclient,
@@ -196,18 +198,21 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}
 
 		if !utils.IsURL(req.URL) {
+			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
 			continue
 		}
 
 		if ok, err := s.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
+			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
 			continue
 		}
 		if !s.Options.ValidatePath(req.URL) {
+			gologger.Debug().Msgf("skipping url with blacklisted extension %v", req.URL)
 			continue
 		}
 
 		wg.Add()
-
+		// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
 		go func() {
 			defer wg.Done()
 

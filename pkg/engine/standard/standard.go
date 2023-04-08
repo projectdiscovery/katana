@@ -1,6 +1,7 @@
 package standard
 
 import (
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -32,7 +33,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}
 	defer crawlSession.CancelFunc()
-
+	gologger.Info().Msgf("Started standard crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.makeRequest); err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}
