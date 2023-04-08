@@ -106,11 +106,11 @@ katana -h
 This will display help for the tool. Here are all the switches it supports.
 
 ```console
-Usage:
-  ./katana [flags]
-
 Katana is a fast crawler focused on execution in automation
 pipelines offering both headless and non-headless crawling.
+
+Usage:
+  ./katana [flags]
 
 Flags:
 INPUT:
@@ -182,6 +182,7 @@ OUTPUT:
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
    -v, -verbose                      display verbose output
+   -debug                            display debug output
    -version                          display project version
 ```
 

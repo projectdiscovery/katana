@@ -2,16 +2,17 @@ package hybrid
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 	ps "github.com/shirou/gopsutil/v3/process"
 	"go.uber.org/multierr"
 )
@@ -75,7 +76,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	}
 
 	if options.Options.Proxy != "" && options.Options.Headless {
-		proxyURL, err := url.Parse(options.Options.Proxy)
+		proxyURL, err := urlutil.Parse(options.Options.Proxy)
 		if err != nil {
 			return nil, err
 		}
@@ -146,6 +147,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 	}
 
+	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}

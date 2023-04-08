@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
+
 	"strings"
 	"time"
 
@@ -20,6 +20,7 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Request) (*navigation.Response, error) {
@@ -41,7 +42,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		RequestStage: proto.FetchRequestStageResponse,
 	})
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
-		URL, _ := url.Parse(e.Request.URL)
+		URL, _ := urlutil.Parse(e.Request.URL)
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
@@ -149,11 +150,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
 	}
 
-	parsed, err := url.Parse(request.URL)
+	parsed, err := urlutil.Parse(request.URL)
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
 	}
-	response.Resp.Request.URL = parsed
+	response.Resp.Request.URL = parsed.URL
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	responseCopy := *response

@@ -140,6 +140,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
 		flagSet.BoolVarP(&options.Verbose, "verbose", "v", false, "display verbose output"),
+		flagSet.BoolVar(&options.Debug, "debug", false, "display debug output"),
 		flagSet.BoolVar(&options.Version, "version", false, "display project version"),
 	)
 
@@ -157,7 +158,7 @@ pipelines offering both headless and non-headless crawling.`)
 
 func init() {
 	// show detailed stacktrace in debug mode
-	if os.Getenv("DEBUG") != "" {
+	if os.Getenv("DEBUG") == "true" {
 		errorutil.ShowStackTrace = true
 	}
 }
