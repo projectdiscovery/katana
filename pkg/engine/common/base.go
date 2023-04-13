@@ -28,6 +28,7 @@ import (
 type Shared struct {
 	Headers    map[string]string
 	KnownFiles *files.KnownFiles
+	pathFuzz   *PathFuzz
 	Options    *types.CrawlerOptions
 }
 
@@ -43,6 +44,15 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		}
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
+
+	if options.Options.PathFuzzDict != "" {
+		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
+		if err != nil {
+			return nil, errorutil.New("could not create http client").Wrap(err)
+		}
+		shared.pathFuzz = NewFuzz(httpclient, options)
+	}
+
 	return shared, nil
 }
 
@@ -149,6 +159,14 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		navigationRequests, err := s.KnownFiles.Request(URL)
 		if err != nil {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", URL, err)
+		}
+		s.Enqueue(queue, navigationRequests...)
+	}
+
+	if s.pathFuzz != nil {
+		navigationRequests, err := s.pathFuzz.DoFuzz(URL)
+		if err != nil {
+			gologger.Warning().Msgf("Could not fuzz path %s: %s\n", URL, err)
 		}
 		s.Enqueue(queue, navigationRequests...)
 	}

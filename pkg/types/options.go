@@ -58,6 +58,8 @@ type Options struct {
 	OutputFile string
 	// KnownFiles enables crawling of knows files like robots.txt, sitemap.xml, etc
 	KnownFiles string
+	//PathFuzzDict 目录字典
+	PathFuzzDict string
 	// Fields is the fields to format in output
 	Fields string
 	// StoreFields is the fields to store in separate per-host files
