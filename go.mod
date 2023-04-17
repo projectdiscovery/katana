@@ -14,7 +14,7 @@ require (
 	github.com/projectdiscovery/hmap v0.0.11
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/projectdiscovery/retryablehttp-go v1.0.14
-	github.com/projectdiscovery/utils v0.0.19
+	github.com/projectdiscovery/utils v0.0.20
 	github.com/projectdiscovery/wappalyzergo v0.0.90
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.4.0
@@ -27,7 +27,7 @@ require (
 
 require (
 	aead.dev/minisign v0.2.0 // indirect
-	github.com/Masterminds/semver/v3 v3.2.0 // indirect
+	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -60,7 +60,7 @@ require (
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
-	golang.org/x/oauth2 v0.5.0 // indirect
+	golang.org/x/oauth2 v0.7.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )
@@ -81,7 +81,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible // indirect
 	github.com/microcosm-cc/bluemonday v1.0.23 // indirect
-	github.com/miekg/dns v1.1.52 // indirect
+	github.com/miekg/dns v1.1.53 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nwaples/rardecode v1.1.0 // indirect
