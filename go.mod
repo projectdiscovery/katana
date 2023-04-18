@@ -17,7 +17,7 @@ require (
 	github.com/projectdiscovery/utils v0.0.19
 	github.com/projectdiscovery/wappalyzergo v0.0.91
 	github.com/remeh/sizedwaitgroup v1.0.0
-	github.com/rs/xid v1.4.0
+	github.com/rs/xid v1.5.0
 	github.com/shirou/gopsutil/v3 v3.23.3
 	github.com/stretchr/testify v1.8.2
 	go.uber.org/multierr v1.11.0
