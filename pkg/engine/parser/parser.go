@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"mime/multipart"
 	"strings"
 
@@ -638,16 +639,48 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
 		return
 	}
-
 	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
 	for _, item := range endpoints {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
+	}
+
+	if strings.Contains(string(resp.Body), "//# sourceMappingURL=") {
+		url := resp.Resp.Request.URL
+		url.RawQuery = ""
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(url.String()+".map", resp.Resp.Request.URL.String(), "js", "eval", resp))
 	}
 	return
 }
 
 // bodyScrapeEndpointsParser parses scraped URLs from HTML body
 func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	if strings.HasSuffix(resp.Resp.Request.URL.Path, ".map") {
+		var sm types.SoruceMap
+		if err := json.Unmarshal([]byte(resp.Body), &sm); err != nil {
+			return
+		}
+		if sm.Sources != nil && sm.SourcesContent != nil {
+			// traverse the files excluding node_modules
+			for i, item := range sm.Sources {
+				if !strings.Contains(item, "./node_modules") {
+					data := sm.SourcesContent[i]
+					if data == "" {
+						continue
+					}
+					endpoints := utils.ExtractRelativeEndpoints(data)
+					for _, ep := range endpoints {
+						navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(ep, resp.Resp.Request.URL.String(), "map", "regex", resp))
+						// create new urls for the filepaths
+						nm := navigation.NewNavigationRequestURLFromResponseForMaps(ep, resp.Resp.Request.URL.String(), "map", "regex", *resp)
+						if nm != nil {
+							navigationRequests = append(navigationRequests, nm)
+						}
+					}
+				}
+			}
+		}
+		return
+	}
 	endpoints := utils.ExtractBodyEndpoints(string(resp.Body))
 	for _, item := range endpoints {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "html", "regex", resp))

@@ -53,3 +53,37 @@ func NewNavigationRequestURLFromResponse(path, source, tag, attribute string, re
 	}
 	return request
 }
+
+// NewNavigationRequestURLFromResponseForMaps generates a navigation requests for .map or .json files
+// this files contains the file locations, to generate the url with greater chance of success
+// also create urls with remove the path to create new paths
+// eg: consider a path ./constants passed to NewNavigationRequestURLFromResponse will create https://YOUR_URL/SOME_PATH/SOME_MORE_PATH/constants
+// but we also want https://YOUR_URL/constants
+func NewNavigationRequestURLFromResponseForMaps(path, source, tag, attribute string, resp Response) *Request {
+	requestURL := resp.AbsoluteURL(path)
+	// contains url not path
+	if requestURL == path || requestURL == "" {
+		return nil
+	}
+	// copy the url and set the path to empty
+	tempURL := *resp.Resp.Request.URL
+	tempURL.Path = ""
+	// parse the  url with the path
+	absURL, err := tempURL.Parse(path)
+	if err != nil {
+		return nil
+	}
+	absURL.Fragment = ""
+	if absURL.Scheme == "//" {
+		absURL.Scheme = resp.Resp.Request.URL.Scheme
+	}
+	return &Request{
+		Method:       http.MethodGet,
+		URL:          absURL.String(),
+		RootHostname: resp.RootHostname,
+		Depth:        resp.Depth,
+		Source:       source,
+		Attribute:    attribute,
+		Tag:          tag,
+	}
+}
