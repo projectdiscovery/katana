@@ -11,7 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	proxyutil "github.com/projectdiscovery/utils/http/proxy"
+	proxyutil "github.com/projectdiscovery/utils/proxy"
 )
 
 type RedirectCallback func(resp *http.Response, depth int)
