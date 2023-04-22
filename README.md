@@ -122,6 +122,7 @@ CONFIGURATION:
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
    -ct, -crawl-duration int      maximum duration to crawl the target for
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
+   -pf, -path-fuzz string        wordlist to be used for fuzzing and crawling paths
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)

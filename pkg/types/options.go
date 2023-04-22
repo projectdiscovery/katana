@@ -58,7 +58,9 @@ type Options struct {
 	OutputFile string
 	// KnownFiles enables crawling of knows files like robots.txt, sitemap.xml, etc
 	KnownFiles string
-	//PathFuzzDict 目录字典
+	// PathFuzzDict is the path to a wordlist file that will be used for crawling and fuzzing paths. 
+	// Each line in the wordlist represents a path that will be appended to the target URL. 
+	// For example, if the wordlist contains the path '/admin', the tool will send requests to 'target.com/admin'.
 	PathFuzzDict string
 	// Fields is the fields to format in output
 	Fields string
