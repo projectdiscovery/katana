@@ -33,7 +33,7 @@ func New(options *types.Options) (*Runner, error) {
 	}
 
 	if !options.DisableUpdateCheck {
-		latestVersion, err := updateutils.GetVersionCheckCallback("katana")()
+		latestVersion, err := updateutils.GetToolVersionCallback("katana", version)()
 		if err != nil {
 			if options.Verbose {
 				gologger.Error().Msgf("katana version check failed: %v", err.Error())
