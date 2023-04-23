@@ -645,9 +645,11 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	}
 
 	if strings.Contains(string(resp.Body), "//# sourceMappingURL=") {
-		url := resp.Resp.Request.URL
-		url.RawQuery = ""
-		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(url.String()+".map", resp.Resp.Request.URL.String(), "js", "eval", resp))
+		temp := urlutil.URL{URL: resp.Resp.Request.URL}
+		cloned := temp.Clone()
+		// ignore the query params if url contains any
+		cloned.RawQuery = ""
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(cloned.String()+".map", resp.Resp.Request.URL.String(), "js", "eval", resp))
 	}
 	return
 }
@@ -655,14 +657,14 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 // bodyScrapeEndpointsParser parses scraped URLs from HTML body
 func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	if strings.HasSuffix(resp.Resp.Request.URL.Path, ".map") {
-		var sm types.SoruceMap
+		var sm types.SourceMap
 		if err := json.Unmarshal([]byte(resp.Body), &sm); err != nil {
 			return
 		}
 		if sm.Sources != nil && sm.SourcesContent != nil {
 			// traverse the files excluding node_modules
 			for i, item := range sm.Sources {
-				if !strings.Contains(item, "./node_modules") {
+				if !strings.Contains(item, "./node_modules") && i < len(sm.SourcesContent) {
 					data := sm.SourcesContent[i]
 					if data == "" {
 						continue

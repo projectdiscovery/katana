@@ -3,6 +3,8 @@ package navigation
 import (
 	"net/http"
 	"strings"
+
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // Depth is the depth of a navigation
@@ -66,7 +68,8 @@ func NewNavigationRequestURLFromResponseForMaps(path, source, tag, attribute str
 		return nil
 	}
 	// copy the url and set the path to empty
-	tempURL := *resp.Resp.Request.URL
+	temp := urlutil.URL{URL: resp.Resp.Request.URL}
+	tempURL := temp.Clone()
 	tempURL.Path = ""
 	// parse the  url with the path
 	absURL, err := tempURL.Parse(path)
