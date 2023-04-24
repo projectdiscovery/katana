@@ -123,6 +123,7 @@ CONFIGURATION:
    -ct, -crawl-duration int      maximum duration to crawl the target for
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -path string                  path or list of paths to use for fuzzing and crawling paths (comma-separated, file)
+   -ddc  -disable-default-crawl disable default automatic crawling
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)

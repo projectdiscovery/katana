@@ -45,7 +45,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
 
-	if options.Options.PathFuzzDict != "" {
+	if !options.Options.DisableDefaultCrawl {
 		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
 		if err != nil {
 			return nil, errorutil.New("could not create http client").Wrap(err)

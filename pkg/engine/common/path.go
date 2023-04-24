@@ -1,9 +1,7 @@
 package common
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -12,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 )
@@ -30,7 +27,6 @@ func NewFuzz(httpclient *retryablehttp.Client, option *types.CrawlerOptions) *Pa
 }
 
 func (f *PathFuzz) DoFuzz(URL string) (navigationRequests []*navigation.Request, err error) {
-	pathList := ReadFile(f.Options.Options.PathFuzzDict)
 	wg := sizedwaitgroup.New(f.Options.Options.Concurrency)
 	mutex := sync.Mutex{}
 	parsed, err := url.Parse(URL)
@@ -38,7 +34,7 @@ func (f *PathFuzz) DoFuzz(URL string) (navigationRequests []*navigation.Request,
 		return
 	}
 	hostname := parsed.Hostname()
-	for _, path := range pathList {
+	for _, path := range f.Options.Options.PathFuzzDict {
 		wg.Add()
 		go func(path string) {
 			defer wg.Done()
@@ -107,29 +103,6 @@ func (f *PathFuzz) DoFuzz(URL string) (navigationRequests []*navigation.Request,
 	}
 	wg.Wait()
 	return
-}
-
-func ReadFile(filePath string) []string {
-	var results []string
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
-	if err != nil {
-		gologger.Warning().Msgf("path fuzz load dict error : %v", err)
-		return results
-	}
-	defer f.Close()
-	rd := bufio.NewReader(f)
-	filePaths := make(map[string]struct{})
-	for {
-		line, err := rd.ReadString('\n')
-		if err != nil || io.EOF == err {
-			break
-		}
-		filePaths[line] = struct{}{}
-	}
-	for k := range filePaths {
-		results = append(results, k)
-	}
-	return results
 }
 
 func GetHeader(headers http.Header) map[string]string {
