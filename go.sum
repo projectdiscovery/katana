@@ -170,8 +170,8 @@ github.com/projectdiscovery/stringsutil v0.0.2 h1:uzmw3IVLJSMW1kEg8eCStG/cGbYYZA
 github.com/projectdiscovery/stringsutil v0.0.2/go.mod h1:EJ3w6bC5fBYjVou6ryzodQq37D5c6qbAYQpGmAy+DC0=
 github.com/projectdiscovery/utils v0.0.24 h1:3kI8B5/ajKANPM7dfVHyTPFegy0OrVOxU+a3DXvX2a8=
 github.com/projectdiscovery/utils v0.0.24/go.mod h1:4ynwLqKugrMQzNjBJbzSDRBtadPwat/lwrXhWA6gdAE=
-github.com/projectdiscovery/wappalyzergo v0.0.91 h1:SHNaLVQCD3r3XSdKzida0ccizU1d5Y4xQRSYtT2LWEs=
-github.com/projectdiscovery/wappalyzergo v0.0.91/go.mod h1:HvYuW0Be4JCjVds/+XAEaMSqRG9yrI97UmZq0TPk6A0=
+github.com/projectdiscovery/wappalyzergo v0.0.92 h1:IQgYS3xN6J9KKq1FjMVjso+gVchhPBqi/wzChYrr1JA=
+github.com/projectdiscovery/wappalyzergo v0.0.92/go.mod h1:HvYuW0Be4JCjVds/+XAEaMSqRG9yrI97UmZq0TPk6A0=
 github.com/remeh/sizedwaitgroup v1.0.0 h1:VNGGFwNo/R5+MJBf6yrsr110p0m4/OX4S3DCy7Kyl5E=
 github.com/remeh/sizedwaitgroup v1.0.0/go.mod h1:3j2R4OIe/SeS6YDhICBy22RWjJC5eNCJ1V+9+NVNYlo=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
