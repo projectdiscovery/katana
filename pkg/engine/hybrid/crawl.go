@@ -60,7 +60,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		} else {
 			statucCodeText = http.StatusText(statusCode)
 		}
-		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		if err != nil {
+			return errorutil.NewWithErr(err).Msgf("could not create http request")
+		}
 		httpresp := &http.Response{
 			Proto:         "HTTP/1.1",
 			ProtoMajor:    1,
