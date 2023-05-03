@@ -135,9 +135,6 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	// create a new browser instance (default to incognito mode)
 	if c.Options.Options.HeadlessNoIncognito {
-		if err := c.browser.Connect(); err != nil {
-			return err
-		}
 		crawlSession.Browser = c.browser
 	} else {
 		var err error
