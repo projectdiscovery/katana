@@ -26,7 +26,7 @@ var TestCases = []TestCase{
 					return nil
 				}
 			}
-			return errorutils.New("expected %v target in output, but got %v ", strings.Join(got, "\n"))
+			return errorutils.New("expected %v target in output, but got %v ", target, strings.Join(got, "\n"))
 		},
 	},
 }
