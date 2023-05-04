@@ -138,6 +138,7 @@ func (c *Crawler) Close() error {
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
 	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
+	crawlSession.Browser = c.browser
 	if err != nil {
 		return errorutil.NewWithErr(err).WithTag("hybrid")
 	}
