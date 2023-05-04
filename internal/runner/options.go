@@ -125,6 +125,9 @@ func initExampleFormFillConfig() error {
 	if fileutil.FileExists(defaultConfig) {
 		return nil
 	}
+	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
+		return err
+	}
 	exampleConfig, err := os.Create(defaultConfig)
 	if err != nil {
 		return errorutil.NewWithErr(err).Msgf("could not get home directory")
