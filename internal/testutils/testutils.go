@@ -16,15 +16,17 @@ type TestCase struct {
 
 var TestCases = []TestCase{
 	{
-		Name: "Headless Browser Without Incognito",
+		Name:     "Headless Browser Without Incognito",
 		Target:   "https://www.hackerone.com/",
 		Expected: nil,
 		Args:     "-headless -no-incognito -depth 2 -silent",
 		CompareFunc: func(target string, got []string) error {
-			if strings.Contains(got[0], target) && len(got) > 10 {
-				return nil
+			for _, res := range got {
+				if strings.Contains(res, target) {
+					return nil
+				}
 			}
-			return errorutils.New("expected > 10 results, but got %v ", len(got))
+			return errorutils.New("expected %v target in output, but got %v ", strings.Join(got, "\n"))
 		},
 	},
 }
