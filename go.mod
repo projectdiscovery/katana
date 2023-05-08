@@ -8,7 +8,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
-	github.com/projectdiscovery/fastdialer v0.0.25
+	github.com/projectdiscovery/fastdialer v0.0.26
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.8
 	github.com/projectdiscovery/hmap v0.0.11
@@ -88,8 +88,8 @@ require (
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/projectdiscovery/networkpolicy v0.0.5 // indirect
-	github.com/projectdiscovery/retryabledns v1.0.21 // indirect
+	github.com/projectdiscovery/networkpolicy v0.0.6 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.23 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
