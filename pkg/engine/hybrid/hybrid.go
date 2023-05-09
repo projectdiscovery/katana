@@ -97,6 +97,16 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		return nil, browserErr
 	}
 
+	// create a new browser instance (default to incognito mode)
+	if !options.Options.HeadlessNoIncognito {
+		incognito, err := browser.Incognito()
+		if err != nil {
+			chromeLauncher.Kill()
+			return nil, errorutil.NewWithErr(err).Msgf("failed to create incognito browser")
+		}
+		browser = incognito
+	}
+
 	shared, err := common.NewShared(options)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).WithTag("hybrid")
@@ -128,24 +138,11 @@ func (c *Crawler) Close() error {
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
 	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
+	crawlSession.Browser = c.browser
 	if err != nil {
 		return errorutil.NewWithErr(err).WithTag("hybrid")
 	}
 	defer crawlSession.CancelFunc()
-
-	// create a new browser instance (default to incognito mode)
-	if c.Options.Options.HeadlessNoIncognito {
-		if err := c.browser.Connect(); err != nil {
-			return err
-		}
-		crawlSession.Browser = c.browser
-	} else {
-		var err error
-		crawlSession.Browser, err = c.browser.Incognito()
-		if err != nil {
-			return err
-		}
-	}
 
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
