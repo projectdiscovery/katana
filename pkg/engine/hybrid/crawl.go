@@ -61,6 +61,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			statucCodeText = http.StatusText(statusCode)
 		}
 		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		for k, v := range c.Headers {
+			httpreq.Header.Set(k, v)
+		}
 		httpresp := &http.Response{
 			Proto:         "HTTP/1.1",
 			ProtoMajor:    1,
