@@ -127,7 +127,7 @@ CONFIGURATION:
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
-   -H, -headers string[]         custom header/cookie to include in request
+   -H, -headers string[]         custom header/cookie to include in all http request in header:value format (file)
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
