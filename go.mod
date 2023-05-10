@@ -8,6 +8,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
+	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.26
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.9
@@ -15,7 +16,7 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/projectdiscovery/retryablehttp-go v1.0.15
 	github.com/projectdiscovery/utils v0.0.28
-	github.com/projectdiscovery/wappalyzergo v0.0.93
+	github.com/projectdiscovery/wappalyzergo v0.0.94
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/shirou/gopsutil/v3 v3.23.4
@@ -47,7 +48,6 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/shoenig/go-m1cpu v0.1.5 // indirect
 	github.com/tidwall/btree v1.4.3 // indirect
