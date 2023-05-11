@@ -40,7 +40,7 @@ var DefaultFieldConfigData = []CustomFieldConfig{
 		Name:  "email",
 		Type:  "regex",
 		Part:  Response.ToString(),
-		Regex: []string{`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`},
+		Regex: []string{`[a-zA-Z0-9-_.]{2,}@[A-Za-z0-9_-]+[.](com|org|net|io|gov|co|co.uk|com.mx|com.br|com.sv|co.cr|com.gt|com.hn|com.ni|com.au|com.cn)`},
 	},
 }
 
