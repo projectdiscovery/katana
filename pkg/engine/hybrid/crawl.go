@@ -36,7 +36,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
 	defer page.Close()
-	c.addHeaderstoPage(page)
+	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
 	pageRouter.SetPattern(&proto.FetchRequestPattern{
@@ -63,7 +63,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			statucCodeText = http.StatusText(statusCode)
 		}
 		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
-		// Note: headers are originally sent using `c.addHeaderstoPage` below changes are done so that
+		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
 		if httpreq != nil {
 			for k, v := range c.Headers {
@@ -184,11 +184,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	return response, nil
 }
 
-func (c *Crawler) addHeaderstoPage(page *rod.Page) {
+func (c *Crawler) addHeadersToPage(page *rod.Page) {
 	if len(c.Headers) == 0 {
 		return
 	}
-	arr := []string{}
+	var arr []string
 	for k, v := range c.Headers {
 		arr = append(arr, k, v)
 	}
