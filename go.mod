@@ -4,25 +4,25 @@ go 1.19
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
-	github.com/go-rod/rod v0.112.9
+	github.com/go-rod/rod v0.113.0
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fastdialer v0.0.26
 	github.com/projectdiscovery/goflags v0.1.8
-	github.com/projectdiscovery/gologger v1.1.9
+	github.com/projectdiscovery/gologger v1.1.10
 	github.com/projectdiscovery/hmap v0.0.11
-	github.com/projectdiscovery/ratelimit v0.0.6
+	github.com/projectdiscovery/ratelimit v0.0.7
 	github.com/projectdiscovery/retryablehttp-go v1.0.15
-	github.com/projectdiscovery/utils v0.0.28
-	github.com/projectdiscovery/wappalyzergo v0.0.94
+	github.com/projectdiscovery/utils v0.0.30
+	github.com/projectdiscovery/wappalyzergo v0.0.95
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/shirou/gopsutil/v3 v3.23.4
 	github.com/stretchr/testify v1.8.2
 	go.uber.org/multierr v1.11.0
-	golang.org/x/net v0.9.0
+	golang.org/x/net v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -58,7 +58,8 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
-	github.com/ysmood/fetchup v0.2.2 // indirect
+	github.com/ysmood/fetchup v0.2.3 // indirect
+	github.com/ysmood/got v0.34.1 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
