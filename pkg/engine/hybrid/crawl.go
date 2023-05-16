@@ -163,6 +163,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
 	}
+
+	if response.Resp == nil {
+		return nil, errorutil.NewWithTag("hybrid", "response is nil").Wrap(err)
+	}
 	response.Resp.Request.URL = parsed.URL
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
