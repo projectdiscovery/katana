@@ -15,12 +15,12 @@ require (
 	github.com/projectdiscovery/hmap v0.0.11
 	github.com/projectdiscovery/ratelimit v0.0.7
 	github.com/projectdiscovery/retryablehttp-go v1.0.15
-	github.com/projectdiscovery/utils v0.0.30
+	github.com/projectdiscovery/utils v0.0.34
 	github.com/projectdiscovery/wappalyzergo v0.0.95
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/shirou/gopsutil/v3 v3.23.4
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.3
 	go.uber.org/multierr v1.11.0
 	golang.org/x/net v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -48,6 +48,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/projectdiscovery/blackrock v0.0.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/shoenig/go-m1cpu v0.1.5 // indirect
 	github.com/tidwall/btree v1.4.3 // indirect
@@ -62,7 +63,7 @@ require (
 	github.com/ysmood/got v0.34.1 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
-	golang.org/x/oauth2 v0.7.0 // indirect
+	golang.org/x/oauth2 v0.8.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )
@@ -82,7 +83,7 @@ require (
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible // indirect
-	github.com/microcosm-cc/bluemonday v1.0.23 // indirect
+	github.com/microcosm-cc/bluemonday v1.0.24 // indirect
 	github.com/miekg/dns v1.1.54 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
