@@ -178,6 +178,8 @@ OUTPUT:
    -o, -output string                file to write output to
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
+   -or, -omit-raw                    omit raw requests/responses from output
+   -ob, -omit-body                   omit response body from output
    -j, -json                         write output in JSONL(ines) format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
