@@ -486,6 +486,17 @@ Automatic form filling is experimental feature.
 katana -u https://tesla.com -aff
 ```
 
+*`-headers`*
+----
+
+Option to add a custom header or cookie to the request. 
+> Syntax of [headers](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2) in the HTTP specification
+
+Here is an example of adding a cookie to the request:
+```
+katana -u https://tesla.com -H 'Cookie: usrsess=AmljNrESo'
+```
+
 There are more options to configure when needed, here is all the config related CLI options - 
 
 ```console
