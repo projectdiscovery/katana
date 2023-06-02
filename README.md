@@ -497,6 +497,23 @@ Here is an example of adding a cookie to the request:
 katana -u https://tesla.com -H 'Cookie: usrsess=AmljNrESo'
 ```
 
+It is also possible to supply headers or cookies as a file. For example:
+
+```
+$ cat headers.txt
+
+Cookie: COMPASS=XXXXXXXXX
+Sec-Ch-Ua: "Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"
+X-Framework-Xsrf-Token: AKwhgQryedXmJbRCh7U-wcBRLYiDRUeerw:1683280131069
+Sec-Ch-Ua-Mobile: ?0
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 
+```
+
+```
+katana -u https://tesla.com -H headers.txt
+```
+
+
 There are more options to configure when needed, here is all the config related CLI options - 
 
 ```console
