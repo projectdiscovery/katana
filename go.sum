@@ -105,8 +105,8 @@ github.com/mattn/go-runewidth v0.0.14/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh
 github.com/mholt/archiver v3.1.1+incompatible h1:1dCVxuqs0dJseYEhi5pl7MYPH9zDa1wBi7mF09cbNkU=
 github.com/mholt/archiver v3.1.1+incompatible/go.mod h1:Dh2dOXnSdiLxRiPoVfIr/fI1TwETms9B8CTWfeh7ROU=
 github.com/microcosm-cc/bluemonday v1.0.21/go.mod h1:ytNkv4RrDrLJ2pqlsSI46O6IVXmZOBBD4SaJyDwwTkM=
-github.com/microcosm-cc/bluemonday v1.0.23 h1:SMZe2IGa0NuHvnVNAZ+6B38gsTbi5e4sViiWJyDDqFY=
-github.com/microcosm-cc/bluemonday v1.0.23/go.mod h1:mN70sk7UkkF8TUr2IGBpNN0jAgStuPzlK76QuruE/z4=
+github.com/microcosm-cc/bluemonday v1.0.24 h1:NGQoPtwGVcbGkKfvyYk1yRqknzBuoMiUrO6R7uFTPlw=
+github.com/microcosm-cc/bluemonday v1.0.24/go.mod h1:ArQySAMps0790cHSkdPEJ7bGkF2VePWH773hsJNSHf8=
 github.com/miekg/dns v1.1.54 h1:5jon9mWcb0sFJGpnI99tOMhCPyJ+RPVz5b63MQG0VWI=
 github.com/miekg/dns v1.1.54/go.mod h1:uInx36IzPl7FYnDcMeVWxj9byh7DutNykX4G9Sj60FY=
 github.com/minio/selfupdate v0.6.0 h1:i76PgT0K5xO9+hjzKcacQtO7+MjJ4JKA8Ak8XQ9DDwU=
@@ -159,8 +159,8 @@ github.com/projectdiscovery/retryabledns v1.0.23 h1:8X6HECevl6n7K7kxqfHLTcsCVXDd
 github.com/projectdiscovery/retryabledns v1.0.23/go.mod h1:tj8BEe0jWCB4m3aAhHq4S2dqfpod0h+BiCZmXkXAGac=
 github.com/projectdiscovery/retryablehttp-go v1.0.17 h1:oppnrypatWsHxcMU5RuAcUsUu3nxBhId2CF3OBj9XJA=
 github.com/projectdiscovery/retryablehttp-go v1.0.17/go.mod h1:zJh8bQdxhIsaEGnxsacvMbgiCKT4UAOr4T1kZBnSa68=
-github.com/projectdiscovery/utils v0.0.32 h1:TjUxFmRG9hiV6jauYsnIRiy08lTgGHGi8avstedNGXw=
-github.com/projectdiscovery/utils v0.0.32/go.mod h1:SaOpcZ2dJ47NE3t4R/YC2XpUyRZC6v5k8sj2TFro6+k=
+github.com/projectdiscovery/utils v0.0.35 h1:+ex4fbJlcbf/5/RXFZcI9SG0Fo27vxlwV5DP+fMLY+4=
+github.com/projectdiscovery/utils v0.0.35/go.mod h1:gyDuJpCGPHN6Lyo3O8PAkTxf88iiAxRZyaMFMrXV0z4=
 github.com/projectdiscovery/wappalyzergo v0.0.97 h1:p2OEyg8Xc9W/RwZteCx4nw9D/3Qwvi0Uz/cvK1LxheE=
 github.com/projectdiscovery/wappalyzergo v0.0.97/go.mod h1:GmyrhvkxSxYAjgCj5mQPVEZ688XAw6RJrTGIbS8xHUo=
 github.com/remeh/sizedwaitgroup v1.0.0 h1:VNGGFwNo/R5+MJBf6yrsr110p0m4/OX4S3DCy7Kyl5E=
