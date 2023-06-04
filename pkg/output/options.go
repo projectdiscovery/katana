@@ -8,6 +8,8 @@ type Options struct {
 	JSON             bool
 	Verbose          bool
 	StoreResponse    bool
+	OmitRaw          bool
+	OmitBody         bool
 	OutputFile       string
 	Fields           string
 	StoreFields      string
