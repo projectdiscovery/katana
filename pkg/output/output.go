@@ -44,6 +44,8 @@ type StandardWriter struct {
 	outputMutex      *sync.Mutex
 	storeResponse    bool
 	storeResponseDir string
+	omitRaw          bool
+	omitBody         bool
 	errorFile        *fileWriter
 	matchRegex       []*regexp.Regexp
 	filterRegex      []*regexp.Regexp
@@ -59,6 +61,8 @@ func New(options Options) (Writer, error) {
 		outputMutex:      &sync.Mutex{},
 		storeResponse:    options.StoreResponse,
 		storeResponseDir: options.StoreResponseDir,
+		omitRaw:          options.OmitRaw,
+		omitBody:         options.OmitBody,
 		matchRegex:       options.MatchRegex,
 		filterRegex:      options.FilterRegex,
 	}
@@ -136,6 +140,14 @@ func (w *StandardWriter) Write(result *Result) error {
 		}
 		var data []byte
 		var err error
+
+		if w.omitRaw {
+			result.Request.Raw = ""
+			result.Response.Raw = ""
+		}
+		if w.omitBody {
+			result.Response.Body = ""
+		}
 
 		if w.json {
 			data, err = w.formatJSON(result)

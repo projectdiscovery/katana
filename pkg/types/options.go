@@ -98,6 +98,10 @@ type Options struct {
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
 	StoreResponseDir string
+	// OmitRaw omits raw requests/responses from the output
+	OmitRaw bool
+	// OmitBody omits the response body from the output
+	OmitBody bool
 	// ChromeDataDir : 	Specify the --user-data-dir to chrome binary to preserve sessions
 	ChromeDataDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
