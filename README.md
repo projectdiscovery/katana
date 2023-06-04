@@ -488,6 +488,38 @@ Automatic form filling is experimental feature.
 katana -u https://tesla.com -aff
 ```
 
+## Authenticated Crawling
+
+Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perfrom authenticated crawling.
+
+> **Note**: User needs to be manually perform the authentication and export the session cookie / header to file to use with katana.
+
+*`-headers`*
+----
+
+Option to add a custom header or cookie to the request. 
+> Syntax of [headers](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2) in the HTTP specification
+
+Here is an example of adding a cookie to the request:
+```
+katana -u https://tesla.com -H 'Cookie: usrsess=AmljNrESo'
+```
+
+It is also possible to supply headers or cookies as a file. For example:
+
+```
+$ cat cookie.txt
+
+Cookie: PHPSESSIONID=XXXXXXXXX
+X-API-KEY: XXXXX
+TOKEN=XX
+```
+
+```
+katana -u https://tesla.com -H cookie.txt
+```
+
+
 There are more options to configure when needed, here is all the config related CLI options - 
 
 ```console
