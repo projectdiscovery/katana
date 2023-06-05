@@ -10,6 +10,13 @@ import (
 
 type Headers map[string]string
 
+type Form struct {
+	Method     string   `json:"method,omitempty"`
+	Action     string   `json:"action,omitempty"`
+	Enctype    string   `json:"enctype,omitempty"`
+	Parameters []string `json:"parameters,omitempty"`
+}
+
 func (h *Headers) MarshalJSON() ([]byte, error) {
 	hCopy := make(Headers)
 	for k, v := range *h {
@@ -30,6 +37,7 @@ type Response struct {
 	RootHostname string            `json:"-"`
 	Technologies []string          `json:"technologies,omitempty"`
 	Raw          string            `json:"raw,omitempty"`
+	Forms        []Form            `json:"forms,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {
