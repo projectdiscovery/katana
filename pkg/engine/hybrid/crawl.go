@@ -180,6 +180,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.Body = body
+	if c.Options.Options.FormExtraction {
+		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
