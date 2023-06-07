@@ -12,7 +12,7 @@ require (
 	github.com/projectdiscovery/fastdialer v0.0.26
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.10
-	github.com/projectdiscovery/hmap v0.0.11
+	github.com/projectdiscovery/hmap v0.0.13
 	github.com/projectdiscovery/ratelimit v0.0.8
 	github.com/projectdiscovery/retryablehttp-go v1.0.17
 	github.com/projectdiscovery/utils v0.0.35
@@ -52,7 +52,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/shoenig/go-m1cpu v0.1.5 // indirect
 	github.com/tidwall/btree v1.4.3 // indirect
-	github.com/tidwall/buntdb v1.2.10 // indirect
+	github.com/tidwall/buntdb v1.3.0 // indirect
 	github.com/tidwall/gjson v1.14.3 // indirect
 	github.com/tidwall/grect v0.1.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
