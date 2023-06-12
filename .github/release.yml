@@ -2,6 +2,7 @@ changelog:
   exclude:
     authors:
       - app/dependabot
+      - dependabot
   categories:
     - title: 🎉 Features
       labels:
