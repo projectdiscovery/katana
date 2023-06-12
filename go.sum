@@ -161,8 +161,8 @@ github.com/projectdiscovery/retryablehttp-go v1.0.17 h1:oppnrypatWsHxcMU5RuAcUsU
 github.com/projectdiscovery/retryablehttp-go v1.0.17/go.mod h1:zJh8bQdxhIsaEGnxsacvMbgiCKT4UAOr4T1kZBnSa68=
 github.com/projectdiscovery/utils v0.0.37 h1:axtIvjrguwhwKCBajj3N3MCmetfi4XLUI9UUpEhxtbQ=
 github.com/projectdiscovery/utils v0.0.37/go.mod h1:sy0CqulJzn95Ro24VQPlDvwxV9yxl8YMoTDYQNxr85U=
-github.com/projectdiscovery/wappalyzergo v0.0.97 h1:p2OEyg8Xc9W/RwZteCx4nw9D/3Qwvi0Uz/cvK1LxheE=
-github.com/projectdiscovery/wappalyzergo v0.0.97/go.mod h1:GmyrhvkxSxYAjgCj5mQPVEZ688XAw6RJrTGIbS8xHUo=
+github.com/projectdiscovery/wappalyzergo v0.0.100 h1:qDBDr0AnEmgMa5PTco9k+EtSUkeI2O9HprK7X3eVt1o=
+github.com/projectdiscovery/wappalyzergo v0.0.100/go.mod h1:4Z3DKhi75zIPMuA+qSDDWxZvnhL4qTLmDx4dxNMu7MA=
 github.com/remeh/sizedwaitgroup v1.0.0 h1:VNGGFwNo/R5+MJBf6yrsr110p0m4/OX4S3DCy7Kyl5E=
 github.com/remeh/sizedwaitgroup v1.0.0/go.mod h1:3j2R4OIe/SeS6YDhICBy22RWjJC5eNCJ1V+9+NVNYlo=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
