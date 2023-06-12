@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
-	github.com/go-rod/rod v0.113.1
+	github.com/go-rod/rod v0.113.3
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
@@ -50,8 +50,8 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
+	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tidwall/btree v1.4.3 // indirect
 	github.com/tidwall/buntdb v1.3.0 // indirect
 	github.com/tidwall/gjson v1.14.3 // indirect
