@@ -83,6 +83,9 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
 	response.StatusCode = resp.StatusCode
 	response.Headers = utils.FlattenHeaders(resp.Header)
+	if c.Options.Options.FormExtraction {
+		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	}
 
 	resp.ContentLength = int64(len(data))
 

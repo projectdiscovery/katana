@@ -82,6 +82,8 @@ type Options struct {
 	Headless bool
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
+	// FormExtraction enables extraction of form, input, textarea & select elements
+	FormExtraction bool
 	// UseInstalledChrome skips chrome install and use local instance
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
