@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"strings"
+
 	"github.com/projectdiscovery/katana/pkg/navigation"
 
 	"github.com/PuerkitoBio/goquery"
@@ -18,7 +20,7 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 		enctype, _ := formElem.Attr("enctype")
 
 		form.Action = action
-		form.Method = method
+		form.Method = strings.ToUpper(method)
 		form.Enctype = enctype
 
 		formElem.Find("input, textarea, select").Each(func(i int, inputElem *goquery.Selection) {
