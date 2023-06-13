@@ -6,6 +6,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/utils/generic"
 )
 
 // parses form, input, textarea & select elements
@@ -32,7 +33,9 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 			form.Parameters = append(form.Parameters, name)
 		})
 
-		forms = append(forms, form)
+		if !generic.EqualsAll("", form.Action, form.Method, form.Enctype) || len(form.Parameters) > 0 {
+			forms = append(forms, form)
+		}
 	})
 
 	return forms
