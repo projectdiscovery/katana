@@ -108,6 +108,8 @@ type Options struct {
 	ChromeDataDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
 	HeadlessNoIncognito bool
+	// XhrExtraction extract xhr requests
+	XhrExtraction bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests

@@ -125,7 +125,7 @@ CONFIGURATION:
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
-   -fx, -form-extraction        enable extraction of form, input, textarea & select elements
+   -fx, -form-extraction         enable extraction of form, input, textarea & select elements
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in all http request in header:value format (file)
@@ -148,6 +148,7 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -xhr, -xhr-extraction             extract xhr requests
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -310,6 +311,7 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -xhr, -xhr-extraction             extract xhr requests
 ```
 
 *`-no-sandbox`*
