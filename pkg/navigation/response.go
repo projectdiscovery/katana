@@ -38,6 +38,7 @@ type Response struct {
 	Technologies []string          `json:"technologies,omitempty"`
 	Raw          string            `json:"raw,omitempty"`
 	Forms        []Form            `json:"forms,omitempty"`
+	XhrRequests  []Request         `json:"xhr_requests,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {
