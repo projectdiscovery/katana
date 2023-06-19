@@ -148,6 +148,7 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -xhr, -xhr-extraction             extract xhr requests
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -310,6 +311,7 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -xhr, -xhr-extraction             extract xhr requests
 ```
 
 *`-no-sandbox`*
