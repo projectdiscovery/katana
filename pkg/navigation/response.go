@@ -17,13 +17,6 @@ type Form struct {
 	Parameters []string `json:"parameters,omitempty"`
 }
 
-type XhrRequest struct {
-	Url     string `json:"url,omitempty"`
-	Method  string `json:"method,omitempty"`
-	Enctype string `json:"enctype,omitempty"`
-	Body    string `json:"body,omitempty"`
-}
-
 func (h *Headers) MarshalJSON() ([]byte, error) {
 	hCopy := make(Headers)
 	for k, v := range *h {
@@ -45,7 +38,7 @@ type Response struct {
 	Technologies []string          `json:"technologies,omitempty"`
 	Raw          string            `json:"raw,omitempty"`
 	Forms        []Form            `json:"forms,omitempty"`
-	XhrRequests  []XhrRequest      `json:"xhr_requests,omitempty"`
+	XhrRequests  []Request         `json:"xhr_requests,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

@@ -44,7 +44,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		RequestStage: proto.FetchRequestStageResponse,
 	})
 
-	xhrRequests := []navigation.XhrRequest{}
+	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, _ := urlutil.Parse(e.Request.URL)
 		body, _ := FetchGetResponseBody(page, e)
@@ -107,14 +107,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
-			xhr := navigation.XhrRequest{}
-			xhr.Url = URL.String()
-			xhr.Method = e.Request.Method
-			if !e.Request.Headers["Content-Type"].Nil() {
-				xhr.Enctype = e.Request.Headers["Content-Type"].Str()
-			}
-			if e.Request.HasPostData {
-				xhr.Body = e.Request.PostData
+			xhr := navigation.Request{
+				URL:     httpreq.URL.String(),
+				Method:  httpreq.Method,
+				Headers: utils.FlattenHeaders(httpreq.Header),
+				Body:    e.Request.PostData,
 			}
 			xhrRequests = append(xhrRequests, xhr)
 		}
