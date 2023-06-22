@@ -43,6 +43,8 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		URLPattern:   "*",
 		RequestStage: proto.FetchRequestStageResponse,
 	})
+
+	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, _ := urlutil.Parse(e.Request.URL)
 		body, _ := FetchGetResponseBody(page, e)
@@ -102,6 +104,16 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			StatusCode:   statusCode,
 			Headers:      utils.FlattenHeaders(headers),
 			Raw:          string(rawBytesResponse),
+		}
+
+		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
+			xhr := navigation.Request{
+				URL:     httpreq.URL.String(),
+				Method:  httpreq.Method,
+				Headers: utils.FlattenHeaders(httpreq.Header),
+				Body:    e.Request.PostData,
+			}
+			xhrRequests = append(xhrRequests, xhr)
 		}
 
 		// trim trailing /
@@ -180,11 +192,17 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.Body = body
+	if c.Options.Options.FormExtraction {
+		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
 	}
+
+	response.XhrRequests = xhrRequests
+
 	return response, nil
 }
 

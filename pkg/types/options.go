@@ -82,6 +82,8 @@ type Options struct {
 	Headless bool
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
+	// FormExtraction enables extraction of form, input, textarea & select elements
+	FormExtraction bool
 	// UseInstalledChrome skips chrome install and use local instance
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
@@ -108,6 +110,8 @@ type Options struct {
 	ChromeDataDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
 	HeadlessNoIncognito bool
+	// XhrExtraction extract xhr requests
+	XhrExtraction bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
