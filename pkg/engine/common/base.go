@@ -134,13 +134,14 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 
 	parsed, err := urlutil.Parse(URL)
 	if err != nil {
-		//nolint
+		cancel()
 		return nil, errorutil.New("could not parse root URL").Wrap(err)
 	}
 	hostname := parsed.Hostname()
 
 	queue, err := queue.New(s.Options.Options.Strategy, s.Options.Options.Timeout)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
@@ -170,6 +171,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		s.Enqueue(queue, navigationRequests...)
 	})
 	if err != nil {
+		cancel()
 		return nil, errorutil.New("could not create http client").Wrap(err)
 	}
 	crawlSession := &CrawlSession{
