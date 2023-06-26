@@ -11,7 +11,6 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -27,7 +26,6 @@ func main() {
 	if err != nil {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
-	parser.ScrapeJSResponses = options.ScrapeJSResponses
 
 	if options.HealthCheck {
 		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
@@ -72,7 +70,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.Resolvers, "resolvers", "r", nil, "list of custom resolver (file or comma separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 3, "maximum depth to crawl"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
-		flagSet.BoolVarP(&options.DisableScrapeJSLuiceResponses, "disable-jsluice", "dj", false, "disable jsluice parsing in javascript file"),
+		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jl", false, "enable jsluice parsing in javascript file"),
 		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
 		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml)"),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", math.MaxInt, "maximum response size to read"),

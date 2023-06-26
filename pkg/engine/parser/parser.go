@@ -75,7 +75,7 @@ func InitWithOptions(options *types.Options) {
 	if options.AutomaticFormFill {
 		responseParsers = append(responseParsers, responseParser{bodyParser, bodyFormTagParser})
 	}
-	if !options.DisableScrapeJSLuiceResponses {
+	if options.ScrapeJSLuiceResponses {
 		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentJsluiceParser})
 		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileJsluiceParser})
 	}
