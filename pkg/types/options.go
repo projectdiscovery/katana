@@ -76,6 +76,8 @@ type Options struct {
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
 	ScrapeJSResponses bool
+	// DisableScrapeJSLuiceResponses disables scraping of endpoints from javascript using jsluice
+	DisableScrapeJSLuiceResponses bool
 	// CustomHeaders is a list of custom headers to add to request
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping

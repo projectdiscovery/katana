@@ -71,17 +71,19 @@ var responseParsers = []responseParser{
 	{bodyParser, customFieldRegexParser},
 }
 
-// ScrapeJSResponses is a global flag to scrape javascript responses
-// using relative endpoints.
-var ScrapeJSResponses = false
-
 func InitWithOptions(options *types.Options) {
 	if options.AutomaticFormFill {
 		responseParsers = append(responseParsers, responseParser{bodyParser, bodyFormTagParser})
 	}
-	responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
-	responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
-	responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
+	if !options.DisableScrapeJSLuiceResponses {
+		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentJsluiceParser})
+		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileJsluiceParser})
+	}
+	if options.ScrapeJSResponses {
+		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
+		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
+		responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
+	}
 }
 
 // parseResponse runs the response parsers on the navigation response
@@ -626,16 +628,25 @@ func scriptContentRegexParser(resp *navigation.Response) (navigationRequests []*
 			return
 		}
 
+		endpoints := utils.ExtractRelativeEndpoints(text)
+		for _, item := range endpoints {
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "script", "text", resp))
+		}
+	})
+	return
+}
+
+// scriptContentJsluiceParser parses script content endpoints using jsluice from response
+func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
+		text := item.Text()
+		if text == "" {
+			return
+		}
+
 		endpointItems := utils.ExtractJsluiceEndpoints(text)
 		for _, item := range endpointItems {
 			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "script", fmt.Sprintf("jsluice-%s", item.Type), resp))
-		}
-
-		if ScrapeJSResponses {
-			endpoints := utils.ExtractRelativeEndpoints(text)
-			for _, item := range endpoints {
-				navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "script", "text", resp))
-			}
 		}
 	})
 	return
@@ -654,12 +665,21 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	for _, item := range endpointsItems {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("jsluice-%s", item.Type), resp))
 	}
+	return
+}
 
-	if ScrapeJSResponses {
-		endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
-		for _, item := range endpoints {
-			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
-		}
+// scriptJSFileJsluiceParser parses endpoints using jsluice from js file pages
+func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	// Only process javascript file based on path or content type
+	// CSS, JS are supported for relative endpoint extraction.
+	contentType := resp.Resp.Header.Get("Content-Type")
+	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
+		return
+	}
+
+	endpointsItems := utils.ExtractJsluiceEndpoints(string(resp.Body))
+	for _, item := range endpointsItems {
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("jsluice-%s", item.Type), resp))
 	}
 	return
 }
