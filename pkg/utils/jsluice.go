@@ -11,8 +11,8 @@ type JSLuiceEndpoint struct {
 
 // ExtractJsluiceEndpoints extracts jsluice endpoints from a given string.
 //
-// We use tomnomnom and detectify's jsluice to extract relative endpoints from javascript
-// files and sourcemaps.
+// We use tomnomnom and bishopfox's jsluice to extract endpoints from javascript
+// files.
 func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 	analyzer := jsluice.NewAnalyzer([]byte(data))
 
