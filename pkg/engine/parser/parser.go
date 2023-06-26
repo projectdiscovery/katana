@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"mime/multipart"
 	"strings"
 
@@ -70,15 +71,17 @@ var responseParsers = []responseParser{
 	{bodyParser, customFieldRegexParser},
 }
 
+// ScrapeJSResponses is a global flag to scrape javascript responses
+// using relative endpoints.
+var ScrapeJSResponses = false
+
 func InitWithOptions(options *types.Options) {
 	if options.AutomaticFormFill {
 		responseParsers = append(responseParsers, responseParser{bodyParser, bodyFormTagParser})
 	}
-	if options.ScrapeJSResponses {
-		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
-		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
-		responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
-	}
+	responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
+	responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
+	responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
 }
 
 // parseResponse runs the response parsers on the navigation response
@@ -622,9 +625,17 @@ func scriptContentRegexParser(resp *navigation.Response) (navigationRequests []*
 		if text == "" {
 			return
 		}
-		endpoints := utils.ExtractRelativeEndpoints(text)
-		for _, item := range endpoints {
-			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "script", "text", resp))
+
+		endpointItems := utils.ExtractJsluiceEndpoints(text)
+		for _, item := range endpointItems {
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "script", fmt.Sprintf("jsluice-%s", item.Type), resp))
+		}
+
+		if ScrapeJSResponses {
+			endpoints := utils.ExtractRelativeEndpoints(text)
+			for _, item := range endpoints {
+				navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "script", "text", resp))
+			}
 		}
 	})
 	return
@@ -639,9 +650,16 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 		return
 	}
 
-	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
-	for _, item := range endpoints {
-		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
+	endpointsItems := utils.ExtractJsluiceEndpoints(string(resp.Body))
+	for _, item := range endpointsItems {
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("jsluice-%s", item.Type), resp))
+	}
+
+	if ScrapeJSResponses {
+		endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
+		for _, item := range endpoints {
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
+		}
 	}
 	return
 }

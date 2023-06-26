@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -26,6 +27,7 @@ func main() {
 	if err != nil {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
+	parser.ScrapeJSResponses = options.ScrapeJSResponses
 
 	if options.HealthCheck {
 		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
