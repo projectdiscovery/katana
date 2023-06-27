@@ -127,9 +127,9 @@ type CrawlSession struct {
 
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	if s.Options.Options.CrawlDuration > 0 {
+	if s.Options.Options.CrawlDuration.Seconds() > 0 {
 		//nolint
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, s.Options.Options.CrawlDuration)
 	}
 
 	parsed, err := urlutil.Parse(URL)
