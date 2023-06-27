@@ -3,6 +3,7 @@ package types
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -33,7 +34,7 @@ type Options struct {
 	// Timeout is the time to wait for request in seconds
 	Timeout int
 	// CrawlDuration is the duration in seconds to crawl target from
-	CrawlDuration int
+	CrawlDuration time.Duration
 	// Delay is the delay between each crawl requests in seconds
 	Delay int
 	// RateLimit is the maximum number of requests to send per second
