@@ -676,6 +676,10 @@ func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []
 	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
 		return
 	}
+	// Skip common js libraries
+	if utils.IsPathCommonJSLibraryFile(resp.Resp.Request.URL.Path) {
+		return
+	}
 
 	endpointsItems := utils.ExtractJsluiceEndpoints(string(resp.Body))
 	for _, item := range endpointsItems {
