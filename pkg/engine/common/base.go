@@ -206,10 +206,6 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
 			continue
 		}
-		if !s.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("skipping url with blacklisted extension %v", req.URL)
-			continue
-		}
 
 		wg.Add()
 		// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
