@@ -19,7 +19,7 @@ import (
 
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
-	if options.MaxDepth <= 0 && options.CrawlDuration <= 0 {
+	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
 		return errorutil.New("either max-depth or crawl-duration must be specified")
 	}
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
