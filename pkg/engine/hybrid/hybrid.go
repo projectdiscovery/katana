@@ -43,24 +43,26 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	var launcherURL string
 	var chromeLauncher *launcher.Launcher
-	if len(options.Options.ChromeWSUrl) == 0 {
-		var err error
+
+	if options.Options.ChromeWSUrl != "" {
+		launcherURL = options.Options.ChromeWSUrl
+	} else {
+		// create new chrome launcher instance
 		chromeLauncher, err = buildChromeLauncher(options, dataStore)
 		if err != nil {
 			return nil, err
 		}
 
+		// launch chrome headless process
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		launcherURL = options.Options.ChromeWSUrl
 	}
 
 	browser := rod.New().ControlURL(launcherURL)
 	if browserErr := browser.Connect(); browserErr != nil {
-		return nil, browserErr
+		return nil, errorutil.NewWithErr(browserErr).Msgf("failed to connect to chrome instance at %s", launcherURL)
 	}
 
 	// create a new browser instance (default to incognito mode)
@@ -121,6 +123,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	return nil
 }
 
+// buildChromeLauncher builds a new chrome launcher instance
 func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*launcher.Launcher, error) {
 	chromeLauncher := launcher.New().
 		Leakless(false).
