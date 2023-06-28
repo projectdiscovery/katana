@@ -95,6 +95,8 @@ type Options struct {
 	HeadlessNoSandbox bool
 	// SystemChromePath : Specify the chrome binary path for headless crawling
 	SystemChromePath string
+	// ChromeWSUrl : Specify the Chrome debugger websocket url for a running Chrome instance to attach to
+	ChromeWSUrl string
 	// OnResult allows callback function on a result
 	OnResult OnResultCallback
 	// StoreResponse specifies if katana should store http requests/responses
