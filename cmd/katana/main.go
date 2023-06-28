@@ -100,6 +100,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.ChromeDataDir, "chrome-data-dir", "cdd", "", "path to store chrome browser data"),
 		flagSet.StringVarP(&options.SystemChromePath, "system-chrome-path", "scp", "", "use specified chrome browser for headless crawling"),
 		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
+		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr requests"),
 	)
 
