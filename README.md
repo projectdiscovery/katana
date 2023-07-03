@@ -778,11 +778,11 @@ By default, katana outputs the crawled endpoints in plain text format. The resul
 katana -u https://example.com -no-scope -output example_endpoints.txt
 ```
 
-*`-json`*
+*`-jsonl`*
 ---
 
 ```console
-katana -u https://example.com -json | jq .
+katana -u https://example.com -jsonl | jq .
 ```
 
 ```json
