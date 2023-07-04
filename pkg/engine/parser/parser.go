@@ -531,7 +531,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 
 		isMultipartForm := strings.HasPrefix(encType, "multipart/")
 
-		queryValuesWriter := make(urlutil.Params)
+		queryValuesWriter := urlutil.NewOrderedParams()
 		var sb strings.Builder
 		var multipartWriter *multipart.Writer
 
@@ -580,7 +580,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		}
 		switch method {
 		case "GET":
-			parsed.Params.Merge(queryValuesWriter)
+			parsed.Params.Merge(queryValuesWriter.Encode())
 			req.URL = parsed.String()
 		case "POST":
 			if multipartWriter != nil {
