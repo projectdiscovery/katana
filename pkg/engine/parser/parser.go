@@ -549,16 +549,17 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		})
 
 		dataMap := utils.FormInputFillSuggestions(formInputs)
-		for key, value := range dataMap {
+		dataMap.Iterate(func(key, value string) bool {
 			if key == "" || value == "" {
-				continue
+				return true
 			}
 			if isMultipartForm {
 				_ = multipartWriter.WriteField(key, value)
 			} else {
 				queryValuesWriter.Set(key, value)
 			}
-		}
+			return true
+		})
 
 		// Guess content-type
 		var contentType string
