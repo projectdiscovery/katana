@@ -83,9 +83,10 @@ func ReplaceAllQueryParam(reqUrl, val string) string {
 		return reqUrl
 	}
 	params := u.Query()
-	for k := range params {
-		params.Set(k, "")
-	}
+	params.Iterate(func(key string, value []string) bool {
+		params.Set(key, "")
+		return true
+	})
 	u.RawQuery = params.Encode()
 	return u.String()
 }

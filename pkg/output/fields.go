@@ -102,19 +102,17 @@ func formatField(output *Result, fields string) []fieldOutput {
 		return svalue
 	}
 
-	queryLen := len(parsed.Query())
-	queryBoth := make([]string, 0, queryLen)
-	queryKeys := make([]string, 0, queryLen)
-	queryValues := make([]string, 0, queryLen)
-	if queryLen > 0 {
-		for k, v := range parsed.Query() {
-			for _, value := range v {
-				queryBoth = append(queryBoth, strings.Join([]string{k, value}, "="))
-			}
-			queryKeys = append(queryKeys, k)
-			queryValues = append(queryValues, v...)
+	queryBoth := []string{}
+	queryKeys := []string{}
+	queryValues := []string{}
+	parsed.Query().Iterate(func(k string, v []string) bool {
+		for _, value := range v {
+			queryBoth = append(queryBoth, strings.Join([]string{k, value}, "="))
 		}
-	}
+		queryKeys = append(queryKeys, k)
+		queryValues = append(queryValues, v...)
+		return true
+	})
 	for _, f := range stringsutil.SplitAny(fields, ",") {
 		switch f {
 		case "url":
