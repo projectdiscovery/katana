@@ -54,13 +54,13 @@ func TestFormInputFillSuggestions(t *testing.T) {
 		})
 
 		dataMap := FormInputFillSuggestions(formInputs)
-		for key, value := range dataMap {
+		dataMap.Iterate(func(key, value string) bool {
 			if key == "" || value == "" {
-				continue
+				return true
 			}
 			queryValuesWriter.Set(key, value)
-		}
-
+			return true
+		})
 		value := queryValuesWriter.Encode()
 		require.Equal(t, "Startdate=katana&color=red&firstname=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
 	})
