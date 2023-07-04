@@ -133,6 +133,8 @@ type Options struct {
 	IgnoreQueryParams bool
 	// Debug
 	Debug bool
+	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
+	TlsImpersonate bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
