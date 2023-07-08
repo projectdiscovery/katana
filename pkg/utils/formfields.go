@@ -25,6 +25,10 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 			method = "GET"
 		}
 
+		if enctype == "" && method != "GET" {
+			enctype = "application/x-www-form-urlencoded"
+		}
+
 		actionUrl, _ := url.Parse(action)
 		if !actionUrl.IsAbs() && !strings.HasPrefix(action, "//") && !strings.HasPrefix(action, "\\\\") {
 			if action == "" {
