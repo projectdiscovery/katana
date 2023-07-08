@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 
 	"strings"
 	"time"
@@ -180,6 +181,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.Body = body
+	response.Reader.Url, _ = url.Parse(request.URL)
 	if c.Options.Options.FormExtraction {
 		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
 	}

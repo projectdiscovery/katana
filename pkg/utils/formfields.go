@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -20,8 +21,23 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 		method, _ := formElem.Attr("method")
 		enctype, _ := formElem.Attr("enctype")
 
-		form.Action = action
+		if method == "" {
+			method = "GET"
+		}
+
+		actionUrl, _ := url.Parse(action)
+		if !actionUrl.IsAbs() && !strings.HasPrefix(action, "//") && !strings.HasPrefix(action, "\\\\") {
+			if action == "" {
+				action = document.Url.String()
+			} else if strings.HasPrefix(action, "/") {
+				action, _ = url.JoinPath(document.Url.Scheme+"://"+document.Url.Host, action)
+			} else if !strings.HasPrefix(action, "/") {
+				action = document.Url.JoinPath(action).String()
+			}
+		}
+
 		form.Method = strings.ToUpper(method)
+		form.Action = action
 		form.Enctype = enctype
 
 		formElem.Find("input, textarea, select").Each(func(i int, inputElem *goquery.Selection) {

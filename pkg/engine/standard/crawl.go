@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -81,6 +82,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	response.Body = string(data)
 	response.Resp = resp
 	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
+	response.Reader.Url, _ = url.Parse(request.URL)
 	response.StatusCode = resp.StatusCode
 	response.Headers = utils.FlattenHeaders(resp.Header)
 	if c.Options.Options.FormExtraction {
