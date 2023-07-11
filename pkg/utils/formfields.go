@@ -8,6 +8,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/utils/generic"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 // parses form, input, textarea & select elements
@@ -29,15 +30,35 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 			enctype = "application/x-www-form-urlencoded"
 		}
 
-		actionUrl, _ := url.Parse(action)
-		if !actionUrl.IsAbs() && !strings.HasPrefix(action, "//") && !strings.HasPrefix(action, "\\\\") {
-			if action == "" {
-				action = document.Url.String()
-			} else if strings.HasPrefix(action, "/") {
-				action, _ = url.JoinPath(document.Url.Scheme+"://"+document.Url.Host, action)
-			} else if !strings.HasPrefix(action, "/") {
-				action = document.Url.JoinPath(action).String()
+		if action != "" {
+			actionUrl, err := urlutil.ParseURL(action, true)
+			if err != nil {
+				return
 			}
+
+			// donot modify absolute urls and windows paths
+			if actionUrl.IsAbs() || strings.HasPrefix(action, "//") || strings.HasPrefix(action, "\\") {
+				// keep absolute urls as is
+				_ = action
+			} else if document.Url != nil {
+				// concatenate relative urls with base url
+				// clone base url
+				cloned := cloneURL(document.Url)
+
+				if strings.HasPrefix(action, "/") {
+					// relative path
+					// 	<form action=/root_rel></form> => https://example.com/root_rel
+					cloned.Path = action
+					action = cloned.String()
+				} else {
+					// 	<form action=path_rel></form> => https://example.com/path/path_rel
+					if newurl := cloned.JoinPath(action); newurl != nil {
+						action = newurl.String()
+					}
+				}
+			}
+		} else {
+			action = document.Url.String()
 		}
 
 		form.Method = strings.ToUpper(method)
@@ -59,4 +80,9 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 	})
 
 	return forms
+}
+
+func cloneURL(u *url.URL) *url.URL {
+	u2 := *u
+	return &u2
 }
