@@ -24,7 +24,7 @@ var htmlFormExample = `<html>
 	<form action=//prel.example.com></form>
 	<form action=\\unc.example.com></form>
 	<form action=/root_rel></form>
-	<form action=path_rel></form>
+	<form action=rel_path></form>
 	<form></form>
 </body>
 </html>`
@@ -47,7 +47,7 @@ func TestParseFormFields(t *testing.T) {
 	require.Equal(t, "GET", forms[4].Method)
 	require.Equal(t, "https://example.com/root_rel", forms[4].Action)
 	require.Equal(t, "GET", forms[5].Method)
-	require.Equal(t, "https://example.com/path/path_rel", forms[5].Action)
+	require.Equal(t, "https://example.com/path/rel_path", forms[5].Action)
 	require.Equal(t, "GET", forms[6].Method)
 	require.Equal(t, "https://example.com/path", forms[6].Action)
 	require.Contains(t, forms[0].Parameters, "firstname")

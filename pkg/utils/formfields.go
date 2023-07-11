@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"net/url"
 	"strings"
 
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -43,18 +42,22 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 			} else if document.Url != nil {
 				// concatenate relative urls with base url
 				// clone base url
-				cloned := cloneURL(document.Url)
+				cloned, err := urlutil.ParseURL(document.Url.String(), true)
+				if err != nil {
+					return
+				}
 
 				if strings.HasPrefix(action, "/") {
 					// relative path
 					// 	<form action=/root_rel></form> => https://example.com/root_rel
-					cloned.Path = action
+					cloned.UpdateRelPath(action, true)
 					action = cloned.String()
 				} else {
 					// 	<form action=path_rel></form> => https://example.com/path/path_rel
-					if newurl := cloned.JoinPath(action); newurl != nil {
-						action = newurl.String()
+					if err := cloned.MergePath(action, false); err != nil {
+						return
 					}
+					action = cloned.String()
 				}
 			}
 		} else {
@@ -80,9 +83,4 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 	})
 
 	return forms
-}
-
-func cloneURL(u *url.URL) *url.URL {
-	u2 := *u
-	return &u2
 }
