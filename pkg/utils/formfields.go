@@ -50,7 +50,7 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 				if strings.HasPrefix(action, "/") {
 					// relative path
 					// 	<form action=/root_rel></form> => https://example.com/root_rel
-					cloned.UpdateRelPath(action, true)
+					_ = cloned.UpdateRelPath(action, true)
 					action = cloned.String()
 				} else {
 					// 	<form action=path_rel></form> => https://example.com/path/path_rel
