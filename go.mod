@@ -3,6 +3,7 @@ module github.com/projectdiscovery/katana
 go 1.19
 
 require (
+	github.com/BishopFox/jsluice v0.0.0-20230623145428-f10429e1016a
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/go-rod/rod v0.113.4
 	github.com/json-iterator/go v1.1.12
@@ -55,6 +56,7 @@ require (
 	github.com/refraction-networking/utls v1.3.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
+	github.com/smacker/go-tree-sitter v0.0.0-20220628134258-ac06e95cfa11 // indirect
 	github.com/tidwall/btree v1.4.3 // indirect
 	github.com/tidwall/buntdb v1.3.0 // indirect
 	github.com/tidwall/gjson v1.14.3 // indirect

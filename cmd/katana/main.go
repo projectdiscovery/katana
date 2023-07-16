@@ -70,6 +70,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.Resolvers, "resolvers", "r", nil, "list of custom resolver (file or comma separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 3, "maximum depth to crawl"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
+		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jl", false, "enable jsluice parsing in javascript file (memory intensive)"),
 		flagSet.DurationVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for (s, m, h, d) (default s)"),
 		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml)"),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", math.MaxInt, "maximum response size to read"),
