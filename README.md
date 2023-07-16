@@ -120,7 +120,7 @@ CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
-   -jl, -jsluice                 enable jsluice parsing in javascript file
+   -jl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
    -ct, -crawl-duration value  maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
