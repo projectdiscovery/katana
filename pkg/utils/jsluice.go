@@ -2,6 +2,8 @@ package utils
 
 import (
 	"regexp"
+
+	"github.com/BishopFox/jsluice"
 )
 
 var (
@@ -29,5 +31,20 @@ type JSLuiceEndpoint struct {
 //   - We skip common js library files.
 //   - We skip lines that are too long and contain a lot of characters.
 func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
-	return extractJsluiceEndpoints(data)
+	analyzer := jsluice.NewAnalyzer([]byte(data))
+
+	// TODO: add new user url matchers
+	// analyzer.AddURLMatcher(matcher)
+
+	var endpoints []JSLuiceEndpoint
+	foundURLs := analyzer.GetURLs()
+
+	for _, url := range foundURLs {
+		url := url
+		endpoints = append(endpoints, JSLuiceEndpoint{
+			Endpoint: url.URL,
+			Type:     url.Type,
+		})
+	}
+	return endpoints
 }
