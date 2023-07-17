@@ -5,9 +5,9 @@ on:
   pull_request:
     branches:
       - dev
-    # paths:
-    #   - '**.go'
-    #   - '**.mod'
+    paths:
+      - '**.go'
+      - '**.mod'
 jobs:
   build:
     name: Test Builds
