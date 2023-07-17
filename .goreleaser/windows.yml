@@ -10,7 +10,7 @@ builds:
       - -s -w
     binary: katana
     # env:
-    # - CGO_ENABLED=1 # necessary only with winpcap
+    # - CGO_ENABLED=1 # necessary only with tree-sitter
     main: ./cmd/katana/main.go
     goos:
       - windows
