@@ -1,0 +1,35 @@
+env:
+  - GO111MODULE=on
+before:
+  hooks:
+    - go mod tidy
+project_name: katana
+builds:
+  - id: katana-linux
+    ldflags:
+      - -s -w
+    binary: katana
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/katana/main.go
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+archives:
+- format: zip
+
+checksum:
+  name_template: "{{ .ProjectName }}-linux-checksums.txt"
+
+announce:
+  slack:
+    enabled: true
+    channel: '#release'
+    username: GoReleaser
+    message_template: 'New Release: {{ .ProjectName }} {{.Tag}} is published! Check it out at {{ .ReleaseURL }}'
+
+  discord:
+    enabled: true
+    message_template: '**New Release: {{ .ProjectName }} {{.Tag}}** is published! Check it out at {{ .ReleaseURL }}'

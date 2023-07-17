@@ -1,0 +1,26 @@
+env:
+  - GO111MODULE=on
+before:
+  hooks:
+    - go mod tidy
+project_name: katana
+builds:
+  - id: katana-darwin
+    ldflags:
+      - -s -w
+    binary: katana
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/katana/main.go
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+archives:
+- format: zip
+  # replacements:
+  #     darwin: macOS
+
+checksum:
+  name_template: "{{ .ProjectName }}-mac-checksums.txt"

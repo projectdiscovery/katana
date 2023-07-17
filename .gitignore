@@ -4,3 +4,4 @@ katana
 *.exe
 katana_*/
 katana_*/
+dist/
