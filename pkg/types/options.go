@@ -3,6 +3,7 @@ package types
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -33,7 +34,7 @@ type Options struct {
 	// Timeout is the time to wait for request in seconds
 	Timeout int
 	// CrawlDuration is the duration in seconds to crawl target from
-	CrawlDuration int
+	CrawlDuration time.Duration
 	// Delay is the delay between each crawl requests in seconds
 	Delay int
 	// RateLimit is the maximum number of requests to send per second
@@ -76,12 +77,16 @@ type Options struct {
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
 	ScrapeJSResponses bool
+	// ScrapeJSLuiceResponses enables scraping of endpoints from javascript using jsluice
+	ScrapeJSLuiceResponses bool
 	// CustomHeaders is a list of custom headers to add to request
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
+	// FormExtraction enables extraction of form, input, textarea & select elements
+	FormExtraction bool
 	// UseInstalledChrome skips chrome install and use local instance
 	UseInstalledChrome bool
 	// ShowBrowser specifies whether the show the browser in headless mode
@@ -92,6 +97,8 @@ type Options struct {
 	HeadlessNoSandbox bool
 	// SystemChromePath : Specify the chrome binary path for headless crawling
 	SystemChromePath string
+	// ChromeWSUrl : Specify the Chrome debugger websocket url for a running Chrome instance to attach to
+	ChromeWSUrl string
 	// OnResult allows callback function on a result
 	OnResult OnResultCallback
 	// StoreResponse specifies if katana should store http requests/responses
@@ -106,6 +113,8 @@ type Options struct {
 	ChromeDataDir string
 	// HeadlessNoIncognito specifies if chrome should be started without incognito mode
 	HeadlessNoIncognito bool
+	// XhrExtraction extract xhr requests
+	XhrExtraction bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
@@ -126,6 +135,8 @@ type Options struct {
 	IgnoreQueryParams bool
 	// Debug
 	Debug bool
+	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
+	TlsImpersonate bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

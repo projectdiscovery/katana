@@ -120,11 +120,13 @@ CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
-   -ct, -crawl-duration int      maximum duration to crawl the target for
+   -jl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
+   -ct, -crawl-duration value  maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
+   -fx, -form-extraction         enable extraction of form, input, textarea & select elements
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in all http request in header:value format (file)
@@ -147,6 +149,8 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
+   -xhr, -xhr-extraction             extract xhr requests
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -309,6 +313,8 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
+   -xhr, -xhr-extraction             extract xhr requests
 ```
 
 *`-no-sandbox`*
@@ -535,6 +541,7 @@ CONFIGURATION:
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
+   -fx, -form-extraction         enable extraction of form, input, textarea & select elements
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
@@ -543,6 +550,41 @@ CONFIGURATION:
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
 ```
+
+### Connecting to Active Browser Session
+
+Katana can also connect to active browser session where user is already logged in and authenticated. and use it for crawling. The only requirement for this is to start browser with remote debugging enabled.
+
+Here is an example of starting chrome browser with remote debugging enabled and using it with katana -
+
+**step 1) First Locate path of chrome executable**
+
+| Operating System | Chromium Executable Location | Google Chrome Executable Location |
+|------------------|------------------------------|-----------------------------------|
+| Windows (64-bit) | `C:\Program Files (x86)\Google\Chromium\Application\chrome.exe` | `C:\Program Files (x86)\Google\Chrome\Application\chrome.exe` |
+| Windows (32-bit) | `C:\Program Files\Google\Chromium\Application\chrome.exe` | `C:\Program Files\Google\Chrome\Application\chrome.exe` |
+| macOS | `/Applications/Chromium.app/Contents/MacOS/Chromium` | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+| Linux | `/usr/bin/chromium` | `/usr/bin/google-chrome` |
+
+**step 2) Start chrome with remote debugging enabled and it will return websocker url. For example, on MacOS, you can start chrome with remote debugging enabled using following command** -
+
+```console
+$ /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/c5316c9c-19d6-42dc-847a-41d1aeebf7d6
+```
+
+> Now login to the website you want to crawl and keep the browser open.
+
+**step 3) Now use the websocket url with katana to connect to the active browser session and crawl the website**
+
+```console
+katana -headless -u https://tesla.com -cwu ws://127.0.0.1:9222/devtools/browser/c5316c9c-19d6-42dc-847a-41d1aeebf7d6 -no-incognito
+```
+
+> **Note**: you can use `-cdd` option to specify custom chrome data directory to store browser data and cookies but that does not save session data if cookie is set to `Session` only or expires after certain time.
+
 
 ## Filters
 

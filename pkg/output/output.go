@@ -11,6 +11,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
@@ -35,36 +36,38 @@ type Writer interface {
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
-	storeFields      []string
-	fields           string
-	json             bool
-	verbose          bool
-	aurora           aurora.Aurora
-	outputFile       *fileWriter
-	outputMutex      *sync.Mutex
-	storeResponse    bool
-	storeResponseDir string
-	omitRaw          bool
-	omitBody         bool
-	errorFile        *fileWriter
-	matchRegex       []*regexp.Regexp
-	filterRegex      []*regexp.Regexp
+	storeFields        []string
+	fields             string
+	json               bool
+	verbose            bool
+	aurora             aurora.Aurora
+	outputFile         *fileWriter
+	outputMutex        *sync.Mutex
+	storeResponse      bool
+	storeResponseDir   string
+	omitRaw            bool
+	omitBody           bool
+	errorFile          *fileWriter
+	matchRegex         []*regexp.Regexp
+	filterRegex        []*regexp.Regexp
+	extensionValidator *extensions.Validator
 }
 
 // New returns a new output writer instance
 func New(options Options) (Writer, error) {
 	writer := &StandardWriter{
-		fields:           options.Fields,
-		json:             options.JSON,
-		verbose:          options.Verbose,
-		aurora:           aurora.NewAurora(options.Colors),
-		outputMutex:      &sync.Mutex{},
-		storeResponse:    options.StoreResponse,
-		storeResponseDir: options.StoreResponseDir,
-		omitRaw:          options.OmitRaw,
-		omitBody:         options.OmitBody,
-		matchRegex:       options.MatchRegex,
-		filterRegex:      options.FilterRegex,
+		fields:             options.Fields,
+		json:               options.JSON,
+		verbose:            options.Verbose,
+		aurora:             aurora.NewAurora(options.Colors),
+		outputMutex:        &sync.Mutex{},
+		storeResponse:      options.StoreResponse,
+		storeResponseDir:   options.StoreResponseDir,
+		omitRaw:            options.OmitRaw,
+		omitBody:           options.OmitBody,
+		matchRegex:         options.MatchRegex,
+		filterRegex:        options.FilterRegex,
+		extensionValidator: options.ExtensionValidator,
 	}
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
@@ -132,6 +135,11 @@ func (w *StandardWriter) Write(result *Result) error {
 		if len(w.storeFields) > 0 {
 			storeFields(result, w.storeFields)
 		}
+
+		if !w.extensionValidator.ValidatePath(result.Request.URL) {
+			return nil
+		}
+
 		if !w.matchOutput(result) {
 			return nil
 		}
@@ -160,9 +168,11 @@ func (w *StandardWriter) Write(result *Result) error {
 
 		if w.omitRaw {
 			result.Request.Raw = ""
-			result.Response.Raw = ""
+			if result.Response != nil {
+				result.Response.Raw = ""
+			}
 		}
-		if w.omitBody {
+		if w.omitBody && result.HasResponse() {
 			result.Response.Body = ""
 		}
 
