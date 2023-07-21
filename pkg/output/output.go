@@ -143,9 +143,11 @@ func (w *StandardWriter) Write(result *Result) error {
 
 		if w.omitRaw {
 			result.Request.Raw = ""
-			result.Response.Raw = ""
+			if result.HasResponse() {
+				result.Response.Raw = ""
+			}
 		}
-		if w.omitBody {
+		if w.omitBody && result.HasResponse() {
 			result.Response.Body = ""
 		}
 
