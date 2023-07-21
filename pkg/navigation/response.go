@@ -21,15 +21,16 @@ func (h *Headers) MarshalJSON() ([]byte, error) {
 
 // Response is a response generated from crawler navigation
 type Response struct {
-	Resp         *http.Response    `json:"-"`
-	Depth        int               `json:"-"`
-	Reader       *goquery.Document `json:"-"`
-	StatusCode   int               `json:"status_code,omitempty"`
-	Headers      Headers           `json:"headers,omitempty"`
-	Body         string            `json:"body,omitempty"`
-	RootHostname string            `json:"-"`
-	Technologies []string          `json:"technologies,omitempty"`
-	Raw          string            `json:"raw,omitempty"`
+	Resp               *http.Response    `json:"-"`
+	Depth              int               `json:"-"`
+	Reader             *goquery.Document `json:"-"`
+	StatusCode         int               `json:"status_code,omitempty"`
+	Headers            Headers           `json:"headers,omitempty"`
+	Body               string            `json:"body,omitempty"`
+	RootHostname       string            `json:"-"`
+	Technologies       []string          `json:"technologies,omitempty"`
+	Raw                string            `json:"raw,omitempty"`
+	StoredResponsePath string            `json:"stored_response_path,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

@@ -141,6 +141,23 @@ func (w *StandardWriter) Write(result *Result) error {
 		var data []byte
 		var err error
 
+		if w.storeResponse && result.HasResponse() {
+			if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+				result.Response.StoredResponsePath = fileName
+				data, err := w.formatResult(result)
+				if err != nil {
+					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				}
+				if err := updateIndex(w.storeResponseDir, result); err != nil {
+					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				}
+				if err := fileWriter.Write(data); err != nil {
+					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				}
+				fileWriter.Close()
+			}
+		}
+
 		if w.omitRaw {
 			result.Request.Raw = ""
 			result.Response.Raw = ""
@@ -171,22 +188,6 @@ func (w *StandardWriter) Write(result *Result) error {
 			if err := w.outputFile.Write(data); err != nil {
 				return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
 			}
-		}
-	}
-
-	if w.storeResponse && result.HasResponse() {
-		if file, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
-			data, err := w.formatResult(result)
-			if err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-			}
-			if err := updateIndex(w.storeResponseDir, result); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-			}
-			if err := file.Write(data); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-			}
-			file.Close()
 		}
 	}
 
