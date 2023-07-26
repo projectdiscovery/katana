@@ -10,6 +10,8 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
+	"github.com/mitchellh/mapstructure"
+	"github.com/projectdiscovery/dsl"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -36,38 +38,42 @@ type Writer interface {
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
-	storeFields        []string
-	fields             string
-	json               bool
-	verbose            bool
-	aurora             aurora.Aurora
-	outputFile         *fileWriter
-	outputMutex        *sync.Mutex
-	storeResponse      bool
-	storeResponseDir   string
-	omitRaw            bool
-	omitBody           bool
-	errorFile          *fileWriter
-	matchRegex         []*regexp.Regexp
-	filterRegex        []*regexp.Regexp
-	extensionValidator *extensions.Validator
+	storeFields           []string
+	fields                string
+	json                  bool
+	verbose               bool
+	aurora                aurora.Aurora
+	outputFile            *fileWriter
+	outputMutex           *sync.Mutex
+	storeResponse         bool
+	storeResponseDir      string
+	omitRaw               bool
+	omitBody              bool
+	errorFile             *fileWriter
+	matchRegex            []*regexp.Regexp
+	filterRegex           []*regexp.Regexp
+	extensionValidator    *extensions.Validator
+	outputMatchCondition  string
+	outputFilterCondition string
 }
 
 // New returns a new output writer instance
 func New(options Options) (Writer, error) {
 	writer := &StandardWriter{
-		fields:             options.Fields,
-		json:               options.JSON,
-		verbose:            options.Verbose,
-		aurora:             aurora.NewAurora(options.Colors),
-		outputMutex:        &sync.Mutex{},
-		storeResponse:      options.StoreResponse,
-		storeResponseDir:   options.StoreResponseDir,
-		omitRaw:            options.OmitRaw,
-		omitBody:           options.OmitBody,
-		matchRegex:         options.MatchRegex,
-		filterRegex:        options.FilterRegex,
-		extensionValidator: options.ExtensionValidator,
+		fields:                options.Fields,
+		json:                  options.JSON,
+		verbose:               options.Verbose,
+		aurora:                aurora.NewAurora(options.Colors),
+		outputMutex:           &sync.Mutex{},
+		storeResponse:         options.StoreResponse,
+		storeResponseDir:      options.StoreResponseDir,
+		omitRaw:               options.OmitRaw,
+		omitBody:              options.OmitBody,
+		matchRegex:            options.MatchRegex,
+		filterRegex:           options.FilterRegex,
+		extensionValidator:    options.ExtensionValidator,
+		outputMatchCondition:  options.OutputMatchCondition,
+		outputFilterCondition: options.OutputFilterCondition,
 	}
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
@@ -241,7 +247,7 @@ func (w *StandardWriter) Close() error {
 
 // matchOutput checks if the event matches the output regex
 func (w *StandardWriter) matchOutput(event *Result) bool {
-	if w.matchRegex == nil {
+	if w.matchRegex == nil && w.outputMatchCondition == "" {
 		return true
 	}
 	for _, regex := range w.matchRegex {
@@ -249,12 +255,13 @@ func (w *StandardWriter) matchOutput(event *Result) bool {
 			return true
 		}
 	}
-	return false
+
+	return evalDslExpr(event, w.outputMatchCondition)
 }
 
 // filterOutput returns true if the event should be filtered out
 func (w *StandardWriter) filterOutput(event *Result) bool {
-	if w.filterRegex == nil {
+	if w.filterRegex == nil && w.outputFilterCondition == "" {
 		return false
 	}
 	for _, regex := range w.filterRegex {
@@ -262,5 +269,55 @@ func (w *StandardWriter) filterOutput(event *Result) bool {
 			return true
 		}
 	}
-	return false
+
+	return evalDslExpr(event, w.outputFilterCondition)
+}
+
+func evalDslExpr(result *Result, dslExpr string) bool {
+	resultMap, err := resultToMap(*result)
+	if err != nil {
+		gologger.Warning().Msgf("Could not map result: %s\n", err)
+		return false
+	}
+
+	res, err := dsl.EvalExpr(dslExpr, resultMap)
+	if err != nil {
+		gologger.Error().Msgf("Could not evaluate DSL expression: %s\n", err)
+		return false
+	}
+	return res == true
+}
+
+func resultToMap(result Result) (map[string]interface{}, error) {
+	resultMap := make(map[string]any)
+	config := &mapstructure.DecoderConfig{
+		TagName: "json",
+		Result:  &resultMap,
+	}
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return nil, fmt.Errorf("error creating decoder: %v", err)
+	}
+	err = decoder.Decode(result)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return flatten(resultMap), nil
+}
+
+// mapsutil.Flatten w/o separator
+func flatten(m map[string]any) map[string]any {
+	o := make(map[string]any)
+	for k, v := range m {
+		switch child := v.(type) {
+		case map[string]any:
+			nm := flatten(child)
+			for nk, nv := range nm {
+				o[nk] = nv
+			}
+		default:
+			o[k] = v
+		}
+	}
+	return o
 }
