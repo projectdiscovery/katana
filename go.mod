@@ -1,6 +1,6 @@
 module github.com/projectdiscovery/katana
 
-go 1.19
+go 1.20
 
 require (
 	github.com/BishopFox/jsluice v0.0.0-20230623145428-f10429e1016a
@@ -9,14 +9,16 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
+	github.com/projectdiscovery/dsl v0.0.15
 	github.com/projectdiscovery/fastdialer v0.0.35
 	github.com/projectdiscovery/goflags v0.1.11
 	github.com/projectdiscovery/gologger v1.1.11
 	github.com/projectdiscovery/hmap v0.0.13
 	github.com/projectdiscovery/ratelimit v0.0.9
 	github.com/projectdiscovery/retryablehttp-go v1.0.19
-	github.com/projectdiscovery/utils v0.0.43
+	github.com/projectdiscovery/utils v0.0.44
 	github.com/projectdiscovery/wappalyzergo v0.0.105
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -40,7 +42,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.1.4 // indirect
 	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gaukas/godicttls v0.0.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
@@ -54,15 +55,14 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/minio/selfupdate v0.6.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
-	github.com/projectdiscovery/dsl v0.0.15 // indirect
 	github.com/projectdiscovery/mapcidr v1.1.2 // indirect
 	github.com/refraction-networking/utls v1.3.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/sashabaranov/go-openai v1.14.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/smacker/go-tree-sitter v0.0.0-20220628134258-ac06e95cfa11 // indirect
