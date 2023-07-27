@@ -86,7 +86,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
-		s.InFlightUrls.Set(reqUrl, true)
+		_ = s.InFlightUrls.Set(reqUrl, true)
 	}
 }
 
