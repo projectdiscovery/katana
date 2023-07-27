@@ -26,15 +26,19 @@ import (
 )
 
 type Shared struct {
-	Headers    map[string]string
-	KnownFiles *files.KnownFiles
-	Options    *types.CrawlerOptions
+	Headers      map[string]string
+	KnownFiles   *files.KnownFiles
+	Options      *types.CrawlerOptions
+	InFlightUrls mapsutil.SyncLockMap[string, bool]
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	shared := &Shared{
 		Headers: options.Options.ParseCustomHeaders(),
 		Options: options,
+		InFlightUrls: mapsutil.SyncLockMap[string, bool]{
+			Map: make(map[string]bool),
+		},
 	}
 	if options.Options.KnownFiles != "" {
 		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
@@ -82,6 +86,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
+		s.InFlightUrls.Set(reqUrl, true)
 	}
 }
 
@@ -242,6 +247,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			navigationRequests := parser.ParseResponse(resp)
 			s.Enqueue(crawlSession.Queue, navigationRequests...)
+			s.InFlightUrls.Delete(req.RequestURL())
 		}()
 	}
 	wg.Wait()

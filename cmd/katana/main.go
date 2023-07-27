@@ -5,8 +5,10 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
@@ -14,6 +16,8 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	fileutil "github.com/projectdiscovery/utils/file"
+	"github.com/rs/xid"
 )
 
 var (
@@ -42,12 +46,20 @@ func main() {
 	defer katanaRunner.Close()
 
 	// close handler
+	resumeFilename := defaultResumeFilename()
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
 			katanaRunner.Close()
+
+			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
+			err := katanaRunner.SaveState(resumeFilename)
+			if err != nil {
+				gologger.Error().Msgf("Couldn't create resume file: %s\n", err)
+			}
+
 			os.Exit(0)
 		}
 	}()
@@ -55,6 +67,12 @@ func main() {
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
+
+	// on successful execution remove the resume file in case it exists
+	if fileutil.FileExists(resumeFilename) {
+		os.Remove(resumeFilename)
+	}
+
 }
 
 func readFlags() (*goflags.FlagSet, error) {
@@ -64,6 +82,7 @@ pipelines offering both headless and non-headless crawling.`)
 
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
 	)
 
 	flagSet.CreateGroup("config", "Configuration",
@@ -160,6 +179,7 @@ pipelines offering both headless and non-headless crawling.`)
 			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
 		}
 	}
+	cleanupOldResumeFiles()
 	return flagSet, nil
 }
 
@@ -168,4 +188,27 @@ func init() {
 	if os.Getenv("DEBUG") == "true" {
 		errorutil.ShowStackTrace = true
 	}
+}
+
+func defaultResumeFilename() string {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		gologger.Fatal().Msgf("could not get home directory: %s", err)
+	}
+	configDir := filepath.Join(homedir, ".config", "katana")
+	return filepath.Join(configDir, fmt.Sprintf("resume-%s.cfg", xid.New().String()))
+}
+
+// cleanupOldResumeFiles cleans up resume files older than 10 days.
+func cleanupOldResumeFiles() {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		gologger.Fatal().Msgf("could not get home directory: %s", err)
+	}
+	root := filepath.Join(homedir, ".config", "katana")
+	filter := fileutil.FileFilters{
+		OlderThan: 24 * time.Hour * 10, // cleanup on the 10th day
+		Prefix:    "resume-",
+	}
+	_ = fileutil.DeleteFilesOlderThan(root, filter)
 }

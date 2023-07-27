@@ -1,6 +1,9 @@
 package runner
 
 import (
+	"encoding/json"
+	"os"
+
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
@@ -9,8 +12,8 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
-	"go.uber.org/multierr"
 	updateutils "github.com/projectdiscovery/utils/update"
+	"go.uber.org/multierr"
 )
 
 // Runner creates the required resources for crawling
@@ -20,10 +23,32 @@ type Runner struct {
 	stdin          bool
 	crawler        engine.Engine
 	options        *types.Options
+	state          *RunnerState
+}
+
+type RunnerState struct {
+	InFlightUrls []string
 }
 
 // New returns a new crawl runner structure
 func New(options *types.Options) (*Runner, error) {
+	// create the resume configuration structure
+	if options.ShouldResume() {
+		gologger.Info().Msg("Resuming from save checkpoint")
+
+		file, err := os.ReadFile(options.Resume)
+		if err != nil {
+			return nil, err
+		}
+
+		runnerState := &RunnerState{}
+		err = json.Unmarshal(file, runnerState)
+		if err != nil {
+			return nil, err
+		}
+		options.URLs = runnerState.InFlightUrls
+	}
+
 	configureOutput(options)
 	showBanner()
 
@@ -72,7 +97,7 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create standard crawler")
 	}
-	runner := &Runner{options: options, stdin: fileutil.HasStdin(), crawlerOptions: crawlerOptions, crawler: crawler}
+	runner := &Runner{options: options, stdin: fileutil.HasStdin(), crawlerOptions: crawlerOptions, crawler: crawler, state: &RunnerState{}}
 
 	return runner, nil
 }
@@ -83,4 +108,14 @@ func (r *Runner) Close() error {
 		r.crawler.Close(),
 		r.crawlerOptions.Close(),
 	)
+}
+
+func (r *Runner) SaveState(resumeFilename string) error {
+	runnerState := r.buildRunnerState()
+	data, _ := json.Marshal(runnerState)
+	return os.WriteFile(resumeFilename, data, os.ModePerm)
+}
+
+func (r *Runner) buildRunnerState() *RunnerState {
+	return &RunnerState{InFlightUrls: append(r.state.InFlightUrls, r.crawler.GetInFlightUrls()...)}
 }

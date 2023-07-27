@@ -5,6 +5,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 // Crawler is a standard crawler instance
@@ -38,4 +39,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 		return errorutil.NewWithErr(err).WithTag("standard")
 	}
 	return nil
+}
+
+func (c *Crawler) GetInFlightUrls() []string {
+	return mapsutil.GetKeys(c.InFlightUrls.GetAll())
 }
