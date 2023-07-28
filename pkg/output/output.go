@@ -1,6 +1,7 @@
 package output
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -281,7 +282,7 @@ func evalDslExpr(result *Result, dslExpr string) bool {
 	}
 
 	res, err := dsl.EvalExpr(dslExpr, resultMap)
-	if err != nil {
+	if err != nil && !ignoreErr(err) {
 		gologger.Error().Msgf("Could not evaluate DSL expression: %s\n", err)
 		return false
 	}
@@ -320,4 +321,21 @@ func flatten(m map[string]any) map[string]any {
 		}
 	}
 	return o
+}
+
+var (
+	// showDSLErr controls whether to show hidden DSL errors or not
+	showDSLErr = strings.EqualFold(os.Getenv("SHOW_DSL_ERRORS"), "true")
+)
+
+// ignoreErr checks if the error is to be ignored or not
+// Reference: https://github.com/projectdiscovery/katana/pull/537
+func ignoreErr(err error) bool {
+	if showDSLErr {
+		return false
+	}
+	if errors.Is(err, dsl.ErrParsingArg) || strings.Contains(err.Error(), "No parameter") {
+		return true
+	}
+	return false
 }

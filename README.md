@@ -747,6 +747,20 @@ FILTER:
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
+   -mdc, -match-condition string    match response with dsl expression condition
+   -fdc, -filter-condition string   filter response with dsl expression condition
+```
+#### Filter Debugging for `-match-condition` and `-filter-condition`
+*`SHOW_DSL_ERRORS`*
+
+This environment variable allows you to control whether to display hidden DSL expression errors or not. It is useful for debugging and development, providing visibility into the DSL parsing and execution process.
+
+Usage:
+
+In your terminal, set the SHOW_DSL_ERRORS environment variable like so:
+
+```console
+export SHOW_DSL_ERRORS=true
 ```
 
 ## Rate Limit
