@@ -29,15 +29,15 @@ type Shared struct {
 	Headers      map[string]string
 	KnownFiles   *files.KnownFiles
 	Options      *types.CrawlerOptions
-	InFlightUrls mapsutil.SyncLockMap[string, bool]
+	InFlightUrls mapsutil.SyncLockMap[string, struct{}]
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	shared := &Shared{
 		Headers: options.Options.ParseCustomHeaders(),
 		Options: options,
-		InFlightUrls: mapsutil.SyncLockMap[string, bool]{
-			Map: make(map[string]bool),
+		InFlightUrls: mapsutil.SyncLockMap[string, struct{}]{
+			Map: make(map[string]struct{}),
 		},
 	}
 	if options.Options.KnownFiles != "" {
@@ -86,7 +86,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
-		_ = s.InFlightUrls.Set(reqUrl, true)
+		_ = s.InFlightUrls.Set(reqUrl, struct{}{})
 	}
 }
 
