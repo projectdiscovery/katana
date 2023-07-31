@@ -16,7 +16,6 @@ builds:
       - windows
     goarch:
       - amd64
-      - 386
 
 archives:
 - format: zip
