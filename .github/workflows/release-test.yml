@@ -3,6 +3,7 @@ name: 🔨 Release Test
 on:
   pull_request:
     paths:
+      - '**.yml'
       - '**.go'
       - '**.mod'
   workflow_dispatch:
