@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/BishopFox/jsluice v0.0.0-20230623145428-f10429e1016a
 	github.com/PuerkitoBio/goquery v1.8.1
-	github.com/go-rod/rod v0.113.4
+	github.com/go-rod/rod v0.114.1
 	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
