@@ -1,0 +1,24 @@
+env:
+  - GO111MODULE=on
+before:
+  hooks:
+    - go mod tidy
+project_name: katana
+builds:
+  - id: katana-windows
+    ldflags:
+      - -s -w
+    binary: katana
+    env:
+    - CGO_ENABLED=1
+    main: ./cmd/katana/main.go
+    goos:
+      - windows
+    goarch:
+      - amd64
+
+archives:
+- format: zip
+
+checksum:
+  name_template: "{{ .ProjectName }}-windows-checksums.txt"
