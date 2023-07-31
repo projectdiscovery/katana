@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-mac:
-    runs-on: runs-on: macos-latest
+    runs-on: macos-latest
     steps:
       - name: "Check out code"
         uses: actions/checkout@v3
@@ -27,14 +27,9 @@ jobs:
           args: "release -f .goreleaser/mac.yml --clean"
           version: latest
           workdir: .
-        env: 
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          SLACK_WEBHOOK: "${{ secrets.RELEASE_SLACK_WEBHOOK }}"
-          DISCORD_WEBHOOK_ID: "${{ secrets.DISCORD_WEBHOOK_ID }}"
-          DISCORD_WEBHOOK_TOKEN: "${{ secrets.DISCORD_WEBHOOK_TOKEN }}"
 
   build-linux:
-    runs-on: runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-16-cores
     steps:
       - name: "Check out code"
         uses: actions/checkout@v3
@@ -53,11 +48,6 @@ jobs:
           args: "release -f .goreleaser/linux.yml --clean"
           version: latest
           workdir: .
-        env: 
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          SLACK_WEBHOOK: "${{ secrets.RELEASE_SLACK_WEBHOOK }}"
-          DISCORD_WEBHOOK_ID: "${{ secrets.DISCORD_WEBHOOK_ID }}"
-          DISCORD_WEBHOOK_TOKEN: "${{ secrets.DISCORD_WEBHOOK_TOKEN }}"
 
   build-windows:
     runs-on: windows-latest-8-cores
