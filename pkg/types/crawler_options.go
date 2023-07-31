@@ -58,21 +58,23 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 
 	outputOptions := output.Options{
-		Colors:             !options.NoColors,
-		JSON:               options.JSON,
-		Verbose:            options.Verbose,
-		StoreResponse:      options.StoreResponse,
-		OutputFile:         options.OutputFile,
-		Fields:             options.Fields,
-		StoreFields:        options.StoreFields,
-		StoreResponseDir:   options.StoreResponseDir,
-		OmitRaw:            options.OmitRaw,
-		OmitBody:           options.OmitBody,
-		FieldConfig:        options.FieldConfig,
-		ErrorLogFile:       options.ErrorLogFile,
-		MatchRegex:         options.MatchRegex,
-		FilterRegex:        options.FilterRegex,
-		ExtensionValidator: extensionsValidator,
+		Colors:                !options.NoColors,
+		JSON:                  options.JSON,
+		Verbose:               options.Verbose,
+		StoreResponse:         options.StoreResponse,
+		OutputFile:            options.OutputFile,
+		Fields:                options.Fields,
+		StoreFields:           options.StoreFields,
+		StoreResponseDir:      options.StoreResponseDir,
+		OmitRaw:               options.OmitRaw,
+		OmitBody:              options.OmitBody,
+		FieldConfig:           options.FieldConfig,
+		ErrorLogFile:          options.ErrorLogFile,
+		MatchRegex:            options.MatchRegex,
+		FilterRegex:           options.FilterRegex,
+		ExtensionValidator:    extensionsValidator,
+		OutputMatchCondition:  options.OutputMatchCondition,
+		OutputFilterCondition: options.OutputFilterCondition,
 	}
 	outputWriter, err := output.New(outputOptions)
 	if err != nil {
