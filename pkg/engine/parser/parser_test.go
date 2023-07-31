@@ -1,12 +1,10 @@
 package parser
 
 import (
-	"math/rand"
 	"net/http"
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -346,7 +344,6 @@ func TestBodyParsers(t *testing.T) {
 	})
 	t.Run("form", func(t *testing.T) {
 		t.Run("get", func(t *testing.T) {
-			rand.Seed(time.Now().UnixNano())
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-get.found\" method=\"GET\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
 			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
 			navigationRequests := bodyFormTagParser(resp)

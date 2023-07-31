@@ -22,7 +22,8 @@ var (
 	failed  = aurora.Red("[✘]").String()
 
 	tests = map[string]map[string]TestCase{
-		"code": libraryTestcases,
+		"code":    libraryTestcases,
+		"filters": filtersTestcases,
 	}
 )
 

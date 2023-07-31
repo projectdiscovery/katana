@@ -166,6 +166,8 @@ FILTER:
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
+   -mdc, -match-condition string    match response with dsl based condition
+   -fdc, -filter-condition string   filter response with dsl based condition
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -698,6 +700,7 @@ The `-store-field` option can be useful for collecting information to build a ta
 - Finding commonly used files
 - Identifying related or unknown subdomains
 
+### Katana Filters
 
 *`-extension-match`*
 ---
@@ -732,6 +735,28 @@ The `-filter-regex` or `-fr` flag allows you to filter output URLs using regular
 katana -u https://tesla.com -fr 'https://www\.tesla\.com/*' -silent
 ```
 
+### Advance Filtering
+
+Katana supports DSL-based expressions for advanced matching and filtering capabilities:
+
+- To match endpoints with a 200 status code:
+```shell
+katana -u https://www.hackerone.com -mdc 'status_code == 200'
+```
+- To match endpoints that contain "default" and have a status code other than 403:
+```shell
+katana -u https://www.hackerone.com -mdc 'contains(endpoint, "default") && status_code != 403'
+```
+- To match endpoints with PHP technologies:
+```shell
+katana -u https://www.hackerone.com -mdc 'contains(to_lower(technologies), "php")'
+```
+- To filter out endpoints running on Cloudflare:
+```shell
+katana -u https://www.hackerone.com -fdc 'contains(to_lower(technologies), "cloudflare")'
+```
+DSL functions can be applied to any keys in the jsonl output. For more information on available DSL functions, please visit the [dsl project](https://github.com/projectdiscovery/dsl).
+
 Here are additional filter options -
 
 ```console
@@ -745,7 +770,10 @@ FILTER:
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
+   -mdc, -match-condition string    match response with dsl based condition
+   -fdc, -filter-condition string   filter response with dsl based condition
 ```
+
 
 ## Rate Limit
 
