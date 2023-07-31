@@ -5,7 +5,7 @@ before:
     - go mod tidy
 project_name: katana
 builds:
-  - id: katana-windows-generic
+  - id: katana-windows
     ldflags:
       - -s -w
     binary: katana
@@ -17,20 +17,6 @@ builds:
     goarch:
       - amd64
       - 386
-
-  - id: katana-windows-arm
-    ldflags:
-      - -s -w
-    binary: katana
-    env:
-    - CGO_ENABLED=1
-    - CC=x86_64-w64-mingw32-gcc
-    - CXX=x86_64-w64-mingw32-g++
-    main: ./cmd/katana/main.go
-    goos:
-      - windows
-    goarch:
-      - arm64
 
 archives:
 - format: zip
