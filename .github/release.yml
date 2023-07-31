@@ -4,10 +4,10 @@ changelog:
       - app/dependabot
       - dependabot
   categories:
-    - title: 🎉 Features
+    - title: 🎉 New Features
       labels:
         - "Type: Enhancement"
-    - title: 🐞 Bugs
+    - title: 🐞 Bug Fixes
       labels:
         - "Type: Bug" 
     - title: 🔨 Maintenance
