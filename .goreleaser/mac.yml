@@ -17,7 +17,9 @@ builds:
     goarch:
       - amd64
       - arm64
-
+      - 386
+      - arm
+      
 archives:
 - format: zip
   name_template: '{{ .ProjectName }}_{{ .Version }}_{{ if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_{{ .Arch }}'
