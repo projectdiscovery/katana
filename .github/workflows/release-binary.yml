@@ -27,6 +27,8 @@ jobs:
           args: "release -f .goreleaser/mac.yml --clean"
           version: latest
           workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   build-linux:
     runs-on: ubuntu-latest-16-cores
@@ -48,6 +50,8 @@ jobs:
           args: "release -f .goreleaser/linux.yml --clean"
           version: latest
           workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   build-windows:
     runs-on: windows-latest-8-cores

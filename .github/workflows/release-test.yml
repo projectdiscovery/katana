@@ -28,6 +28,8 @@ jobs:
           args: "release -f .goreleaser/mac.yml --clean --snapshot"
           version: latest
           workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   release-test-linux:
     runs-on: ubuntu-latest-16-cores
@@ -52,6 +54,8 @@ jobs:
           args: "release -f .goreleaser/linux.yml --clean --snapshot"
           version: latest
           workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   release-test-windows:
     runs-on: windows-latest-8-cores
@@ -72,3 +76,5 @@ jobs:
           args: "release -f .goreleaser/windows.yml --clean --snapshot"
           version: latest
           workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
