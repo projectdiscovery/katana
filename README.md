@@ -121,7 +121,7 @@ CONFIGURATION:
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
    -jl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
-   -ct, -crawl-duration value  maximum duration to crawl the target for (s, m, h, d) (default s)
+   -ct, -crawl-duration value    maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
@@ -135,6 +135,7 @@ CONFIGURATION:
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
+   -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
