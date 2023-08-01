@@ -120,13 +120,13 @@ CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
-   -jl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
+   -jsl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
    -ct, -crawl-duration value    maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
-   -fx, -form-extraction         enable extraction of form, input, textarea & select elements
+   -fx, -form-extraction         extract form, input, textarea & select elements in jsonl output
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in all http request in header:value format (file)
@@ -151,7 +151,7 @@ HEADLESS:
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
-   -xhr, -xhr-extraction             extract xhr requests
+   -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
