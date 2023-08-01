@@ -151,6 +151,9 @@ func (w *StandardWriter) Write(result *Result) error {
 
 		if w.storeResponse && result.HasResponse() {
 			if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+				if absPath, err := filepath.Abs(fileName); err == nil {
+					fileName = absPath
+				}
 				result.Response.StoredResponsePath = fileName
 				data, err := w.formatResult(result)
 				if err != nil {
