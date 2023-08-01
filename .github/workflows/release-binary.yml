@@ -27,27 +27,8 @@ jobs:
           args: "release -f .goreleaser/mac.yml --clean"
           version: latest
           workdir: .
-
-  build-linux:
-    runs-on: ubuntu-latest-16-cores
-    steps:
-      - name: "Check out code"
-        uses: actions/checkout@v3
-        with: 
-          fetch-depth: 0
-      
-      - name: "Set up Go"
-        uses: actions/setup-go@v4
-        with: 
-          go-version: 1.20.x
-          cache: true
-      
-      - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
-        with: 
-          args: "release -f .goreleaser/linux.yml --clean"
-          version: latest
-          workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   build-windows:
     runs-on: windows-latest-8-cores
@@ -67,6 +48,33 @@ jobs:
         uses: goreleaser/goreleaser-action@v4
         with: 
           args: "release -f .goreleaser/windows.yml --clean"
+          version: latest
+          workdir: .
+        env: 
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+  build-linux:
+    runs-on: ubuntu-latest-16-cores
+    steps:
+      - name: "Check out code"
+        uses: actions/checkout@v3
+        with: 
+          fetch-depth: 0
+      
+      - name: "Set up Go"
+        uses: actions/setup-go@v4
+        with: 
+          go-version: 1.20.x
+          cache: true
+
+      # todo: musl compatible?
+      - name: Install Dependences
+        run: sudo apt install gcc-aarch64-linux-gnu
+
+      - name: "Create release on GitHub"
+        uses: goreleaser/goreleaser-action@v4
+        with: 
+          args: "release -f .goreleaser/linux.yml --clean"
           version: latest
           workdir: .
         env: 
