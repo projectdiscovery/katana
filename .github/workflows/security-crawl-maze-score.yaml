@@ -21,11 +21,11 @@ jobs:
         working-directory: cmd/katana/
 
       - name: Run Katana Standard
-        run: ./katana -u https://security-crawl-maze.app/ -kf all -jc -jl -d 10 -o output_standard.txt -cos node_modules
+        run: ./katana -u https://security-crawl-maze.app/ -kf all -jc -jsluice -d 10 -o output_standard.txt -cos node_modules
         working-directory: cmd/katana
         
       - name: Run Katana Headless
-        run: ./katana -u https://security-crawl-maze.app/ -kf all -jc -jl -d 10 -headless -o output_headless.txt -cos node_modules
+        run: ./katana -u https://security-crawl-maze.app/ -kf all -jc -jsluice -d 10 -headless -o output_headless.txt -cos node_modules
         working-directory: cmd/katana
 
       - name: Run Score
