@@ -86,8 +86,23 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
-		_ = s.InFlightUrls.Set(reqUrl, struct{}{})
+
+		if rootUrl, err := buildRootUrl(reqUrl); err == nil {
+			_ = s.InFlightUrls.Set(rootUrl.String(), struct{}{})
+		}
 	}
+}
+
+func buildRootUrl(reqUrl string) (*url.URL, error) {
+	parsedUrl, err := urlutil.Parse(reqUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &url.URL{
+		Scheme: parsedUrl.Scheme,
+		Host:   parsedUrl.Host,
+	}, nil
 }
 
 func (s *Shared) ValidateScope(URL string, root string) bool {
@@ -247,7 +262,10 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			navigationRequests := parser.ParseResponse(resp)
 			s.Enqueue(crawlSession.Queue, navigationRequests...)
-			s.InFlightUrls.Delete(req.RequestURL())
+
+			if rootUrl, err := buildRootUrl(req.RequestURL()); err == nil {
+				_ = s.InFlightUrls.Set(rootUrl.String(), struct{}{})
+			}
 		}()
 	}
 	wg.Wait()
