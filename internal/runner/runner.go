@@ -12,6 +12,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 	updateutils "github.com/projectdiscovery/utils/update"
 	"go.uber.org/multierr"
 )
@@ -27,7 +28,7 @@ type Runner struct {
 }
 
 type RunnerState struct {
-	InFlightUrls []string
+	InFlightUrls *mapsutil.SyncLockMap[string, struct{}]
 }
 
 // New returns a new crawl runner structure
@@ -46,7 +47,7 @@ func New(options *types.Options) (*Runner, error) {
 		if err != nil {
 			return nil, err
 		}
-		options.URLs = runnerState.InFlightUrls
+		options.URLs = mapsutil.GetKeys(runnerState.InFlightUrls.GetAll())
 	}
 
 	configureOutput(options)
@@ -97,7 +98,7 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create standard crawler")
 	}
-	runner := &Runner{options: options, stdin: fileutil.HasStdin(), crawlerOptions: crawlerOptions, crawler: crawler, state: &RunnerState{}}
+	runner := &Runner{options: options, stdin: fileutil.HasStdin(), crawlerOptions: crawlerOptions, crawler: crawler, state: &RunnerState{InFlightUrls: mapsutil.NewSyncLockMap[string, struct{}]()}}
 
 	return runner, nil
 }
@@ -111,11 +112,7 @@ func (r *Runner) Close() error {
 }
 
 func (r *Runner) SaveState(resumeFilename string) error {
-	runnerState := r.buildRunnerState()
+	runnerState := r.state
 	data, _ := json.Marshal(runnerState)
 	return os.WriteFile(resumeFilename, data, os.ModePerm)
-}
-
-func (r *Runner) buildRunnerState() *RunnerState {
-	return &RunnerState{InFlightUrls: append(r.state.InFlightUrls, r.crawler.GetInFlightUrls()...)}
 }

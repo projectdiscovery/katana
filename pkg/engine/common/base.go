@@ -26,19 +26,15 @@ import (
 )
 
 type Shared struct {
-	Headers      map[string]string
-	KnownFiles   *files.KnownFiles
-	Options      *types.CrawlerOptions
-	InFlightUrls mapsutil.SyncLockMap[string, struct{}]
+	Headers    map[string]string
+	KnownFiles *files.KnownFiles
+	Options    *types.CrawlerOptions
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	shared := &Shared{
 		Headers: options.Options.ParseCustomHeaders(),
 		Options: options,
-		InFlightUrls: mapsutil.SyncLockMap[string, struct{}]{
-			Map: make(map[string]struct{}),
-		},
 	}
 	if options.Options.KnownFiles != "" {
 		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
@@ -86,23 +82,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
-
-		if rootUrl, err := buildRootUrl(reqUrl); err == nil {
-			_ = s.InFlightUrls.Set(rootUrl.String(), struct{}{})
-		}
 	}
-}
-
-func buildRootUrl(reqUrl string) (*url.URL, error) {
-	parsedUrl, err := urlutil.Parse(reqUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	return &url.URL{
-		Scheme: parsedUrl.Scheme,
-		Host:   parsedUrl.Host,
-	}, nil
 }
 
 func (s *Shared) ValidateScope(URL string, root string) bool {
@@ -262,10 +242,6 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			navigationRequests := parser.ParseResponse(resp)
 			s.Enqueue(crawlSession.Queue, navigationRequests...)
-
-			if rootUrl, err := buildRootUrl(req.RequestURL()); err == nil {
-				_ = s.InFlightUrls.Set(rootUrl.String(), struct{}{})
-			}
 		}()
 	}
 	wg.Wait()
