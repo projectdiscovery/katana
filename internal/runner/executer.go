@@ -16,7 +16,7 @@ func (r *Runner) ExecuteCrawling() error {
 		return errorutil.New("no input provided for crawling")
 	}
 	for _, input := range inputs {
-		r.state.InFlightUrls.Set(addSchemeIfNotExists(input), struct{}{})
+		_ = r.state.InFlightUrls.Set(addSchemeIfNotExists(input), struct{}{})
 	}
 
 	defer r.crawler.Close()
