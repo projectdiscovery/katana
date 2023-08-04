@@ -44,17 +44,18 @@ func createHostDir(storeResponseFolder, domain string) string {
 	return filepath.Join(storeResponseFolder, domain)
 }
 
-func getResponseFile(storeResponseFolder, URL string) (*fileWriter, error) {
+func getResponseFile(storeResponseFolder, URL string) (string, *fileWriter, error) {
 	domain, err := getResponseHost(URL)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	output, err := newFileOutputWriter(getResponseFileName(storeResponseFolder, domain, URL))
+	fileName := getResponseFileName(storeResponseFolder, domain, URL)
+	output, err := newFileOutputWriter(fileName)
 	if err != nil {
-		return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
+		return "", nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
 	}
 
-	return output, nil
+	return fileName, output, nil
 }
 
 func getResponseFileName(storeResponseFolder, domain, URL string) string {

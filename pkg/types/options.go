@@ -30,6 +30,10 @@ type Options struct {
 	ExtensionsMatch goflags.StringSlice
 	// ExtensionFilter contains additional items for filter list
 	ExtensionFilter goflags.StringSlice
+	// OutputMatchCondition is the condition to match output
+	OutputMatchCondition string
+	// OutputFilterCondition is the condition to filter output
+	OutputFilterCondition string
 	// MaxDepth is the maximum depth to crawl
 	MaxDepth int
 	// BodyReadSize is the maximum size of response body to read
