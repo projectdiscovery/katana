@@ -932,7 +932,7 @@ OUTPUT:
 `katana` can be used as a library by creating an instance of the `Option` struct and populating it with the same options that would be specified via CLI. Using the options you can create `crawlerOptions` and so standard or hybrid `crawler`.
 `crawler.Crawl` method should be called to crawl the input.
 
-```
+```go
 package main
 
 import (
