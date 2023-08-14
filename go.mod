@@ -11,7 +11,7 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.0.16
+	github.com/projectdiscovery/dsl v0.0.18
 	github.com/projectdiscovery/fastdialer v0.0.35
 	github.com/projectdiscovery/goflags v0.1.12
 	github.com/projectdiscovery/gologger v1.1.11
@@ -33,7 +33,7 @@ require (
 	aead.dev/minisign v0.2.0 // indirect
 	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
-	github.com/Mzack9999/gostruct v0.0.0-20230415193108-30b70932da81 // indirect
+	github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
@@ -59,6 +59,7 @@ require (
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
+	github.com/projectdiscovery/gostruct v0.0.0-20230520110439-bbdedaae3c35 // indirect
 	github.com/projectdiscovery/mapcidr v1.1.2 // indirect
 	github.com/refraction-networking/utls v1.3.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
