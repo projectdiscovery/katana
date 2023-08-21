@@ -255,13 +255,18 @@ func (w *StandardWriter) matchOutput(event *Result) bool {
 	if w.matchRegex == nil && w.outputMatchCondition == "" {
 		return true
 	}
+
 	for _, regex := range w.matchRegex {
 		if regex.MatchString(event.Request.URL) {
 			return true
 		}
 	}
 
-	return evalDslExpr(event, w.outputMatchCondition)
+	if w.outputMatchCondition != "" {
+		return evalDslExpr(event, w.outputMatchCondition)
+	}
+
+	return false
 }
 
 // filterOutput returns true if the event should be filtered out
@@ -269,13 +274,18 @@ func (w *StandardWriter) filterOutput(event *Result) bool {
 	if w.filterRegex == nil && w.outputFilterCondition == "" {
 		return false
 	}
+
 	for _, regex := range w.filterRegex {
 		if regex.MatchString(event.Request.URL) {
 			return true
 		}
 	}
 
-	return evalDslExpr(event, w.outputFilterCondition)
+	if w.outputFilterCondition != "" {
+		return evalDslExpr(event, w.outputFilterCondition)
+	}
+
+	return false
 }
 
 func evalDslExpr(result *Result, dslExpr string) bool {
