@@ -7,6 +7,7 @@ import (
 
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/katana/pkg/output"
+	fileutil "github.com/projectdiscovery/utils/file"
 )
 
 // OnResultCallback (output.Result)
@@ -15,6 +16,8 @@ type OnResultCallback func(output.Result)
 type Options struct {
 	// URLs contains a list of URLs for crawling
 	URLs goflags.StringSlice
+	// Resume the scan from the state stored in the resume config file
+	Resume string
 	// Scope contains a list of regexes for in-scope URLS
 	Scope goflags.StringSlice
 	// OutOfScope contains a list of regexes for out-scope URLS
@@ -165,4 +168,8 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 		}
 	}
 	return optionalArguments
+}
+
+func (options *Options) ShouldResume() bool {
+	return options.Resume != "" && fileutil.FileExists(options.Resume)
 }

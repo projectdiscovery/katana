@@ -15,6 +15,9 @@ func (r *Runner) ExecuteCrawling() error {
 	if len(inputs) == 0 {
 		return errorutil.New("no input provided for crawling")
 	}
+	for _, input := range inputs {
+		_ = r.state.InFlightUrls.Set(addSchemeIfNotExists(input), struct{}{})
+	}
 
 	defer r.crawler.Close()
 
@@ -28,6 +31,7 @@ func (r *Runner) ExecuteCrawling() error {
 			if err := r.crawler.Crawl(input); err != nil {
 				gologger.Warning().Msgf("Could not crawl %s: %s", input, err)
 			}
+			r.state.InFlightUrls.Delete(input)
 		}(input)
 	}
 	wg.Wait()
