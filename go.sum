@@ -191,8 +191,8 @@ github.com/projectdiscovery/retryabledns v1.0.34 h1:Bk7vbx7Htkeiasuti9ec5lzAJX98
 github.com/projectdiscovery/retryabledns v1.0.34/go.mod h1:QmCjgAMk4A9xBWZnBiVgP2uBAInk/DiztSINcNn7o+U=
 github.com/projectdiscovery/retryablehttp-go v1.0.22 h1:GfOELRfB8O2s5LHUwT6gwE95meI9VXaEUpu5T7pGIbc=
 github.com/projectdiscovery/retryablehttp-go v1.0.22/go.mod h1:dog12XS0gQZS+nL2SYnzvRJIYFv/ZGDHEtzeKCwkkQc=
-github.com/projectdiscovery/utils v0.0.49 h1:yzOkC4suvvhFB2jVh2HzIHuGA5qLyo+NQOlXscsUW6I=
-github.com/projectdiscovery/utils v0.0.49/go.mod h1:WhzbWSyGkTDn4Jvw+7jM2yP675/RARegNjoA6S7zYcc=
+github.com/projectdiscovery/utils v0.0.50 h1:nP62c7dLUTwXaZf7ijjL9DmClolSJvp7NfOdtdYlmQ0=
+github.com/projectdiscovery/utils v0.0.50/go.mod h1:WhzbWSyGkTDn4Jvw+7jM2yP675/RARegNjoA6S7zYcc=
 github.com/projectdiscovery/wappalyzergo v0.0.108 h1:t+q6GMrPH+lbGT8hAdW/g8/9tJ+rJvvEzpqwd/T/MR8=
 github.com/projectdiscovery/wappalyzergo v0.0.108/go.mod h1:4Z3DKhi75zIPMuA+qSDDWxZvnhL4qTLmDx4dxNMu7MA=
 github.com/refraction-networking/utls v1.3.2 h1:o+AkWB57mkcoW36ET7uJ002CpBWHu0KPxi6vzxvPnv8=
