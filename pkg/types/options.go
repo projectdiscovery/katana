@@ -7,7 +7,6 @@ import (
 
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/katana/pkg/output"
-	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
 // OnResultCallback (output.Result)
@@ -97,7 +96,7 @@ type Options struct {
 	// ShowBrowser specifies whether the show the browser in headless mode
 	ShowBrowser bool
 	// HeadlessOptionalArguments specifies optional arguments to pass to Chrome
-	HeadlessOptionalArguments string
+	HeadlessOptionalArguments goflags.StringSlice
 	// HeadlessNoSandbox specifies if chrome should be start in --no-sandbox mode
 	HeadlessNoSandbox bool
 	// SystemChromePath : Specify the chrome binary path for headless crawling
@@ -154,28 +153,15 @@ func (options *Options) ParseCustomHeaders() map[string]string {
 	return customHeaders
 }
 
-func (options *Options) ParseHeadlessOptionalArguments() map[string][]string {
-	optionalArguments := make(map[string][]string)
-	argParts := strings.Split(options.HeadlessOptionalArguments, "--")
-	for _, part := range argParts {
-		if strings.TrimSpace(part) == "" {
-			continue
-		}
-		keyValue := strings.SplitN(strings.TrimSpace(part), "=", 2)
-		if sliceutil.IsEmpty(keyValue) || keyValue[0] == "" {
-			continue
-		}
-
-		key := "--" + keyValue[0]
-		if len(keyValue) == 2 && keyValue[1] != "" {
-			values := sliceutil.PruneEmptyStrings(strings.Split(keyValue[1], ","))
-			sliceutil.VisitSequential(values, func(i int, v string) error {
-				values[i] = strings.TrimSpace(v)
-				return nil
-			})
-			optionalArguments[key] = values
-		} else {
-			optionalArguments[key] = []string{}
+func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
+	optionalArguments := make(map[string]string)
+	for _, v := range options.HeadlessOptionalArguments {
+		if argParts := strings.SplitN(v, "=", 2); len(argParts) >= 2 {
+			key := strings.TrimSpace(argParts[0])
+			value := strings.TrimSpace(argParts[1])
+			if key != "" && value != "" {
+				optionalArguments[key] = value
+			}
 		}
 	}
 	return optionalArguments

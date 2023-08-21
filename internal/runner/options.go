@@ -25,7 +25,7 @@ func validateOptions(options *types.Options) error {
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
 		return errorutil.New("no inputs specified for crawler")
 	}
-	if (options.HeadlessOptionalArguments != "" || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
 		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {

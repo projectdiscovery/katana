@@ -11,7 +11,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 	ps "github.com/shirou/gopsutil/v3/process"
@@ -169,11 +168,7 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 	}
 
 	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
-		if sliceutil.IsEmpty(v) {
-			chromeLauncher.Set(flags.Flag(k))
-		} else {
-			chromeLauncher.Set(flags.Flag(k), v...)
-		}
+		chromeLauncher.Set(flags.Flag(k), v)
 	}
 
 	return chromeLauncher, nil
