@@ -154,14 +154,25 @@ func (options *Options) ParseCustomHeaders() map[string]string {
 }
 
 func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
-	optionalArguments := make(map[string]string)
+	var (
+		lastKey           string
+		optionalArguments = make(map[string]string)
+	)
 	for _, v := range options.HeadlessOptionalArguments {
+		if v == "" {
+			continue
+		}
 		if argParts := strings.SplitN(v, "=", 2); len(argParts) >= 2 {
 			key := strings.TrimSpace(argParts[0])
 			value := strings.TrimSpace(argParts[1])
 			if key != "" && value != "" {
 				optionalArguments[key] = value
+				lastKey = key
 			}
+		} else if !strings.HasPrefix(v, "--") {
+			optionalArguments[lastKey] += "," + v
+		} else {
+			optionalArguments[v] = ""
 		}
 	}
 	return optionalArguments
