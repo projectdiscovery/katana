@@ -59,7 +59,7 @@ require (
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
-	github.com/projectdiscovery/gostruct v0.0.0-20230520110439-bbdedaae3c35 // indirect
+	github.com/projectdiscovery/gostruct v0.0.1 // indirect
 	github.com/projectdiscovery/mapcidr v1.1.2 // indirect
 	github.com/refraction-networking/utls v1.3.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
