@@ -12,10 +12,11 @@ import (
 
 // Manager manages scope for crawling process
 type Manager struct {
-	inScope    []*regexp.Regexp
-	outOfScope []*regexp.Regexp
-	noScope    bool
-	fieldScope dnsScopeField
+	inScope           []*regexp.Regexp
+	outOfScope        []*regexp.Regexp
+	noScope           bool
+	fieldScope        dnsScopeField
+	fieldScopePattern *regexp.Regexp
 }
 
 type dnsScopeField int
@@ -24,6 +25,7 @@ const (
 	dnDnsScopeField dnsScopeField = iota + 1
 	rdnDnsScopeField
 	fqdnDNSScopeField
+	customDNSScopeField
 )
 
 var stringToDNSScopeField = map[string]dnsScopeField{
@@ -39,7 +41,13 @@ func NewManager(inScope, outOfScope []string, fieldScope string, noScope bool) (
 	}
 
 	if scopeValue, ok := stringToDNSScopeField[fieldScope]; !ok {
-		return nil, fmt.Errorf("invalid dns scope field specified: %s", fieldScope)
+		//return nil, fmt.Errorf("invalid dns scope field specified: %s", fieldScope)
+		manager.fieldScope = customDNSScopeField
+		if compiled, err := regexp.Compile(fieldScope); err != nil {
+			return nil, fmt.Errorf("could not compile regex %s: %s", fieldScope, err)
+		} else {
+			manager.fieldScopePattern = compiled
+		}
 	} else {
 		manager.fieldScope = scopeValue
 	}
@@ -108,7 +116,12 @@ func (m *Manager) validateURL(URL string) (bool, error) {
 
 func (m *Manager) validateDNS(hostname, rootHostname string) (bool, error) {
 	parsed := net.ParseIP(hostname)
-
+	if m.fieldScope == customDNSScopeField {
+		// If we have a custom regex, we need to match it against the full hostname
+		if m.fieldScopePattern.MatchString(hostname) {
+			return true, nil
+		}
+	}
 	if m.fieldScope == fqdnDNSScopeField || parsed != nil {
 		matched := strings.EqualFold(hostname, rootHostname)
 		return matched, nil
