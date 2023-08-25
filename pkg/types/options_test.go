@@ -85,6 +85,21 @@ func TestParseHeadlessOptionalArguments(t *testing.T) {
 			input: "a=b,a=b",
 			want:  map[string]string{"a": "b"},
 		},
+		{
+			name:  "values with dash with boolean flag at the end",
+			input: "--a=a/b,c/d--z--n--m/a,--c=k,--h",
+			want:  map[string]string{"--a": "a/b,c/d--z--n--m/a", "--c": "k", "--h": ""},
+		},
+		{
+			name:  "values with dash boolean flag at the beginning",
+			input: "--h,--a=a/b,c/d--z--n--m/a,--c=k",
+			want:  map[string]string{"--h": "", "--a": "a/b,c/d--z--n--m/a", "--c": "k"},
+		},
+		{
+			name:  "values with dash boolean flag in the middle",
+			input: "--a=a/b,c/d--z--n--m/a,--h,--c=k",
+			want:  map[string]string{"--a": "a/b,c/d--z--n--m/a", "--h": "", "--c": "k"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
