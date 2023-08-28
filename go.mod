@@ -13,7 +13,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.0.19
 	github.com/projectdiscovery/fastdialer v0.0.36
-	github.com/projectdiscovery/goflags v0.1.17
+	github.com/projectdiscovery/goflags v0.1.18
 	github.com/projectdiscovery/gologger v1.1.11
 	github.com/projectdiscovery/hmap v0.0.15
 	github.com/projectdiscovery/ratelimit v0.0.9
