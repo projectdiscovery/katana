@@ -19,7 +19,7 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.9
 	github.com/projectdiscovery/retryablehttp-go v1.0.24
 	github.com/projectdiscovery/utils v0.0.52
-	github.com/projectdiscovery/wappalyzergo v0.0.108
+	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/shirou/gopsutil/v3 v3.23.7
