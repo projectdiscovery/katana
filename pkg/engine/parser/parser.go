@@ -662,9 +662,9 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 		return
 	}
 
-	endpointsItems := utils.ExtractJsluiceEndpoints(string(resp.Body))
+	endpointsItems := utils.ExtractRelativeEndpoints(string(resp.Body))
 	for _, item := range endpointsItems {
-		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("jsluice-%s", item.Type), resp))
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
 	}
 	return
 }
