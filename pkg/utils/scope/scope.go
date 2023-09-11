@@ -41,7 +41,6 @@ func NewManager(inScope, outOfScope []string, fieldScope string, noScope bool) (
 	}
 
 	if scopeValue, ok := stringToDNSScopeField[fieldScope]; !ok {
-		//return nil, fmt.Errorf("invalid dns scope field specified: %s", fieldScope)
 		manager.fieldScope = customDNSScopeField
 		if compiled, err := regexp.Compile(fieldScope); err != nil {
 			return nil, fmt.Errorf("could not compile regex %s: %s", fieldScope, err)
