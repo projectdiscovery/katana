@@ -156,7 +156,7 @@ HEADLESS:
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
    -cos, -crawl-out-scope string[]  out of scope url regex to be excluded by crawler
-   -fs, -field-scope string         pre-defined scope field (dn,rdn,fqdn) (default "rdn")
+   -fs, -field-scope string  pre-defined scope field (dn,rdn,fqdn) or custom regex (e.g., '(company-staging.io|company.com)') (default "rdn")
    -ns, -no-scope                   disables host based default scope
    -do, -display-out-scope          display external endpoint from scoped crawling
 
