@@ -144,6 +144,8 @@ type Options struct {
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
 	TlsImpersonate bool
+	//DisableRedirects disables the following of redirects
+	DisableRedirects bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

@@ -54,6 +54,9 @@ func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirect
 		Transport: transport,
 		Timeout:   time.Duration(options.Timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if options.DisableRedirects {
+				return http.ErrUseLastResponse
+			}
 			if len(via) == 10 {
 				return errorutil.New("stopped after 10 redirects")
 			}
