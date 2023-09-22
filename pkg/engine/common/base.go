@@ -76,7 +76,10 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			}
 			continue
 		}
-
+		// They will be not printed in main loop because we don't push them to queue
+		if nr.Depth == s.Options.Options.MaxDepth {
+			s.Output(nr, nil, nil)
+		}
 		// Do not add to crawl queue if max items are reached
 		if nr.Depth >= s.Options.Options.MaxDepth {
 			continue
