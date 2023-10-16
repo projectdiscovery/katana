@@ -239,6 +239,10 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
+			isRedirectResponse := resp.StatusCode >= 300 && resp.StatusCode < 400
+			if s.Options.Options.DisableRedirects && isRedirectResponse {
+				return
+			}
 
 			navigationRequests := parser.ParseResponse(resp)
 			s.Enqueue(crawlSession.Queue, navigationRequests...)
