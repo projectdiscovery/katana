@@ -11,7 +11,7 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.0.23
+	github.com/projectdiscovery/dsl v0.0.26
 	github.com/projectdiscovery/fastdialer v0.0.40
 	github.com/projectdiscovery/goflags v0.1.22
 	github.com/projectdiscovery/gologger v1.1.11
@@ -62,7 +62,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
 	github.com/projectdiscovery/gostruct v0.0.1 // indirect
-	github.com/projectdiscovery/mapcidr v1.1.9 // indirect
+	github.com/projectdiscovery/mapcidr v1.1.11 // indirect
 	github.com/quic-go/quic-go v0.37.4 // indirect
 	github.com/refraction-networking/utls v1.5.4 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
