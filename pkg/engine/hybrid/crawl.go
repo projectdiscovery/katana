@@ -108,10 +108,14 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
+			xhr_headers := make(map[string][]string)
+			for k, v := range e.Request.Headers {
+				xhr_headers[k] = []string{v.Str()}
+			}
 			xhr := navigation.Request{
 				URL:     httpreq.URL.String(),
 				Method:  httpreq.Method,
-				Headers: utils.FlattenHeaders(httpreq.Header),
+				Headers: utils.FlattenHeaders(xhr_headers),
 				Body:    e.Request.PostData,
 			}
 			xhrRequests = append(xhrRequests, xhr)
