@@ -128,6 +128,12 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
 		c.Enqueue(s.Queue, navigationRequests...)
+
+		// do not continue following the request if it's a redirect and redirects are disabled
+		isRedirectResponse := statusCode >= 300 && statusCode < 400
+		if c.Options.Options.DisableRedirects && isRedirectResponse {
+			return nil
+		}
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
