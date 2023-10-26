@@ -116,8 +116,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			xhr := navigation.Request{
 				URL:    httpreq.URL.String(),
 				Method: httpreq.Method,
-
-				Body: e.Request.PostData,
+				Body:   e.Request.PostData,
 			}
 			if len(httpreq.Header) > 0 {
 				xhr.Headers = utils.FlattenHeaders(httpreq.Header)
