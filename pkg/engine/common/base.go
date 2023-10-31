@@ -239,6 +239,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			if resp.Resp == nil || resp.Reader == nil {
 				return
 			}
+			if s.Options.Options.DisableRedirects && resp.IsRedirect() {
+				return
+			}
 
 			navigationRequests := parser.ParseResponse(resp)
 			s.Enqueue(crawlSession.Queue, navigationRequests...)
