@@ -130,8 +130,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		c.Enqueue(s.Queue, navigationRequests...)
 
 		// do not continue following the request if it's a redirect and redirects are disabled
-		isRedirectResponse := statusCode >= 300 && statusCode < 400
-		if c.Options.Options.DisableRedirects && isRedirectResponse {
+		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
 			return nil
 		}
 		return FetchContinueRequest(page, e)
