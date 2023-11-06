@@ -11,7 +11,7 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.0.28
+	github.com/projectdiscovery/dsl v0.0.29
 	github.com/projectdiscovery/fastdialer v0.0.42
 	github.com/projectdiscovery/goflags v0.1.25
 	github.com/projectdiscovery/gologger v1.1.11
