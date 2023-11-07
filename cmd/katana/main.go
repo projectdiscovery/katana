@@ -91,7 +91,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jsl", false, "enable jsluice parsing in javascript file (memory intensive)"),
 		flagSet.DurationVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for (s, m, h, d) (default s)"),
-		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml)"),
+		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled."),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", math.MaxInt, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.BoolVarP(&options.AutomaticFormFill, "automatic-form-fill", "aff", false, "enable automatic form filling (experimental)"),
@@ -182,6 +182,12 @@ pipelines offering both headless and non-headless crawling.`)
 			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
 		}
 	}
+
+	if options.KnownFiles != "" && options.MaxDepth < 3 {
+		gologger.Info().Msgf("Depth automatically set to 3 to accommodate the `--known-files` option (originally set to %d).", options.MaxDepth)
+		options.MaxDepth = 3
+	}
+
 	cleanupOldResumeFiles()
 	return flagSet, nil
 }
