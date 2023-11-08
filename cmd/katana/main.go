@@ -183,11 +183,6 @@ pipelines offering both headless and non-headless crawling.`)
 		}
 	}
 
-	if options.KnownFiles != "" && options.MaxDepth < 3 {
-		gologger.Info().Msgf("Depth automatically set to 3 to accommodate the `--known-files` option (originally set to %d).", options.MaxDepth)
-		options.MaxDepth = 3
-	}
-
 	cleanupOldResumeFiles()
 	return flagSet, nil
 }
