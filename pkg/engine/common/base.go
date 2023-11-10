@@ -127,20 +127,21 @@ type CrawlSession struct {
 
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	if s.Options.Options.CrawlDuration > 0 {
+	if s.Options.Options.CrawlDuration.Seconds() > 0 {
 		//nolint
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Options.Options.CrawlDuration)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, s.Options.Options.CrawlDuration)
 	}
 
 	parsed, err := urlutil.Parse(URL)
 	if err != nil {
-		//nolint
+		cancel()
 		return nil, errorutil.New("could not parse root URL").Wrap(err)
 	}
 	hostname := parsed.Hostname()
 
 	queue, err := queue.New(s.Options.Options.Strategy, s.Options.Options.Timeout)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
@@ -170,6 +171,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		s.Enqueue(queue, navigationRequests...)
 	})
 	if err != nil {
+		cancel()
 		return nil, errorutil.New("could not create http client").Wrap(err)
 	}
 	crawlSession := &CrawlSession{
@@ -206,10 +208,6 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
 			continue
 		}
-		if !s.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("skipping url with blacklisted extension %v", req.URL)
-			continue
-		}
 
 		wg.Add()
 		// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
@@ -239,6 +237,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			}
 			if resp.Resp == nil || resp.Reader == nil {
+				return
+			}
+			if s.Options.Options.DisableRedirects && resp.IsRedirect() {
 				return
 			}
 

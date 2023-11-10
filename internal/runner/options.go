@@ -14,12 +14,13 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	logutil "github.com/projectdiscovery/utils/log"
 	"gopkg.in/yaml.v3"
 )
 
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
-	if options.MaxDepth <= 0 && options.CrawlDuration <= 0 {
+	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
 		return errorutil.New("either max-depth or crawl-duration must be specified")
 	}
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
@@ -112,7 +113,7 @@ func configureOutput(options *types.Options) {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
 	}
 
-	// logutil.DisableDefaultLogger()
+	logutil.DisableDefaultLogger()
 }
 
 func initExampleFormFillConfig() error {
@@ -124,6 +125,9 @@ func initExampleFormFillConfig() error {
 
 	if fileutil.FileExists(defaultConfig) {
 		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
+		return err
 	}
 	exampleConfig, err := os.Create(defaultConfig)
 	if err != nil {

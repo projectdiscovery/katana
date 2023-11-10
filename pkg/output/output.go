@@ -1,6 +1,7 @@
 package output
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,10 @@ import (
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
+	"github.com/mitchellh/mapstructure"
+	"github.com/projectdiscovery/dsl"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	errorutil "github.com/projectdiscovery/utils/errors"
 )
 
@@ -35,32 +39,42 @@ type Writer interface {
 
 // StandardWriter is an standard output writer structure
 type StandardWriter struct {
-	storeFields      []string
-	fields           string
-	json             bool
-	verbose          bool
-	aurora           aurora.Aurora
-	outputFile       *fileWriter
-	outputMutex      *sync.Mutex
-	storeResponse    bool
-	storeResponseDir string
-	errorFile        *fileWriter
-	matchRegex       []*regexp.Regexp
-	filterRegex      []*regexp.Regexp
+	storeFields           []string
+	fields                string
+	json                  bool
+	verbose               bool
+	aurora                aurora.Aurora
+	outputFile            *fileWriter
+	outputMutex           *sync.Mutex
+	storeResponse         bool
+	storeResponseDir      string
+	omitRaw               bool
+	omitBody              bool
+	errorFile             *fileWriter
+	matchRegex            []*regexp.Regexp
+	filterRegex           []*regexp.Regexp
+	extensionValidator    *extensions.Validator
+	outputMatchCondition  string
+	outputFilterCondition string
 }
 
 // New returns a new output writer instance
 func New(options Options) (Writer, error) {
 	writer := &StandardWriter{
-		fields:           options.Fields,
-		json:             options.JSON,
-		verbose:          options.Verbose,
-		aurora:           aurora.NewAurora(options.Colors),
-		outputMutex:      &sync.Mutex{},
-		storeResponse:    options.StoreResponse,
-		storeResponseDir: options.StoreResponseDir,
-		matchRegex:       options.MatchRegex,
-		filterRegex:      options.FilterRegex,
+		fields:                options.Fields,
+		json:                  options.JSON,
+		verbose:               options.Verbose,
+		aurora:                aurora.NewAurora(options.Colors),
+		outputMutex:           &sync.Mutex{},
+		storeResponse:         options.StoreResponse,
+		storeResponseDir:      options.StoreResponseDir,
+		omitRaw:               options.OmitRaw,
+		omitBody:              options.OmitBody,
+		matchRegex:            options.MatchRegex,
+		filterRegex:           options.FilterRegex,
+		extensionValidator:    options.ExtensionValidator,
+		outputMatchCondition:  options.OutputMatchCondition,
+		outputFilterCondition: options.OutputFilterCondition,
 	}
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
@@ -128,6 +142,11 @@ func (w *StandardWriter) Write(result *Result) error {
 		if len(w.storeFields) > 0 {
 			storeFields(result, w.storeFields)
 		}
+
+		if !w.extensionValidator.ValidatePath(result.Request.URL) {
+			return nil
+		}
+
 		if !w.matchOutput(result) {
 			return nil
 		}
@@ -136,6 +155,36 @@ func (w *StandardWriter) Write(result *Result) error {
 		}
 		var data []byte
 		var err error
+
+		if w.storeResponse && result.HasResponse() {
+			if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+				if absPath, err := filepath.Abs(fileName); err == nil {
+					fileName = absPath
+				}
+				result.Response.StoredResponsePath = fileName
+				data, err := w.formatResult(result)
+				if err != nil {
+					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				}
+				if err := updateIndex(w.storeResponseDir, result); err != nil {
+					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				}
+				if err := fileWriter.Write(data); err != nil {
+					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				}
+				fileWriter.Close()
+			}
+		}
+
+		if w.omitRaw {
+			result.Request.Raw = ""
+			if result.Response != nil {
+				result.Response.Raw = ""
+			}
+		}
+		if w.omitBody && result.HasResponse() {
+			result.Response.Body = ""
+		}
 
 		if w.json {
 			data, err = w.formatJSON(result)
@@ -159,22 +208,6 @@ func (w *StandardWriter) Write(result *Result) error {
 			if err := w.outputFile.Write(data); err != nil {
 				return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
 			}
-		}
-	}
-
-	if w.storeResponse && result.HasResponse() {
-		if file, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
-			data, err := w.formatResult(result)
-			if err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-			}
-			if err := updateIndex(w.storeResponseDir, result); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-			}
-			if err := file.Write(data); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-			}
-			file.Close()
 		}
 	}
 
@@ -219,26 +252,104 @@ func (w *StandardWriter) Close() error {
 
 // matchOutput checks if the event matches the output regex
 func (w *StandardWriter) matchOutput(event *Result) bool {
-	if w.matchRegex == nil {
+	if w.matchRegex == nil && w.outputMatchCondition == "" {
 		return true
 	}
+
 	for _, regex := range w.matchRegex {
 		if regex.MatchString(event.Request.URL) {
 			return true
 		}
 	}
+
+	if w.outputMatchCondition != "" {
+		return evalDslExpr(event, w.outputMatchCondition)
+	}
+
 	return false
 }
 
 // filterOutput returns true if the event should be filtered out
 func (w *StandardWriter) filterOutput(event *Result) bool {
-	if w.filterRegex == nil {
+	if w.filterRegex == nil && w.outputFilterCondition == "" {
 		return false
 	}
+
 	for _, regex := range w.filterRegex {
 		if regex.MatchString(event.Request.URL) {
 			return true
 		}
+	}
+
+	if w.outputFilterCondition != "" {
+		return evalDslExpr(event, w.outputFilterCondition)
+	}
+
+	return false
+}
+
+func evalDslExpr(result *Result, dslExpr string) bool {
+	resultMap, err := resultToMap(*result)
+	if err != nil {
+		gologger.Warning().Msgf("Could not map result: %s\n", err)
+		return false
+	}
+
+	res, err := dsl.EvalExpr(dslExpr, resultMap)
+	if err != nil && !ignoreErr(err) {
+		gologger.Error().Msgf("Could not evaluate DSL expression: %s\n", err)
+		return false
+	}
+	return res == true
+}
+
+func resultToMap(result Result) (map[string]interface{}, error) {
+	resultMap := make(map[string]any)
+	config := &mapstructure.DecoderConfig{
+		TagName: "json",
+		Result:  &resultMap,
+	}
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return nil, fmt.Errorf("error creating decoder: %v", err)
+	}
+	err = decoder.Decode(result)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return flatten(resultMap), nil
+}
+
+// mapsutil.Flatten w/o separator
+func flatten(m map[string]any) map[string]any {
+	o := make(map[string]any)
+	for k, v := range m {
+		switch child := v.(type) {
+		case map[string]any:
+			nm := flatten(child)
+			for nk, nv := range nm {
+				o[nk] = nv
+			}
+		default:
+			o[k] = v
+		}
+	}
+	return o
+}
+
+var (
+	// showDSLErr controls whether to show hidden DSL errors or not
+	showDSLErr = strings.EqualFold(os.Getenv("SHOW_DSL_ERRORS"), "true")
+)
+
+// ignoreErr checks if the error is to be ignored or not
+// Reference: https://github.com/projectdiscovery/katana/pull/537
+func ignoreErr(err error) bool {
+	if showDSLErr {
+		return false
+	}
+	if errors.Is(err, dsl.ErrParsingArg) || strings.Contains(err.Error(), "No parameter") {
+		return true
 	}
 	return false
 }

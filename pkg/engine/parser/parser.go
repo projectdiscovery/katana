@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"strings"
 
@@ -37,7 +38,6 @@ var responseParsers = []responseParser{
 	// Header based parsers
 	{headerParser, headerContentLocationParser},
 	{headerParser, headerLinkParser},
-	{headerParser, headerLocationParser},
 	{headerParser, headerRefreshParser},
 
 	// Body based parsers
@@ -75,10 +75,17 @@ func InitWithOptions(options *types.Options) {
 	if options.AutomaticFormFill {
 		responseParsers = append(responseParsers, responseParser{bodyParser, bodyFormTagParser})
 	}
+	if options.ScrapeJSLuiceResponses {
+		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentJsluiceParser})
+		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileJsluiceParser})
+	}
 	if options.ScrapeJSResponses {
 		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
 		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
 		responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
+	}
+	if !options.DisableRedirects {
+		responseParsers = append(responseParsers, responseParser{headerParser, headerLocationParser})
 	}
 }
 
@@ -532,7 +539,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 
 		isMultipartForm := strings.HasPrefix(encType, "multipart/")
 
-		queryValuesWriter := make(urlutil.Params)
+		queryValuesWriter := urlutil.NewOrderedParams()
 		var sb strings.Builder
 		var multipartWriter *multipart.Writer
 
@@ -550,16 +557,17 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		})
 
 		dataMap := utils.FormInputFillSuggestions(formInputs)
-		for key, value := range dataMap {
+		dataMap.Iterate(func(key, value string) bool {
 			if key == "" || value == "" {
-				continue
+				return true
 			}
 			if isMultipartForm {
 				_ = multipartWriter.WriteField(key, value)
 			} else {
 				queryValuesWriter.Set(key, value)
 			}
-		}
+			return true
+		})
 
 		// Guess content-type
 		var contentType string
@@ -581,7 +589,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		}
 		switch method {
 		case "GET":
-			parsed.Params.Merge(queryValuesWriter)
+			parsed.Params.Merge(queryValuesWriter.Encode())
 			req.URL = parsed.String()
 		case "POST":
 			if multipartWriter != nil {
@@ -623,9 +631,26 @@ func scriptContentRegexParser(resp *navigation.Response) (navigationRequests []*
 		if text == "" {
 			return
 		}
+
 		endpoints := utils.ExtractRelativeEndpoints(text)
 		for _, item := range endpoints {
 			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "script", "text", resp))
+		}
+	})
+	return
+}
+
+// scriptContentJsluiceParser parses script content endpoints using jsluice from response
+func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
+		text := item.Text()
+		if text == "" {
+			return
+		}
+
+		endpointItems := utils.ExtractJsluiceEndpoints(text)
+		for _, item := range endpointItems {
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "script", fmt.Sprintf("jsluice-%s", item.Type), resp))
 		}
 	})
 	return
@@ -639,8 +664,8 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
 		return
 	}
-	endpoints := utils.ExtractRelativeEndpoints(string(resp.Body))
-	for _, item := range endpoints {
+	endpointsItems := utils.ExtractRelativeEndpoints(string(resp.Body))
+	for _, item := range endpointsItems {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "js", "regex", resp))
 	}
 
@@ -650,6 +675,26 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 		// ignore the query params if url contains any
 		cloned.RawQuery = ""
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(cloned.String()+".map", resp.Resp.Request.URL.String(), "js", "eval", resp))
+	}
+	return
+}
+
+// scriptJSFileJsluiceParser parses endpoints using jsluice from js file pages
+func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	// Only process javascript file based on path or content type
+	// CSS, JS are supported for relative endpoint extraction.
+	contentType := resp.Resp.Header.Get("Content-Type")
+	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
+		return
+	}
+	// Skip common js libraries
+	if utils.IsPathCommonJSLibraryFile(resp.Resp.Request.URL.Path) {
+		return
+	}
+
+	endpointsItems := utils.ExtractJsluiceEndpoints(string(resp.Body))
+	for _, item := range endpointsItems {
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("jsluice-%s", item.Type), resp))
 	}
 	return
 }

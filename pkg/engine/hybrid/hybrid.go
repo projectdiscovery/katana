@@ -41,6 +41,90 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	previousPIDs := findChromeProcesses()
 
+	var launcherURL string
+	var chromeLauncher *launcher.Launcher
+
+	if options.Options.ChromeWSUrl != "" {
+		launcherURL = options.Options.ChromeWSUrl
+	} else {
+		// create new chrome launcher instance
+		chromeLauncher, err = buildChromeLauncher(options, dataStore)
+		if err != nil {
+			return nil, err
+		}
+
+		// launch chrome headless process
+		launcherURL, err = chromeLauncher.Launch()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	browser := rod.New().ControlURL(launcherURL)
+	if browserErr := browser.Connect(); browserErr != nil {
+		return nil, errorutil.NewWithErr(browserErr).Msgf("failed to connect to chrome instance at %s", launcherURL)
+	}
+
+	// create a new browser instance (default to incognito mode)
+	if !options.Options.HeadlessNoIncognito {
+		incognito, err := browser.Incognito()
+		if err != nil {
+			if chromeLauncher != nil {
+				chromeLauncher.Kill()
+			}
+			return nil, errorutil.NewWithErr(err).Msgf("failed to create incognito browser")
+		}
+		browser = incognito
+	}
+
+	shared, err := common.NewShared(options)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).WithTag("hybrid")
+	}
+
+	crawler := &Crawler{
+		Shared:       shared,
+		browser:      browser,
+		previousPIDs: previousPIDs,
+		tempDir:      dataStore,
+	}
+
+	return crawler, nil
+}
+
+// Close closes the crawler process
+func (c *Crawler) Close() error {
+	if c.Options.Options.ChromeWSUrl == "" {
+		if err := c.browser.Close(); err != nil {
+			return err
+		}
+	}
+	if c.Options.Options.ChromeDataDir == "" {
+		if err := os.RemoveAll(c.tempDir); err != nil {
+			return err
+		}
+	}
+	return c.killChromeProcesses()
+}
+
+// Crawl crawls a URL with the specified options
+func (c *Crawler) Crawl(rootURL string) error {
+	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
+	crawlSession.Browser = c.browser
+	if err != nil {
+		return errorutil.NewWithErr(err).WithTag("hybrid")
+	}
+	defer crawlSession.CancelFunc()
+
+	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
+	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
+		return errorutil.NewWithErr(err).WithTag("standard")
+	}
+	return nil
+}
+
+// buildChromeLauncher builds a new chrome launcher instance
+func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*launcher.Launcher, error) {
 	chromeLauncher := launcher.New().
 		Leakless(false).
 		Set("disable-gpu", "true").
@@ -87,71 +171,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		chromeLauncher.Set(flags.Flag(k), v)
 	}
 
-	launcherURL, err := chromeLauncher.Launch()
-	if err != nil {
-		return nil, err
-	}
-
-	browser := rod.New().ControlURL(launcherURL)
-	if browserErr := browser.Connect(); browserErr != nil {
-		return nil, browserErr
-	}
-
-	shared, err := common.NewShared(options)
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).WithTag("hybrid")
-	}
-
-	crawler := &Crawler{
-		Shared:       shared,
-		browser:      browser,
-		previousPIDs: previousPIDs,
-		tempDir:      dataStore,
-	}
-
-	return crawler, nil
-}
-
-// Close closes the crawler process
-func (c *Crawler) Close() error {
-	if err := c.browser.Close(); err != nil {
-		return err
-	}
-	if c.Options.Options.ChromeDataDir == "" {
-		if err := os.RemoveAll(c.tempDir); err != nil {
-			return err
-		}
-	}
-	return c.killChromeProcesses()
-}
-
-// Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(rootURL string) error {
-	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
-	if err != nil {
-		return errorutil.NewWithErr(err).WithTag("hybrid")
-	}
-	defer crawlSession.CancelFunc()
-
-	// create a new browser instance (default to incognito mode)
-	if c.Options.Options.HeadlessNoIncognito {
-		if err := c.browser.Connect(); err != nil {
-			return err
-		}
-		crawlSession.Browser = c.browser
-	} else {
-		var err error
-		crawlSession.Browser, err = c.browser.Incognito()
-		if err != nil {
-			return err
-		}
-	}
-
-	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
-	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
-		return errorutil.NewWithErr(err).WithTag("standard")
-	}
-	return nil
+	return chromeLauncher, nil
 }
 
 // killChromeProcesses any and all new chrome processes started after

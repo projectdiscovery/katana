@@ -120,19 +120,22 @@ CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
-   -ct, -crawl-duration int      maximum duration to crawl the target for
+   -jsl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
+   -ct, -crawl-duration value    maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
+   -fx, -form-extraction         extract form, input, textarea & select elements in jsonl output
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
-   -H, -headers string[]         custom header/cookie to include in request
+   -H, -headers string[]         custom header/cookie to include in all http request in header:value format (file)
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
+   -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
@@ -147,11 +150,13 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
+   -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
    -cos, -crawl-out-scope string[]  out of scope url regex to be excluded by crawler
-   -fs, -field-scope string         pre-defined scope field (dn,rdn,fqdn) (default "rdn")
+   -fs, -field-scope string  pre-defined scope field (dn,rdn,fqdn) or custom regex (e.g., '(company-staging.io|company.com)') (default "rdn")
    -ns, -no-scope                   disables host based default scope
    -do, -display-out-scope          display external endpoint from scoped crawling
 
@@ -162,6 +167,8 @@ FILTER:
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
+   -mdc, -match-condition string    match response with dsl based condition
+   -fdc, -filter-condition string   filter response with dsl based condition
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -178,7 +185,9 @@ OUTPUT:
    -o, -output string                file to write output to
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
-   -j, -json                         write output in JSONL(ines) format
+   -or, -omit-raw                    omit raw requests/responses from jsonl output
+   -ob, -omit-body                   omit response body from jsonl output
+   -j, -jsonl                        write output in jsonl format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
    -v, -verbose                      display verbose output
@@ -307,6 +316,8 @@ HEADLESS:
    -cdd, -chrome-data-dir string     path to store chrome browser data
    -scp, -system-chrome-path string  use specified chrome browser for headless crawling
    -noi, -no-incognito               start headless chrome without incognito mode
+   -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
+   -xhr, -xhr-extraction             extract xhr requests
 ```
 
 *`-no-sandbox`*
@@ -486,6 +497,38 @@ Automatic form filling is experimental feature.
 katana -u https://tesla.com -aff
 ```
 
+## Authenticated Crawling
+
+Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perfrom authenticated crawling.
+
+> **Note**: User needs to be manually perform the authentication and export the session cookie / header to file to use with katana.
+
+*`-headers`*
+----
+
+Option to add a custom header or cookie to the request. 
+> Syntax of [headers](https://datatracker.ietf.org/doc/html/rfc7230#section-3.2) in the HTTP specification
+
+Here is an example of adding a cookie to the request:
+```
+katana -u https://tesla.com -H 'Cookie: usrsess=AmljNrESo'
+```
+
+It is also possible to supply headers or cookies as a file. For example:
+
+```
+$ cat cookie.txt
+
+Cookie: PHPSESSIONID=XXXXXXXXX
+X-API-KEY: XXXXX
+TOKEN=XX
+```
+
+```
+katana -u https://tesla.com -H cookie.txt
+```
+
+
 There are more options to configure when needed, here is all the config related CLI options - 
 
 ```console
@@ -501,6 +544,7 @@ CONFIGURATION:
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
+   -fx, -form-extraction         enable extraction of form, input, textarea & select elements
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
    -H, -headers string[]         custom header/cookie to include in request
@@ -509,6 +553,41 @@ CONFIGURATION:
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
 ```
+
+### Connecting to Active Browser Session
+
+Katana can also connect to active browser session where user is already logged in and authenticated. and use it for crawling. The only requirement for this is to start browser with remote debugging enabled.
+
+Here is an example of starting chrome browser with remote debugging enabled and using it with katana -
+
+**step 1) First Locate path of chrome executable**
+
+| Operating System | Chromium Executable Location | Google Chrome Executable Location |
+|------------------|------------------------------|-----------------------------------|
+| Windows (64-bit) | `C:\Program Files (x86)\Google\Chromium\Application\chrome.exe` | `C:\Program Files (x86)\Google\Chrome\Application\chrome.exe` |
+| Windows (32-bit) | `C:\Program Files\Google\Chromium\Application\chrome.exe` | `C:\Program Files\Google\Chrome\Application\chrome.exe` |
+| macOS | `/Applications/Chromium.app/Contents/MacOS/Chromium` | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+| Linux | `/usr/bin/chromium` | `/usr/bin/google-chrome` |
+
+**step 2) Start chrome with remote debugging enabled and it will return websocker url. For example, on MacOS, you can start chrome with remote debugging enabled using following command** -
+
+```console
+$ /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/c5316c9c-19d6-42dc-847a-41d1aeebf7d6
+```
+
+> Now login to the website you want to crawl and keep the browser open.
+
+**step 3) Now use the websocket url with katana to connect to the active browser session and crawl the website**
+
+```console
+katana -headless -u https://tesla.com -cwu ws://127.0.0.1:9222/devtools/browser/c5316c9c-19d6-42dc-847a-41d1aeebf7d6 -no-incognito
+```
+
+> **Note**: you can use `-cdd` option to specify custom chrome data directory to store browser data and cookies but that does not save session data if cookie is set to `Session` only or expires after certain time.
+
 
 ## Filters
 
@@ -622,6 +701,7 @@ The `-store-field` option can be useful for collecting information to build a ta
 - Finding commonly used files
 - Identifying related or unknown subdomains
 
+### Katana Filters
 
 *`-extension-match`*
 ---
@@ -656,6 +736,28 @@ The `-filter-regex` or `-fr` flag allows you to filter output URLs using regular
 katana -u https://tesla.com -fr 'https://www\.tesla\.com/*' -silent
 ```
 
+### Advance Filtering
+
+Katana supports DSL-based expressions for advanced matching and filtering capabilities:
+
+- To match endpoints with a 200 status code:
+```shell
+katana -u https://www.hackerone.com -mdc 'status_code == 200'
+```
+- To match endpoints that contain "default" and have a status code other than 403:
+```shell
+katana -u https://www.hackerone.com -mdc 'contains(endpoint, "default") && status_code != 403'
+```
+- To match endpoints with PHP technologies:
+```shell
+katana -u https://www.hackerone.com -mdc 'contains(to_lower(technologies), "php")'
+```
+- To filter out endpoints running on Cloudflare:
+```shell
+katana -u https://www.hackerone.com -fdc 'contains(to_lower(technologies), "cloudflare")'
+```
+DSL functions can be applied to any keys in the jsonl output. For more information on available DSL functions, please visit the [dsl project](https://github.com/projectdiscovery/dsl).
+
 Here are additional filter options -
 
 ```console
@@ -669,7 +771,10 @@ FILTER:
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
+   -mdc, -match-condition string    match response with dsl based condition
+   -fdc, -filter-condition string   filter response with dsl based condition
 ```
+
 
 ## Rate Limit
 
@@ -744,11 +849,11 @@ By default, katana outputs the crawled endpoints in plain text format. The resul
 katana -u https://example.com -no-scope -output example_endpoints.txt
 ```
 
-*`-json`*
+*`-jsonl`*
 ---
 
 ```console
-katana -u https://example.com -json | jq .
+katana -u https://example.com -jsonl | jq .
 ```
 
 ```json
@@ -827,7 +932,7 @@ OUTPUT:
 `katana` can be used as a library by creating an instance of the `Option` struct and populating it with the same options that would be specified via CLI. Using the options you can create `crawlerOptions` and so standard or hybrid `crawler`.
 `crawler.Crawl` method should be called to crawl the input.
 
-```
+```go
 package main
 
 import (

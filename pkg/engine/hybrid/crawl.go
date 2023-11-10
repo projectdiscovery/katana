@@ -5,11 +5,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
@@ -35,12 +37,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
 	defer page.Close()
+	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
 	pageRouter.SetPattern(&proto.FetchRequestPattern{
 		URLPattern:   "*",
 		RequestStage: proto.FetchRequestStageResponse,
 	})
+
+	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, _ := urlutil.Parse(e.Request.URL)
 		body, _ := FetchGetResponseBody(page, e)
@@ -63,6 +68,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
 			return errorutil.NewWithErr(err).Msgf("could not create http request")
+		}
+		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
+		// headers are reflected in request dump
+		if httpreq != nil {
+			for k, v := range c.Headers {
+				httpreq.Header.Set(k, v)
+			}
 		}
 		httpresp := &http.Response{
 			Proto:         "HTTP/1.1",
@@ -98,6 +110,25 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			Raw:          string(rawBytesResponse),
 		}
 
+		requestHeaders := make(map[string][]string)
+		for name, value := range e.Request.Headers {
+			requestHeaders[name] = []string{value.Str()}
+		}
+
+		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
+			xhr := navigation.Request{
+				URL:    httpreq.URL.String(),
+				Method: httpreq.Method,
+				Body:   e.Request.PostData,
+			}
+			if len(httpreq.Header) > 0 {
+				xhr.Headers = utils.FlattenHeaders(httpreq.Header)
+			} else {
+				xhr.Headers = utils.FlattenHeaders(requestHeaders)
+			}
+			xhrRequests = append(xhrRequests, xhr)
+		}
+
 		// trim trailing /
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
@@ -109,6 +140,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
 		c.Enqueue(s.Queue, navigationRequests...)
+
+		// do not continue following the request if it's a redirect and redirects are disabled
+		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
+			return nil
+		}
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {
@@ -157,6 +193,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
 	}
+
+	if response.Resp == nil {
+		return nil, errorutil.NewWithTag("hybrid", "response is nil").Wrap(err)
+	}
 	response.Resp.Request.URL = parsed.URL
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
@@ -170,12 +210,34 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.Body = body
+	response.Reader.Url, _ = url.Parse(request.URL)
+	if c.Options.Options.FormExtraction {
+		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
 	}
+
+	response.XhrRequests = xhrRequests
+
 	return response, nil
+}
+
+func (c *Crawler) addHeadersToPage(page *rod.Page) {
+	if len(c.Headers) == 0 {
+		return
+	}
+	var arr []string
+	for k, v := range c.Headers {
+		arr = append(arr, k, v)
+	}
+	// ignore cleanup callback
+	_, err := page.SetExtraHeaders(arr)
+	if err != nil {
+		gologger.Error().Msgf("headless: could not set extra headers: %v", err)
+	}
 }
 
 // traverseDOMNode performs traversal of node completely building a pseudo-HTML

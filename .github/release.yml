@@ -1,0 +1,18 @@
+changelog:
+  exclude:
+    authors:
+      - app/dependabot
+      - dependabot
+  categories:
+    - title: 🎉 New Features
+      labels:
+        - "Type: Enhancement"
+    - title: 🐞 Bug Fixes
+      labels:
+        - "Type: Bug" 
+    - title: 🔨 Maintenance
+      labels:
+        - "Type: Maintenance" 
+    - title: Other Changes
+      labels:
+        - "*"

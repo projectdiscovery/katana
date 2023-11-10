@@ -5,8 +5,10 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
@@ -14,6 +16,8 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	fileutil "github.com/projectdiscovery/utils/file"
+	"github.com/rs/xid"
 )
 
 var (
@@ -42,12 +46,20 @@ func main() {
 	defer katanaRunner.Close()
 
 	// close handler
+	resumeFilename := defaultResumeFilename()
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
 			katanaRunner.Close()
+
+			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
+			err := katanaRunner.SaveState(resumeFilename)
+			if err != nil {
+				gologger.Error().Msgf("Couldn't create resume file: %s\n", err)
+			}
+
 			os.Exit(0)
 		}
 	}()
@@ -55,6 +67,12 @@ func main() {
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
+
+	// on successful execution remove the resume file in case it exists
+	if fileutil.FileExists(resumeFilename) {
+		os.Remove(resumeFilename)
+	}
+
 }
 
 func readFlags() (*goflags.FlagSet, error) {
@@ -64,25 +82,30 @@ pipelines offering both headless and non-headless crawling.`)
 
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
 	)
 
 	flagSet.CreateGroup("config", "Configuration",
 		flagSet.StringSliceVarP(&options.Resolvers, "resolvers", "r", nil, "list of custom resolver (file or comma separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 3, "maximum depth to crawl"),
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
-		flagSet.IntVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for"),
+		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jsl", false, "enable jsluice parsing in javascript file (memory intensive)"),
+		flagSet.DurationVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for (s, m, h, d) (default s)"),
 		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml)"),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", math.MaxInt, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.BoolVarP(&options.AutomaticFormFill, "automatic-form-fill", "aff", false, "enable automatic form filling (experimental)"),
+		flagSet.BoolVarP(&options.FormExtraction, "form-extraction", "fx", false, "extract form, input, textarea & select elements in jsonl output"),
 		flagSet.IntVar(&options.Retries, "retry", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
-		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in request", goflags.StringSliceOptions),
+		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in all http request in header:value format (file)", goflags.FileStringSliceOptions),
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
 		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
 		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first)"),
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
+		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
+		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
@@ -99,12 +122,14 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.ChromeDataDir, "chrome-data-dir", "cdd", "", "path to store chrome browser data"),
 		flagSet.StringVarP(&options.SystemChromePath, "system-chrome-path", "scp", "", "use specified chrome browser for headless crawling"),
 		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
+		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
+		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
-		flagSet.StringVarP(&options.FieldScope, "field-scope", "fs", "rdn", "pre-defined scope field (dn,rdn,fqdn)"),
+		flagSet.StringVarP(&options.FieldScope, "field-scope", "fs", "rdn", "pre-defined scope field (dn,rdn,fqdn) or custom regex (e.g., '(company-staging.io|company.com)')"),
 		flagSet.BoolVarP(&options.NoScope, "no-scope", "ns", false, "disables host based default scope"),
 		flagSet.BoolVarP(&options.DisplayOutScope, "display-out-scope", "do", false, "display external endpoint from scoped crawling"),
 	)
@@ -117,6 +142,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
+		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
 	)
 
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
@@ -136,7 +163,9 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.BoolVarP(&options.StoreResponse, "store-response", "sr", false, "store http requests/responses"),
 		flagSet.StringVarP(&options.StoreResponseDir, "store-response-dir", "srd", "", "store http requests/responses to custom directory"),
-		flagSet.BoolVarP(&options.JSON, "json", "j", false, "write output in JSONL(ines) format"),
+		flagSet.BoolVarP(&options.OmitRaw, "omit-raw", "or", false, "omit raw requests/responses from jsonl output"),
+		flagSet.BoolVarP(&options.OmitBody, "omit-body", "ob", false, "omit response body from jsonl output"),
+		flagSet.BoolVarP(&options.JSON, "jsonl", "j", false, "write output in jsonl format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
 		flagSet.BoolVarP(&options.Verbose, "verbose", "v", false, "display verbose output"),
@@ -153,6 +182,7 @@ pipelines offering both headless and non-headless crawling.`)
 			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
 		}
 	}
+	cleanupOldResumeFiles()
 	return flagSet, nil
 }
 
@@ -161,4 +191,27 @@ func init() {
 	if os.Getenv("DEBUG") == "true" {
 		errorutil.ShowStackTrace = true
 	}
+}
+
+func defaultResumeFilename() string {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		gologger.Fatal().Msgf("could not get home directory: %s", err)
+	}
+	configDir := filepath.Join(homedir, ".config", "katana")
+	return filepath.Join(configDir, fmt.Sprintf("resume-%s.cfg", xid.New().String()))
+}
+
+// cleanupOldResumeFiles cleans up resume files older than 10 days.
+func cleanupOldResumeFiles() {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		gologger.Fatal().Msgf("could not get home directory: %s", err)
+	}
+	root := filepath.Join(homedir, ".config", "katana")
+	filter := fileutil.FileFilters{
+		OlderThan: 24 * time.Hour * 10, // cleanup on the 10th day
+		Prefix:    "resume-",
+	}
+	_ = fileutil.DeleteFilesOlderThan(root, filter)
 }
