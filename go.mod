@@ -61,7 +61,7 @@ require (
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
-	github.com/projectdiscovery/gostruct v0.0.1 // indirect
+	github.com/projectdiscovery/gostruct v0.0.2 // indirect
 	github.com/projectdiscovery/mapcidr v1.1.14 // indirect
 	github.com/quic-go/quic-go v0.37.4 // indirect
 	github.com/refraction-networking/utls v1.5.4 // indirect
