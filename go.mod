@@ -16,7 +16,7 @@ require (
 	github.com/projectdiscovery/goflags v0.1.26
 	github.com/projectdiscovery/gologger v1.1.11
 	github.com/projectdiscovery/hmap v0.0.26
-	github.com/projectdiscovery/ratelimit v0.0.13
+	github.com/projectdiscovery/ratelimit v0.0.16
 	github.com/projectdiscovery/retryablehttp-go v1.0.36
 	github.com/projectdiscovery/utils v0.0.63
 	github.com/projectdiscovery/wappalyzergo v0.0.109
