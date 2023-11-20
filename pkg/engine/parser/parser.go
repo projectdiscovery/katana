@@ -670,7 +670,10 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	}
 
 	if strings.Contains(string(resp.Body), "//# sourceMappingURL=") {
-		temp := urlutil.URL{URL: resp.Resp.Request.URL}
+		reqUrl := resp.Resp.Request.URL
+		params := urlutil.NewOrderedParams()
+		params.Decode(reqUrl.RawQuery)
+		temp := &urlutil.URL{URL: reqUrl, Params: params}
 		cloned := temp.Clone()
 		// ignore the query params if url contains any
 		cloned.RawQuery = ""
