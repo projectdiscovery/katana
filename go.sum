@@ -178,8 +178,8 @@ github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c h1:ncq/mPwQF
 github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
 github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k0VbGJyft6LQ=
 github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
-github.com/projectdiscovery/dsl v0.0.29 h1:6ne4vWL06vk0sb6lI3iTcDw2leoWa9WUkBCE+h9o2ao=
-github.com/projectdiscovery/dsl v0.0.29/go.mod h1:ocF2NbK8nUQPexa5kF/1dBUG56lpsM8S/91gmqOgvmA=
+github.com/projectdiscovery/dsl v0.0.32 h1:hhZcqu+FgrF6RrikPdwc1cmYhkCyYXYKNNZL4vcGWEc=
+github.com/projectdiscovery/dsl v0.0.32/go.mod h1:0dxtOiPv0UXD8YpuPieVFN/zisQaL5Sp8OGTRzKVH0A=
 github.com/projectdiscovery/fastdialer v0.0.45 h1:0ro1JlTR6gceHvpYRSW+M8659iz/0AJWV6hJ3iUbjGQ=
 github.com/projectdiscovery/fastdialer v0.0.45/go.mod h1:WoOq5Xi2udafa1Y5HvPNP28TDLvczUi9d5l/FHcVPlc=
 github.com/projectdiscovery/goflags v0.1.26 h1:o3bFCN5CIYJoLUl/uyKHjXZKkITaBrGPVJ8hg2KErKE=
@@ -190,8 +190,8 @@ github.com/projectdiscovery/gostruct v0.0.2 h1:s8gP8ApugGM4go1pA+sVlPDXaWqNP5BBD
 github.com/projectdiscovery/gostruct v0.0.2/go.mod h1:H86peL4HKwMXcQQtEa6lmC8FuD9XFt6gkNR0B/Mu5PE=
 github.com/projectdiscovery/hmap v0.0.27 h1:I4oYpNRmEYSs0CAL6qlxxKL60wn84tMgV2hC2jgB1/A=
 github.com/projectdiscovery/hmap v0.0.27/go.mod h1:QOzaiI4PATlCb4bE50CLC6RAJ+wz0RXtlQUrR2vFmAI=
-github.com/projectdiscovery/mapcidr v1.1.14 h1:5UP2JCYm+vGr71p3mufqiU0oUXOoGJ72VBKWgBvl0WI=
-github.com/projectdiscovery/mapcidr v1.1.14/go.mod h1:q/aK7RR4niZeFCoHhOcUPi+L4KvV0VSIYruRHER70W8=
+github.com/projectdiscovery/mapcidr v1.1.15 h1:rYAgxLvMyxPU0JunE/Y3uSK1n/TcNJHK839d6YM0ms4=
+github.com/projectdiscovery/mapcidr v1.1.15/go.mod h1:s9erRsoZqWcLGhJW+WT1SnbscqzhHRRnSX916xBw5ZM=
 github.com/projectdiscovery/networkpolicy v0.0.6 h1:yDvm0XCrS9HeemRrBS+J+22surzVczM94W5nHiOy/1o=
 github.com/projectdiscovery/networkpolicy v0.0.6/go.mod h1:8HJQ/33Pi7v3a3MRWIQGXzpj+zHw2d60TysEL4qdoQk=
 github.com/projectdiscovery/ratelimit v0.0.16 h1:sAg9dQvNZWpt/TH04Mkp6L6PoFBLYDRlzApVtIRuMJY=
