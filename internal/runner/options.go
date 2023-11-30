@@ -52,6 +52,10 @@ func validateOptions(options *types.Options) error {
 		}
 		options.FilterRegex = append(options.FilterRegex, cr)
 	}
+	if options.KnownFiles != "" && options.MaxDepth < 3 {
+		gologger.Info().Msgf("Depth automatically set to 3 to accommodate the `--known-files` option (originally set to %d).", options.MaxDepth)
+		options.MaxDepth = 3
+	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
 }
