@@ -76,7 +76,7 @@ func New(options *types.Options) (*Runner, error) {
 		return nil, errorutil.NewWithErr(err).Msgf("could not validate options")
 	}
 	if options.FormConfig != "" {
-		if err := readCustomFormConfig(options); err != nil {
+		if err := readCustomFormConfig(options.FormConfig); err != nil {
 			return nil, err
 		}
 	}
