@@ -106,7 +106,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
-        flagSet.BoolVarP(&options.TLSH, "hash-tlsh", "tlsh", false, "enable TLSH hashing of response body (default false)"),
+        flagSet.BoolVarP(&options.TLSH, "hash-tlsh", "tlsh", false, "enable TLSH hashing of response body, JSON output only (default false)"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
