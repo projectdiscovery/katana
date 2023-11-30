@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+    "github.com/glaslos/tlsh"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -78,6 +79,13 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	response.Technologies = mapsutil.GetKeys(technologies)
 
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
+
+    if c.Options.Options.TLSH {
+        tlsh, err := tlsh.HashBytes(data)
+        if err == nil {
+            response.Tlsh = tlsh.String()
+        }
+    }
 
 	response.Body = string(data)
 	response.Resp = resp

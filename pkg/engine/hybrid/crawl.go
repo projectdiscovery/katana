@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+    "github.com/glaslos/tlsh"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -106,6 +107,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			Headers:      utils.FlattenHeaders(headers),
 			Raw:          string(rawBytesResponse),
 		}
+
+        if c.Options.Options.TLSH {
+            tlsh, err := tlsh.HashBytes(body)
+            if err == nil {
+                resp.Tlsh = tlsh.String()
+            }
+        }
 
 		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
 			xhr := navigation.Request{

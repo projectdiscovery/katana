@@ -44,6 +44,7 @@ require (
 	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
+	github.com/glaslos/tlsh v0.3.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
