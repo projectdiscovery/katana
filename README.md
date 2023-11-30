@@ -115,14 +115,15 @@ Usage:
 Flags:
 INPUT:
    -u, -list string[]  target url / list to crawl
+   -resume string      resume scan using resume.cfg
 
 CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
-   -jsl, -jsluice                 enable jsluice parsing in javascript file (memory intensive)
+   -jsl, -jsluice                enable jsluice parsing in javascript file (memory intensive)
    -ct, -crawl-duration value    maximum duration to crawl the target for (s, m, h, d) (default s)
-   -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml)
+   -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled.
    -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
@@ -136,6 +137,7 @@ CONFIGURATION:
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
+   -dr, -disable-redirects       disable following redirects (default false)
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
@@ -156,7 +158,7 @@ HEADLESS:
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
    -cos, -crawl-out-scope string[]  out of scope url regex to be excluded by crawler
-   -fs, -field-scope string  pre-defined scope field (dn,rdn,fqdn) or custom regex (e.g., '(company-staging.io|company.com)') (default "rdn")
+   -fs, -field-scope string         pre-defined scope field (dn,rdn,fqdn) or custom regex (e.g., '(company-staging.io|company.com)') (default "rdn")
    -ns, -no-scope                   disables host based default scope
    -do, -display-out-scope          display external endpoint from scoped crawling
 
