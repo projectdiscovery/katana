@@ -57,8 +57,8 @@ func validateOptions(options *types.Options) error {
 }
 
 // readCustomFormConfig reads custom form fill config
-func readCustomFormConfig(options *types.Options) error {
-	file, err := os.Open(options.FormConfig)
+func readCustomFormConfig(formConfig string) error {
+	file, err := os.Open(formConfig)
 	if err != nil {
 		return errorutil.NewWithErr(err).Msgf("could not read form config")
 	}
@@ -124,6 +124,7 @@ func initExampleFormFillConfig() error {
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
 
 	if fileutil.FileExists(defaultConfig) {
+		readCustomFormConfig(defaultConfig)
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
