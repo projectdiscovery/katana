@@ -15,10 +15,10 @@ require (
 	github.com/projectdiscovery/fastdialer v0.0.45
 	github.com/projectdiscovery/goflags v0.1.29
 	github.com/projectdiscovery/gologger v1.1.11
-	github.com/projectdiscovery/hmap v0.0.27
+	github.com/projectdiscovery/hmap v0.0.28
 	github.com/projectdiscovery/ratelimit v0.0.16
 	github.com/projectdiscovery/retryablehttp-go v1.0.37
-	github.com/projectdiscovery/utils v0.0.65
+	github.com/projectdiscovery/utils v0.0.67
 	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
