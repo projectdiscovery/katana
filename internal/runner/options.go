@@ -128,8 +128,7 @@ func initExampleFormFillConfig() error {
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
 
 	if fileutil.FileExists(defaultConfig) {
-		readCustomFormConfig(defaultConfig)
-		return nil
+		return readCustomFormConfig(defaultConfig)
 	}
 	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
 		return err
