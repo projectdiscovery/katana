@@ -539,6 +539,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		isMultipartForm := strings.HasPrefix(encType, "multipart/")
 
 		queryValuesWriter := urlutil.NewOrderedParams()
+		queryValuesWriter.IncludeEquals = true
 		var sb strings.Builder
 		var multipartWriter *multipart.Writer
 
@@ -557,7 +558,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 
 		dataMap := utils.FormInputFillSuggestions(formInputs)
 		dataMap.Iterate(func(key, value string) bool {
-			if key == "" || value == "" {
+			if key == "" {
 				return true
 			}
 			if isMultipartForm {
