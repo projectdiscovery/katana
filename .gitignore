@@ -5,3 +5,6 @@ katana
 katana_*/
 katana_*/
 dist/
+
+.vscode
+.devcontainer
