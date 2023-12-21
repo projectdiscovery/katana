@@ -938,6 +938,8 @@ OUTPUT:
 package main
 
 import (
+	"math"
+
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -946,11 +948,15 @@ import (
 
 func main() {
 	options := &types.Options{
-		MaxDepth:     1,               // Maximum depth to crawl
-		FieldScope:   "rdn",           // Crawling Scope Field
-		BodyReadSize: 2 * 1024 * 1024, // Maximum response size to read
-		RateLimit:    150,             // Maximum requests to send per second
-		Strategy:     "depth-first",   // Visit strategy (depth-first, breadth-first)
+		MaxDepth:     3,             // Maximum depth to crawl
+		FieldScope:   "rdn",         // Crawling Scope Field
+		BodyReadSize: math.MaxInt,   // Maximum response size to read
+		Timeout:      10,            // Timeout is the time to wait for request in seconds
+		Concurrency:  10,            // Concurrency is the number of concurrent crawling goroutines
+		Parallelism:  10,            // Parallelism is the number of urls processing goroutines
+		Delay:        0,             // Delay is the delay between each crawl requests in seconds
+		RateLimit:    150,           // Maximum requests to send per second
+		Strategy:     "depth-first", // Visit strategy (depth-first, breadth-first)
 		OnResult: func(result output.Result) { // Callback function to execute for result
 			gologger.Info().Msg(result.Request.URL)
 		},
@@ -965,7 +971,7 @@ func main() {
 		gologger.Fatal().Msg(err.Error())
 	}
 	defer crawler.Close()
-	var input = "https://tesla.com"
+	var input = "https://www.hackerone.com"
 	err = crawler.Crawl(input)
 	if err != nil {
 		gologger.Warning().Msgf("Could not crawl %s: %s", input, err.Error())
