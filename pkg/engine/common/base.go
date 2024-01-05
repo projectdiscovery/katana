@@ -189,64 +189,70 @@ type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*n
 
 func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 	wg := sizedwaitgroup.New(s.Options.Options.Concurrency)
-	for item := range crawlSession.Queue.Pop() {
-		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-
-		req, ok := item.(*navigation.Request)
-		if !ok {
-			continue
-		}
-
-		if !utils.IsURL(req.URL) {
-			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
-			continue
-		}
-
-		if ok, err := s.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
-			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
-			continue
-		}
-
-		wg.Add()
-		// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
-		go func() {
-			defer wg.Done()
-
-			s.Options.RateLimit.Take()
-
-			// Delay if the user has asked for it
-			if s.Options.Options.Delay > 0 {
-				time.Sleep(time.Duration(s.Options.Options.Delay) * time.Second)
+	for{
+		for item := range crawlSession.Queue.Pop() {
+			currentItem := item
+			if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
+				return ctxErr
 			}
-
-			resp, err := doRequest(crawlSession, req)
-
-			s.Output(req, resp, err)
-
-			if err != nil {
-				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
-				outputError := &output.Error{
-					Timestamp: time.Now(),
-					Endpoint:  req.RequestURL(),
-					Source:    req.Source,
-					Error:     err.Error(),
+	
+			req, ok := currentItem.(*navigation.Request)
+			if !ok {
+				continue
+			}
+	
+			if !utils.IsURL(req.URL) {
+				gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
+				continue
+			}
+	
+			if ok, err := s.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
+				gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+				continue
+			}
+	
+			wg.Add()
+			// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
+			go func(item interface{}) {
+				defer wg.Done()
+	
+				s.Options.RateLimit.Take()
+	
+				// Delay if the user has asked for it
+				if s.Options.Options.Delay > 0 {
+					time.Sleep(time.Duration(s.Options.Options.Delay) * time.Second)
 				}
-				_ = s.Options.OutputWriter.WriteErr(outputError)
-				return
-			}
-			if resp.Resp == nil || resp.Reader == nil {
-				return
-			}
-			if s.Options.Options.DisableRedirects && resp.IsRedirect() {
-				return
-			}
-
-			navigationRequests := parser.ParseResponse(resp)
-			s.Enqueue(crawlSession.Queue, navigationRequests...)
-		}()
+	
+				resp, err := doRequest(crawlSession, req)
+	
+				s.Output(req, resp, err)
+	
+				if err != nil {
+					gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
+					outputError := &output.Error{
+						Timestamp: time.Now(),
+						Endpoint:  req.RequestURL(),
+						Source:    req.Source,
+						Error:     err.Error(),
+					}
+					_ = s.Options.OutputWriter.WriteErr(outputError)
+					return
+				}
+				if resp.Resp == nil || resp.Reader == nil {
+					return
+				}
+	
+				navigationRequests := parser.ParseResponse(resp)
+				s.Enqueue(crawlSession.Queue, navigationRequests...)
+			}(currentItem)
+		}
+		wg.Wait()
+		if crawlSession.Queue.Len() == 0 {
+			break
+		}
 	}
-	wg.Wait()
+	
 	return nil
+
+
 }
