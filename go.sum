@@ -193,8 +193,8 @@ github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJ
 github.com/projectdiscovery/gologger v1.1.12/go.mod h1:DI8nywPLERS5mo8QEA9E7gd5HZ3Je14SjJBH3F5/kLw=
 github.com/projectdiscovery/gostruct v0.0.2 h1:s8gP8ApugGM4go1pA+sVlPDXaWqNP5BBDDSv7VEdG1M=
 github.com/projectdiscovery/gostruct v0.0.2/go.mod h1:H86peL4HKwMXcQQtEa6lmC8FuD9XFt6gkNR0B/Mu5PE=
-github.com/projectdiscovery/hmap v0.0.31 h1:vJDZD+VUHzKtFbmF8z75WPwNv9zFpje2F63RAwa3Hjw=
-github.com/projectdiscovery/hmap v0.0.31/go.mod h1:FeBmGo9wqgTLd+F/tPOPEoFg6MTn+ynhGSNtWA0/pSk=
+github.com/projectdiscovery/hmap v0.0.32 h1:RtvrEDA0bSeFnj6awx571y/cMvy7VFDOdFGJlzeYZnA=
+github.com/projectdiscovery/hmap v0.0.32/go.mod h1:k0QrpkucNTzCuPCUqIhEhV//Jb+FMo/X6qoQIUmoJb0=
 github.com/projectdiscovery/mapcidr v1.1.16 h1:rjj1w5D6hbTsUQXYClLcGdfBEy9bryclgi70t0vBggo=
 github.com/projectdiscovery/mapcidr v1.1.16/go.mod h1:rGqpBhStdwOQ2uS62QM9qPsybwMwIhT7CTd2bxoHs8Q=
 github.com/projectdiscovery/networkpolicy v0.0.6 h1:yDvm0XCrS9HeemRrBS+J+22surzVczM94W5nHiOy/1o=
@@ -205,8 +205,8 @@ github.com/projectdiscovery/retryabledns v1.0.49 h1:5WgZpPRRYnxSQZh/+ZEvkOLLnZKr
 github.com/projectdiscovery/retryabledns v1.0.49/go.mod h1:8O8ss1rmvaKwz/BuvQIiy+utCOLcDZ0FUCiroWSjOLE=
 github.com/projectdiscovery/retryablehttp-go v1.0.42 h1:NW76U/r0pWNi6iudBqggG69sN8aguuXLLbGRkLvniyo=
 github.com/projectdiscovery/retryablehttp-go v1.0.42/go.mod h1:NWR4amTNHwM+ALk1QL1HiyzhFejRTMCHapM+oSoNSv8=
-github.com/projectdiscovery/utils v0.0.70 h1:jWu74QImD4t7WoPE5Pq/0jwDv/ya4UqRwyUtt9ivIKI=
-github.com/projectdiscovery/utils v0.0.70/go.mod h1:rbCLTm6m8Kyk7CDziKQCDKKdz899DUBGc2t9FRK+OZs=
+github.com/projectdiscovery/utils v0.0.72 h1:sJ1lBcaWO6dJ65F+fVhSJbguhgWjixgy9mjj7jKBUW8=
+github.com/projectdiscovery/utils v0.0.72/go.mod h1:VPnijH51D8wB1VJiEujUp7UZ+TUTKN8PpoW82nivUVY=
 github.com/projectdiscovery/wappalyzergo v0.0.109 h1:BERfwTRn1dvB1tbhyc5m67R8VkC9zbVuPsEq4VEm07k=
 github.com/projectdiscovery/wappalyzergo v0.0.109/go.mod h1:4Z3DKhi75zIPMuA+qSDDWxZvnhL4qTLmDx4dxNMu7MA=
 github.com/quic-go/quic-go v0.37.4 h1:ke8B73yMCWGq9MfrCCAw0Uzdm7GaViC3i39dsIdDlH4=
