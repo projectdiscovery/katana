@@ -1,6 +1,6 @@
 module github.com/projectdiscovery/katana
 
-go 1.20
+go 1.21
 
 require (
 	github.com/BishopFox/jsluice v0.0.0-20230623145428-f10429e1016a
