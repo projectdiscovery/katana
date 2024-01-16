@@ -24,7 +24,7 @@ func (r *Runner) ExecuteCrawling() error {
 	wg := sizedwaitgroup.New(r.options.Parallelism)
 	for _, input := range inputs {
 		if !r.networkpolicy.Validate(input) {
-			gologger.Info().Msgf("Skipping %s due to network policy", input)
+			gologger.Info().Msgf("Skipping excluded host %s", input)
 			continue
 		}
 		wg.Add()
