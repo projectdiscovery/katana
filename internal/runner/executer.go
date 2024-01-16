@@ -23,6 +23,10 @@ func (r *Runner) ExecuteCrawling() error {
 
 	wg := sizedwaitgroup.New(r.options.Parallelism)
 	for _, input := range inputs {
+		if !r.networkpolicy.Validate(input) {
+			gologger.Info().Msgf("Skipping %s due to network policy", input)
+			continue
+		}
 		wg.Add()
 		input = addSchemeIfNotExists(input)
 		go func(input string) {
