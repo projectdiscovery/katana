@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
@@ -9,8 +10,12 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
+	"github.com/projectdiscovery/mapcidr"
+	"github.com/projectdiscovery/mapcidr/asn"
+	"github.com/projectdiscovery/networkpolicy"
 	"github.com/projectdiscovery/ratelimit"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	iputil "github.com/projectdiscovery/utils/ip"
 	urlutil "github.com/projectdiscovery/utils/url"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -44,6 +49,30 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	if len(options.Resolvers) > 0 {
 		dialerOpts.BaseResolvers = options.Resolvers
 	}
+	for _, exclude := range options.Exclude {
+		switch {
+		case exclude == "cdn":
+			//implement cdn check in netoworkpolicy pkg??
+			continue
+		case exclude == "private-ips":
+			dialerOpts.Deny = append(dialerOpts.Deny, networkpolicy.DefaultIPv4Denylist...)
+			dialerOpts.Deny = append(dialerOpts.Deny, networkpolicy.DefaultIPv4DenylistRanges...)
+			dialerOpts.Deny = append(dialerOpts.Deny, networkpolicy.DefaultIPv6Denylist...)
+			dialerOpts.Deny = append(dialerOpts.Deny, networkpolicy.DefaultIPv6DenylistRanges...)
+		case iputil.IsCIDR(exclude):
+			dialerOpts.Deny = append(dialerOpts.Deny, exclude)
+		case asn.IsASN(exclude):
+			// update this to use networkpolicy pkg once https://github.com/projectdiscovery/networkpolicy/pull/55 is merged
+			ips := expandASNInputValue(exclude)
+			dialerOpts.Deny = append(dialerOpts.Deny, ips...)
+		case iputil.IsPort(exclude):
+			port, _ := strconv.Atoi(exclude)
+			dialerOpts.DenyPortList = append(dialerOpts.DenyPortList, port)
+		default:
+			dialerOpts.Deny = append(dialerOpts.Deny, exclude)
+		}
+	}
+
 	fastdialerInstance, err := fastdialer.NewDialer(dialerOpts)
 	if err != nil {
 		return nil, err
@@ -103,6 +132,24 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	crawlerOptions.Wappalyzer = wappalyze
 
 	return crawlerOptions, nil
+}
+
+func expandCIDRInputValue(value string) []string {
+	var ips []string
+	ipsCh, _ := mapcidr.IPAddressesAsStream(value)
+	for ip := range ipsCh {
+		ips = append(ips, ip)
+	}
+	return ips
+}
+
+func expandASNInputValue(value string) []string {
+	var ips []string
+	cidrs, _ := asn.GetCIDRsForASNNum(value)
+	for _, cidr := range cidrs {
+		ips = append(ips, expandCIDRInputValue(cidr.String())...)
+	}
+	return ips
 }
 
 // Close closes the crawler options resources
