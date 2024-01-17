@@ -107,12 +107,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			Raw:          string(rawBytesResponse),
 		}
 
+		requestHeaders := make(map[string][]string)
+		for name, value := range e.Request.Headers {
+			requestHeaders[name] = []string{value.Str()}
+		}
+
 		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
 			xhr := navigation.Request{
-				URL:     httpreq.URL.String(),
-				Method:  httpreq.Method,
-				Headers: utils.FlattenHeaders(httpreq.Header),
-				Body:    e.Request.PostData,
+				URL:    httpreq.URL.String(),
+				Method: httpreq.Method,
+				Body:   e.Request.PostData,
+			}
+			if len(httpreq.Header) > 0 {
+				xhr.Headers = utils.FlattenHeaders(httpreq.Header)
+			} else {
+				xhr.Headers = utils.FlattenHeaders(requestHeaders)
 			}
 			xhrRequests = append(xhrRequests, xhr)
 		}
@@ -128,6 +137,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// process the raw response
 		navigationRequests := parser.ParseResponse(resp)
 		c.Enqueue(s.Queue, navigationRequests...)
+
+		// do not continue following the request if it's a redirect and redirects are disabled
+		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
+			return nil
+		}
 		return FetchContinueRequest(page, e)
 	})() //nolint
 	defer func() {

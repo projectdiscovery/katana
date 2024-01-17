@@ -58,3 +58,7 @@ func (n Response) AbsoluteURL(path string) string {
 	final := absURL.String()
 	return final
 }
+
+func (n Response) IsRedirect() bool {
+	return n.StatusCode >= 300 && n.StatusCode <= 399
+}

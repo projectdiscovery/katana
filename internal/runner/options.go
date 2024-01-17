@@ -52,13 +52,17 @@ func validateOptions(options *types.Options) error {
 		}
 		options.FilterRegex = append(options.FilterRegex, cr)
 	}
+	if options.KnownFiles != "" && options.MaxDepth < 3 {
+		gologger.Info().Msgf("Depth automatically set to 3 to accommodate the `--known-files` option (originally set to %d).", options.MaxDepth)
+		options.MaxDepth = 3
+	}
 	gologger.DefaultLogger.SetFormatter(formatter.NewCLI(options.NoColors))
 	return nil
 }
 
 // readCustomFormConfig reads custom form fill config
-func readCustomFormConfig(options *types.Options) error {
-	file, err := os.Open(options.FormConfig)
+func readCustomFormConfig(formConfig string) error {
+	file, err := os.Open(formConfig)
 	if err != nil {
 		return errorutil.NewWithErr(err).Msgf("could not read form config")
 	}
@@ -124,7 +128,7 @@ func initExampleFormFillConfig() error {
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
 
 	if fileutil.FileExists(defaultConfig) {
-		return nil
+		return readCustomFormConfig(defaultConfig)
 	}
 	if err := os.MkdirAll(filepath.Dir(defaultConfig), 0775); err != nil {
 		return err

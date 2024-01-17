@@ -37,7 +37,6 @@ var responseParsers = []responseParser{
 	// Header based parsers
 	{headerParser, headerContentLocationParser},
 	{headerParser, headerLinkParser},
-	{headerParser, headerLocationParser},
 	{headerParser, headerRefreshParser},
 
 	// Body based parsers
@@ -83,6 +82,9 @@ func InitWithOptions(options *types.Options) {
 		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
 		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
 		responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
+	}
+	if !options.DisableRedirects {
+		responseParsers = append(responseParsers, responseParser{headerParser, headerLocationParser})
 	}
 }
 
@@ -537,6 +539,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		isMultipartForm := strings.HasPrefix(encType, "multipart/")
 
 		queryValuesWriter := urlutil.NewOrderedParams()
+		queryValuesWriter.IncludeEquals = true
 		var sb strings.Builder
 		var multipartWriter *multipart.Writer
 
@@ -555,7 +558,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 
 		dataMap := utils.FormInputFillSuggestions(formInputs)
 		dataMap.Iterate(func(key, value string) bool {
-			if key == "" || value == "" {
+			if key == "" {
 				return true
 			}
 			if isMultipartForm {
