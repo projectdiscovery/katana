@@ -83,6 +83,7 @@ pipelines offering both headless and non-headless crawling.`)
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
+		flagSet.StringSliceVarP(&options.Exclude, "exclude", "e", nil, "exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("config", "Configuration",
