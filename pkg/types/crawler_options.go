@@ -44,6 +44,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	if len(options.Resolvers) > 0 {
 		dialerOpts.BaseResolvers = options.Resolvers
 	}
+
 	fastdialerInstance, err := fastdialer.NewDialer(dialerOpts)
 	if err != nil {
 		return nil, err
