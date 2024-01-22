@@ -200,8 +200,8 @@ github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k
 github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.0.40 h1:bY6aOPEIJ+YYYXX2qRZj1y4VsZlV9VU0oaD+GrR/j6I=
 github.com/projectdiscovery/dsl v0.0.40/go.mod h1:wo6lB5vwKWbTo5qDdJ1q7S1bYthm2mwGZ+MVefJmdZo=
-github.com/projectdiscovery/fastdialer v0.0.53 h1:s9BuOMpeIu8E7muTwYG0aQYpp5TEdlJYy8GBCWO6V+Q=
-github.com/projectdiscovery/fastdialer v0.0.53/go.mod h1:Fvbo4+QTc6grX5eGYcEHwJHE9Grq7iATP/nfTcatTKk=
+github.com/projectdiscovery/fastdialer v0.0.54-0.20240115214304-8128c100f5a8 h1:wJ7XpDhBWZihHorsy4Z7/TIMRFJuhcKiZJVCHbsVZEo=
+github.com/projectdiscovery/fastdialer v0.0.54-0.20240115214304-8128c100f5a8/go.mod h1:l1ktd+P7b68NH/0Xu7/EAx3uoNc4iowoYj6jckuY2+k=
 github.com/projectdiscovery/goflags v0.1.33 h1:6B/YkHMfnClSb+ibbS4GnSVXINSYxLNXGhEk5lwwogQ=
 github.com/projectdiscovery/goflags v0.1.33/go.mod h1:nEe5PoL5ICWiVKBAfHXnPiAlIMK7VwetJkm5CViht4M=
 github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJUvpmimXqv4A=
@@ -218,10 +218,10 @@ github.com/projectdiscovery/ratelimit v0.0.25 h1:CTt2/bbxfj7IrUelubra1g2OQBanaef
 github.com/projectdiscovery/ratelimit v0.0.25/go.mod h1:rZ1ZT0EN2hAk1OWFH0wgWhfYJssyWPV9VtOabXgCmwc=
 github.com/projectdiscovery/retryabledns v1.0.52 h1:jJRIT5y7KYZvaZAAvlkxvkKkQzst6LvEeLDqRc3LeOM=
 github.com/projectdiscovery/retryabledns v1.0.52/go.mod h1:Ea478e6XNVAmfH4KwqtLNjkwdgkpVH1O3+FL2dKLNb8=
-github.com/projectdiscovery/retryablehttp-go v1.0.42 h1:NW76U/r0pWNi6iudBqggG69sN8aguuXLLbGRkLvniyo=
-github.com/projectdiscovery/retryablehttp-go v1.0.42/go.mod h1:NWR4amTNHwM+ALk1QL1HiyzhFejRTMCHapM+oSoNSv8=
-github.com/projectdiscovery/utils v0.0.73 h1:KWzxzJv9U5YKHGGOvkKHJmO7NdV5Kbzc8lPt+Frdj0o=
-github.com/projectdiscovery/utils v0.0.73/go.mod h1:SEb3ZoGy1nxdnPNXAGhMZNhRcokRkoMEjC6l9H59t1s=
+github.com/projectdiscovery/retryablehttp-go v1.0.44 h1:hicCe2h6daHt4muPovmffZE3YKBqGioreO6EpIGZ87g=
+github.com/projectdiscovery/retryablehttp-go v1.0.44/go.mod h1:7ECXK2cH2/G4sstf8hacyrMdPPJ/3wCAO5tFPZ4iO4s=
+github.com/projectdiscovery/utils v0.0.74-0.20240115220656-48fef326de18 h1:hQHfr0YlGGODVMQrN3c41itC477xdFDy/3hJbOfjPqY=
+github.com/projectdiscovery/utils v0.0.74-0.20240115220656-48fef326de18/go.mod h1:SEb3ZoGy1nxdnPNXAGhMZNhRcokRkoMEjC6l9H59t1s=
 github.com/projectdiscovery/wappalyzergo v0.0.109 h1:BERfwTRn1dvB1tbhyc5m67R8VkC9zbVuPsEq4VEm07k=
 github.com/projectdiscovery/wappalyzergo v0.0.109/go.mod h1:4Z3DKhi75zIPMuA+qSDDWxZvnhL4qTLmDx4dxNMu7MA=
 github.com/quic-go/quic-go v0.37.7 h1:AgKsQLZ1+YCwZd2GYhBUsJDYZwEkA5gENtAjb+MxONU=
