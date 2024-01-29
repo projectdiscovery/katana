@@ -12,14 +12,14 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.0.40
-	github.com/projectdiscovery/fastdialer v0.0.54-0.20240115214304-8128c100f5a8
+	github.com/projectdiscovery/fastdialer v0.0.55
 	github.com/projectdiscovery/goflags v0.1.33
 	github.com/projectdiscovery/gologger v1.1.12
 	github.com/projectdiscovery/hmap v0.0.35
 	github.com/projectdiscovery/mapcidr v1.1.16
 	github.com/projectdiscovery/ratelimit v0.0.25
 	github.com/projectdiscovery/retryablehttp-go v1.0.44
-	github.com/projectdiscovery/utils v0.0.74-0.20240115220656-48fef326de18
+	github.com/projectdiscovery/utils v0.0.76
 	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -44,6 +44,7 @@ require (
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/dlclark/regexp2 v1.8.1 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
