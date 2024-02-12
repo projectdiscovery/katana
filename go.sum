@@ -202,8 +202,8 @@ github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k
 github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.0.42 h1:WKd6BLVBh4LPiTWZxavv8CWFVF1mPhih8mO+S8mjd1Q=
 github.com/projectdiscovery/dsl v0.0.42/go.mod h1:vle5UQnghHMekiq4aIGQ+hx/MNmucK2X69EXeJnG8co=
-github.com/projectdiscovery/fastdialer v0.0.56 h1:SUw193mzYaDFtBpQOs4+EHa6r1NnBYj3xwSqK1j9Chk=
-github.com/projectdiscovery/fastdialer v0.0.56/go.mod h1:o0Oeb78Bn6mpr+dTLV4Jb7hnEFQjjA7lUeDe8Ga6zq4=
+github.com/projectdiscovery/fastdialer v0.0.57 h1:4k/JuioxwbPOp3TKejm1lZlgTvXKu1IKlqQP3WAk65A=
+github.com/projectdiscovery/fastdialer v0.0.57/go.mod h1:Ah8GVwZr8X+0EQwMI66yMLTpS5QrDStc68tGtvPEaEw=
 github.com/projectdiscovery/goflags v0.1.39 h1:Dj8UY+FJEfxzT20+kyDkeTlGs+Ys19SiXWek7x1tPTs=
 github.com/projectdiscovery/goflags v0.1.39/go.mod h1:ouB+HpJvhKZJjT8Bd13RYD6au7sQ7nGylbfad3JFy+E=
 github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJUvpmimXqv4A=
@@ -220,8 +220,8 @@ github.com/projectdiscovery/ratelimit v0.0.28 h1:9ja0V7mvsqwTJYdBZ3RSb4SrCE5Q2GR
 github.com/projectdiscovery/ratelimit v0.0.28/go.mod h1:XQAHA2tUyyoNed4gtICRIxVB5Nbwb1dMFhFJNwvBonQ=
 github.com/projectdiscovery/retryabledns v1.0.54 h1:XPwOxlmxPQtB4lL6qs+2KtfKsr+/DseOLIzHtnbPutU=
 github.com/projectdiscovery/retryabledns v1.0.54/go.mod h1:IJzlYGYvrNfh1aA3jev+zfIhCPhLbalFI77plqpDEQ4=
-github.com/projectdiscovery/retryablehttp-go v1.0.45 h1:rpWHbver3qeFUx0Vf0R7VOagjYof4GQvAtj2ykjySEY=
-github.com/projectdiscovery/retryablehttp-go v1.0.45/go.mod h1:vTOfQqJa0S2sSGaBhGbgZKltpWFEj4nZm4XP+tKFf0k=
+github.com/projectdiscovery/retryablehttp-go v1.0.47 h1:js0UuJ4+7/VoXRHtW5sslxLjzVAuMrtbzwq/8Onl+uw=
+github.com/projectdiscovery/retryablehttp-go v1.0.47/go.mod h1:HrZG3iFTI5pCaLOg1qBXn0SdOSYONgNJ8dO/g1lam18=
 github.com/projectdiscovery/utils v0.0.77 h1:HPLNY/WgVsLaHPBW1XA5XYMkTo9VRjhbOIZs+Lfww7s=
 github.com/projectdiscovery/utils v0.0.77/go.mod h1:XkHTUln/MJaWAgber2C0o1Mqacr2s9JMRhOVBjmII7w=
 github.com/projectdiscovery/wappalyzergo v0.0.109 h1:BERfwTRn1dvB1tbhyc5m67R8VkC9zbVuPsEq4VEm07k=
