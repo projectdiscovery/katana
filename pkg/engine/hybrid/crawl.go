@@ -47,7 +47,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
-		URL, _ := urlutil.Parse(e.Request.URL)
+		URL, err := urlutil.Parse(e.Request.URL)
+		if err != nil {
+			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
+		}
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
