@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
@@ -77,6 +78,22 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		OutputMatchCondition:  options.OutputMatchCondition,
 		OutputFilterCondition: options.OutputFilterCondition,
 	}
+
+	for _, mr := range options.OutputMatchRegex {
+		cr, err := regexp.Compile(mr)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("Invalid value for match regex option")
+		}
+		outputOptions.MatchRegex = append(outputOptions.MatchRegex, cr)
+	}
+	for _, fr := range options.OutputFilterRegex {
+		cr, err := regexp.Compile(fr)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("Invalid value for filter regex option")
+		}
+		outputOptions.FilterRegex = append(outputOptions.FilterRegex, cr)
+	}
+
 	outputWriter, err := output.New(outputOptions)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create output writer")
