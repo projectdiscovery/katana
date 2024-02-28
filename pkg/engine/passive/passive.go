@@ -60,6 +60,7 @@ func (c *Crawler) Close() error {
 
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
+	rootUrlParsed, _ := urlutil.ParseURL(rootURL, true)
 	results := make(chan source.Result)
 	go func() {
 		defer close(results)
@@ -69,8 +70,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 		for _, s := range c.sources {
 			wg.Add(1)
 			go func(source source.Source) {
-				for resp := range source.Run(ctx, c.Shared, rootURL) {
-					results <- resp
+				for result := range source.Run(ctx, c.Shared, rootURL) {
+					results <- result
 				}
 				wg.Done()
 			}(s)
@@ -78,24 +79,18 @@ func (c *Crawler) Crawl(rootURL string) error {
 		wg.Wait()
 	}()
 
-	URLs := map[string]struct{}{rootURL: {}}
 	for result := range results {
-		URLs[result.Value] = struct{}{}
-	}
-
-	rootUrlParsed, _ := urlutil.ParseURL(rootURL, true)
-	for URL := range URLs {
-		if !utils.IsURL(URL) {
-			gologger.Debug().Msgf("`%v` not a url. skipping", URL)
+		if !utils.IsURL(result.Value) {
+			gologger.Debug().Msgf("`%v` not a url. skipping", result.Value)
 			continue
 		}
 
-		if ok, err := c.Options.ValidateScope(URL, rootUrlParsed.Hostname()); err != nil || !ok {
-			gologger.Debug().Msgf("`%v` not in scope. skipping", URL)
+		if ok, err := c.Options.ValidateScope(result.Value, rootUrlParsed.Hostname()); err != nil || !ok {
+			gologger.Debug().Msgf("`%v` not in scope. skipping", result.Value)
 			continue
 		}
 
-		req := &navigation.Request{Method: "GET", URL: URL}
+		req := &navigation.Request{Method: "GET", URL: result.Value}
 		resp := &navigation.Response{}
 		c.Output(req, resp, nil)
 	}
