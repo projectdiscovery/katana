@@ -33,9 +33,9 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 			rootUrl = parsedRootUrl.Hostname()
 		}
 
+		httpClient := httpclient.NewHttpClient(sharedCtx.Options.Options.Timeout)
 		page := 1
 		for {
-			httpClient := httpclient.NewHttpClient(sharedCtx.Options.Options.Timeout)
 			apiURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?page=%d", rootUrl, page)
 			resp, err := httpClient.SimpleGet(ctx, apiURL)
 			if err != nil && resp == nil {
