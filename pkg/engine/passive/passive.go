@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
@@ -60,10 +61,16 @@ func (c *Crawler) Close() error {
 
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
+	gologger.Info().Msgf("Enumerating passive endpoints for %s", rootURL)
+
 	rootUrlParsed, _ := urlutil.ParseURL(rootURL, true)
 	results := make(chan source.Result)
+	var timeTaken time.Duration
 	go func() {
-		defer close(results)
+		defer func(startTime time.Time) {
+			timeTaken = time.Since(startTime)
+			close(results)
+		}(time.Now())
 
 		ctx := context.Background()
 		wg := &sync.WaitGroup{}
@@ -80,6 +87,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}()
 
 	seenURLs := make(map[string]struct{})
+	sourceStats := make(map[string]int)
 	for result := range results {
 		if _, found := seenURLs[result.Value]; found {
 			continue
@@ -96,9 +104,18 @@ func (c *Crawler) Crawl(rootURL string) error {
 		}
 
 		seenURLs[result.Value] = struct{}{}
+		sourceStats[result.Source]++
+
 		req := &navigation.Request{Method: "GET", URL: result.Value}
 		passiveReference := &navigation.PassiveReference{Source: result.Source, Reference: result.Reference}
 		c.Output(req, nil, passiveReference, nil)
 	}
+
+	var stats []string
+	for source, count := range sourceStats {
+		stats = append(stats, fmt.Sprintf("%s: %d", source, count))
+	}
+
+	gologger.Info().Msgf("Found %d endpoints for %s in %s (%s)", len(seenURLs), rootURL, timeTaken.String(), strings.Join(stats, ", "))
 	return nil
 }
