@@ -75,7 +75,7 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 
 		urlExtractor, _ := extractor.NewRegexUrlExtractor()
 		for _, apiURL := range searchIndexes {
-			further := s.getSubdomains(ctx, apiURL, rootUrl, httpClient, urlExtractor, results)
+			further := s.getURLs(ctx, apiURL, rootUrl, httpClient, urlExtractor, results)
 			if !further {
 				break
 			}
@@ -97,14 +97,15 @@ func (s *Source) AddApiKeys(_ []string) {
 	// no key needed
 }
 
-func (s *Source) getSubdomains(ctx context.Context, searchURL, rootURL string, httpClient *httpclient.HttpClient, urlExtractor *extractor.RegexUrlExtractor, results chan source.Result) bool {
+func (s *Source) getURLs(ctx context.Context, searchURL, rootURL string, httpClient *httpclient.HttpClient, urlExtractor *extractor.RegexUrlExtractor, results chan source.Result) bool {
 	for {
 		select {
 		case <-ctx.Done():
 			return false
 		default:
 			var headers = map[string]string{"Host": "index.commoncrawl.org"}
-			resp, err := httpClient.Get(ctx, fmt.Sprintf("%s?url=*.%s", searchURL, rootURL), "", headers)
+			currentSearchURL := fmt.Sprintf("%s?url=*.%s", searchURL, rootURL)
+			resp, err := httpClient.Get(ctx, currentSearchURL, "", headers)
 			if err != nil {
 				results <- source.Result{Source: s.Name(), Error: err}
 				httpClient.DiscardHTTPResponse(resp)
@@ -125,7 +126,7 @@ func (s *Source) getSubdomains(ctx context.Context, searchURL, rootURL string, h
 					extractedURL = strings.TrimPrefix(extractedURL, "25")
 					extractedURL = strings.TrimPrefix(extractedURL, "2f")
 					if extractedURL != "" {
-						results <- source.Result{Source: s.Name(), Value: extractedURL}
+						results <- source.Result{Source: s.Name(), Value: extractedURL, Reference: currentSearchURL}
 					}
 				}
 			}

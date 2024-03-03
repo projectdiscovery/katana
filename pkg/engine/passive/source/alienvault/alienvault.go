@@ -55,7 +55,7 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 			resp.Body.Close()
 
 			for _, record := range response.URLList {
-				results <- source.Result{Source: s.Name(), Value: record.URL}
+				results <- source.Result{Source: s.Name(), Value: record.URL, Reference: apiURL}
 			}
 
 			if !response.HasNext {

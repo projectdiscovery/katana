@@ -14,7 +14,8 @@ type Source interface {
 }
 
 type Result struct {
-	Source string
-	Value  string
-	Error  error
+	Source    string
+	Value     string
+	Reference string
+	Error     error
 }

@@ -22,7 +22,8 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 		defer close(results)
 
 		httpClient := httpclient.NewHttpClient(sharedCtx.Options.Options.Timeout)
-		resp, err := httpClient.Get(ctx, fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=*.%s/*&output=txt&fl=original&collapse=urlkey", rootUrl), "", nil)
+		searchURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=*.%s/*&output=txt&fl=original&collapse=urlkey", rootUrl)
+		resp, err := httpClient.Get(ctx, searchURL, "", nil)
 		if err != nil {
 			results <- source.Result{Source: s.Name(), Error: err}
 			return
@@ -43,7 +44,7 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 				extractedURL = strings.TrimPrefix(extractedURL, "25")
 				extractedURL = strings.TrimPrefix(extractedURL, "2f")
 
-				results <- source.Result{Source: s.Name(), Value: extractedURL}
+				results <- source.Result{Source: s.Name(), Value: extractedURL, Reference: searchURL}
 			}
 
 		}
