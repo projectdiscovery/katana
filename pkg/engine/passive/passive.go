@@ -90,9 +90,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
-		req := &navigation.Request{Method: "GET", URL: result.Value}
-		resp := &navigation.Response{}
-		c.Output(req, resp, nil)
+		c.Output(&navigation.Request{Method: "GET", URL: result.Value}, nil, nil)
 	}
 	return nil
 }
