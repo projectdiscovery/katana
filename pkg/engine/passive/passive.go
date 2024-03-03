@@ -79,7 +79,12 @@ func (c *Crawler) Crawl(rootURL string) error {
 		wg.Wait()
 	}()
 
+	seenURLs := make(map[string]struct{})
 	for result := range results {
+		if _, found := seenURLs[result.Value]; found {
+			continue
+		}
+
 		if !utils.IsURL(result.Value) {
 			gologger.Debug().Msgf("`%v` not a url. skipping", result.Value)
 			continue
@@ -90,6 +95,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
+		seenURLs[result.Value] = struct{}{}
 		req := &navigation.Request{Method: "GET", URL: result.Value}
 		passiveReference := &navigation.PassiveReference{Source: result.Source, Reference: result.Reference}
 		c.Output(req, nil, passiveReference, nil)
