@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/katana/pkg/engine/common"
-	"github.com/projectdiscovery/katana/pkg/engine/passive/extractor"
 	"github.com/projectdiscovery/katana/pkg/engine/passive/httpclient"
+	"github.com/projectdiscovery/katana/pkg/engine/passive/regexp"
 	"github.com/projectdiscovery/katana/pkg/engine/passive/source"
 )
 
@@ -31,14 +31,13 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 		defer resp.Body.Close()
 
 		scanner := bufio.NewScanner(resp.Body)
-		urlExtractor, _ := extractor.NewRegexUrlExtractor()
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "" {
 				continue
 			}
 			line, _ = url.QueryUnescape(line)
-			for _, extractedURL := range urlExtractor.Extract(line) {
+			for _, extractedURL := range regexp.Extract(line) {
 				// fix for triple encoded URL
 				extractedURL = strings.ToLower(extractedURL)
 				extractedURL = strings.TrimPrefix(extractedURL, "25")

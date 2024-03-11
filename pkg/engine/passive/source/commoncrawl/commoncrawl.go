@@ -13,8 +13,8 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/projectdiscovery/katana/pkg/engine/common"
-	"github.com/projectdiscovery/katana/pkg/engine/passive/extractor"
 	"github.com/projectdiscovery/katana/pkg/engine/passive/httpclient"
+	"github.com/projectdiscovery/katana/pkg/engine/passive/regexp"
 	"github.com/projectdiscovery/katana/pkg/engine/passive/source"
 )
 
@@ -73,9 +73,8 @@ func (s *Source) Run(ctx context.Context, sharedCtx *common.Shared, rootUrl stri
 			}
 		}
 
-		urlExtractor, _ := extractor.NewRegexUrlExtractor()
 		for _, apiURL := range searchIndexes {
-			further := s.getURLs(ctx, apiURL, rootUrl, httpClient, urlExtractor, results)
+			further := s.getURLs(ctx, apiURL, rootUrl, httpClient, results)
 			if !further {
 				break
 			}
@@ -97,7 +96,7 @@ func (s *Source) AddApiKeys(_ []string) {
 	// no key needed
 }
 
-func (s *Source) getURLs(ctx context.Context, searchURL, rootURL string, httpClient *httpclient.HttpClient, urlExtractor *extractor.RegexUrlExtractor, results chan source.Result) bool {
+func (s *Source) getURLs(ctx context.Context, searchURL, rootURL string, httpClient *httpclient.HttpClient, results chan source.Result) bool {
 	for {
 		select {
 		case <-ctx.Done():
@@ -120,7 +119,7 @@ func (s *Source) getURLs(ctx context.Context, searchURL, rootURL string, httpCli
 					continue
 				}
 				line, _ = url.QueryUnescape(line)
-				for _, extractedURL := range urlExtractor.Extract(line) {
+				for _, extractedURL := range regexp.Extract(line) {
 					// fix for triple encoded URL
 					extractedURL = strings.ToLower(extractedURL)
 					extractedURL = strings.TrimPrefix(extractedURL, "25")
