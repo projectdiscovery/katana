@@ -3,6 +3,7 @@ package passive
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -106,9 +107,12 @@ func (c *Crawler) Crawl(rootURL string) error {
 		seenURLs[result.Value] = struct{}{}
 		sourceStats[result.Source]++
 
+		passiveURL, _ := urlutil.Parse(result.Value)
 		req := &navigation.Request{Method: "GET", URL: result.Value}
+		resp := &navigation.Response{StatusCode: 200, RootHostname: passiveURL.Hostname(),
+			Resp: &http.Response{StatusCode: 200, Request: &http.Request{Method: "GET", URL: passiveURL.URL}}}
 		passiveReference := &navigation.PassiveReference{Source: result.Source, Reference: result.Reference}
-		c.Output(req, nil, passiveReference, nil)
+		c.Output(req, resp, passiveReference, nil)
 	}
 
 	var stats []string
