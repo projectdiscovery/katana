@@ -199,10 +199,10 @@ github.com/projectdiscovery/asnmap v1.1.0 h1:ynvbLB5cNpyQ2+k9IP0Rpla+0JmCJpd3mw6
 github.com/projectdiscovery/asnmap v1.1.0/go.mod h1:QNjBnGLxUBEZAgaYk/Av5cjKKWFY3i/FOfoIWCUApoY=
 github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k0VbGJyft6LQ=
 github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
-github.com/projectdiscovery/dsl v0.0.45 h1:fDMmBkpk5L7NhvihBxYoIch7UVBqLyKI6JzqKTCUK/8=
-github.com/projectdiscovery/dsl v0.0.45/go.mod h1:G9mK7rQT5FkmNcMlCCfYxQrFcmSucSGWb2QgJZC0i0A=
-github.com/projectdiscovery/fastdialer v0.0.59 h1:5D0ws7JsYYMC8lm2VKgf91q0kAk6dzqoSHmLIuA2mww=
-github.com/projectdiscovery/fastdialer v0.0.59/go.mod h1:VdYQimFCHafSPP3c+OXgu1DP+FNLJq+U6Xk/ybfJ0/A=
+github.com/projectdiscovery/dsl v0.0.47 h1:DdPfJvUWoOSQ/+H3tsfaURZRaCtsiGBkIPf92YM4Drs=
+github.com/projectdiscovery/dsl v0.0.47/go.mod h1:dU3Mm5lpxgBIFKXbOMVoLQHklXml0PUclrEHYh45LE0=
+github.com/projectdiscovery/fastdialer v0.0.60 h1:Bd1rTV73l9ies3pXyBS9XkC/6vjSZWlxyKf+b1ABvyI=
+github.com/projectdiscovery/fastdialer v0.0.60/go.mod h1:u7CVvz5bX/3HZ4w141Yj5PmWVPERsxfXd/Pv8KKTuis=
 github.com/projectdiscovery/goflags v0.1.41 h1:rw6NM7ShB7GGQZr5XaM/gkuyoLY3zpf0gb56f9fLNQo=
 github.com/projectdiscovery/goflags v0.1.41/go.mod h1:AlZUOcABJTBDzkgquUS00qWTTH80lxzpfHQrYlIzVkU=
 github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJUvpmimXqv4A=
@@ -223,8 +223,8 @@ github.com/projectdiscovery/retryabledns v1.0.57 h1:+DOL9xYSIx74FRrOIKKHVp5R9ci5
 github.com/projectdiscovery/retryabledns v1.0.57/go.mod h1:qIigOcmO9d0Ce/z6mHzLl0Aiz2WJcNk2gUGhRcCQ1k4=
 github.com/projectdiscovery/retryablehttp-go v1.0.49 h1:mvlvl2kTN+ctpDIRlusVWui7eyFlElBoKTr8crS7yvY=
 github.com/projectdiscovery/retryablehttp-go v1.0.49/go.mod h1:VaJ7Au+1LP8C2u0qmx4NN1IdAxxkhoXpIcc9LAQzFo4=
-github.com/projectdiscovery/utils v0.0.81 h1:Cqz6uFncCKWRLqpVHWlnHXaRE3whzH32yZJa/1zOEzU=
-github.com/projectdiscovery/utils v0.0.81/go.mod h1:pTGvF08EXa07e2OM+tu8IcnxTeAT34bzAhSW/Efcens=
+github.com/projectdiscovery/utils v0.0.82 h1:U//02floCSFxJluN7MP+rJSwI4Px7o454JL7ukERArI=
+github.com/projectdiscovery/utils v0.0.82/go.mod h1:AbmIvy0TTlsfXxPDEMaNPVrxmqDmYiCnbGqh0TTthE4=
 github.com/projectdiscovery/wappalyzergo v0.0.109 h1:BERfwTRn1dvB1tbhyc5m67R8VkC9zbVuPsEq4VEm07k=
 github.com/projectdiscovery/wappalyzergo v0.0.109/go.mod h1:4Z3DKhi75zIPMuA+qSDDWxZvnhL4qTLmDx4dxNMu7MA=
 github.com/quic-go/quic-go v0.37.7 h1:AgKsQLZ1+YCwZd2GYhBUsJDYZwEkA5gENtAjb+MxONU=
