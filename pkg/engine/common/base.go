@@ -77,8 +77,8 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 
-		// Do not add to crawl queue if max items are reached
-		if nr.Depth >= s.Options.Options.MaxDepth {
+		// Skip adding to the crawl queue when the maximum depth is exceeded
+		if nr.Depth > s.Options.Options.MaxDepth {
 			continue
 		}
 		queue.Push(nr, nr.Depth)
