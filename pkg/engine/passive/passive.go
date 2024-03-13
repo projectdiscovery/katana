@@ -108,10 +108,25 @@ func (c *Crawler) Crawl(rootURL string) error {
 		sourceStats[result.Source]++
 
 		passiveURL, _ := urlutil.Parse(result.Value)
-		req := &navigation.Request{Method: "GET", URL: result.Value}
-		resp := &navigation.Response{StatusCode: 200, RootHostname: passiveURL.Hostname(),
-			Resp: &http.Response{StatusCode: 200, Request: &http.Request{Method: "GET", URL: passiveURL.URL}}}
-		passiveReference := &navigation.PassiveReference{Source: result.Source, Reference: result.Reference}
+		req := &navigation.Request{
+			Method: http.MethodGet,
+			URL:    result.Value,
+		}
+		resp := &navigation.Response{
+			StatusCode:   http.StatusOK,
+			RootHostname: passiveURL.Hostname(),
+			Resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Request: &http.Request{
+					Method: http.MethodGet,
+					URL:    passiveURL.URL,
+				},
+			},
+		}
+		passiveReference := &navigation.PassiveReference{
+			Source:    result.Source,
+			Reference: result.Reference,
+		}
 		c.Output(req, resp, passiveReference, nil)
 	}
 
