@@ -47,7 +47,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
-		URL, _ := urlutil.Parse(e.Request.URL)
+		URL, err := urlutil.Parse(e.Request.URL)
+		if err != nil {
+			return err
+		}
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
@@ -65,7 +68,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		} else {
 			statucCodeText = http.StatusText(statusCode)
 		}
-		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		if err != nil {
+			return err
+		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
 		if httpreq != nil {
