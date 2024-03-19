@@ -68,7 +68,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		} else {
 			statucCodeText = http.StatusText(statusCode)
 		}
-		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		if err != nil {
+			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
+		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
 		if httpreq != nil {
