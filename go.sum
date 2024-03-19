@@ -1,8 +1,6 @@
 aead.dev/minisign v0.2.0 h1:kAWrq/hBRu4AARY6AlciO83xhNnW9UaC8YipS2uhLPk=
 aead.dev/minisign v0.2.0/go.mod h1:zdq6LdSd9TbuSxchxwhpA9zEb9YXcVGoE8JakuiGaIQ=
 cloud.google.com/go/compute/metadata v0.2.0/go.mod h1:zFmK7XCadkQkj6TtorcaGlCW1hT1fIilQDwofLpJ20k=
-github.com/BishopFox/jsluice v0.0.0-20231102131223-7760081ba568 h1:5ozKU39qUWuuK3DL2VHyKffBkHWYkduVqv8PlsCpw1k=
-github.com/BishopFox/jsluice v0.0.0-20231102131223-7760081ba568/go.mod h1:ENDk4KXEVPZTZPygQAEWJK0BlyEWAyQZhxwCMc+o6A0=
 github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06 h1:xa/dJgg1qpWdIyr7tQcTV2TUPgBK/f0TTMLMmD5GqjQ=
 github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06/go.mod h1:ENDk4KXEVPZTZPygQAEWJK0BlyEWAyQZhxwCMc+o6A0=
 github.com/Knetic/govaluate v3.0.0+incompatible h1:7o6+MAPhYTCF0+fdvoz1xDedhRb4f6s9Tn1Tt7/WTEg=
