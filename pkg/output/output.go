@@ -138,76 +138,78 @@ func New(options Options) (Writer, error) {
 
 // Write writes the result to file and/or screen.
 func (w *StandardWriter) Write(result *Result) error {
-	if result != nil {
-		if len(w.storeFields) > 0 {
-			storeFields(result, w.storeFields)
-		}
+	if result == nil {
+		return errors.New("result is nil")
+	}
 
-		if !w.extensionValidator.ValidatePath(result.Request.URL) {
-			return nil
-		}
+	if len(w.storeFields) > 0 {
+		storeFields(result, w.storeFields)
+	}
 
-		if !w.matchOutput(result) {
-			return nil
-		}
-		if w.filterOutput(result) {
-			return nil
-		}
-		var data []byte
-		var err error
+	if !w.extensionValidator.ValidatePath(result.Request.URL) {
+		return errors.New("result does not match extension filter")
+	}
 
-		if w.storeResponse && result.HasResponse() {
-			if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
-				if absPath, err := filepath.Abs(fileName); err == nil {
-					fileName = absPath
-				}
-				result.Response.StoredResponsePath = fileName
-				data, err := w.formatResult(result)
-				if err != nil {
-					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-				}
-				if err := updateIndex(w.storeResponseDir, result); err != nil {
-					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-				}
-				if err := fileWriter.Write(data); err != nil {
-					return errorutil.NewWithTag("output", "could not store response").Wrap(err)
-				}
-				fileWriter.Close()
+	if !w.matchOutput(result) {
+		return errors.New("result does not match output")
+	}
+	if w.filterOutput(result) {
+		return errors.New("result is filtered out")
+	}
+	var data []byte
+	var err error
+
+	if w.storeResponse && result.HasResponse() {
+		if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+			if absPath, err := filepath.Abs(fileName); err == nil {
+				fileName = absPath
 			}
-		}
-
-		if w.omitRaw {
-			result.Request.Raw = ""
-			if result.Response != nil {
-				result.Response.Raw = ""
+			result.Response.StoredResponsePath = fileName
+			data, err := w.formatResult(result)
+			if err != nil {
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
-		}
-		if w.omitBody && result.HasResponse() {
-			result.Response.Body = ""
-		}
-
-		if w.json {
-			data, err = w.formatJSON(result)
-		} else {
-			data, err = w.formatScreen(result)
-		}
-		if err != nil {
-			return errorutil.NewWithTag("output", "could not format output").Wrap(err)
-		}
-		if len(data) == 0 {
-			return nil
-		}
-		w.outputMutex.Lock()
-		defer w.outputMutex.Unlock()
-
-		gologger.Silent().Msgf("%s", string(data))
-		if w.outputFile != nil {
-			if !w.json {
-				data = decolorizerRegex.ReplaceAll(data, []byte(""))
+			if err := updateIndex(w.storeResponseDir, result); err != nil {
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
-			if err := w.outputFile.Write(data); err != nil {
-				return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
+			if err := fileWriter.Write(data); err != nil {
+				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
+			fileWriter.Close()
+		}
+	}
+
+	if w.omitRaw {
+		result.Request.Raw = ""
+		if result.Response != nil {
+			result.Response.Raw = ""
+		}
+	}
+	if w.omitBody && result.HasResponse() {
+		result.Response.Body = ""
+	}
+
+	if w.json {
+		data, err = w.formatJSON(result)
+	} else {
+		data, err = w.formatScreen(result)
+	}
+	if err != nil {
+		return errorutil.NewWithTag("output", "could not format output").Wrap(err)
+	}
+	if len(data) == 0 {
+		return errors.New("result is empty")
+	}
+	w.outputMutex.Lock()
+	defer w.outputMutex.Unlock()
+
+	gologger.Silent().Msgf("%s", string(data))
+	if w.outputFile != nil {
+		if !w.json {
+			data = decolorizerRegex.ReplaceAll(data, []byte(""))
+		}
+		if err := w.outputFile.Write(data); err != nil {
+			return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
 		}
 	}
 
