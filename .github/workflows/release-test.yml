@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20.x
+          go-version: 1.21.x
       
       - name: release test
         uses: goreleaser/goreleaser-action@v4
@@ -42,7 +42,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20.x
+          go-version: 1.21.x
 
       # todo: musl compatible?
       - name: Install Dependences
@@ -68,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20.x
+          go-version: 1.21.x
       
       - name: release test
         uses: goreleaser/goreleaser-action@v4

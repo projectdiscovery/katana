@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/json"
 	"os"
+	"strconv"
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
@@ -10,8 +11,12 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/mapcidr"
+	"github.com/projectdiscovery/mapcidr/asn"
+	"github.com/projectdiscovery/networkpolicy"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	iputil "github.com/projectdiscovery/utils/ip"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	updateutils "github.com/projectdiscovery/utils/update"
 	"go.uber.org/multierr"
@@ -25,6 +30,7 @@ type Runner struct {
 	crawler        engine.Engine
 	options        *types.Options
 	state          *RunnerState
+	networkpolicy  *networkpolicy.NetworkPolicy
 }
 
 type RunnerState struct {
@@ -98,7 +104,42 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create standard crawler")
 	}
-	runner := &Runner{options: options, stdin: fileutil.HasStdin(), crawlerOptions: crawlerOptions, crawler: crawler, state: &RunnerState{InFlightUrls: mapsutil.NewSyncLockMap[string, struct{}]()}}
+
+	var npOptions networkpolicy.Options
+
+	for _, exclude := range options.Exclude {
+		switch {
+		case exclude == "cdn":
+			//implement cdn check in netoworkpolicy pkg??
+			continue
+		case exclude == "private-ips":
+			npOptions.DenyList = append(npOptions.DenyList, networkpolicy.DefaultIPv4Denylist...)
+			npOptions.DenyList = append(npOptions.DenyList, networkpolicy.DefaultIPv4DenylistRanges...)
+			npOptions.DenyList = append(npOptions.DenyList, networkpolicy.DefaultIPv6Denylist...)
+			npOptions.DenyList = append(npOptions.DenyList, networkpolicy.DefaultIPv6DenylistRanges...)
+		case iputil.IsCIDR(exclude):
+			npOptions.DenyList = append(npOptions.DenyList, exclude)
+		case asn.IsASN(exclude):
+			// update this to use networkpolicy pkg once https://github.com/projectdiscovery/networkpolicy/pull/55 is merged
+			ips := expandASNInputValue(exclude)
+			npOptions.DenyList = append(npOptions.DenyList, ips...)
+		case iputil.IsPort(exclude):
+			port, _ := strconv.Atoi(exclude)
+			npOptions.DenyPortList = append(npOptions.DenyPortList, port)
+		default:
+			npOptions.DenyList = append(npOptions.DenyList, exclude)
+		}
+	}
+
+	np, _ := networkpolicy.New(npOptions)
+	runner := &Runner{
+		options:        options,
+		stdin:          fileutil.HasStdin(),
+		crawlerOptions: crawlerOptions,
+		crawler:        crawler,
+		state:          &RunnerState{InFlightUrls: mapsutil.NewSyncLockMap[string, struct{}]()},
+		networkpolicy:  np,
+	}
 
 	return runner, nil
 }
@@ -115,4 +156,22 @@ func (r *Runner) SaveState(resumeFilename string) error {
 	runnerState := r.state
 	data, _ := json.Marshal(runnerState)
 	return os.WriteFile(resumeFilename, data, os.ModePerm)
+}
+
+func expandCIDRInputValue(value string) []string {
+	var ips []string
+	ipsCh, _ := mapcidr.IPAddressesAsStream(value)
+	for ip := range ipsCh {
+		ips = append(ips, ip)
+	}
+	return ips
+}
+
+func expandASNInputValue(value string) []string {
+	var ips []string
+	cidrs, _ := asn.GetCIDRsForASNNum(value)
+	for _, cidr := range cidrs {
+		ips = append(ips, expandCIDRInputValue(cidr.String())...)
+	}
+	return ips
 }
