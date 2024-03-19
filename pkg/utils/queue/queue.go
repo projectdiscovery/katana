@@ -94,7 +94,7 @@ func (q *Queue) Pop() chan interface{} {
 				}
 				close(items)
 				return
-			} else if item != nil {
+			} else {
 				items <- item
 				start = time.Now()
 			}
