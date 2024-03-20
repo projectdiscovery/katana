@@ -128,7 +128,7 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 	flagSet.CreateGroup("passive", "Passive",
 		flagSet.BoolVarP(&options.Passive, "passive", "ps", false, "enable passive sources to discover target endpoints"),
-		flagSet.StringSliceVarP(&options.PassiveSource, "passive-source", "pss", nil, "passive source to use for url discovery (wayback,urlscan,commoncrawl,virustotal,alienvault)", goflags.NormalizedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.PassiveSource, "passive-source", "pss", nil, "passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)", goflags.NormalizedStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
