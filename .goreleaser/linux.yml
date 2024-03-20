@@ -5,7 +5,7 @@ before:
     - go mod tidy
 project_name: katana
 builds:
-  - id: katana-linux-generic
+  - id: katana-linux-amd64-generic
     ldflags:
       - -s -w
     binary: katana
@@ -16,6 +16,16 @@ builds:
       - linux
     goarch:
       - amd64
+
+  - id: katana-linux-i386-generic
+    ldflags:
+      - -s -w
+    binary: katana
+    main: ./cmd/katana/main.go
+    goos:
+      - linux
+    goarch:
+      - 386
 
   - id: katana-linux-arm
     ldflags:
