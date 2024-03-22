@@ -104,6 +104,11 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
+		if !c.Options.ExtensionsValidator.ValidatePath(result.Value) {
+			gologger.Debug().Msgf("`%v` not allowed extension. skipping", result.Value)
+			continue
+		}
+
 		seenURLs[result.Value] = struct{}{}
 		sourceStats[result.Source]++
 
