@@ -79,6 +79,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				httpreq.Header.Set(k, v)
 			}
 		}
+
 		httpresp := &http.Response{
 			Proto:         "HTTP/1.1",
 			ProtoMajor:    1,
@@ -162,7 +163,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	// wait the page to be fully loaded and becoming idle
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
-	if err := page.Navigate(request.URL); err != nil {
+	err = page.Navigate(request.URL)
+	if err != nil {
+		if c.Options.Options.DisableRedirects && response.IsRedirect() {
+			return response, nil
+		}
 		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
 	}
 
