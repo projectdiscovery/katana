@@ -208,8 +208,8 @@ github.com/projectdiscovery/dsl v0.0.48 h1:cdchhF0xofP8pi+HusNcVpw7oUuln7bS7KtzH
 github.com/projectdiscovery/dsl v0.0.48/go.mod h1:px2y6PLhdUx77KwPMpk6MBCaQTtTE1PpG4ZVmsgBmK8=
 github.com/projectdiscovery/fastdialer v0.0.64 h1:xivkA4g14nwQElOVsxPkGMWsdcYPcp7DPhVjvI6yQkw=
 github.com/projectdiscovery/fastdialer v0.0.64/go.mod h1:S/7PAQRmVDYRaU7u4xXD0qA5a48NAZq2JcpcVoEVrlo=
-github.com/projectdiscovery/goflags v0.1.44 h1:O/ObgErxBgLO1snPJ4LlM3j3aO1IUFN5l42imtnxSmE=
-github.com/projectdiscovery/goflags v0.1.44/go.mod h1:Z9lgmcFjEL8SUr2m1uh3X5z/m/2Z/FJvkyAG+6MTeRE=
+github.com/projectdiscovery/goflags v0.1.45 h1:quDCIWRsULQHmDI1UvXptEn9cSRCeiHWT3mxB6bpxnA=
+github.com/projectdiscovery/goflags v0.1.45/go.mod h1:JBwA9GYq/7m0a9PTsfRIoPqoB4/+r59MFTVJMDhN0Ic=
 github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJUvpmimXqv4A=
 github.com/projectdiscovery/gologger v1.1.12/go.mod h1:DI8nywPLERS5mo8QEA9E7gd5HZ3Je14SjJBH3F5/kLw=
 github.com/projectdiscovery/gostruct v0.0.2 h1:s8gP8ApugGM4go1pA+sVlPDXaWqNP5BBDDSv7VEdG1M=
