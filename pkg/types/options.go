@@ -18,6 +18,8 @@ type Options struct {
 	URLs goflags.StringSlice
 	// Resume the scan from the state stored in the resume config file
 	Resume string
+	// Exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)
+	Exclude goflags.StringSlice
 	// Scope contains a list of regexes for in-scope URLS
 	Scope goflags.StringSlice
 	// OutOfScope contains a list of regexes for out-scope URLS
@@ -122,6 +124,10 @@ type Options struct {
 	HeadlessNoIncognito bool
 	// XhrExtraction extract xhr requests
 	XhrExtraction bool
+	// Passive enables passive crawling
+	Passive bool
+	// PassiveSource is the list of sources for passive crawling
+	PassiveSource goflags.StringSlice
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests

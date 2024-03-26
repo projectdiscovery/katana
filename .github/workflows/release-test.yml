@@ -46,7 +46,7 @@ jobs:
 
       # todo: musl compatible?
       - name: Install Dependences
-        run: sudo apt install gcc-aarch64-linux-gnu
+        run: sudo apt update && sudo apt install gcc-aarch64-linux-gnu
       
       - name: release test
         uses: goreleaser/goreleaser-action@v4

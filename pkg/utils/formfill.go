@@ -26,7 +26,7 @@ type FormFillData struct {
 }
 
 var DefaultFormFillData = FormFillData{
-	Email:       fmt.Sprintf("%s@katanacrawler.io", xid.New().String()),
+	Email:       fmt.Sprintf("%s@example.org", xid.New().String()),
 	Color:       "#e66465",
 	Password:    "katanaP@assw0rd1",
 	PhoneNumber: "2124567890",

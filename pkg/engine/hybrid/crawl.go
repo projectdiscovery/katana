@@ -47,7 +47,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
-		URL, _ := urlutil.Parse(e.Request.URL)
+		URL, err := urlutil.Parse(e.Request.URL)
+		if err != nil {
+			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
+		}
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
@@ -65,7 +68,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		} else {
 			statucCodeText = http.StatusText(statusCode)
 		}
-		httpreq, _ := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
+		if err != nil {
+			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
+		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
 		if httpreq != nil {
@@ -73,6 +79,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				httpreq.Header.Set(k, v)
 			}
 		}
+
 		httpresp := &http.Response{
 			Proto:         "HTTP/1.1",
 			ProtoMajor:    1,
@@ -156,7 +163,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	// wait the page to be fully loaded and becoming idle
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
-	if err := page.Navigate(request.URL); err != nil {
+	err = page.Navigate(request.URL)
+	if err != nil {
+		if c.Options.Options.DisableRedirects && response.IsRedirect() {
+			return response, nil
+		}
 		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
 	}
 

@@ -1,3 +1,5 @@
+//go:build !386
+
 package utils
 
 import (
@@ -8,7 +10,7 @@ import (
 
 var (
 	// CommonJSLibraryFileRegex is a regex to match common js library files.
-	CommonJSLibraryFileRegex         = `(?:amplify|quantserve|slideshow|jquery|modernizr|polyfill|vendor|modules|gtm|underscor|tween|retina|selectivizr|cufon|underscore|angular|swf|sha1|freestyle|jquery|bootstrap|modernizr|d3|backbone|videojs|google_analytics|material|redux|knockout|datepicker|datetimepicker|ember|react|ng|angular|fusion|analytics|lib|libs|vendor|vendors|node_modules)([-._][\w\d]*)*\.js$`
+	CommonJSLibraryFileRegex         = `(?i)(?:amplify|quantserve|slideshow|jquery|modernizr|polyfill|vendor|modules|gtm|underscore?|tween|retina|selectivizr|cufon|angular|swf|sha1|freestyle|bootstrap|d3|backbone|videojs|google[-_]analytics|material|redux|knockout|datepicker|datetimepicker|ember|react|ng|fusion|analytics|libs?|vendors?|node[-_]modules|lodash|moment|chart|highcharts|raphael|prototype|mootools|dojo|ext|yui|web[-_]?components|polymer|vue|svelte|next|nuxt|gatsby|express|koa|hapi|socket[-_.]?io|axios|superagent|request|bluebird|rxjs|ramda|immutable|flux|redux[-_]saga|mobx|relay|apollo|graphql|three|phaser|pixi|babylon|cannon|hammer|howler|gsap|velocity|mo[-_.]?js|popper|shepherd|prism|highlight|markdown[-_]?it|codemirror|ace[-_]?editor|tinymce|ckeditor|quill|simplemde|monaco[-_]?editor|pdf[-_.]?js|jspdf|fabric|paper|konva|p5|processing|matter[-_.]?js|box2d|planck)(?:[-._][\w\d]*)*\.js$`
 	commonJSLibraryFileRegexCompiled = regexp.MustCompile(CommonJSLibraryFileRegex)
 )
 
