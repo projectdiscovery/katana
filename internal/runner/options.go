@@ -9,12 +9,10 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
-	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
-	logutil "github.com/projectdiscovery/utils/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -108,21 +106,6 @@ func (r *Runner) parseInputs() []string {
 
 func normalizeInput(value string) string {
 	return strings.TrimSpace(value)
-}
-
-// configureOutput configures the output logging levels to be displayed on the screen
-func configureOutput(options *types.Options) {
-	if options.Silent {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
-	} else if options.Verbose {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
-	} else if options.Debug {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
-	} else {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
-	}
-
-	logutil.DisableDefaultLogger()
 }
 
 func initExampleFormFillConfig() error {
