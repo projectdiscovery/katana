@@ -41,9 +41,15 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	// Set the headers for the request.
 	for k, v := range request.Headers {
 		req.Header.Set(k, v)
+		if k == "Host" {
+			req.Host = v
+		}
 	}
 	for k, v := range c.Headers {
 		req.Header.Set(k, v)
+		if k == "Host" {
+			req.Host = v
+		}
 	}
 
 	resp, err := s.HttpClient.Do(req)
