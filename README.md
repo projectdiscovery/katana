@@ -117,6 +117,7 @@ Flags:
 INPUT:
    -u, -list string[]  target url / list to crawl
    -resume string      resume scan using resume.cfg
+   -e, -exclude string[]  exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)
 
 CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
