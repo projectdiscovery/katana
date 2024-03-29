@@ -11,10 +11,8 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	stringsutil "github.com/projectdiscovery/utils/strings"
+	processutil "github.com/projectdiscovery/utils/process"
 	urlutil "github.com/projectdiscovery/utils/url"
-	ps "github.com/shirou/gopsutil/v3/process"
-	"go.uber.org/multierr"
 )
 
 // Crawler is a standard crawler instance
@@ -39,7 +37,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		}
 	}
 
-	previousPIDs := findChromeProcesses()
+	previousPIDs := processutil.FindProcesses(processutil.IsChromeProcess)
 
 	var launcherURL string
 	var chromeLauncher *launcher.Launcher
@@ -104,7 +102,8 @@ func (c *Crawler) Close() error {
 			return err
 		}
 	}
-	return c.killChromeProcesses()
+	processutil.CloseProcesses(processutil.IsChromeProcess, c.previousPIDs)
+	return nil
 }
 
 // Crawl crawls a URL with the specified options
@@ -172,51 +171,4 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 	}
 
 	return chromeLauncher, nil
-}
-
-// killChromeProcesses any and all new chrome processes started after
-// headless process launch.
-func (c *Crawler) killChromeProcesses() error {
-	var errs []error
-	processes, _ := ps.Processes()
-
-	for _, process := range processes {
-		// skip non-chrome processes
-		if !isChromeProcess(process) {
-			continue
-		}
-
-		// skip chrome processes that were already running
-		if _, ok := c.previousPIDs[process.Pid]; ok {
-			continue
-		}
-
-		if err := process.Kill(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	return multierr.Combine(errs...)
-}
-
-// findChromeProcesses finds chrome process running on host
-func findChromeProcesses() map[int32]struct{} {
-	processes, _ := ps.Processes()
-	list := make(map[int32]struct{})
-	for _, process := range processes {
-		if isChromeProcess(process) {
-			list[process.Pid] = struct{}{}
-			if ppid, err := process.Ppid(); err == nil {
-				list[ppid] = struct{}{}
-			}
-		}
-	}
-	return list
-}
-
-// isChromeProcess checks if a process is chrome/chromium
-func isChromeProcess(process *ps.Process) bool {
-	name, _ := process.Name()
-	executable, _ := process.Exe()
-	return stringsutil.ContainsAny(name, "chrome", "chromium") || stringsutil.ContainsAny(executable, "chrome", "chromium")
 }
