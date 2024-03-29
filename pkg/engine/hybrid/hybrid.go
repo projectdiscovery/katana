@@ -11,7 +11,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	processutil "github.com/projectdiscovery/utils/process"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -19,9 +18,14 @@ import (
 type Crawler struct {
 	*common.Shared
 
-	browser      *rod.Browser
-	previousPIDs map[int32]struct{} // track already running PIDs
-	tempDir      string
+	browser *rod.Browser
+	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
+	// This change will be made if there are no complaints about zombie Chrome processes.
+	// References:
+	// https://github.com/projectdiscovery/katana/issues/632
+	// https://github.com/projectdiscovery/httpx/issues/1425
+	// previousPIDs map[int32]struct{} // track already running PIDs
+	tempDir string
 }
 
 // New returns a new standard crawler instance
@@ -37,7 +41,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		}
 	}
 
-	previousPIDs := processutil.FindProcesses(processutil.IsChromeProcess)
+	// previousPIDs := processutil.FindProcesses(processutil.IsChromeProcess)
 
 	var launcherURL string
 	var chromeLauncher *launcher.Launcher
@@ -81,10 +85,10 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	}
 
 	crawler := &Crawler{
-		Shared:       shared,
-		browser:      browser,
-		previousPIDs: previousPIDs,
-		tempDir:      dataStore,
+		Shared:  shared,
+		browser: browser,
+		// previousPIDs: previousPIDs,
+		tempDir: dataStore,
 	}
 
 	return crawler, nil
@@ -102,7 +106,7 @@ func (c *Crawler) Close() error {
 			return err
 		}
 	}
-	processutil.CloseProcesses(processutil.IsChromeProcess, c.previousPIDs)
+	// processutil.CloseProcesses(processutil.IsChromeProcess, c.previousPIDs)
 	return nil
 }
 
@@ -125,7 +129,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 // buildChromeLauncher builds a new chrome launcher instance
 func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*launcher.Launcher, error) {
 	chromeLauncher := launcher.New().
-		Leakless(false).
+		Leakless(true).
 		Set("disable-gpu", "true").
 		Set("ignore-certificate-errors", "true").
 		Set("ignore-certificate-errors", "1").
