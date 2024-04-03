@@ -87,10 +87,14 @@ func (c *Crawler) Crawl(rootURL string) error {
 		wg.Wait()
 	}()
 
-	seenURLs := make(map[string]struct{})
 	sourceStats := make(map[string]int)
 	for result := range results {
-		if _, found := seenURLs[result.Value]; found {
+		reqUrl := result.Value
+		if c.Options.Options.IgnoreQueryParams {
+			reqUrl = utils.ReplaceAllQueryParam(reqUrl, "")
+		}
+
+		if !c.Options.UniqueFilter.UniqueURL(reqUrl) {
 			continue
 		}
 
@@ -109,7 +113,6 @@ func (c *Crawler) Crawl(rootURL string) error {
 			continue
 		}
 
-		seenURLs[result.Value] = struct{}{}
 		sourceStats[result.Source]++
 
 		passiveURL, _ := urlutil.Parse(result.Value)
@@ -136,10 +139,12 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 
 	var stats []string
+	var totalEndpoint int
 	for source, count := range sourceStats {
 		stats = append(stats, fmt.Sprintf("%s: %d", source, count))
+		totalEndpoint += count
 	}
 
-	gologger.Info().Msgf("Found %d endpoints for %s in %s (%s)", len(seenURLs), rootURL, timeTaken.String(), strings.Join(stats, ", "))
+	gologger.Info().Msgf("Found %d endpoints for %s in %s (%s)", totalEndpoint, rootURL, timeTaken.String(), strings.Join(stats, ", "))
 	return nil
 }
