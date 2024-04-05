@@ -15,7 +15,9 @@ builds:
     goos:
       - windows
     goarch:
-      - amd64
+      - 386
+      - arm64
+      - 386
 
 archives:
 - format: zip
