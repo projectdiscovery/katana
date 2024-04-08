@@ -12,7 +12,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.0.51
-	github.com/projectdiscovery/fastdialer v0.0.64
+	github.com/projectdiscovery/fastdialer v0.0.65
 	github.com/projectdiscovery/goflags v0.1.45
 	github.com/projectdiscovery/gologger v1.1.12
 	github.com/projectdiscovery/hmap v0.0.41
@@ -20,7 +20,7 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.33
 	github.com/projectdiscovery/retryablehttp-go v1.0.54
 	github.com/projectdiscovery/useragent v0.0.44
-	github.com/projectdiscovery/utils v0.0.86
+	github.com/projectdiscovery/utils v0.0.88
 	github.com/projectdiscovery/wappalyzergo v0.0.117
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -50,6 +50,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/uuid v1.3.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hdm/jarm-go v0.0.7 // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
@@ -71,7 +72,7 @@ require (
 	github.com/projectdiscovery/gostruct v0.0.2 // indirect
 	github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983 // indirect
 	github.com/projectdiscovery/stringsutil v0.0.2 // indirect
-	github.com/quic-go/quic-go v0.37.7 // indirect
+	github.com/quic-go/quic-go v0.42.0 // indirect
 	github.com/refraction-networking/utls v1.5.4 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
@@ -92,6 +93,7 @@ require (
 	github.com/ysmood/got v0.34.1 // indirect
 	github.com/yuin/goldmark v1.5.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
+	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
 	golang.org/x/term v0.17.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
