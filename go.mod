@@ -21,10 +21,9 @@ require (
 	github.com/projectdiscovery/retryablehttp-go v1.0.54
 	github.com/projectdiscovery/useragent v0.0.44
 	github.com/projectdiscovery/utils v0.0.86
-	github.com/projectdiscovery/wappalyzergo v0.0.116
+	github.com/projectdiscovery/wappalyzergo v0.0.117
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
-	github.com/shirou/gopsutil/v3 v3.23.7
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/multierr v1.11.0
 	golang.org/x/net v0.21.0
@@ -77,6 +76,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/sashabaranov/go-openai v1.14.2 // indirect
+	github.com/shirou/gopsutil/v3 v3.23.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
