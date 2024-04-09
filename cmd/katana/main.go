@@ -83,6 +83,7 @@ pipelines offering both headless and non-headless crawling.`)
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
+		flagSet.StringSliceVarP(&options.Exclude, "exclude", "e", nil, "exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("config", "Configuration",
@@ -124,6 +125,10 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
 		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
+	)
+	flagSet.CreateGroup("passive", "Passive",
+		flagSet.BoolVarP(&options.Passive, "passive", "ps", false, "enable passive sources to discover target endpoints"),
+		flagSet.StringSliceVarP(&options.PassiveSource, "passive-source", "pss", nil, "passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)", goflags.NormalizedStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",

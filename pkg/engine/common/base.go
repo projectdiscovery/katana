@@ -72,13 +72,13 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			// if the user requested anyway out of scope items
 			// they are sent to output without visiting
 			if s.Options.Options.DisplayOutScope {
-				s.Output(nr, nil, ErrOutOfScope)
+				s.Output(nr, nil, nil, ErrOutOfScope)
 			}
 			continue
 		}
 
-		// Do not add to crawl queue if max items are reached
-		if nr.Depth >= s.Options.Options.MaxDepth {
+		// Skip adding to the crawl queue when the maximum depth is exceeded
+		if nr.Depth > s.Options.Options.MaxDepth {
 			continue
 		}
 		queue.Push(nr, nr.Depth)
@@ -95,22 +95,23 @@ func (s *Shared) ValidateScope(URL string, root string) bool {
 	return err == nil && scopeValidated
 }
 
-func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, err error) {
+func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, passiveReference *navigation.PassiveReference, err error) {
 	var errData string
 	if err != nil {
 		errData = err.Error()
 	}
 	// Write the found result to output
 	result := &output.Result{
-		Timestamp: time.Now(),
-		Request:   navigationRequest,
-		Response:  navigationResponse,
-		Error:     errData,
+		Timestamp:        time.Now(),
+		Request:          navigationRequest,
+		Response:         navigationResponse,
+		PassiveReference: passiveReference,
+		Error:            errData,
 	}
 
-	_ = s.Options.OutputWriter.Write(result)
+	outputErr := s.Options.OutputWriter.Write(result)
 
-	if s.Options.Options.OnResult != nil {
+	if s.Options.Options.OnResult != nil && outputErr == nil {
 		s.Options.Options.OnResult(*result)
 	}
 }
@@ -223,7 +224,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			resp, err := doRequest(crawlSession, req)
 
-			s.Output(req, resp, err)
+			s.Output(req, resp, nil, err)
 
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)

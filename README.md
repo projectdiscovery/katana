@@ -29,7 +29,8 @@
 ![image](https://user-images.githubusercontent.com/8293321/199371558-daba03b6-bf9c-4883-8506-76497c6c3a44.png)
 
  - Fast And fully configurable web crawling
- - **Standard** and **Headless** mode support
+ - **Standard** and **Headless** mode
+ - **Active** and **Passive** mode
  - **JavaScript** parsing / crawling
  - Customizable **automatic form filling**
  - **Scope control** - Preconfigured field / Regex 
@@ -116,6 +117,7 @@ Flags:
 INPUT:
    -u, -list string[]  target url / list to crawl
    -resume string      resume scan using resume.cfg
+   -e, -exclude string[]  exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)
 
 CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
@@ -154,6 +156,10 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
+
+PASSIVE:
+   -ps, -passive                   enable passive sources to discover target endpoints
+   -pss, -passive-source string[]  passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
