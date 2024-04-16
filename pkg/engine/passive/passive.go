@@ -2,8 +2,10 @@ package passive
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,8 +18,10 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	fileutil "github.com/projectdiscovery/utils/file"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/exp/maps"
+	"gopkg.in/yaml.v2"
 )
 
 // Crawler is a passive crawler instance
@@ -32,6 +36,15 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	shared, err := common.NewShared(options)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).WithTag("passive")
+	}
+
+	// Load the passive providers info from the file
+	if options.Options.Passive && fileutil.FileExists(options.Options.PassiveProviderConfig) {
+		gologger.Info().Msgf("Loading provider config from %s", options.Options.PassiveProviderConfig)
+
+		if err := loadPassiveProvidersFrom(options.Options.PassiveProviderConfig); err != nil && (!strings.Contains(err.Error(), "file doesn't exist") || errors.Is(os.ErrNotExist, err)) {
+			gologger.Error().Msgf("Could not read providers from %s: %s\n", options.Options.PassiveProviderConfig, err)
+		}
 	}
 
 	sources := make(map[string]source.Source, len(Sources))
@@ -142,4 +155,24 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	gologger.Info().Msgf("Found %d endpoints for %s in %s (%s)", len(seenURLs), rootURL, timeTaken.String(), strings.Join(stats, ", "))
 	return nil
+}
+
+// loadPassiveProvidersFrom loads the passive providers from a file
+func loadPassiveProvidersFrom(file string) error {
+	reader, err := fileutil.SubstituteConfigFromEnvVars(file)
+	if err != nil {
+		return err
+	}
+
+	sourceApiKeysMap := map[string][]string{}
+	err = yaml.NewDecoder(reader).Decode(sourceApiKeysMap)
+	for _, source := range Sources {
+		sourceName := strings.ToLower(source.Name())
+		apiKeys := sourceApiKeysMap[sourceName]
+		if source.NeedsKey() && apiKeys != nil && len(apiKeys) > 0 {
+			gologger.Debug().Msgf("API key(s) found for %s.", sourceName)
+			source.AddApiKeys(apiKeys)
+		}
+	}
+	return err
 }

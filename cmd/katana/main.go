@@ -13,11 +13,14 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
+	"github.com/projectdiscovery/katana/pkg/engine/passive"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	folderutil "github.com/projectdiscovery/utils/folder"
 	"github.com/rs/xid"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -107,6 +110,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
+		flagSet.StringVarP(&options.PassiveProviderConfig, "passive-provider-config", "ppc", folderutil.AppConfigDirOrDefault("", "katana/passive-providers-config.yaml"), "provider config file"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
@@ -182,6 +186,12 @@ pipelines offering both headless and non-headless crawling.`)
 		return nil, errorutil.NewWithErr(err).Msgf("could not parse flags")
 	}
 
+	if exists := fileutil.FileExists(options.PassiveProviderConfig); !exists {
+		if err := createPassiveProviderConfigYAML(options.PassiveProviderConfig); err != nil {
+			gologger.Error().Msgf("Could not create provider config file: %s\n", err)
+		}
+	}
+
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
 			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
@@ -190,6 +200,25 @@ pipelines offering both headless and non-headless crawling.`)
 
 	cleanupOldResumeFiles()
 	return flagSet, nil
+}
+
+// createProviderConfigYAML marshals the input map to the given location on the disk
+func createPassiveProviderConfigYAML(configFilePath string) error {
+	configFile, err := os.Create(configFilePath)
+	if err != nil {
+		return err
+	}
+	defer configFile.Close()
+
+	sourcesRequiringApiKeysMap := make(map[string][]string)
+	for _, source := range passive.Sources {
+		if source.NeedsKey() {
+			sourceName := strings.ToLower(source.Name())
+			sourcesRequiringApiKeysMap[sourceName] = []string{}
+		}
+	}
+
+	return yaml.NewEncoder(configFile).Encode(sourcesRequiringApiKeysMap)
 }
 
 func init() {

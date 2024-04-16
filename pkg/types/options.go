@@ -152,6 +152,8 @@ type Options struct {
 	TlsImpersonate bool
 	//DisableRedirects disables the following of redirects
 	DisableRedirects bool
+	// PassiveProviderConfig is the path to the passive provider configuration file
+	PassiveProviderConfig string
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
