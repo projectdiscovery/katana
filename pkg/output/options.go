@@ -12,6 +12,7 @@ type Options struct {
 	JSON                  bool
 	Verbose               bool
 	StoreResponse         bool
+	NoClobber             bool
 	OmitRaw               bool
 	OmitBody              bool
 	OutputFile            string
