@@ -237,14 +237,29 @@ func (c *Crawler) addHeadersToPage(page *rod.Page) {
 	if len(c.Headers) == 0 {
 		return
 	}
+
 	var arr []string
+	var userAgentSet bool
+
 	for k, v := range c.Headers {
-		arr = append(arr, k, v)
+		if k == "User-Agent" {
+			userAgentParams := &proto.NetworkSetUserAgentOverride{
+				UserAgent: v,
+			}
+			if err := page.SetUserAgent(userAgentParams); err != nil {
+				gologger.Error().Msgf("headless: could not set user agent: %v", err)
+			}
+			userAgentSet = true
+		} else {
+			arr = append(arr, k, v)
+		}
 	}
-	// ignore cleanup callback
-	_, err := page.SetExtraHeaders(arr)
-	if err != nil {
-		gologger.Error().Msgf("headless: could not set extra headers: %v", err)
+
+	if !userAgentSet || len(arr) > 0 {
+		_, err := page.SetExtraHeaders(arr)
+		if err != nil {
+			gologger.Error().Msgf("headless: could not set extra headers: %v", err)
+		}
 	}
 }
 
