@@ -19,7 +19,7 @@ import (
 
 type RedirectCallback func(resp *http.Response, depth int)
 
-// BuildClient builds a http client based on a profile
+// BuildHttpClient builds a http client based on a profile
 func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback RedirectCallback) (*retryablehttp.Client, *fastdialer.Dialer, error) {
 	// Single Host
 	retryablehttpOptions := retryablehttp.DefaultOptionsSingle
