@@ -208,8 +208,8 @@ github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k
 github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.0.52 h1:jvIvF+qN8+MbI1MHtWJJKfWqAZQlCExL3ob7SddQbZE=
 github.com/projectdiscovery/dsl v0.0.52/go.mod h1:xfcHwhy2HSaeGgh+1wqzOoCGm2XTdh5JzjBRBVHEMvI=
-github.com/projectdiscovery/fastdialer v0.0.68 h1:JuIrr8aVGdGWkEwL4axsJWAWDY2uviSqBB0TCekeCOo=
-github.com/projectdiscovery/fastdialer v0.0.68/go.mod h1:asHSBFJgmwrXpiegcrcAgOyd/QewCVgeI4idH55+v7M=
+github.com/projectdiscovery/fastdialer v0.0.69 h1:BfFQTyTB1hrw9sWCw4CjQfbmlpvnJCPZEmKtxcwJGbU=
+github.com/projectdiscovery/fastdialer v0.0.69/go.mod h1:RXrx7M2T3V3rMZ2h0X2/SsY93+RhgF/LmFa1E0MI3L8=
 github.com/projectdiscovery/goflags v0.1.49 h1:0e9wya431WDeVm8ZtlyqBQ+rwnhDjUswDMcS0did9Tg=
 github.com/projectdiscovery/goflags v0.1.49/go.mod h1:f0zRbaa5QLrjfJQ5v0efvq8EhkDGhCm9h0hsahjjKFc=
 github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJUvpmimXqv4A=
@@ -234,8 +234,8 @@ github.com/projectdiscovery/stringsutil v0.0.2 h1:uzmw3IVLJSMW1kEg8eCStG/cGbYYZA
 github.com/projectdiscovery/stringsutil v0.0.2/go.mod h1:EJ3w6bC5fBYjVou6ryzodQq37D5c6qbAYQpGmAy+DC0=
 github.com/projectdiscovery/useragent v0.0.47 h1:VEOU7uG7TutZNIE0DZNP7hGAGi4bwLPGM1X7Rny52s0=
 github.com/projectdiscovery/useragent v0.0.47/go.mod h1:Cfk9X9SISYSCmqpej0r9+paJbDHzNHic2YdWQtpdz2M=
-github.com/projectdiscovery/utils v0.0.89 h1:ruH2bSkpX/rB7EPp2EV/rWyAubQVxCVU38nRcLp4L1w=
-github.com/projectdiscovery/utils v0.0.89/go.mod h1:Dwh5cxn7y97jvyYG3GmBvj0negfH9IjH15qXnzFNtOI=
+github.com/projectdiscovery/utils v0.0.90 h1:ZBClkrtC6U2xuT8AI6/MrYgm3cxQnwSZmM8/tIlA0Yk=
+github.com/projectdiscovery/utils v0.0.90/go.mod h1:laZCMcUTT1vTmclUCW+zpi/fjeYsgU1gMwgv2CxNcRk=
 github.com/projectdiscovery/wappalyzergo v0.0.120 h1:dphOXnaT3rryo9h9fgbxnAVhtQ1uq61yyQZMYyHz960=
 github.com/projectdiscovery/wappalyzergo v0.0.120/go.mod h1:qW0PP+UBMcdQBBnwk+X6YYFs6huKNvn2BOVs4vQPru0=
 github.com/quic-go/quic-go v0.42.0 h1:uSfdap0eveIl8KXnipv9K7nlwZ5IqLlYOpJ58u5utpM=
