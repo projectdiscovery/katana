@@ -14,10 +14,10 @@ import (
 	"github.com/logrusorgru/aurora"
 	"github.com/mitchellh/mapstructure"
 	"github.com/projectdiscovery/dsl"
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	fileutil "github.com/projectdiscovery/utils/file"
 )
 
 const (
