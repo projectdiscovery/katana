@@ -287,7 +287,7 @@ func createDirNameNoClobber(dir string) string {
 	}
 
 	newDirName := fmt.Sprintf("%s%d", dirName, highestNum+1)
-	newFullPath := fmt.Sprintf("%s/%s", parentDir, newDirName)
+	newFullPath := filepath.Join(parentDir, newDirName)
 	return newFullPath
 }
 
