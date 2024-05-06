@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	storeFieldsDirectory = "katana_field"
-	indexFile            = "index.txt"
-	DefaultResponseDir   = "katana_response"
+	indexFile          = "index.txt"
+	DefaultResponseDir = "katana_response"
 )
 
 var (
+	storeFieldDir    = "katana_field"
 	decolorizerRegex = regexp.MustCompile(`\x1B\[[0-9;]*[a-zA-Z]`)
 )
 
@@ -76,6 +76,10 @@ func New(options Options) (Writer, error) {
 		outputMatchCondition:  options.OutputMatchCondition,
 		outputFilterCondition: options.OutputFilterCondition,
 	}
+
+	if options.StoreFieldDir != "" {
+		storeFieldDir = options.StoreFieldDir
+	}
 	// if fieldConfig empty get the default file
 	if options.FieldConfig == "" {
 		var err error
@@ -99,7 +103,7 @@ func New(options Options) (Writer, error) {
 		}
 	}
 	if options.StoreFields != "" {
-		_ = os.MkdirAll(storeFieldsDirectory, os.ModePerm)
+		_ = os.MkdirAll(storeFieldDir, os.ModePerm)
 		if err := validateFieldNames(options.StoreFields); err != nil {
 			return nil, errorutil.NewWithTag("output", "could not validate store fields").Wrap(err)
 		}

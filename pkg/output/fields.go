@@ -84,7 +84,7 @@ func storeFields(output *Result, storeFields []string) {
 }
 
 func appendToFileField(parsed *url.URL, field, data string) {
-	file, err := os.OpenFile(path.Join(storeFieldsDirectory, fmt.Sprintf("%s_%s_%s.txt", parsed.Scheme, parsed.Hostname(), field)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile(path.Join(storeFieldDir, fmt.Sprintf("%s_%s_%s.txt", parsed.Scheme, parsed.Hostname(), field)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
