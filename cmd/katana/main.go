@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	folderutil "github.com/projectdiscovery/utils/folder"
 	"github.com/rs/xid"
 )
 
@@ -74,55 +74,13 @@ func main() {
 	// deduplicate the lines in each file in the store-field-dir
 	//use options.StoreFieldDir once https://github.com/projectdiscovery/katana/pull/877 is merged
 	storeFieldDir := "katana_field"
-	_ = deduplicateLinesInFilesInDir(storeFieldDir)
+	_ = folderutil.DedupeLinesInFiles(storeFieldDir)
 
 	// remove the resume file in case it exists
 	if fileutil.FileExists(resumeFilename) {
 		os.Remove(resumeFilename)
 	}
 
-}
-
-func deduplicateLinesInFilesInDir(dir string) error {
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			return deduplicateLinesInFile(path)
-		}
-		return nil
-	})
-	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("error processing directory %s", dir)
-	}
-	return nil
-}
-
-func deduplicateLinesInFile(filename string) error {
-	file, err := os.Open(filename)
-	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not open file: %s", filename)
-	}
-	defer file.Close()
-
-	seenLines := make(map[string]struct{})
-	var deduplicatedLines []string
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if _, exists := seenLines[line]; !exists {
-			seenLines[line] = struct{}{}
-			deduplicatedLines = append(deduplicatedLines, line)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not read file: %s", filename)
-	}
-
-	return os.WriteFile(filename, []byte(strings.Join(deduplicatedLines, "\n")+"\n"), 0644)
 }
 
 func readFlags() (*goflags.FlagSet, error) {
