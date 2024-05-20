@@ -134,10 +134,6 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 	)
-	flagSet.CreateGroup("passive", "Passive",
-		flagSet.BoolVarP(&options.Passive, "passive", "ps", false, "enable passive sources to discover target endpoints"),
-		flagSet.StringSliceVarP(&options.PassiveSource, "passive-source", "pss", nil, "passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)", goflags.NormalizedStringSliceOptions),
-	)
 
 	flagSet.CreateGroup("scope", "Scope",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
