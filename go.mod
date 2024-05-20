@@ -13,13 +13,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.0.52
 	github.com/projectdiscovery/fastdialer v0.0.71
-	github.com/projectdiscovery/goflags v0.1.51
+	github.com/projectdiscovery/goflags v0.1.52
 	github.com/projectdiscovery/gologger v1.1.12
 	github.com/projectdiscovery/hmap v0.0.42
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.41
 	github.com/projectdiscovery/retryablehttp-go v1.0.60
-	github.com/projectdiscovery/useragent v0.0.51
+	github.com/projectdiscovery/useragent v0.0.52
 	github.com/projectdiscovery/utils v0.0.93
 	github.com/projectdiscovery/wappalyzergo v0.0.121
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -71,7 +71,6 @@ require (
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
 	github.com/projectdiscovery/gostruct v0.0.2 // indirect
 	github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983 // indirect
-	github.com/projectdiscovery/stringsutil v0.0.2 // indirect
 	github.com/quic-go/quic-go v0.42.0 // indirect
 	github.com/refraction-networking/utls v1.5.4 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
