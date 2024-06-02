@@ -1,4 +1,4 @@
-FROM golang:1.20.6-alpine AS builder
+FROM golang:1.22.3-alpine AS builder
 RUN apk add --no-cache git gcc musl-dev
 WORKDIR /app
 COPY . /app
