@@ -17,6 +17,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	folderutil "github.com/projectdiscovery/utils/folder"
 	"github.com/rs/xid"
 )
 
@@ -68,7 +69,14 @@ func main() {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
 
-	// on successful execution remove the resume file in case it exists
+	// on successful execution:
+
+	// deduplicate the lines in each file in the store-field-dir
+	//use options.StoreFieldDir once https://github.com/projectdiscovery/katana/pull/877 is merged
+	storeFieldDir := "katana_field"
+	_ = folderutil.DedupeLinesInFiles(storeFieldDir)
+
+	// remove the resume file in case it exists
 	if fileutil.FileExists(resumeFilename) {
 		os.Remove(resumeFilename)
 	}

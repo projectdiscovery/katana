@@ -24,7 +24,7 @@ type CrawlerOptions struct {
 	// OutputWriter is the interface for writing output
 	OutputWriter output.Writer
 	// RateLimit is a mechanism for controlling request rate limit
-	RateLimit ratelimit.Limiter
+	RateLimit *ratelimit.Limiter
 	// Options contains the user specified configuration options
 	Options *Options
 	// ExtensionsValidator is a validator for file extensions
@@ -114,9 +114,9 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 
 	if options.RateLimit > 0 {
-		crawlerOptions.RateLimit = *ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
+		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
 	} else if options.RateLimitMinute > 0 {
-		crawlerOptions.RateLimit = *ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
+		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
 	}
 
 	wappalyze, err := wappalyzer.New()
