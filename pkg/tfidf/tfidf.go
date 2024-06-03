@@ -49,7 +49,7 @@ func (t *TfIdf) Calculate(words []string) []float64 {
     }
 
     var scores []float64
-    for range t.documents { // removed docWords variable
+    for range t.documents {
         score := 0.0
         for word, count := range wordCount {
             tf := float64(count) / float64(len(words))
@@ -60,4 +60,3 @@ func (t *TfIdf) Calculate(words []string) []float64 {
     }
     return scores
 }
-
