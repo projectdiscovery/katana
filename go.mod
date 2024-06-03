@@ -17,7 +17,7 @@ require (
 	github.com/projectdiscovery/gologger v1.1.12
 	github.com/projectdiscovery/hmap v0.0.45
 	github.com/projectdiscovery/mapcidr v1.1.34
-	github.com/projectdiscovery/ratelimit v0.0.41
+	github.com/projectdiscovery/ratelimit v0.0.44
 	github.com/projectdiscovery/retryablehttp-go v1.0.61
 	github.com/projectdiscovery/useragent v0.0.53
 	github.com/projectdiscovery/utils v0.1.0
@@ -95,6 +95,7 @@ require (
 	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
