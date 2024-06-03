@@ -60,3 +60,4 @@ func (t *TfIdf) Calculate(words []string) []float64 {
     }
     return scores
 }
+
