@@ -68,7 +68,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		} else {
 			statucCodeText = http.StatusText(statusCode)
 		}
-		httpreq, err := http.NewRequest(request.Method, URL.String(), strings.NewReader(request.Body))
+		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
 			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
 		}
