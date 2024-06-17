@@ -212,8 +212,8 @@ github.com/projectdiscovery/dsl v0.1.1 h1:67aqIMMui7dbAXOS3W75DJ3hinGxex48ZBTESJ
 github.com/projectdiscovery/dsl v0.1.1/go.mod h1:Jqeu8Q4pqPbmpRwumgF59jOjilw9qYCdt3BYQTs3GtY=
 github.com/projectdiscovery/fastdialer v0.1.2 h1:wNUxeMIwiagXvseCmhw5qlnACJV6kOAPtAGswjqNyWE=
 github.com/projectdiscovery/fastdialer v0.1.2/go.mod h1:V5fkUburMLylbtBqbei5aAXTt1foDMeX517iM3uPkao=
-github.com/projectdiscovery/goflags v0.1.54 h1:xbaEBNbKqXyRu4154UlhsMAFmpaDYma4jJ9zUZGvXW8=
-github.com/projectdiscovery/goflags v0.1.54/go.mod h1:cfLzWWxgl/ft5cSHVJZjnvIzd4wX3A9Kz+W1pjeBZvc=
+github.com/projectdiscovery/goflags v0.1.55 h1:oVx7ZhNd72g8P3MjRZTb+JmkCf6F40il75b2LrZDfWo=
+github.com/projectdiscovery/goflags v0.1.55/go.mod h1:0VWRorAiIBbOuKpbFVbwiSUfzrRsyaEI0z2nOSRT/Zg=
 github.com/projectdiscovery/gologger v1.1.12 h1:uX/QkQdip4PubJjjG0+uk5DtyAi1ANPJUvpmimXqv4A=
 github.com/projectdiscovery/gologger v1.1.12/go.mod h1:DI8nywPLERS5mo8QEA9E7gd5HZ3Je14SjJBH3F5/kLw=
 github.com/projectdiscovery/gostruct v0.0.2 h1:s8gP8ApugGM4go1pA+sVlPDXaWqNP5BBDDSv7VEdG1M=
@@ -232,8 +232,8 @@ github.com/projectdiscovery/retryabledns v1.0.62 h1:nroTEgMMfppwjwtqT5WqyfMRH8ed
 github.com/projectdiscovery/retryabledns v1.0.62/go.mod h1:K761GKlfiveUrN+byy7ManMpO3oHOIhTe3wVBWXxTSA=
 github.com/projectdiscovery/retryablehttp-go v1.0.64 h1:90VkUuWKm/JW5Tym0u+N1qseKe4gC5Rp048VJBLcxv8=
 github.com/projectdiscovery/retryablehttp-go v1.0.64/go.mod h1:fXVLBcwKwBrCVEgi3FrbLPtSTIczyJEKIlp1WD6VTI0=
-github.com/projectdiscovery/useragent v0.0.55 h1:SBeH+O9CTAgqRN96bAaOVw/ZyIILnMmcxE9xc+zWRYY=
-github.com/projectdiscovery/useragent v0.0.55/go.mod h1:WCUCKjalMFtnn7Xq2z33/CoWm1gbO9jeZkFLEFC6ChA=
+github.com/projectdiscovery/useragent v0.0.56 h1:KpUtOgq1vUerPrgRFZAIr1hF0lDxA2RF6YkT2PLwSoQ=
+github.com/projectdiscovery/useragent v0.0.56/go.mod h1:LAh9vudxXPA5JfNN3+1g/Unqvulq0BDkjxK7IrE+e/s=
 github.com/projectdiscovery/utils v0.1.3 h1:yhHkrbYZA1eOO8e+fPDUvRMS5aUIalyM3Nab7rK4tpg=
 github.com/projectdiscovery/utils v0.1.3/go.mod h1:gny8RbNYXE55IoamF6thRDQ8tcJEw+r0FOGAvncz/oQ=
 github.com/projectdiscovery/wappalyzergo v0.1.2 h1:GoTGetBiKQEoN4lfxJFuxQrBkyby1uHYHePDhY4jNQc=

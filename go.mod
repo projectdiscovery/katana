@@ -13,13 +13,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.1.1
 	github.com/projectdiscovery/fastdialer v0.1.2
-	github.com/projectdiscovery/goflags v0.1.54
+	github.com/projectdiscovery/goflags v0.1.55
 	github.com/projectdiscovery/gologger v1.1.12
 	github.com/projectdiscovery/hmap v0.0.46
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.45
 	github.com/projectdiscovery/retryablehttp-go v1.0.64
-	github.com/projectdiscovery/useragent v0.0.55
+	github.com/projectdiscovery/useragent v0.0.56
 	github.com/projectdiscovery/utils v0.1.3
 	github.com/projectdiscovery/wappalyzergo v0.1.2
 	github.com/remeh/sizedwaitgroup v1.0.0
