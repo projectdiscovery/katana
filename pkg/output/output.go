@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	fileutil "github.com/projectdiscovery/utils/file"
 )
 
 const (
@@ -48,6 +50,7 @@ type StandardWriter struct {
 	outputMutex           *sync.Mutex
 	storeResponse         bool
 	storeResponseDir      string
+	noClobber             bool
 	omitRaw               bool
 	omitBody              bool
 	errorFile             *fileWriter
@@ -68,6 +71,7 @@ func New(options Options) (Writer, error) {
 		outputMutex:           &sync.Mutex{},
 		storeResponse:         options.StoreResponse,
 		storeResponseDir:      options.StoreResponseDir,
+		noClobber:             options.NoClobber,
 		omitRaw:               options.OmitRaw,
 		omitBody:              options.OmitBody,
 		matchRegex:            options.MatchRegex,
@@ -121,8 +125,13 @@ func New(options Options) (Writer, error) {
 		if options.StoreResponseDir != DefaultResponseDir && options.StoreResponseDir != "" {
 			writer.storeResponseDir = options.StoreResponseDir
 		}
-		_ = os.RemoveAll(writer.storeResponseDir)
-		_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+		if options.NoClobber {
+			writer.storeResponseDir = createDirNameNoClobber(writer.storeResponseDir)
+			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+		} else {
+			removeDirsWithSuffix(writer.storeResponseDir)
+			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+		}
 		// todo: the index file seems never used?
 		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
 		if err != nil {
@@ -254,6 +263,53 @@ func (w *StandardWriter) Close() error {
 		}
 	}
 	return nil
+}
+
+func createDirNameNoClobber(dir string) string {
+	if !fileutil.FolderExists(dir) {
+		return dir
+	}
+
+	parentDir, dirName := filepath.Dir(dir), filepath.Base(dir)
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return dirName
+	}
+
+	highestNum := 0
+	regex := regexp.MustCompile(fmt.Sprintf("^%s(\\d+)$", regexp.QuoteMeta(dirName)))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			name := entry.Name()
+			matches := regex.FindStringSubmatch(name)
+			if matches != nil {
+				if num, err := strconv.Atoi(matches[1]); err == nil && num > highestNum {
+					highestNum = num
+				}
+			}
+		}
+	}
+
+	newDirName := fmt.Sprintf("%s%d", dirName, highestNum+1)
+	newFullPath := filepath.Join(parentDir, newDirName)
+	return newFullPath
+}
+
+func removeDirsWithSuffix(dir string) {
+	parentDir, dirName := filepath.Dir(dir), filepath.Base(dir)
+	entries, _ := os.ReadDir(parentDir)
+
+	pattern := fmt.Sprintf("^%s(\\d*)$", regexp.QuoteMeta(dirName))
+	regex := regexp.MustCompile(pattern)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			name := entry.Name()
+			if regex.MatchString(name) {
+				fullPath := filepath.Join(parentDir, name)
+				_ = os.RemoveAll(fullPath)
+			}
+		}
+	}
 }
 
 // matchOutput checks if the event matches the output regex
