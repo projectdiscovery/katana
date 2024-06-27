@@ -6,15 +6,12 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
-	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
 	"github.com/projectdiscovery/ratelimit"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	logutil "github.com/projectdiscovery/utils/log"
 	urlutil "github.com/projectdiscovery/utils/url"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -42,7 +39,7 @@ type CrawlerOptions struct {
 // NewCrawlerOptions creates a new crawler options structure
 // from user specified options.
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
-	configureOutput(options)
+	options.ConfigureOutput()
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter)
 
 	dialerOpts := fastdialer.DefaultOptions
@@ -151,19 +148,4 @@ func (c *CrawlerOptions) ValidateScope(absURL, rootHostname string) (bool, error
 		return c.ScopeManager.Validate(parsed.URL, rootHostname)
 	}
 	return true, nil
-}
-
-// configureOutput configures the output logging levels to be displayed on the screen
-func configureOutput(options *Options) {
-	if options.Silent {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
-	} else if options.Verbose {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
-	} else if options.Debug {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
-	} else {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
-	}
-
-	logutil.DisableDefaultLogger()
 }

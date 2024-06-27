@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/output"
 	fileutil "github.com/projectdiscovery/utils/file"
+	logutil "github.com/projectdiscovery/utils/log"
 )
 
 // OnResultCallback (output.Result)
@@ -193,4 +196,19 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 
 func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
+}
+
+// ConfigureOutput configures the output logging levels to be displayed on the screen
+func (options *Options) ConfigureOutput() {
+	if options.Silent {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
+	} else if options.Verbose {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
+	} else if options.Debug {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
+	} else {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
+	}
+
+	logutil.DisableDefaultLogger()
 }
