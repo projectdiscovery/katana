@@ -25,6 +25,13 @@ func validateOptions(options *types.Options) error {
 		return errorutil.New("no inputs specified for crawler")
 	}
 
+	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
+	// Form filling should be handled via headless actions within the page context
+	if options.Headless && options.AutomaticFormFill {
+		options.AutomaticFormFill = false
+		gologger.Info().Msgf("Automatic form fill (-aff) has been disabled for headless navigation.")
+	}
+
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
 		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}

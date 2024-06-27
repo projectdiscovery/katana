@@ -55,7 +55,7 @@ func New(options *types.Options) (*Runner, error) {
 		}
 		options.URLs = mapsutil.GetKeys(runnerState.InFlightUrls.GetAll())
 	}
-
+	options.ConfigureOutput()
 	showBanner()
 
 	if options.Version {

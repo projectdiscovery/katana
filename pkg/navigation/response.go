@@ -20,7 +20,7 @@ type Form struct {
 func (h *Headers) MarshalJSON() ([]byte, error) {
 	hCopy := make(Headers)
 	for k, v := range *h {
-		k := strings.ReplaceAll(strings.ToLower(k), "-", "_")
+		k := strings.ToLower(k)
 		hCopy[k] = v
 	}
 	return jsoniter.Marshal(hCopy)

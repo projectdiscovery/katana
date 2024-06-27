@@ -188,6 +188,7 @@ OUTPUT:
    -o, -output string                file to write output to
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
+   -sfd, -store-field-dir string     store per-host field to custom directory
    -or, -omit-raw                    omit raw requests/responses from jsonl output
    -ob, -omit-body                   omit response body from jsonl output
    -j, -jsonl                        write output in jsonl format
@@ -683,7 +684,7 @@ katana -u https://tesla.com -f email,phone
 *`-store-field`*
 ---
 
-To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_field` directory sorted by target url.
+To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_field` directory sorted by target url. Use `-sfd` or `-store-field-dir` to store data in a different location.
 
 ```
 katana -u https://tesla.com -sf key,fqdn,qurl -silent
