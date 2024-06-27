@@ -119,6 +119,8 @@ type Options struct {
 	StoreResponseDir string
 	// NoClobber specifies if katana should overwrite existing output files
 	NoClobber bool
+	// StoreFieldDir specifies if katana should use a custom directory to store fields
+	StoreFieldDir string
 	// OmitRaw omits raw requests/responses from the output
 	OmitRaw bool
 	// OmitBody omits the response body from the output
