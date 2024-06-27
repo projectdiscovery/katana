@@ -70,6 +70,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		StoreFields:           options.StoreFields,
 		StoreResponseDir:      options.StoreResponseDir,
 		NoClobber:             options.NoClobber,
+		StoreFieldDir:         options.StoreFieldDir,
 		OmitRaw:               options.OmitRaw,
 		OmitBody:              options.OmitBody,
 		FieldConfig:           options.FieldConfig,
