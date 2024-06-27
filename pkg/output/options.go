@@ -12,12 +12,14 @@ type Options struct {
 	JSON                  bool
 	Verbose               bool
 	StoreResponse         bool
+	NoClobber             bool
 	OmitRaw               bool
 	OmitBody              bool
 	OutputFile            string
 	Fields                string
 	StoreFields           string
 	StoreResponseDir      string
+	StoreFieldDir         string
 	FieldConfig           string
 	ErrorLogFile          string
 	MatchRegex            []*regexp.Regexp
