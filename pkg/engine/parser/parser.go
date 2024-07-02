@@ -397,7 +397,7 @@ func bodyVideoTagParser(resp *navigation.Response) (navigationRequests []*naviga
 	return
 }
 
-// bodyBlockquoteCiteTagParser parses blockquote cite tag from response
+// bodyButtonFormactionTagParser parses blockquote cite tag from response
 func bodyBlockquoteCiteTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	resp.Reader.Find("blockquote[cite]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("cite")
@@ -481,6 +481,12 @@ func bodyHtmlDoctypeTagParser(resp *navigation.Response) (navigationRequests []*
 	}
 	docTypeNode := resp.Reader.Nodes[0].FirstChild
 	if docTypeNode.Type != html.DoctypeNode {
+		return
+	}
+	if len(docTypeNode.Attr) == 0 || strings.ToLower(docTypeNode.Attr[0].Key) != "system" {
+		return
+	}
+	if len(docTypeNode.Attr) == 0 || strings.ToLower(docTypeNode.Attr[0].Key) != "system" {
 		return
 	}
 	if len(docTypeNode.Attr) == 0 || strings.ToLower(docTypeNode.Attr[0].Key) != "system" {
