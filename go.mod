@@ -21,7 +21,7 @@ require (
 	github.com/projectdiscovery/retryablehttp-go v1.0.67
 	github.com/projectdiscovery/useragent v0.0.58
 	github.com/projectdiscovery/utils v0.2.0
-	github.com/projectdiscovery/wappalyzergo v0.1.9
+	github.com/projectdiscovery/wappalyzergo v0.1.10
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stretchr/testify v1.9.0
