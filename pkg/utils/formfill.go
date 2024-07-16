@@ -41,8 +41,8 @@ type FormInput struct {
 	Attributes mapsutil.OrderedMap[string, string]
 }
 
-// FormOption is an option for a select input
-type FormOption struct {
+// SelectOption is an option for a select input
+type SelectOption struct {
 	Value      string
 	Selected   string
 	Attributes mapsutil.OrderedMap[string, string]
@@ -50,9 +50,9 @@ type FormOption struct {
 
 // FormSelect is a select input for a form field
 type FormSelect struct {
-	Name        string
-	Attributes  mapsutil.OrderedMap[string, string]
-	FormOptions []FormOption
+	Name          string
+	Attributes    mapsutil.OrderedMap[string, string]
+	SelectOptions []SelectOption
 }
 
 type FormTextArea struct {
@@ -133,7 +133,7 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 func FormSelectFill(inputs []FormSelect) mapsutil.OrderedMap[string, string] {
 	data := mapsutil.NewOrderedMap[string, string]()
 	for _, input := range inputs {
-		for _, option := range input.FormOptions {
+		for _, option := range input.SelectOptions {
 			if option.Selected != "" {
 				data.Set(input.Name, option.Value)
 				break
@@ -141,8 +141,8 @@ func FormSelectFill(inputs []FormSelect) mapsutil.OrderedMap[string, string] {
 		}
 
 		// If no option is selected, select the first one
-		if !data.Has(input.Name) && len(input.FormOptions) > 0 {
-			data.Set(input.Name, input.FormOptions[0].Value)
+		if !data.Has(input.Name) && len(input.SelectOptions) > 0 {
+			data.Set(input.Name, input.SelectOptions[0].Value)
 		}
 	}
 	return data
@@ -176,22 +176,14 @@ func FormFillSuggestions(formFields []interface{}) mapsutil.OrderedMap[string, s
 		switch v := item.(type) {
 		case FormInput:
 			dataMapInputs := FormInputFillSuggestions([]FormInput{v})
-			dataMapInputs.Iterate(func(key, value string) bool {
-				merged.Set(key, value)
-				return true
-			})
+			MergeDataMaps(&merged, dataMapInputs)
 		case FormSelect:
 			dataMapSelects := FormSelectFill([]FormSelect{v})
-			dataMapSelects.Iterate(func(key, value string) bool {
-				merged.Set(key, value)
-				return true
-			})
+			MergeDataMaps(&merged, dataMapSelects)
+
 		case FormTextArea:
 			dataMapTextArea := FormTextAreaFill([]FormTextArea{v})
-			dataMapTextArea.Iterate(func(key, value string) bool {
-				merged.Set(key, value)
-				return true
-			})
+			MergeDataMaps(&merged, dataMapTextArea)
 		}
 	}
 	return merged
@@ -217,11 +209,11 @@ func ConvertGoquerySelectionToFormInput(item *goquery.Selection) FormInput {
 	return input
 }
 
-// ConvertGoquerySelectionToFormOption converts a goquery.Selection object to a FormOption object.
-// It extracts the attributes from the goquery.Selection object and populates a FormOption object with the extracted values.
-func ConvertGoquerySelectionToFormOption(item *goquery.Selection) FormOption {
+// ConvertGoquerySelectionToSelectOption converts a goquery.Selection object to a SelectOption object.
+// It extracts the attributes from the goquery.Selection object and populates a SelectOption object with the extracted values.
+func ConvertGoquerySelectionToSelectOption(item *goquery.Selection) SelectOption {
 	attrs := item.Nodes[0].Attr
-	input := FormOption{Attributes: mapsutil.NewOrderedMap[string, string]()}
+	input := SelectOption{Attributes: mapsutil.NewOrderedMap[string, string]()}
 	for _, attribute := range attrs {
 		switch attribute.Key {
 		case "value":
@@ -251,9 +243,9 @@ func ConvertGoquerySelectionToFormSelect(item *goquery.Selection) FormSelect {
 		}
 	}
 
-	input.FormOptions = []FormOption{}
+	input.SelectOptions = []SelectOption{}
 	item.Find("option").Each(func(_ int, option *goquery.Selection) {
-		input.FormOptions = append(input.FormOptions, ConvertGoquerySelectionToFormOption(option))
+		input.SelectOptions = append(input.SelectOptions, ConvertGoquerySelectionToSelectOption(option))
 	})
 	return input
 }
