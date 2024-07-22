@@ -12,15 +12,15 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.1.6
-	github.com/projectdiscovery/fastdialer v0.1.5
+	github.com/projectdiscovery/fastdialer v0.2.0
 	github.com/projectdiscovery/goflags v0.1.57
-	github.com/projectdiscovery/gologger v1.1.14
-	github.com/projectdiscovery/hmap v0.0.48
+	github.com/projectdiscovery/gologger v1.1.15
+	github.com/projectdiscovery/hmap v0.0.50
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.47
-	github.com/projectdiscovery/retryablehttp-go v1.0.67
+	github.com/projectdiscovery/retryablehttp-go v1.0.69
 	github.com/projectdiscovery/useragent v0.0.58
-	github.com/projectdiscovery/utils v0.2.0
+	github.com/projectdiscovery/utils v0.2.2
 	github.com/projectdiscovery/wappalyzergo v0.1.10
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -48,7 +48,6 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/gaissmai/bart v0.9.5 // indirect
-	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -57,7 +56,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hdm/jarm-go v0.0.7 // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
-	github.com/klauspost/compress v1.16.7 // indirect
+	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
@@ -74,8 +73,7 @@ require (
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
 	github.com/projectdiscovery/gostruct v0.0.2 // indirect
 	github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983 // indirect
-	github.com/quic-go/quic-go v0.42.0 // indirect
-	github.com/refraction-networking/utls v1.5.4 // indirect
+	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/sashabaranov/go-openai v1.14.2 // indirect
