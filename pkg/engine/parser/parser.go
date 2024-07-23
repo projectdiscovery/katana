@@ -527,16 +527,16 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 			multipartWriter = multipart.NewWriter(&sb)
 		}
 
-		// Get the form field suggestions for all inputs
-		formInputs := []utils.FormInput{}
-		item.Find("input").Each(func(index int, item *goquery.Selection) {
+		// Get the form field suggestions for all elements in the form
+		formFields := []interface{}{}
+		item.Find("input, select, textarea").Each(func(index int, item *goquery.Selection) {
 			if len(item.Nodes) == 0 {
 				return
 			}
-			formInputs = append(formInputs, utils.ConvertGoquerySelectionToFormInput(item))
+			formFields = append(formFields, utils.ConvertGoquerySelectionToFormField(item))
 		})
 
-		dataMap := utils.FormInputFillSuggestions(formInputs)
+		dataMap := utils.FormFillSuggestions(formFields)
 		dataMap.Iterate(func(key, value string) bool {
 			if key == "" {
 				return true
