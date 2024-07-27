@@ -139,10 +139,14 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		UserDataDir(dataStore)
 
 	if options.Options.UseInstalledChrome {
-		if chromePath, hasChrome := launcher.LookPath(); hasChrome {
-			chromeLauncher.Bin(chromePath)
+		if options.Options.SystemChromePath != "" {
+			chromeLauncher.Bin(options.Options.SystemChromePath)
 		} else {
-			return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
+			if chromePath, hasChrome := launcher.LookPath(); hasChrome {
+				chromeLauncher.Bin(chromePath)
+			} else {
+				return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
+			}
 		}
 	}
 	if options.Options.SystemChromePath != "" {
