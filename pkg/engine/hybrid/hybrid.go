@@ -96,11 +96,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	if c.Options.Options.ChromeWSUrl == "" {
-		if err := c.browser.Close(); err != nil {
-			return err
-		}
-	}
 	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
