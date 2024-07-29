@@ -12,15 +12,15 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.1.7
-	github.com/projectdiscovery/fastdialer v0.2.0
+	github.com/projectdiscovery/fastdialer v0.2.1
 	github.com/projectdiscovery/goflags v0.1.60
-	github.com/projectdiscovery/gologger v1.1.15
+	github.com/projectdiscovery/gologger v1.1.16
 	github.com/projectdiscovery/hmap v0.0.52
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.47
-	github.com/projectdiscovery/retryablehttp-go v1.0.69
+	github.com/projectdiscovery/retryablehttp-go v1.0.70
 	github.com/projectdiscovery/useragent v0.0.58
-	github.com/projectdiscovery/utils v0.2.2
+	github.com/projectdiscovery/utils v0.2.3
 	github.com/projectdiscovery/wappalyzergo v0.1.10
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
