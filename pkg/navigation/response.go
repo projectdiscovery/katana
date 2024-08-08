@@ -42,11 +42,6 @@ type Response struct {
 	StoredResponsePath string            `json:"stored_response_path,omitempty"`
 }
 
-type PassiveReference struct {
-	Source    string `json:"source"`
-	Reference string `json:"reference"`
-}
-
 func (n Response) AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "#") {
 		return ""
