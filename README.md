@@ -30,7 +30,6 @@
 
  - Fast And fully configurable web crawling
  - **Standard** and **Headless** mode
- - **Active** and **Passive** mode
  - **JavaScript** parsing / crawling
  - Customizable **automatic form filling**
  - **Scope control** - Preconfigured field / Regex 
@@ -156,10 +155,6 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
-
-PASSIVE:
-   -ps, -passive                   enable passive sources to discover target endpoints
-   -pss, -passive-source string[]  passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
