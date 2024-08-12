@@ -11,15 +11,14 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.1.8
+	github.com/projectdiscovery/dsl v0.1.10
 	github.com/projectdiscovery/fastdialer v0.2.2
 	github.com/projectdiscovery/goflags v0.1.62
-	github.com/projectdiscovery/gologger v1.1.17
+	github.com/projectdiscovery/gologger v1.1.18
 	github.com/projectdiscovery/hmap v0.0.53
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.50
 	github.com/projectdiscovery/retryablehttp-go v1.0.72
-	github.com/projectdiscovery/useragent v0.0.58
 	github.com/projectdiscovery/utils v0.2.4
 	github.com/projectdiscovery/wappalyzergo v0.1.10
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -140,7 +139,7 @@ require (
 	github.com/zmap/zcrypto v0.0.0-20230422215203-9a665e1e9968 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	golang.org/x/crypto v0.24.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
