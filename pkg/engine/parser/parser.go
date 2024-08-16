@@ -63,6 +63,7 @@ var responseParsers = []responseParser{
 	{bodyParser, bodyMetaContentTagParser},
 	{bodyParser, bodyHtmlManifestTagParser},
 	{bodyParser, bodyHtmlDoctypeTagParser},
+	{bodyParser, bodyHtmxAttrParser},
 
 	// custom field regex parser
 	{bodyParser, customFieldRegexParser},
@@ -595,6 +596,48 @@ func bodyMetaContentTagParser(resp *navigation.Response) (navigationRequests []*
 		extracted := utils.ExtractRelativeEndpoints(header)
 		for _, item := range extracted {
 			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "meta", "refresh", resp))
+		}
+	})
+	return
+}
+
+func bodyHtmxAttrParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	// exclude hx-delete
+	resp.Reader.Find("[hx-get],[hx-post],[hx-put],[hx-patch]").Each(func(i int, item *goquery.Selection) {
+		req := &navigation.Request{
+			RootHostname: resp.RootHostname,
+			Depth:        resp.Depth,
+			Source:       resp.Resp.Request.URL.String(),
+			Tag:          "htmx",
+		}
+
+		hxGet, ok := item.Attr("hx-get")
+		if ok && hxGet != "" {
+			req.Method = "GET"
+			req.URL = resp.AbsoluteURL(hxGet)
+			req.Attribute = "hx-get"
+			navigationRequests = append(navigationRequests, req)
+		}
+		hxPost, ok := item.Attr(("hx-post"))
+		if ok && hxPost != "" {
+			req.Method = "POST"
+			req.URL = resp.AbsoluteURL(hxPost)
+			req.Attribute = "hx-post"
+			navigationRequests = append(navigationRequests, req)
+		}
+		hxPut, ok := item.Attr(("hx-put"))
+		if ok && hxPut != "" {
+			req.Method = "PUT"
+			req.URL = resp.AbsoluteURL(hxPut)
+			req.Attribute = "hx-put"
+			navigationRequests = append(navigationRequests, req)
+		}
+		hxPatch, ok := item.Attr(("hx-patch"))
+		if ok && hxPatch != "" {
+			req.Method = "PATCH"
+			req.URL = resp.AbsoluteURL(hxPatch)
+			req.Attribute = "hx-patch"
+			navigationRequests = append(navigationRequests, req)
 		}
 	})
 	return
