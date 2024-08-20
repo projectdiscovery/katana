@@ -62,11 +62,9 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 			// infer the values based on input types.
 			if input.Value != "" {
 				data.Set(input.Name, input.Value)
-			} else {
-				if value, ok := input.Attributes.Get("placeholder"); ok {
-					inputs[i].Value = value
-					data.Set(input.Name, value)
-				}
+			} else if value, ok := input.Attributes.Get("placeholder"); ok {
+				inputs[i].Value = value
+				data.Set(input.Name, value)
 			}
 		}
 	}
