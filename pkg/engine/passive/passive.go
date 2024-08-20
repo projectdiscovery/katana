@@ -49,7 +49,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		gologger.Fatal().Msg("No sources selected for this search")
 	}
 
-	gologger.Debug().Msgf(fmt.Sprintf("Selected source(s) for this crawl: %s", strings.Join(maps.Keys(sources), ", ")))
+	gologger.Debug().Msgf("Selected source(s) for this crawl: %s", strings.Join(maps.Keys(sources), ", "))
 
 	httpClient := httpclient.NewHttpClient(options.Options.Timeout)
 	return &Crawler{Shared: shared, sources: maps.Values(sources), httpClient: httpClient}, nil
