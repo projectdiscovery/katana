@@ -33,7 +33,27 @@ var htmlFormInputExample = `<html>
 		<input type="number" name="num" min="50" max="80">  
 		<label><b>Enter your Telephone Number(in format of xxx-xxx-xxxx):</b></label>  
 		<input type="tel" name="telephone" pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}" required>  
-		<br><br><input type="submit" value="submit">   
+		<p>Kindly Select your favourite food</p>  
+		<select name="food" id="food">
+			<option value="pizza">Pizza</option>
+			<option value="burger">Burger</option>
+			<option value="pasta" selected>Pasta</option>
+		</select>
+		<p>Kindly Select your favourite country</p>  
+		<select name="country" id="country">
+			<option value="india">India</option>
+			<option value="usa">USA</option>
+			<option value="uk">UK</option>
+			<option value="canada">Canada</option>
+		</select>
+		<label><b>Write some words about yourself:</b></label>
+		<textarea id="message" name="message" rows="10" cols="50">
+			Write something here
+		</textarea>
+		
+		
+		<br><br><input type="submit" value="submit">
+		
 	</form>  
 </body>
 </html>`
@@ -44,16 +64,16 @@ func TestFormInputFillSuggestions(t *testing.T) {
 
 	document.Find("form[action]").Each(func(i int, item *goquery.Selection) {
 		queryValuesWriter := make(url.Values)
-		formInputs := []FormInput{}
+		formFields := []interface{}{}
 
-		item.Find("input").Each(func(index int, item *goquery.Selection) {
+		item.Find("input, textarea, select").Each(func(index int, item *goquery.Selection) {
 			if len(item.Nodes) == 0 {
 				return
 			}
-			formInputs = append(formInputs, ConvertGoquerySelectionToFormInput(item))
+			formFields = append(formFields, ConvertGoquerySelectionToFormField(item))
 		})
 
-		dataMap := FormInputFillSuggestions(formInputs)
+		dataMap := FormFillSuggestions(formFields)
 		dataMap.Iterate(func(key, value string) bool {
 			if key == "" || value == "" {
 				return true
@@ -62,6 +82,6 @@ func TestFormInputFillSuggestions(t *testing.T) {
 			return true
 		})
 		value := queryValuesWriter.Encode()
-		require.Equal(t, "Startdate=katana&color=red&firstname=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
+		require.Equal(t, "Startdate=katana&color=green&country=india&firstname=katana&food=pasta&message=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
 	})
 }

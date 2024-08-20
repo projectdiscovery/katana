@@ -72,7 +72,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			// if the user requested anyway out of scope items
 			// they are sent to output without visiting
 			if s.Options.Options.DisplayOutScope {
-				s.Output(nr, nil, nil, ErrOutOfScope)
+				s.Output(nr, nil, ErrOutOfScope)
 			}
 			continue
 		}
@@ -95,18 +95,17 @@ func (s *Shared) ValidateScope(URL string, root string) bool {
 	return err == nil && scopeValidated
 }
 
-func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, passiveReference *navigation.PassiveReference, err error) {
+func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, err error) {
 	var errData string
 	if err != nil {
 		errData = err.Error()
 	}
 	// Write the found result to output
 	result := &output.Result{
-		Timestamp:        time.Now(),
-		Request:          navigationRequest,
-		Response:         navigationResponse,
-		PassiveReference: passiveReference,
-		Error:            errData,
+		Timestamp: time.Now(),
+		Request:   navigationRequest,
+		Response:  navigationResponse,
+		Error:     errData,
 	}
 
 	outputErr := s.Options.OutputWriter.Write(result)
@@ -145,7 +144,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		cancel()
 		return nil, err
 	}
-	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0}, 0)
+	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0, SkipValidation: true}, 0)
 
 	if s.KnownFiles != nil {
 		navigationRequests, err := s.KnownFiles.Request(URL)
@@ -205,7 +204,12 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			continue
 		}
 
-		if ok, err := s.Options.ValidateScope(req.URL, crawlSession.Hostname); err != nil || !ok {
+		inScope, scopeErr := s.Options.ValidateScope(req.URL, crawlSession.Hostname)
+		if scopeErr != nil {
+			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
+			continue
+		}
+		if !req.SkipValidation && !inScope {
 			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
 			continue
 		}
@@ -224,7 +228,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			resp, err := doRequest(crawlSession, req)
 
-			s.Output(req, resp, nil, err)
+			if inScope {
+				s.Output(req, resp, err)
+			}
 
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
