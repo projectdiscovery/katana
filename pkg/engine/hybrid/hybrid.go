@@ -11,19 +11,21 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
-	ps "github.com/shirou/gopsutil/v3/process"
-	"go.uber.org/multierr"
 )
 
 // Crawler is a standard crawler instance
 type Crawler struct {
 	*common.Shared
 
-	browser      *rod.Browser
-	previousPIDs map[int32]struct{} // track already running PIDs
-	tempDir      string
+	browser *rod.Browser
+	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
+	// This change will be made if there are no complaints about zombie Chrome processes.
+	// References:
+	// https://github.com/projectdiscovery/katana/issues/632
+	// https://github.com/projectdiscovery/httpx/issues/1425
+	// previousPIDs map[int32]struct{} // track already running PIDs
+	tempDir string
 }
 
 // New returns a new standard crawler instance
@@ -39,7 +41,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		}
 	}
 
-	previousPIDs := findChromeProcesses()
+	// previousPIDs := processutil.FindProcesses(processutil.IsChromeProcess)
 
 	var launcherURL string
 	var chromeLauncher *launcher.Launcher
@@ -83,10 +85,10 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	}
 
 	crawler := &Crawler{
-		Shared:       shared,
-		browser:      browser,
-		previousPIDs: previousPIDs,
-		tempDir:      dataStore,
+		Shared:  shared,
+		browser: browser,
+		// previousPIDs: previousPIDs,
+		tempDir: dataStore,
 	}
 
 	return crawler, nil
@@ -94,17 +96,13 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	if c.Options.Options.ChromeWSUrl == "" {
-		if err := c.browser.Close(); err != nil {
-			return err
-		}
-	}
 	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
 		}
 	}
-	return c.killChromeProcesses()
+	// processutil.CloseProcesses(processutil.IsChromeProcess, c.previousPIDs)
+	return nil
 }
 
 // Crawl crawls a URL with the specified options
@@ -126,7 +124,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 // buildChromeLauncher builds a new chrome launcher instance
 func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*launcher.Launcher, error) {
 	chromeLauncher := launcher.New().
-		Leakless(false).
+		Leakless(true).
 		Set("disable-gpu", "true").
 		Set("ignore-certificate-errors", "true").
 		Set("ignore-certificate-errors", "1").
@@ -172,51 +170,4 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 	}
 
 	return chromeLauncher, nil
-}
-
-// killChromeProcesses any and all new chrome processes started after
-// headless process launch.
-func (c *Crawler) killChromeProcesses() error {
-	var errs []error
-	processes, _ := ps.Processes()
-
-	for _, process := range processes {
-		// skip non-chrome processes
-		if !isChromeProcess(process) {
-			continue
-		}
-
-		// skip chrome processes that were already running
-		if _, ok := c.previousPIDs[process.Pid]; ok {
-			continue
-		}
-
-		if err := process.Kill(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	return multierr.Combine(errs...)
-}
-
-// findChromeProcesses finds chrome process running on host
-func findChromeProcesses() map[int32]struct{} {
-	processes, _ := ps.Processes()
-	list := make(map[int32]struct{})
-	for _, process := range processes {
-		if isChromeProcess(process) {
-			list[process.Pid] = struct{}{}
-			if ppid, err := process.Ppid(); err == nil {
-				list[ppid] = struct{}{}
-			}
-		}
-	}
-	return list
-}
-
-// isChromeProcess checks if a process is chrome/chromium
-func isChromeProcess(process *ps.Process) bool {
-	name, _ := process.Name()
-	executable, _ := process.Exe()
-	return stringsutil.ContainsAny(name, "chrome", "chromium") || stringsutil.ContainsAny(executable, "chrome", "chromium")
 }
