@@ -12,10 +12,10 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.1.11
-	github.com/projectdiscovery/fastdialer v0.2.6
+	github.com/projectdiscovery/fastdialer v0.2.7
 	github.com/projectdiscovery/goflags v0.1.64
 	github.com/projectdiscovery/gologger v1.1.20
-	github.com/projectdiscovery/hmap v0.0.55
+	github.com/projectdiscovery/hmap v0.0.56
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.52
 	github.com/projectdiscovery/retryablehttp-go v1.0.74
@@ -123,7 +123,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.9
-	github.com/projectdiscovery/retryabledns v1.0.72 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.73 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
