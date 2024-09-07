@@ -44,7 +44,7 @@
 katana requires **Go 1.18** to install successfully. To install, just run the below command or download pre-compiled binary from [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
-go install github.com/projectdiscovery/katana/cmd/katana@latest
+CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
 **More options to install / run katana-**
