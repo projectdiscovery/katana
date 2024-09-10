@@ -2,6 +2,7 @@ package parser
 
 import (
 	"mime/multipart"
+	"net/http"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -63,6 +64,7 @@ var responseParsers = []responseParser{
 	{bodyParser, bodyMetaContentTagParser},
 	{bodyParser, bodyHtmlManifestTagParser},
 	{bodyParser, bodyHtmlDoctypeTagParser},
+	{bodyParser, bodyHtmxAttrParser},
 
 	// custom field regex parser
 	{bodyParser, customFieldRegexParser},
@@ -595,6 +597,44 @@ func bodyMetaContentTagParser(resp *navigation.Response) (navigationRequests []*
 		extracted := utils.ExtractRelativeEndpoints(header)
 		for _, item := range extracted {
 			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "meta", "refresh", resp))
+		}
+	})
+	return
+}
+
+func bodyHtmxAttrParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	// exclude hx-delete
+	resp.Reader.Find("[hx-get],[hx-post],[hx-put],[hx-patch]").Each(func(i int, item *goquery.Selection) {
+		req := &navigation.Request{
+			RootHostname: resp.RootHostname,
+			Depth:        resp.Depth,
+			Source:       resp.Resp.Request.URL.String(),
+			Tag:          "htmx",
+		}
+
+		if hxGet, ok := item.Attr("hx-get"); ok && hxGet != "" {
+			req.Method = http.MethodGet
+			req.URL = resp.AbsoluteURL(hxGet)
+			req.Attribute = "hx-get"
+			navigationRequests = append(navigationRequests, req)
+		}
+		if hxPost, ok := item.Attr(("hx-post")); ok && hxPost != "" {
+			req.Method = http.MethodPost
+			req.URL = resp.AbsoluteURL(hxPost)
+			req.Attribute = "hx-post"
+			navigationRequests = append(navigationRequests, req)
+		}
+		if hxPut, ok := item.Attr(("hx-put")); ok && hxPut != "" {
+			req.Method = http.MethodPut
+			req.URL = resp.AbsoluteURL(hxPut)
+			req.Attribute = "hx-put"
+			navigationRequests = append(navigationRequests, req)
+		}
+		if hxPatch, ok := item.Attr(("hx-patch")); ok && hxPatch != "" {
+			req.Method = http.MethodPatch
+			req.URL = resp.AbsoluteURL(hxPatch)
+			req.Attribute = "hx-patch"
+			navigationRequests = append(navigationRequests, req)
 		}
 	})
 	return
