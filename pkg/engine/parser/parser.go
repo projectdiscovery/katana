@@ -2,6 +2,7 @@ package parser
 
 import (
 	"mime/multipart"
+	"net/http"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -611,30 +612,26 @@ func bodyHtmxAttrParser(resp *navigation.Response) (navigationRequests []*naviga
 			Tag:          "htmx",
 		}
 
-		hxGet, ok := item.Attr("hx-get")
-		if ok && hxGet != "" {
-			req.Method = "GET"
+		if hxGet, ok := item.Attr("hx-get"); ok && hxGet != "" {
+			req.Method = http.MethodGet
 			req.URL = resp.AbsoluteURL(hxGet)
 			req.Attribute = "hx-get"
 			navigationRequests = append(navigationRequests, req)
 		}
-		hxPost, ok := item.Attr(("hx-post"))
-		if ok && hxPost != "" {
-			req.Method = "POST"
+		if hxPost, ok := item.Attr(("hx-post")); ok && hxPost != "" {
+			req.Method = http.MethodPost
 			req.URL = resp.AbsoluteURL(hxPost)
 			req.Attribute = "hx-post"
 			navigationRequests = append(navigationRequests, req)
 		}
-		hxPut, ok := item.Attr(("hx-put"))
-		if ok && hxPut != "" {
-			req.Method = "PUT"
+		if hxPut, ok := item.Attr(("hx-put")); ok && hxPut != "" {
+			req.Method = http.MethodPut
 			req.URL = resp.AbsoluteURL(hxPut)
 			req.Attribute = "hx-put"
 			navigationRequests = append(navigationRequests, req)
 		}
-		hxPatch, ok := item.Attr(("hx-patch"))
-		if ok && hxPatch != "" {
-			req.Method = "PATCH"
+		if hxPatch, ok := item.Attr(("hx-patch")); ok && hxPatch != "" {
+			req.Method = http.MethodPatch
 			req.URL = resp.AbsoluteURL(hxPatch)
 			req.Attribute = "hx-patch"
 			navigationRequests = append(navigationRequests, req)
