@@ -9,6 +9,8 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	mapsutil "github.com/projectdiscovery/utils/maps"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/publicsuffix"
@@ -30,6 +32,7 @@ var FieldNames = []string{
 	"kv",
 	"dir",
 	"udir",
+	"custom",
 }
 
 type fieldOutput struct {
@@ -65,6 +68,10 @@ func storeFields(output *Result, storeFields []string) {
 	if err != nil {
 		gologger.Warning().Msgf("storeFields: failed to parse url %v got %v", output.Request.URL, err)
 		return
+	}
+
+	if sliceutil.Contains(storeFields, "custom") {
+		storeFields = sliceutil.Merge(storeFields, mapsutil.GetKeys(CustomFieldsMap))
 	}
 
 	hostname := parsed.Hostname()

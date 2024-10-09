@@ -110,9 +110,13 @@ func loadCustomFields(filePath string, fields string) error {
 		allCustomFields[item.Name] = item
 	}
 	// Set the passed custom field value globally
-	for _, f := range stringsutil.SplitAny(fields, ",") {
-		if val, ok := allCustomFields[f]; ok {
-			CustomFieldsMap[f] = val
+	if fieldSlice := stringsutil.SplitAny(fields, ","); sliceutil.Contains(fieldSlice, "custom") {
+		CustomFieldsMap = allCustomFields
+	} else {
+		for _, f := range fieldSlice {
+			if val, ok := allCustomFields[f]; ok {
+				CustomFieldsMap[f] = val
+			}
 		}
 	}
 	return nil
