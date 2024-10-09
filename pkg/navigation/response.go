@@ -34,6 +34,7 @@ type Response struct {
 	StatusCode         int               `json:"status_code,omitempty"`
 	Headers            Headers           `json:"headers,omitempty"`
 	Body               string            `json:"body,omitempty"`
+	ContentLength      int64             `json:"content_length,omitempty"`
 	RootHostname       string            `json:"-"`
 	Technologies       []string          `json:"technologies,omitempty"`
 	Raw                string            `json:"raw,omitempty"`
