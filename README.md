@@ -94,6 +94,7 @@ sudo apt install google-chrome-stable
 
 ```sh
 go install github.com/projectdiscovery/katana/cmd/katana@latest
+sudo cp ~/go/bin/katana /bin/
 ```
 
 </details>
