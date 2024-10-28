@@ -30,7 +30,6 @@
 
  - Fast And fully configurable web crawling
  - **Standard** and **Headless** mode
- - **Active** and **Passive** mode
  - **JavaScript** parsing / crawling
  - Customizable **automatic form filling**
  - **Scope control** - Preconfigured field / Regex 
@@ -44,7 +43,7 @@
 katana requires **Go 1.18** to install successfully. To install, just run the below command or download pre-compiled binary from [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
-go install github.com/projectdiscovery/katana/cmd/katana@latest
+CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
 **More options to install / run katana-**
@@ -157,10 +156,6 @@ HEADLESS:
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
 
-PASSIVE:
-   -ps, -passive                   enable passive sources to discover target endpoints
-   -pss, -passive-source string[]  passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)
-
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
    -cos, -crawl-out-scope string[]  out of scope url regex to be excluded by crawler
@@ -193,6 +188,7 @@ OUTPUT:
    -o, -output string                file to write output to
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
+   -sfd, -store-field-dir string     store per-host field to custom directory
    -or, -omit-raw                    omit raw requests/responses from jsonl output
    -ob, -omit-body                   omit response body from jsonl output
    -j, -jsonl                        write output in jsonl format
@@ -688,7 +684,7 @@ katana -u https://tesla.com -f email,phone
 *`-store-field`*
 ---
 
-To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_field` directory sorted by target url.
+To compliment `field` option which is useful to filter output at run time, there is `-sf, -store-fields` option which works exactly like field option except instead of filtering, it stores all the information on the disk under `katana_field` directory sorted by target url. Use `-sfd` or `-store-field-dir` to store data in a different location.
 
 ```
 katana -u https://tesla.com -sf key,fqdn,qurl -silent

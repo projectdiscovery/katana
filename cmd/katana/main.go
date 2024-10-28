@@ -17,6 +17,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	folderutil "github.com/projectdiscovery/utils/folder"
 	"github.com/rs/xid"
 )
 
@@ -68,7 +69,14 @@ func main() {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
 
-	// on successful execution remove the resume file in case it exists
+	// on successful execution:
+
+	// deduplicate the lines in each file in the store-field-dir
+	//use options.StoreFieldDir once https://github.com/projectdiscovery/katana/pull/877 is merged
+	storeFieldDir := "katana_field"
+	_ = folderutil.DedupeLinesInFiles(storeFieldDir)
+
+	// remove the resume file in case it exists
 	if fileutil.FileExists(resumeFilename) {
 		os.Remove(resumeFilename)
 	}
@@ -126,10 +134,6 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 	)
-	flagSet.CreateGroup("passive", "Passive",
-		flagSet.BoolVarP(&options.Passive, "passive", "ps", false, "enable passive sources to discover target endpoints"),
-		flagSet.StringSliceVarP(&options.PassiveSource, "passive-source", "pss", nil, "passive source to use for url discovery (waybackarchive,commoncrawl,alienvault)", goflags.NormalizedStringSliceOptions),
-	)
 
 	flagSet.CreateGroup("scope", "Scope",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
@@ -168,6 +172,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.BoolVarP(&options.StoreResponse, "store-response", "sr", false, "store http requests/responses"),
 		flagSet.StringVarP(&options.StoreResponseDir, "store-response-dir", "srd", "", "store http requests/responses to custom directory"),
+		flagSet.BoolVarP(&options.NoClobber, "no-clobber", "ncb", false, "do not overwrite output file"),
+		flagSet.StringVarP(&options.StoreFieldDir, "store-field-dir", "sfd", "", "store per-host field to custom directory"),
 		flagSet.BoolVarP(&options.OmitRaw, "omit-raw", "or", false, "omit raw requests/responses from jsonl output"),
 		flagSet.BoolVarP(&options.OmitBody, "omit-body", "ob", false, "omit response body from jsonl output"),
 		flagSet.BoolVarP(&options.JSON, "jsonl", "j", false, "write output in jsonl format"),

@@ -29,12 +29,7 @@ func ParseFormFields(document *goquery.Document) []navigation.Form {
 			enctype = "application/x-www-form-urlencoded"
 		}
 
-		if action != "" {
-			actionUrl, err := urlutil.ParseURL(action, true)
-			if err != nil {
-				return
-			}
-
+		if actionUrl, err := urlutil.ParseURL(action, true); err == nil {
 			// donot modify absolute urls and windows paths
 			if actionUrl.IsAbs() || strings.HasPrefix(action, "//") || strings.HasPrefix(action, "\\") {
 				// keep absolute urls as is

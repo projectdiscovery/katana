@@ -15,6 +15,8 @@ builds:
     goos:
       - windows
     goarch:
+      - 386
+      - arm64
       - amd64
 
 archives:

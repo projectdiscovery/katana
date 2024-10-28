@@ -41,13 +41,32 @@ type FormInput struct {
 	Attributes mapsutil.OrderedMap[string, string]
 }
 
+// SelectOption is an option for a select input
+type SelectOption struct {
+	Value      string
+	Selected   string
+	Attributes mapsutil.OrderedMap[string, string]
+}
+
+// FormSelect is a select input for a form field
+type FormSelect struct {
+	Name          string
+	Attributes    mapsutil.OrderedMap[string, string]
+	SelectOptions []SelectOption
+}
+
+type FormTextArea struct {
+	Name       string
+	Attributes mapsutil.OrderedMap[string, string]
+}
+
 // FormInputFillSuggestions returns a list of form filling suggestions
 // for inputs returning the specified recommended values.
 func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, string] {
 	data := mapsutil.NewOrderedMap[string, string]()
 
 	// Fill checkboxes and radioboxes first or default values first
-	for _, input := range inputs {
+	for i, input := range inputs {
 		switch input.Type {
 		case "radio":
 			// Use a single radio name per value
@@ -62,6 +81,9 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 			// infer the values based on input types.
 			if input.Value != "" {
 				data.Set(input.Name, input.Value)
+			} else if value, ok := input.Attributes.Get("placeholder"); ok {
+				inputs[i].Value = value
+				data.Set(input.Name, value)
 			}
 		}
 	}
@@ -106,6 +128,70 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 	return data
 }
 
+// FormSelectFill fills a map with selected values from a slice of FormSelect structs.
+// It iterates over each FormSelect struct in the inputs slice and checks for a selected option.
+// If a selected option is found, it adds the corresponding value to the map using the input's name as the key.
+// If no option is selected, it selects the first option and adds its value to the map.
+// The function returns the filled map.
+func FormSelectFill(inputs []FormSelect) mapsutil.OrderedMap[string, string] {
+	data := mapsutil.NewOrderedMap[string, string]()
+	for _, input := range inputs {
+		for _, option := range input.SelectOptions {
+			if option.Selected != "" {
+				data.Set(input.Name, option.Value)
+				break
+			}
+		}
+
+		// If no option is selected, select the first one
+		if !data.Has(input.Name) && len(input.SelectOptions) > 0 {
+			data.Set(input.Name, input.SelectOptions[0].Value)
+		}
+	}
+	return data
+}
+
+// FormTextAreaFill fills the form text areas with placeholder values.
+// It takes a slice of FormTextArea structs as input and returns an OrderedMap
+// containing the form field names as keys and the placeholder values as values.
+func FormTextAreaFill(inputs []FormTextArea) mapsutil.OrderedMap[string, string] {
+	data := mapsutil.NewOrderedMap[string, string]()
+	for _, input := range inputs {
+		data.Set(input.Name, FormData.Placeholder)
+	}
+	return data
+}
+
+// FormFillSuggestions takes a slice of form fields and returns an ordered map
+// containing suggestions for filling those form fields. The function iterates
+// over each form field and based on its type, calls the corresponding fill
+// function to generate suggestions. The suggestions are then merged into a
+// single ordered map and returned.
+//
+// Parameters:
+// - formFields: A slice of form fields.
+//
+// Returns:
+// An ordered map containing suggestions for filling the form fields.
+func FormFillSuggestions(formFields []interface{}) mapsutil.OrderedMap[string, string] {
+	merged := mapsutil.NewOrderedMap[string, string]()
+	for _, item := range formFields {
+		switch v := item.(type) {
+		case FormInput:
+			dataMapInputs := FormInputFillSuggestions([]FormInput{v})
+			MergeDataMaps(&merged, dataMapInputs)
+		case FormSelect:
+			dataMapSelects := FormSelectFill([]FormSelect{v})
+			MergeDataMaps(&merged, dataMapSelects)
+
+		case FormTextArea:
+			dataMapTextArea := FormTextAreaFill([]FormTextArea{v})
+			MergeDataMaps(&merged, dataMapTextArea)
+		}
+	}
+	return merged
+}
+
 // ConvertGoquerySelectionToFormInput converts goquery selection to form input
 func ConvertGoquerySelectionToFormInput(item *goquery.Selection) FormInput {
 	attrs := item.Nodes[0].Attr
@@ -124,4 +210,82 @@ func ConvertGoquerySelectionToFormInput(item *goquery.Selection) FormInput {
 		}
 	}
 	return input
+}
+
+// ConvertGoquerySelectionToSelectOption converts a goquery.Selection object to a SelectOption object.
+// It extracts the attributes from the goquery.Selection object and populates a SelectOption object with the extracted values.
+func ConvertGoquerySelectionToSelectOption(item *goquery.Selection) SelectOption {
+	attrs := item.Nodes[0].Attr
+	input := SelectOption{Attributes: mapsutil.NewOrderedMap[string, string]()}
+	for _, attribute := range attrs {
+		switch attribute.Key {
+		case "value":
+			input.Value = attribute.Val
+
+		case "selected":
+			input.Selected = attribute.Key
+		default:
+			input.Attributes.Set(attribute.Key, attribute.Val)
+		}
+	}
+	return input
+}
+
+// ConvertGoquerySelectionToFormSelect converts a goquery.Selection object to a FormSelect object.
+// It extracts the attributes and form options from the goquery.Selection and populates them in the FormSelect object.
+// The converted FormSelect object is then returned.
+func ConvertGoquerySelectionToFormSelect(item *goquery.Selection) FormSelect {
+	attrs := item.Nodes[0].Attr
+	input := FormSelect{Attributes: mapsutil.NewOrderedMap[string, string]()}
+	for _, attribute := range attrs {
+		switch attribute.Key {
+		case "name":
+			input.Name = attribute.Val
+		default:
+			input.Attributes.Set(attribute.Key, attribute.Val)
+		}
+	}
+
+	input.SelectOptions = []SelectOption{}
+	item.Find("option").Each(func(_ int, option *goquery.Selection) {
+		input.SelectOptions = append(input.SelectOptions, ConvertGoquerySelectionToSelectOption(option))
+	})
+	return input
+}
+
+// ConvertGoquerySelectionToFormTextArea converts a goquery.Selection object to a FormTextArea struct.
+// It extracts the attributes from the first node of the selection and populates a FormTextArea object with the extracted data.
+// The "name" attribute is assigned to the Name field of the FormTextArea, while other attributes are added to the Attributes map.
+func ConvertGoquerySelectionToFormTextArea(item *goquery.Selection) FormTextArea {
+	attrs := item.Nodes[0].Attr
+	input := FormTextArea{Attributes: mapsutil.NewOrderedMap[string, string]()}
+	for _, attribute := range attrs {
+		switch attribute.Key {
+		case "name":
+			input.Name = attribute.Val
+		default:
+			input.Attributes.Set(attribute.Key, attribute.Val)
+		}
+	}
+	return input
+}
+
+// ConvertGoquerySelectionToFormField converts a goquery.Selection object to a form field.
+// It checks the type of the selection and calls the appropriate conversion function.
+// If the selection is an input, it calls ConvertGoquerySelectionToFormInput.
+// If the selection is a select, it calls ConvertGoquerySelectionToFormSelect.
+// If the selection is a textarea, it calls ConvertGoquerySelectionToFormTextArea.
+// If the selection is of any other type, it returns nil.
+func ConvertGoquerySelectionToFormField(item *goquery.Selection) interface{} {
+	if item.Is("input") {
+		return ConvertGoquerySelectionToFormInput(item)
+	}
+	if item.Is("select") {
+		return ConvertGoquerySelectionToFormSelect(item)
+	}
+	if item.Is("textarea") {
+		return ConvertGoquerySelectionToFormTextArea(item)
+	}
+
+	return nil
 }
