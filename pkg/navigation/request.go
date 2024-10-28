@@ -10,17 +10,18 @@ type Depth struct{}
 
 // Request is a navigation request for the crawler
 type Request struct {
-	Method       string              `json:"method,omitempty"`
-	URL          string              `json:"endpoint,omitempty"`
-	Body         string              `json:"body,omitempty"`
-	Depth        int                 `json:"-"`
-	Headers      map[string]string   `json:"headers,omitempty"`
-	Tag          string              `json:"tag,omitempty"`
-	Attribute    string              `json:"attribute,omitempty"`
-	RootHostname string              `json:"-"`
-	Source       string              `json:"source,omitempty"`
-	CustomFields map[string][]string `json:"-"`
-	Raw          string              `json:"raw,omitempty"`
+	Method         string              `json:"method,omitempty"`
+	URL            string              `json:"endpoint,omitempty"`
+	Body           string              `json:"body,omitempty"`
+	Depth          int                 `json:"-"`
+	SkipValidation bool                `json:"-"`
+	Headers        map[string]string   `json:"headers,omitempty"`
+	Tag            string              `json:"tag,omitempty"`
+	Attribute      string              `json:"attribute,omitempty"`
+	RootHostname   string              `json:"-"`
+	Source         string              `json:"source,omitempty"`
+	CustomFields   map[string][]string `json:"-"`
+	Raw            string              `json:"raw,omitempty"`
 }
 
 // RequestURL returns the request URL for the navigation
