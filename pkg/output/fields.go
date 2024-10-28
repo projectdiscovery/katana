@@ -185,9 +185,9 @@ func formatField(output *Result, fields string) []fieldOutput {
 				}
 			}
 		default:
-			for k, v := range output.Request.CustomFields {
+			if v, ok := output.Request.CustomFields[f]; ok {
 				for _, r := range v {
-					svalue = append(svalue, fieldOutput{field: k, value: r})
+					svalue = append(svalue, fieldOutput{field: f, value: r})
 				}
 			}
 		}
