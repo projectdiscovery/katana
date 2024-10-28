@@ -21,7 +21,7 @@ jobs:
           go-version: 1.21.x
 
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Functional Tests
         run: |
