@@ -1,9 +1,9 @@
-FROM golang:1.23.1-alpine3.20 AS builder
+FROM golang:1.21-alpine AS build-env
 RUN apk add --no-cache git gcc musl-dev
 WORKDIR /app
 COPY . /app
 RUN go mod download
-RUN GO111MODULE=on go build -o katana ./cmd/katana/main.go
+RUN go build ./cmd/katana
 
 FROM alpine:3.18.5
 RUN apk add --no-cache bind-tools ca-certificates chromium
