@@ -22,7 +22,7 @@ jobs:
           cache: true
       
       - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with: 
           args: "release -f .goreleaser/mac.yml --clean"
           version: latest
@@ -45,7 +45,7 @@ jobs:
           cache: true
       
       - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with: 
           args: "release -f .goreleaser/windows.yml --clean"
           version: latest
@@ -72,7 +72,7 @@ jobs:
         run: sudo apt install gcc-aarch64-linux-gnu
 
       - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with: 
           args: "release -f .goreleaser/linux.yml --clean"
           version: latest

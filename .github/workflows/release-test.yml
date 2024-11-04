@@ -23,7 +23,7 @@ jobs:
           go-version: 1.21.x
       
       - name: release test
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with:
           args: "release -f .goreleaser/mac.yml --clean --snapshot"
           version: latest
@@ -49,7 +49,7 @@ jobs:
         run: sudo apt update && sudo apt install gcc-aarch64-linux-gnu
       
       - name: release test
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with:
           args: "release -f .goreleaser/linux.yml --clean --snapshot"
           version: latest
@@ -71,7 +71,7 @@ jobs:
           go-version: 1.21.x
       
       - name: release test
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with:
           args: "release -f .goreleaser/windows.yml --clean --snapshot"
           version: latest
