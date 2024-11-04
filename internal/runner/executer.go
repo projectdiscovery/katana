@@ -23,12 +23,19 @@ func (r *Runner) ExecuteCrawling() error {
 
 	wg := sizedwaitgroup.New(r.options.Parallelism)
 	for _, input := range inputs {
+		if input == "" {
+			gologger.Warning().Msgf("Skipping empty input")
+			continue
+		}
 		if !r.networkpolicy.Validate(input) {
 			gologger.Info().Msgf("Skipping excluded host %s", input)
 			continue
 		}
 		wg.Add()
 		input = addSchemeIfNotExists(input)
+		if r.crawler == nil {
+			return errorutil.New("crawler is not initialized")
+		}
 		go func(input string) {
 			defer wg.Done()
 
@@ -36,8 +43,8 @@ func (r *Runner) ExecuteCrawling() error {
 				gologger.Warning().Msgf("Could not crawl %s: %s", input, err)
 			}
 			r.state.InFlightUrls.Delete(input)
-		}(input)
-	}
+			}(input)
+		}
 	wg.Wait()
 	return nil
 }
