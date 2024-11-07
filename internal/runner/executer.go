@@ -11,6 +11,9 @@ import (
 
 // ExecuteCrawling executes the crawling main loop
 func (r *Runner) ExecuteCrawling() error {
+	if r.crawler == nil {
+		return errorutil.New("crawler is not initialized")
+	}
 	inputs := r.parseInputs()
 	if len(inputs) == 0 {
 		return errorutil.New("no input provided for crawling")
