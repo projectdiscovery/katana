@@ -29,9 +29,6 @@ func (r *Runner) ExecuteCrawling() error {
 		}
 		wg.Add()
 		input = addSchemeIfNotExists(input)
-		if r.crawler == nil {
-			return errorutil.New("crawler is not initialized")
-		}
 		go func(input string) {
 			defer wg.Done()
 
