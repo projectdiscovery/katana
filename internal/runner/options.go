@@ -86,6 +86,9 @@ func readCustomFormConfig(formConfig string) error {
 func (r *Runner) parseInputs() []string {
 	values := make(map[string]struct{})
 	for _, url := range r.options.URLs {
+		if url == "" {
+			continue
+		}
 		value := normalizeInput(url)
 		if _, ok := values[value]; !ok {
 			values[value] = struct{}{}
