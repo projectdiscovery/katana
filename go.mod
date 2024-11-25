@@ -11,10 +11,10 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.3.0
+	github.com/projectdiscovery/dsl v0.3.4
 	github.com/projectdiscovery/fastdialer v0.2.9
 	github.com/projectdiscovery/goflags v0.1.64
-	github.com/projectdiscovery/gologger v1.1.31
+	github.com/projectdiscovery/gologger v1.1.32
 	github.com/projectdiscovery/hmap v0.0.67
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.61
