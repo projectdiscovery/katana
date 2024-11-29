@@ -85,6 +85,8 @@ type Options struct {
 	Silent bool
 	// Verbose specifies showing verbose output
 	Verbose bool
+	// TechDetect enables technology detection
+	TechDetect bool
 	// Version enables showing of crawler version
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript

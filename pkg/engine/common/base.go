@@ -156,14 +156,18 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := s.Options.Wappalyzer.Fingerprint(resp.Header, body)
+		var technologyKeys []string
+		if s.Options.Wappalyzer != nil {
+			technologies := s.Options.Wappalyzer.Fingerprint(resp.Header, body)
+			technologyKeys = mapsutil.GetKeys(technologies)
+		}
 		navigationResponse := &navigation.Response{
 			Depth:        depth + 1,
 			RootHostname: hostname,
 			Resp:         resp,
 			Body:         string(body),
 			Reader:       reader,
-			Technologies: mapsutil.GetKeys(technologies),
+			Technologies: technologyKeys,
 			StatusCode:   resp.StatusCode,
 			Headers:      utils.FlattenHeaders(resp.Header),
 		}

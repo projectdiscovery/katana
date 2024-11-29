@@ -103,14 +103,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		rawBytesResponse, _ = httputil.DumpResponse(httpresp, true)
 
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
+		var technologyKeys []string
+		if c.Options.Wappalyzer != nil {
+			technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
+			technologyKeys = mapsutil.GetKeys(technologies)
+		}
 		resp := &navigation.Response{
 			Resp:         httpresp,
 			Body:         string(body),
 			Reader:       bodyReader,
 			Depth:        depth,
 			RootHostname: s.Hostname,
-			Technologies: mapsutil.GetKeys(technologies),
+			Technologies: technologyKeys,
 			StatusCode:   statusCode,
 			Headers:      utils.FlattenHeaders(headers),
 			Raw:          string(rawBytesResponse),
