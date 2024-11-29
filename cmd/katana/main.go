@@ -18,6 +18,7 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
+	pprofutils "github.com/projectdiscovery/utils/pprof"
 	"github.com/rs/xid"
 )
 
@@ -64,6 +65,15 @@ func main() {
 			os.Exit(0)
 		}
 	}()
+
+	var pprofServer *pprofutils.PprofServer
+	if options.PprofServer {
+		pprofServer = pprofutils.NewPprofServer()
+		pprofServer.Start()
+	}
+	if pprofServer != nil {
+		defer pprofServer.Stop()
+	}
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
@@ -120,6 +130,7 @@ pipelines offering both headless and non-headless crawling.`)
 	flagSet.CreateGroup("debug", "Debug",
 		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
 		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
+		flagSet.BoolVar(&options.PprofServer, "pprof-server", false, "enable pprof server"),
 	)
 
 	flagSet.CreateGroup("headless", "Headless",

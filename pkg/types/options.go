@@ -133,6 +133,8 @@ type Options struct {
 	XhrExtraction bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
+	// PprofServer enables pprof server
+	PprofServer bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
 	// Resolvers contains custom resolvers
