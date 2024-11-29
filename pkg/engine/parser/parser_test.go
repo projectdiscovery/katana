@@ -489,3 +489,37 @@ func TestRegexBodyParsers(t *testing.T) {
 		require.Equal(t, requireFields, navigationRequests[0].CustomFields, "could not get correct url")
 	})
 }
+
+func TestHtmxBodyParser(t *testing.T) {
+	parsed, _ := urlutil.Parse("https://htmx.org/examples/")
+
+	t.Run("hx-get", func(t *testing.T) {
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<button hx-get="/contact/1/edit" class="btn primary">Click To Edit</button>`))
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+		navigationRequests := bodyHtmxAttrParser(resp)
+		require.Equal(t, "https://htmx.org/contact/1/edit", navigationRequests[0].URL, "could not get correct url")
+		require.Equal(t, "GET", navigationRequests[0].Method, "could not get correct method")
+	})
+	t.Run("hx-post", func(t *testing.T) {
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<form id="checked-contacts" hx-post="/users" hx-swap="outerHTML settle:3s" hx-target="#toast">`))
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+		navigationRequests := bodyHtmxAttrParser(resp)
+		require.Equal(t, "https://htmx.org/users", navigationRequests[0].URL, "could not get correct url")
+		require.Equal(t, "POST", navigationRequests[0].Method, "could not get correct method")
+	})
+	t.Run("hx-put", func(t *testing.T) {
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<button hx-put="/account" hx-target="body">`))
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+		navigationRequests := bodyHtmxAttrParser(resp)
+		require.Equal(t, "https://htmx.org/account", navigationRequests[0].URL, "could not get correct url")
+		require.Equal(t, "PUT", navigationRequests[0].Method, "could not get correct method")
+
+	})
+	t.Run("hx-patch", func(t *testing.T) {
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<button hx-patch="/account" hx-target="body">`))
+		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+		navigationRequests := bodyHtmxAttrParser(resp)
+		require.Equal(t, "https://htmx.org/account", navigationRequests[0].URL, "could not get correct url")
+		require.Equal(t, "PATCH", navigationRequests[0].Method, "could not get correct method")
+	})
+}

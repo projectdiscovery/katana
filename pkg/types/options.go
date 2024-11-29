@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/output"
 	fileutil "github.com/projectdiscovery/utils/file"
+	logutil "github.com/projectdiscovery/utils/log"
 )
 
 // OnResultCallback (output.Result)
@@ -116,6 +119,8 @@ type Options struct {
 	StoreResponseDir string
 	// NoClobber specifies if katana should overwrite existing output files
 	NoClobber bool
+	// StoreFieldDir specifies if katana should use a custom directory to store fields
+	StoreFieldDir string
 	// OmitRaw omits raw requests/responses from the output
 	OmitRaw bool
 	// OmitBody omits the response body from the output
@@ -126,10 +131,6 @@ type Options struct {
 	HeadlessNoIncognito bool
 	// XhrExtraction extract xhr requests
 	XhrExtraction bool
-	// Passive enables passive crawling
-	Passive bool
-	// PassiveSource is the list of sources for passive crawling
-	PassiveSource goflags.StringSlice
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
@@ -193,4 +194,19 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 
 func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
+}
+
+// ConfigureOutput configures the output logging levels to be displayed on the screen
+func (options *Options) ConfigureOutput() {
+	if options.Silent {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
+	} else if options.Verbose {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
+	} else if options.Debug {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
+	} else {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
+	}
+
+	logutil.DisableDefaultLogger()
 }

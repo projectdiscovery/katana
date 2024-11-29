@@ -96,6 +96,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	}
 
 	resp.ContentLength = int64(len(data))
+	response.ContentLength = resp.ContentLength
 
 	rawResponseBytes, _ := httputil.DumpResponse(resp, true)
 	response.Raw = string(rawResponseBytes)

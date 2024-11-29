@@ -74,9 +74,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
+		// Headers, CustomHeaders, and Cookies are present in e.Request.Headers. We need to consider all of them and not only CustomHeaders
+		// Otherwise, we will miss headers and output will be inconsistent
 		if httpreq != nil {
-			for k, v := range c.Headers {
-				httpreq.Header.Set(k, v)
+			for k, v := range e.Request.Headers {
+				httpreq.Header.Set(k, v.String())
 			}
 		}
 
@@ -103,16 +105,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		bodyReader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		technologies := c.Options.Wappalyzer.Fingerprint(headers, body)
 		resp := &navigation.Response{
-			Resp:         httpresp,
-			Body:         string(body),
-			Reader:       bodyReader,
-			Depth:        depth,
-			RootHostname: s.Hostname,
-			Technologies: mapsutil.GetKeys(technologies),
-			StatusCode:   statusCode,
-			Headers:      utils.FlattenHeaders(headers),
-			Raw:          string(rawBytesResponse),
+			Resp:          httpresp,
+			Body:          string(body),
+			Reader:        bodyReader,
+			Depth:         depth,
+			RootHostname:  s.Hostname,
+			Technologies:  mapsutil.GetKeys(technologies),
+			StatusCode:    statusCode,
+			Headers:       utils.FlattenHeaders(headers),
+			Raw:           string(rawBytesResponse),
+			ContentLength: httpresp.ContentLength,
 		}
+		response.ContentLength = resp.ContentLength
 
 		requestHeaders := make(map[string][]string)
 		for name, value := range e.Request.Headers {

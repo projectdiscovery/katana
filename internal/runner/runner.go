@@ -9,7 +9,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
-	"github.com/projectdiscovery/katana/pkg/engine/passive"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/mapcidr"
@@ -56,7 +55,7 @@ func New(options *types.Options) (*Runner, error) {
 		}
 		options.URLs = mapsutil.GetKeys(runnerState.InFlightUrls.GetAll())
 	}
-
+	options.ConfigureOutput()
 	showBanner()
 
 	if options.Version {
@@ -98,8 +97,6 @@ func New(options *types.Options) (*Runner, error) {
 	switch {
 	case options.Headless:
 		crawler, err = hybrid.New(crawlerOptions)
-	case options.Passive:
-		crawler, err = passive.New(crawlerOptions)
 	default:
 		crawler, err = standard.New(crawlerOptions)
 	}
