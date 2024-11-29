@@ -25,8 +25,11 @@ func validateOptions(options *types.Options) error {
 		return errorutil.New("no inputs specified for crawler")
 	}
 
-	if options.Headless && options.Passive {
-		return errorutil.New("headless mode (-headless) and passive mode (-passive) cannot be used together")
+	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
+	// Form filling should be handled via headless actions within the page context
+	if options.Headless && options.AutomaticFormFill {
+		options.AutomaticFormFill = false
+		gologger.Info().Msgf("Automatic form fill (-aff) has been disabled for headless navigation.")
 	}
 
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
@@ -83,6 +86,9 @@ func readCustomFormConfig(formConfig string) error {
 func (r *Runner) parseInputs() []string {
 	values := make(map[string]struct{})
 	for _, url := range r.options.URLs {
+		if url == "" {
+			continue
+		}
 		value := normalizeInput(url)
 		if _, ok := values[value]; !ok {
 			values[value] = struct{}{}

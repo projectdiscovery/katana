@@ -20,7 +20,7 @@ type Form struct {
 func (h *Headers) MarshalJSON() ([]byte, error) {
 	hCopy := make(Headers)
 	for k, v := range *h {
-		k := strings.ReplaceAll(strings.ToLower(k), "-", "_")
+		k := strings.ToLower(k)
 		hCopy[k] = v
 	}
 	return jsoniter.Marshal(hCopy)
@@ -34,17 +34,13 @@ type Response struct {
 	StatusCode         int               `json:"status_code,omitempty"`
 	Headers            Headers           `json:"headers,omitempty"`
 	Body               string            `json:"body,omitempty"`
+	ContentLength      int64             `json:"content_length,omitempty"`
 	RootHostname       string            `json:"-"`
 	Technologies       []string          `json:"technologies,omitempty"`
 	Raw                string            `json:"raw,omitempty"`
 	Forms              []Form            `json:"forms,omitempty"`
 	XhrRequests        []Request         `json:"xhr_requests,omitempty"`
 	StoredResponsePath string            `json:"stored_response_path,omitempty"`
-}
-
-type PassiveReference struct {
-	Source    string `json:"source"`
-	Reference string `json:"reference"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

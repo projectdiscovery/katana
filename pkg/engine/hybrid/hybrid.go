@@ -96,11 +96,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	if c.Options.Options.ChromeWSUrl == "" {
-		if err := c.browser.Close(); err != nil {
-			return err
-		}
-	}
 	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
@@ -142,10 +137,14 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		UserDataDir(dataStore)
 
 	if options.Options.UseInstalledChrome {
-		if chromePath, hasChrome := launcher.LookPath(); hasChrome {
-			chromeLauncher.Bin(chromePath)
+		if options.Options.SystemChromePath != "" {
+			chromeLauncher.Bin(options.Options.SystemChromePath)
 		} else {
-			return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
+			if chromePath, hasChrome := launcher.LookPath(); hasChrome {
+				chromeLauncher.Bin(chromePath)
+			} else {
+				return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
+			}
 		}
 	}
 	if options.Options.SystemChromePath != "" {

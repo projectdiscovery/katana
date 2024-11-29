@@ -72,7 +72,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			// if the user requested anyway out of scope items
 			// they are sent to output without visiting
 			if s.Options.Options.DisplayOutScope {
-				s.Output(nr, nil, nil, ErrOutOfScope)
+				s.Output(nr, nil, ErrOutOfScope)
 			}
 			continue
 		}
@@ -95,18 +95,17 @@ func (s *Shared) ValidateScope(URL string, root string) bool {
 	return err == nil && scopeValidated
 }
 
-func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, passiveReference *navigation.PassiveReference, err error) {
+func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, err error) {
 	var errData string
 	if err != nil {
 		errData = err.Error()
 	}
 	// Write the found result to output
 	result := &output.Result{
-		Timestamp:        time.Now(),
-		Request:          navigationRequest,
-		Response:         navigationResponse,
-		PassiveReference: passiveReference,
-		Error:            errData,
+		Timestamp: time.Now(),
+		Request:   navigationRequest,
+		Response:  navigationResponse,
+		Error:     errData,
 	}
 
 	outputErr := s.Options.OutputWriter.Write(result)
@@ -230,7 +229,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			resp, err := doRequest(crawlSession, req)
 
 			if inScope {
-				s.Output(req, resp, nil, err)
+				s.Output(req, resp, err)
 			}
 
 			if err != nil {

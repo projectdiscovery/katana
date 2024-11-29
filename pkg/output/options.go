@@ -19,6 +19,7 @@ type Options struct {
 	Fields                string
 	StoreFields           string
 	StoreResponseDir      string
+	StoreFieldDir         string
 	FieldConfig           string
 	ErrorLogFile          string
 	MatchRegex            []*regexp.Regexp
