@@ -109,16 +109,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			technologyKeys = mapsutil.GetKeys(technologies)
 		}
 		resp := &navigation.Response{
-			Resp:         httpresp,
-			Body:         string(body),
-			Reader:       bodyReader,
-			Depth:        depth,
-			RootHostname: s.Hostname,
-			Technologies: technologyKeys,
-			StatusCode:   statusCode,
-			Headers:      utils.FlattenHeaders(headers),
-			Raw:          string(rawBytesResponse),
+			Resp:          httpresp,
+			Body:          string(body),
+			Reader:        bodyReader,
+			Depth:         depth,
+			RootHostname:  s.Hostname,
+			Technologies:  mapsutil.GetKeys(technologies),
+			StatusCode:    statusCode,
+			Headers:       utils.FlattenHeaders(headers),
+			Raw:           string(rawBytesResponse),
+			ContentLength: httpresp.ContentLength,
 		}
+		response.ContentLength = resp.ContentLength
 
 		requestHeaders := make(map[string][]string)
 		for name, value := range e.Request.Headers {
