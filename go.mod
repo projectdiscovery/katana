@@ -19,7 +19,7 @@ require (
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.61
 	github.com/projectdiscovery/retryablehttp-go v1.0.88
-	github.com/projectdiscovery/utils v0.2.22
+	github.com/projectdiscovery/utils v0.2.22-0.20241129171309-2f4ef522155e
 	github.com/projectdiscovery/wappalyzergo v0.2.4
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
