@@ -14,12 +14,12 @@ require (
 	github.com/projectdiscovery/dsl v0.3.4
 	github.com/projectdiscovery/fastdialer v0.2.10
 	github.com/projectdiscovery/goflags v0.1.64
-	github.com/projectdiscovery/gologger v1.1.32
-	github.com/projectdiscovery/hmap v0.0.67
+	github.com/projectdiscovery/gologger v1.1.33
+	github.com/projectdiscovery/hmap v0.0.68
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.61
-	github.com/projectdiscovery/retryablehttp-go v1.0.87
-	github.com/projectdiscovery/utils v0.2.20
+	github.com/projectdiscovery/retryablehttp-go v1.0.88
+	github.com/projectdiscovery/utils v0.3.1-0.20241201132332-cebafa101965
 	github.com/projectdiscovery/wappalyzergo v0.2.4
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -48,10 +48,12 @@ require (
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
+	github.com/felixge/fgprof v0.9.5 // indirect
 	github.com/gaissmai/bart v0.9.5 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect

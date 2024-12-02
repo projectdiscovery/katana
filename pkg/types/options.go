@@ -85,6 +85,8 @@ type Options struct {
 	Silent bool
 	// Verbose specifies showing verbose output
 	Verbose bool
+	// TechDetect enables technology detection
+	TechDetect bool
 	// Version enables showing of crawler version
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
@@ -133,6 +135,8 @@ type Options struct {
 	XhrExtraction bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
+	// PprofServer enables pprof server
+	PprofServer bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
 	// Resolvers contains custom resolvers

@@ -117,11 +117,13 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
 	}
 
-	wappalyze, err := wappalyzer.New()
-	if err != nil {
-		return nil, err
+	if options.TechDetect {
+		wappalyze, err := wappalyzer.New()
+		if err != nil {
+			return nil, err
+		}
+		crawlerOptions.Wappalyzer = wappalyze
 	}
-	crawlerOptions.Wappalyzer = wappalyze
 
 	return crawlerOptions, nil
 }
