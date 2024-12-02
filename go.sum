@@ -252,8 +252,8 @@ github.com/projectdiscovery/retryablehttp-go v1.0.88 h1:uR6T+i8Sy1isfG1KClhhsXnO
 github.com/projectdiscovery/retryablehttp-go v1.0.88/go.mod h1:ktjiIKyej+plUeK9vksqRf3wGicqY3E1rW84V/O7p0M=
 github.com/projectdiscovery/utils v0.3.1-0.20241201132332-cebafa101965 h1:RbLy85dy6RpTRDihIYdbKv47/475KJcpeUoGbguzB/8=
 github.com/projectdiscovery/utils v0.3.1-0.20241201132332-cebafa101965/go.mod h1:k2XlmfaYO4k6T4vAyUa3Kn/0BxPTIlNiBFpM6nVCbz0=
-github.com/projectdiscovery/wappalyzergo v0.2.4 h1:fVEBM4mTJgGDOIFw8ykGw/YgA4jt/gcs1g7UImPmmLw=
-github.com/projectdiscovery/wappalyzergo v0.2.4/go.mod h1:1373aKrhlUGtX13KjYXH74lf9yl32StnWuwk1FWvTgo=
+github.com/projectdiscovery/wappalyzergo v0.2.5 h1:DhPEgeD+9i6yg+aGlbkT4iOAspQfB5ZzrmpEhwoiMlA=
+github.com/projectdiscovery/wappalyzergo v0.2.5/go.mod h1:fXiqsyLHaX/ovBNUe/nX0318bWON6SHftLvgq1xaOq0=
 github.com/refraction-networking/utls v1.6.7 h1:zVJ7sP1dJx/WtVuITug3qYUq034cDq9B2MR1K67ULZM=
 github.com/refraction-networking/utls v1.6.7/go.mod h1:BC3O4vQzye5hqpmDTWUqi4P5DDhzJfkV1tdqtawQIH0=
 github.com/remeh/sizedwaitgroup v1.0.0 h1:VNGGFwNo/R5+MJBf6yrsr110p0m4/OX4S3DCy7Kyl5E=
@@ -296,8 +296,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.4/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
-github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/tidwall/assert v0.1.0 h1:aWcKyRBUAdLoVebxo95N7+YZVTFF/ASTr7BN4sLP6XI=
