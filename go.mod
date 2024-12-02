@@ -11,21 +11,21 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.2.5
-	github.com/projectdiscovery/fastdialer v0.2.9
+	github.com/projectdiscovery/dsl v0.3.5
+	github.com/projectdiscovery/fastdialer v0.2.11
 	github.com/projectdiscovery/goflags v0.1.64
-	github.com/projectdiscovery/gologger v1.1.27
-	github.com/projectdiscovery/hmap v0.0.63
+	github.com/projectdiscovery/gologger v1.1.33
+	github.com/projectdiscovery/hmap v0.0.69
 	github.com/projectdiscovery/mapcidr v1.1.34
-	github.com/projectdiscovery/ratelimit v0.0.60
-	github.com/projectdiscovery/retryablehttp-go v1.0.82
-	github.com/projectdiscovery/utils v0.2.15
-	github.com/projectdiscovery/wappalyzergo v0.1.24
+	github.com/projectdiscovery/ratelimit v0.0.64
+	github.com/projectdiscovery/retryablehttp-go v1.0.88
+	github.com/projectdiscovery/utils v0.3.1-0.20241201132332-cebafa101965
+	github.com/projectdiscovery/wappalyzergo v0.2.5
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	go.uber.org/multierr v1.11.0
-	golang.org/x/net v0.29.0
+	golang.org/x/net v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -48,10 +48,12 @@ require (
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
+	github.com/felixge/fgprof v0.9.5 // indirect
 	github.com/gaissmai/bart v0.9.5 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
@@ -95,8 +97,8 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.3 // indirect
 	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/term v0.24.0 // indirect
+	golang.org/x/sync v0.9.0 // indirect
+	golang.org/x/term v0.26.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
@@ -124,7 +126,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.9
-	github.com/projectdiscovery/retryabledns v1.0.81 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.86 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
@@ -139,11 +141,11 @@ require (
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
 	github.com/zmap/zcrypto v0.0.0-20230422215203-9a665e1e9968 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
-	golang.org/x/crypto v0.27.0 // indirect
+	golang.org/x/crypto v0.29.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	gopkg.in/djherbis/times.v1 v1.3.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0

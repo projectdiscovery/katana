@@ -80,8 +80,10 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		return &navigation.Response{}, nil
 	}
 
-	technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, data)
-	response.Technologies = mapsutil.GetKeys(technologies)
+	if c.Options.Wappalyzer != nil {
+		technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, data)
+		response.Technologies = mapsutil.GetKeys(technologies)
+	}
 
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
 
@@ -96,6 +98,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	}
 
 	resp.ContentLength = int64(len(data))
+	response.ContentLength = resp.ContentLength
 
 	rawResponseBytes, _ := httputil.DumpResponse(resp, true)
 	response.Raw = string(rawResponseBytes)
