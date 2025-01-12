@@ -136,7 +136,8 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	flagSet.CreateGroup("headless", "Headless",
-		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless hybrid crawling (experimental)"),
+		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless crawling (experimental)"),
+		flagSet.BoolVarP(&options.HeadlessHybrid, "hybrid", "hh", false, "enable headless hybrid crawling (experimental)"),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "use local installed chrome browser instead of katana installed"),
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),

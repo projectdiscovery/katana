@@ -32,7 +32,7 @@ func validateOptions(options *types.Options) error {
 		gologger.Info().Msgf("Automatic form fill (-aff) has been disabled for headless navigation.")
 	}
 
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless && !options.HeadlessHybrid {
 		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {

@@ -97,6 +97,8 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// HeadlessHybrid enables headless hybrid scraping
+	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
 	// FormExtraction enables extraction of form, input, textarea & select elements

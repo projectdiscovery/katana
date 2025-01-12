@@ -7,6 +7,7 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
+	"github.com/projectdiscovery/katana/pkg/engine/headless"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
@@ -96,6 +97,8 @@ func New(options *types.Options) (*Runner, error) {
 
 	switch {
 	case options.Headless:
+		crawler, err = headless.New(crawlerOptions)
+	case options.HeadlessHybrid:
 		crawler, err = hybrid.New(crawlerOptions)
 	default:
 		crawler, err = standard.New(crawlerOptions)
