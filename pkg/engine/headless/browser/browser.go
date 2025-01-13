@@ -108,6 +108,7 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 	if browserErr := browser.Connect(); browserErr != nil {
 		return nil, browserErr
 	}
+
 	return browser, nil
 }
 
@@ -196,7 +197,6 @@ func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return browserPage, nil
 }
 
@@ -253,7 +253,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			req := navigation.Request{
 				Method:  httpreq.Method,
 				URL:     httpreq.URL.String(),
-				Body:    string(body),
+				Body:    e.Request.PostData,
 				Headers: utils.FlattenHeaders(httpreq.Header),
 				Raw:     string(rawBytesRequest),
 			}
@@ -342,14 +342,14 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 	// If the browser is not connected, close it
 	if !isBrowserConnected(browser.Browser) {
 		browser.cancel()
-		_ = browser.Browser.Close()
+		browser.CloseBrowserPage()
 		return
 	}
 
 	pages, err := browser.Browser.Pages()
 	if err != nil {
 		browser.cancel()
-		_ = browser.Browser.Close()
+		browser.CloseBrowserPage()
 		return
 	}
 
