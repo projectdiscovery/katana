@@ -36,6 +36,7 @@ type Options struct {
 	SlowMotion       bool
 	MaxCrawlDuration time.Duration
 
+	ScopeValidator  browser.ScopeValidator
 	RequestCallback func(*output.Result)
 }
 
@@ -60,6 +61,7 @@ func New(opts Options) (*Crawler, error) {
 		ShowBrowser:     opts.ShowBrowser,
 		RequestCallback: opts.RequestCallback,
 		SlowMotion:      opts.SlowMotion,
+		ScopeValidator:  opts.ScopeValidator,
 	})
 	if err != nil {
 		return nil, err
@@ -175,6 +177,9 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 		// Refresh the page hash
 		currentPageHash = newPageHash
 	}
+
+	// FIXME: TODO: Restrict the navigation using scope manager and only
+	// proceed with actions if the scope is allowed
 
 	// Check the action and do actions based on action type
 	if err := c.executeCrawlStateAction(action, page); err != nil {

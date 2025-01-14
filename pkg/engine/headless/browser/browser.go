@@ -43,8 +43,11 @@ type LauncherOptions struct {
 	Proxy          string
 	SlowMotion     bool
 
+	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
 }
+
+type ScopeValidator func(string) bool
 
 // NewLauncher returns a new launcher instance
 func NewLauncher(opts LauncherOptions) (*Launcher, error) {
@@ -53,6 +56,10 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
 	}
 	return l, nil
+}
+
+func (l *Launcher) ScopeValidator() ScopeValidator {
+	return l.opts.ScopeValidator
 }
 
 func (l *Launcher) launchBrowser() (*rod.Browser, error) {

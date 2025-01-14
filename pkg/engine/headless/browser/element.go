@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -49,14 +50,30 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 		})
 	}
 
+	scopeValidator := b.launcher.ScopeValidator()
 	links, err := b.GetAllElements(linksCSSSelector)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get links")
 	}
+	info, err := b.Page.Info()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get page info")
+	}
 	for _, link := range links {
-		if link.Attributes["href"] == "" {
+		href := link.Attributes["href"]
+		if href == "" {
 			continue
 		}
+
+		resolvedHref, err := resolveURL(info.URL, href)
+		if err != nil {
+			continue
+		}
+
+		if !scopeValidator(resolvedHref) {
+			continue
+		}
+
 		hash := link.Hash()
 		link.MD5Hash = hash
 
@@ -245,4 +262,18 @@ var relevantEventListeners = map[string]struct{}{
 	"submit": {},
 	"input":  {},
 	"change": {},
+}
+
+// resolveURL resolves a potentially relative URL against a base URL
+func resolveURL(baseURLStr, href string) (string, error) {
+	baseURL, err := url.Parse(baseURLStr)
+	if err != nil {
+		return "", err
+	}
+
+	resolvedURL, err := baseURL.Parse(href)
+	if err != nil {
+		return "", err
+	}
+	return resolvedURL.String(), nil
 }
