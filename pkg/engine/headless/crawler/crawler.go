@@ -20,6 +20,7 @@ import (
 )
 
 type Crawler struct {
+	logger        *slog.Logger
 	launcher      *browser.Launcher
 	options       Options
 	crawlQueue    queue.Queue[*types.Action]
@@ -36,6 +37,7 @@ type Options struct {
 	SlowMotion       bool
 	MaxCrawlDuration time.Duration
 
+	Logger          *slog.Logger
 	ScopeValidator  browser.ScopeValidator
 	RequestCallback func(*output.Result)
 }
@@ -70,6 +72,7 @@ func New(opts Options) (*Crawler, error) {
 	crawler := &Crawler{
 		launcher:      launcher,
 		options:       opts,
+		logger:        opts.Logger,
 		uniqueActions: make(map[string]struct{}),
 	}
 	return crawler, nil
@@ -111,7 +114,7 @@ func (c *Crawler) Crawl(URL string) error {
 	for {
 		select {
 		case <-crawlTimeout:
-			slog.Info("Max crawl duration reached, stopping crawl")
+			c.logger.Info("Max crawl duration reached, stopping crawl")
 			return nil
 		default:
 			page, err := c.launcher.GetPageFromPool()
@@ -121,14 +124,14 @@ func (c *Crawler) Crawl(URL string) error {
 
 			action, err := crawlQueue.Get()
 			if err == queue.ErrNoElementsAvailable {
-				slog.Info("No more actions to process")
+				c.logger.Info("No more actions to process")
 				return nil
 			}
 			if err != nil {
 				return err
 			}
 
-			slog.Info("Processing action",
+			c.logger.Info("Processing action",
 				slog.String("action", action.String()),
 			)
 			if c.options.MaxDepth > 0 && action.Depth > c.options.MaxDepth {
@@ -140,14 +143,14 @@ func (c *Crawler) Crawl(URL string) error {
 					break
 				}
 				if errors.Is(err, ErrNoNavigationPossible) {
-					slog.Warn("Skipping action as no navigation possible", slog.String("action", action.String()))
+					c.logger.Warn("Skipping action as no navigation possible", slog.String("action", action.String()))
 					continue
 				}
 				if errors.Is(err, &utils.MaxSleepCountError{}) {
-					slog.Warn("Skipping action as it is taking too long", slog.String("action", action.String()))
+					c.logger.Warn("Skipping action as it is taking too long", slog.String("action", action.String()))
 					continue
 				}
-				slog.Error("Error processing action",
+				c.logger.Error("Error processing action",
 					slog.String("error", err.Error()),
 					slog.String("action", action.String()),
 				)
@@ -205,14 +208,14 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 
 		// Check if the element we have is a logout page
 		if nav.Element != nil && isLogoutPage(nav.Element) {
-			slog.Debug("Skipping Found logout page",
+			c.logger.Debug("Skipping Found logout page",
 				slog.String("url", nav.Element.Attributes["href"]),
 			)
 			continue
 		}
 		nav.OriginID = pageState.UniqueID
 
-		slog.Debug("Got new navigation",
+		c.logger.Debug("Got new navigation",
 			slog.Any("navigation", nav),
 		)
 		if err := c.crawlQueue.Offer(nav); err != nil {
@@ -257,14 +260,14 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 			return err
 		}
 		if !visible {
-			slog.Debug("Skipping click on element as it is not visible",
+			c.logger.Debug("Skipping click on element as it is not visible",
 				slog.String("element", action.Element.XPath),
 			)
 			return nil
 		}
 		if err := element.Click(proto.InputMouseButtonLeft, 1); err != nil {
 			if errors.Is(err, &rod.NoPointerEventsError{}) {
-				slog.Debug("Skipping click on element as it is not pointer events",
+				c.logger.Debug("Skipping click on element as it is not pointer events",
 					slog.String("element", action.Element.XPath),
 				)
 				return nil
@@ -280,7 +283,7 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	return nil
 }
 
-var logoutPattern = regexp.MustCompile(`(?i)(log[\s-]?out|sign[\s-]?out|signout|deconnexion|cerrar[\s-]?sesion|sair|abmelden|uitloggen|exit|disconnect|terminate|end[\s-]?session|salir|desconectar|ausloggen|afmelden|wyloguj|logout|sign[\s-]?off)`)
+var logoutPattern = regexp.MustCompile(`(?i)(log[\s-]?out|sign[\s-]?out|signout|deconnexion|cerrar[\s-]?sesion|sair|abmelden|uitloggen|exit|disconnect|terminate|end[\s-]?session|salir|desconectar|auc.loggergen|afmelden|wyloguj|logout|sign[\s-]?off)`)
 
 func isLogoutPage(element *types.HTMLElement) bool {
 	return logoutPattern.MatchString(element.TextContent) ||

@@ -14,12 +14,25 @@ import (
 )
 
 type Headless struct {
+	logger  *slog.Logger
 	options *types.CrawlerOptions
 }
 
 // New returns a new headless crawler instance
 func New(options *types.CrawlerOptions) (*Headless, error) {
-	// create a new logger
+	logger := newLogger(options)
+
+	return &Headless{
+		logger:  logger,
+		options: options,
+	}, nil
+}
+
+func newLogger(options *types.CrawlerOptions) *slog.Logger {
+	if options.Logger != nil {
+		return options.Logger
+	}
+
 	writer := os.Stderr
 
 	// set global logger with custom options
@@ -27,16 +40,13 @@ func New(options *types.CrawlerOptions) (*Headless, error) {
 	if options.Options.Debug {
 		level = slog.LevelDebug
 	}
-	slog.SetDefault(slog.New(
+	logger := slog.New(
 		tint.NewHandler(writer, &tint.Options{
 			Level:      level,
 			TimeFormat: time.Kitchen,
 		}),
-	))
-
-	return &Headless{
-		options: options,
-	}, nil
+	)
+	return logger
 }
 
 func validateScopeFunc(h *Headless, URL string) browser.ScopeValidator {
@@ -77,6 +87,7 @@ func (h *Headless) Crawl(URL string) error {
 			}
 			h.options.OutputWriter.Write(rr)
 		},
+		Logger: h.logger,
 	}
 	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
 

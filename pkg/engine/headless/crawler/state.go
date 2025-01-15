@@ -103,7 +103,7 @@ var ErrNoNavigationPossible = errors.New("no navigation possible")
 //
 // 3. If all else fails, we have the shortest path navigation.
 func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {
-	slog.Debug("Found action with different origin id",
+	c.logger.Debug("Found action with different origin id",
 		slog.String("action_origin_id", action.OriginID),
 		slog.String("current_page_hash", currentPageHash),
 	)
@@ -111,7 +111,7 @@ func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.
 	// Get vertex from the graph
 	originPageState, err := c.crawlGraph.GetPageState(action.OriginID)
 	if err != nil {
-		slog.Debug("Failed to get origin page state", slog.String("error", err.Error()))
+		c.logger.Debug("Failed to get origin page state", slog.String("error", err.Error()))
 		return "", err
 	}
 
@@ -119,7 +119,7 @@ func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.
 	if action.Element != nil && currentPageHash != emptyPageHash {
 		newPageHash, err := c.tryElementNavigation(page, action, currentPageHash)
 		if err != nil {
-			slog.Debug("Failed to navigate back to origin page using element", slog.String("error", err.Error()))
+			c.logger.Debug("Failed to navigate back to origin page using element", slog.String("error", err.Error()))
 		}
 		if newPageHash != "" {
 			return newPageHash, nil
@@ -129,7 +129,7 @@ func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.
 	// Try to see if we can move back using the browser history
 	newPageHash, err := c.tryBrowserHistoryNavigation(page, originPageState, action)
 	if err != nil {
-		slog.Debug("Failed to navigate back using browser history", slog.String("error", err.Error()))
+		c.logger.Debug("Failed to navigate back using browser history", slog.String("error", err.Error()))
 	}
 	if newPageHash != "" {
 		return newPageHash, nil
@@ -165,7 +165,7 @@ func (c *Crawler) tryElementNavigation(page *browser.BrowserPage, action *types.
 	}
 	// Ensure its the same element in some form
 	if htmlElement.ID == action.Element.ID || htmlElement.Classes == action.Element.Classes || htmlElement.TextContent == action.Element.TextContent {
-		slog.Debug("Found target element on current page, proceeding without navigation")
+		c.logger.Debug("Found target element on current page, proceeding without navigation")
 		// FIXME: Return the origin element ID so that the graph shows
 		// correctly the fastest way to reach the state.
 		return action.OriginID, nil
@@ -182,7 +182,7 @@ func (c *Crawler) tryBrowserHistoryNavigation(page *browser.BrowserPage, originP
 		return "", nil
 	}
 
-	slog.Debug("Navigating back using browser history", slog.Int("steps_back", stepsBack))
+	c.logger.Debug("Navigating back using browser history", slog.Int("steps_back", stepsBack))
 
 	var navigatedSuccessfully bool
 	for i := 0; i < stepsBack; i++ {
@@ -197,7 +197,7 @@ func (c *Crawler) tryBrowserHistoryNavigation(page *browser.BrowserPage, originP
 	}
 
 	if err := page.WaitPageLoadHeurisitics(); err != nil {
-		slog.Debug("Failed to wait for page load after navigating back using browser history", slog.String("error", err.Error()))
+		c.logger.Debug("Failed to wait for page load after navigating back using browser history", slog.String("error", err.Error()))
 	}
 	newPageHash, err := isCorrectNavigation(page, action)
 	if err != nil {
@@ -226,12 +226,12 @@ func (c *Crawler) isBackNavigationPossible(page *browser.BrowserPage, originPage
 }
 
 func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {
-	slog.Debug("Trying Shortest path to navigate back to origin page", slog.String("action_origin_id", action.OriginID), slog.String("current_page_hash", currentPageHash))
+	c.logger.Debug("Trying Shortest path to navigate back to origin page", slog.String("action_origin_id", action.OriginID), slog.String("current_page_hash", currentPageHash))
 
 	actions, err := c.crawlGraph.ShortestPath(currentPageHash, action.OriginID)
 	if err != nil {
 		if errors.Is(err, graphlib.ErrTargetNotReachable) {
-			slog.Debug("Target not reachable, reaching from blank state",
+			c.logger.Debug("Target not reachable, reaching from blank state",
 				slog.String("action_origin_id", action.OriginID),
 			)
 
@@ -241,7 +241,7 @@ func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.
 			}
 		}
 	}
-	slog.Debug("Found actions to traverse",
+	c.logger.Debug("Found actions to traverse",
 		slog.Any("actions", actions),
 	)
 	for _, action := range actions {
