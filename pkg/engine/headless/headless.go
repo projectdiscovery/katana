@@ -87,7 +87,8 @@ func (h *Headless) Crawl(URL string) error {
 			}
 			h.options.OutputWriter.Write(rr)
 		},
-		Logger: h.logger,
+		Logger:     h.logger,
+		ChromeUser: h.options.ChromeUser,
 	}
 	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
 
