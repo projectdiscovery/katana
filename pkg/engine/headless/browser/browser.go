@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"os/user"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,7 +33,8 @@ import (
 type Launcher struct {
 	browserPool rod.Pool[BrowserPage]
 
-	opts LauncherOptions
+	userDataDir string
+	opts        LauncherOptions
 }
 
 // LauncherOptions contains options for the launcher
@@ -42,6 +45,7 @@ type LauncherOptions struct {
 	ShowBrowser    bool
 	Proxy          string
 	SlowMotion     bool
+	ChromeUser     *user.User // optional chrome user to use
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
@@ -92,13 +96,24 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 		chromeLauncher = chromeLauncher.Headless(false)
 	}
 
-	// CHeck to see if we need to disable sandbox
-	if os.Getuid() == 0 {
-		chromeLauncher = chromeLauncher.Set("no-sandbox", "true")
-	}
-
 	if l.opts.ChromiumPath != "" {
 		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+	}
+
+	if l.opts.ChromeUser != nil {
+		tempDir, err := os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
+		}
+		uid, _ := strconv.Atoi(l.opts.ChromeUser.Uid)
+		gid, _ := strconv.Atoi(l.opts.ChromeUser.Gid)
+
+		// Sets proper ownership of the Chrome data directory
+		if err := os.Chown(tempDir, uid, gid); err != nil {
+			return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
+		}
+		chromeLauncher = chromeLauncher.Set("user-data-dir", tempDir)
+		l.userDataDir = tempDir
 	}
 
 	launcherURL, err := chromeLauncher.Launch()
@@ -125,6 +140,9 @@ func (l *Launcher) Close() {
 		b.cancel()
 		b.CloseBrowserPage()
 	})
+	if l.userDataDir != "" {
+		_ = os.RemoveAll(l.userDataDir)
+	}
 }
 
 // BrowserPage is a combination of a browser and a page

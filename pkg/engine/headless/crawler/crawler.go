@@ -3,6 +3,7 @@ package crawler
 import (
 	"fmt"
 	"log/slog"
+	"os/user"
 	"regexp"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ type Options struct {
 	Logger          *slog.Logger
 	ScopeValidator  browser.ScopeValidator
 	RequestCallback func(*output.Result)
+	ChromeUser      *user.User
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -64,6 +66,7 @@ func New(opts Options) (*Crawler, error) {
 		RequestCallback: opts.RequestCallback,
 		SlowMotion:      opts.SlowMotion,
 		ScopeValidator:  opts.ScopeValidator,
+		ChromeUser:      opts.ChromeUser,
 	})
 	if err != nil {
 		return nil, err
