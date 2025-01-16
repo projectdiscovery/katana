@@ -99,6 +99,7 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 	if l.opts.ChromiumPath != "" {
 		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
 	}
+	chromeLauncher = chromeLauncher.Logger(os.Stderr)
 
 	if l.opts.ChromeUser != nil {
 		tempDir, err := os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
@@ -420,8 +421,6 @@ var headlessFlags = []string{
 	"--disable-default-apps",
 	"--disable-dev-shm-usage",
 	"--disable-extensions",
-	"--disable-web-security",
-	"--no-zygote",
 	// AvoidUnnecessaryBeforeUnloadCheckSync - https://github.com/microsoft/playwright/issues/14047
 	// Translate - https://github.com/microsoft/playwright/issues/16126
 	// HttpsUpgrades - https://github.com/microsoft/playwright/pull/27605
