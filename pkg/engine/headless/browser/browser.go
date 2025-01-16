@@ -99,7 +99,6 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 	if l.opts.ChromiumPath != "" {
 		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
 	}
-	chromeLauncher = chromeLauncher.Logger(os.Stderr)
 
 	if l.opts.ChromeUser != nil {
 		tempDir, err := os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
@@ -194,8 +193,8 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		return nil, errors.Wrap(err, "could not create new page")
 	}
 	page = page.Sleeper(func() rodutils.Sleeper {
-		return backoffCountSleeper(30*time.Millisecond, 1*time.Second, 5, func(d time.Duration) time.Duration {
-			return d * 2
+		return backoffCountSleeper(100*time.Millisecond, 1*time.Second, 4, func(d time.Duration) time.Duration {
+			return d + (d / 2) // This avoids the float conversion issue
 		})
 	})
 	ctx := page.GetContext()

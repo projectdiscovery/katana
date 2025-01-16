@@ -158,6 +158,13 @@ func (c *Crawler) tryElementNavigation(page *browser.BrowserPage, action *types.
 	if !visible {
 		return "", nil
 	}
+
+	// Also ensure its interactable
+	interactable, err := element.Interactable()
+	if err != nil || interactable == nil {
+		return "", nil
+	}
+
 	// Ensure its the same element
 	htmlElement, err := page.GetElementFromXpath(action.Element.XPath)
 	if err != nil {

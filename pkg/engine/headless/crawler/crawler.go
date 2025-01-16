@@ -117,40 +117,48 @@ func (c *Crawler) Crawl(URL string) error {
 	for {
 		select {
 		case <-crawlTimeout:
-			c.logger.Info("Max crawl duration reached, stopping crawl")
+			c.logger.Debug("Max crawl duration reached, stopping crawl")
 			return nil
 		default:
-			page, err := c.launcher.GetPageFromPool()
-			if err != nil {
-				return err
-			}
-
 			action, err := crawlQueue.Get()
 			if err == queue.ErrNoElementsAvailable {
-				c.logger.Info("No more actions to process")
+				c.logger.Debug("No more actions to process")
 				return nil
 			}
 			if err != nil {
 				return err
 			}
 
-			c.logger.Info("Processing action",
-				slog.String("action", action.String()),
-			)
 			if c.options.MaxDepth > 0 && action.Depth > c.options.MaxDepth {
 				continue
 			}
+
+			page, err := c.launcher.GetPageFromPool()
+			if err != nil {
+				return err
+			}
+
+			c.logger.Debug("Processing action",
+				slog.String("action", action.String()),
+			)
 
 			if err := c.crawlFn(action, page); err != nil {
 				if err == ErrNoCrawlingAction {
 					break
 				}
+				if errors.Is(err, &rod.NavigationError{}) {
+					c.logger.Debug("Skipping action as navigation failed",
+						slog.String("action", action.String()),
+						slog.String("error", err.Error()),
+					)
+					continue
+				}
 				if errors.Is(err, ErrNoNavigationPossible) {
-					c.logger.Warn("Skipping action as no navigation possible", slog.String("action", action.String()))
+					c.logger.Debug("Skipping action as no navigation possible", slog.String("action", action.String()))
 					continue
 				}
 				if errors.Is(err, &utils.MaxSleepCountError{}) {
-					c.logger.Warn("Skipping action as it is taking too long", slog.String("action", action.String()))
+					c.logger.Debug("Skipping action as it is taking too long", slog.String("action", action.String()))
 					continue
 				}
 				c.logger.Error("Error processing action",
@@ -269,10 +277,7 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 			return nil
 		}
 		if err := element.Click(proto.InputMouseButtonLeft, 1); err != nil {
-			if errors.Is(err, &rod.NoPointerEventsError{}) {
-				c.logger.Debug("Skipping click on element as it is not pointer events",
-					slog.String("element", action.Element.XPath),
-				)
+			if errors.Is(err, &rod.NoPointerEventsError{}) || errors.Is(err, &rod.InvisibleShapeError{}) {
 				return nil
 			}
 			return err
