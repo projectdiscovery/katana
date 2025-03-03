@@ -204,6 +204,11 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			continue
 		}
 
+		if !s.Options.ValidatePath(req.URL) {
+			gologger.Debug().Msgf("`%v` not a valid path. skipping", req.URL)
+			continue
+		}
+
 		inScope, scopeErr := s.Options.ValidateScope(req.URL, crawlSession.Hostname)
 		if scopeErr != nil {
 			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
