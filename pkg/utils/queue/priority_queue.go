@@ -46,7 +46,7 @@ func (ih *itemHeap) Len() int {
 }
 
 func (ih *itemHeap) Less(i, j int) bool {
-	// Less since we are executing lower prioritie values first and
+	// Less since we are executing lower prioritize values first and
 	// higher priority values in the end.
 	return (*ih)[i].priority < (*ih)[j].priority
 }

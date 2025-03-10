@@ -503,7 +503,7 @@ katana -u https://tesla.com -aff
 
 ## Authenticated Crawling
 
-Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perfrom authenticated crawling.
+Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perform authenticated crawling.
 
 > **Note**: User needs to be manually perform the authentication and export the session cookie / header to file to use with katana.
 
@@ -665,7 +665,7 @@ When defining custom fields, following attributes are supported:
 
 - **type** (required)
 
-> The type of custom attribute, currenly supported option - `regex` 
+> The type of custom attribute, currently supported option - `regex` 
 
 - **part** (optional)
 
