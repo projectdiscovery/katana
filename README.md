@@ -40,7 +40,7 @@
 
 ## Installation
 
-katana requires ~~Go 1.18~~ (as of March 2025, install fails with Go 1.18, but works with **Go 1.24.1**, which is the latest available version, if you are having trouble getting it to work, and there are recent updates to this repo, try installing the latest available version on Go, just in case this updating this documtation has slipped through the cracks) to install successfully. To install, just run the below command or download pre-compiled binary from [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires ~~Go 1.18~~ (as of March 2025, install fails with Go 1.18, but works with **Go 1.24.1**, which is the latest available version, if you are having trouble getting it to work, and there are recent updates to this repo, try installing the latest available version on Go, just in case updating this documtation has slipped through the cracks) to install successfully. To install, just run the below command or download pre-compiled binary from [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
