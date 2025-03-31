@@ -184,7 +184,11 @@ func readFoundLinks(input string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Error closing file: %v\n", err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	var links []string

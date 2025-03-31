@@ -32,7 +32,7 @@ func (w *fileWriter) Write(data []byte) error {
 
 // Close closes the underlying writer flushing everything to disk
 func (w *fileWriter) Close() error {
-	w.writer.Flush()
+	_ = w.writer.Flush()
 	//nolint:errcheck // we don't care whether sync failed or succeeded.
 	w.file.Sync()
 	return w.file.Close()
