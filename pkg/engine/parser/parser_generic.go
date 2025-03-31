@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
 func InitWithOptions(options *types.Options) {
@@ -51,7 +52,7 @@ func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []
 	// Only process javascript file based on path or content type
 	// CSS, JS are supported for relative endpoint extraction.
 	contentType := resp.Resp.Header.Get("Content-Type")
-	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
+	if !stringsutil.HasSuffixAny(resp.Resp.Request.URL.Path, ".js", ".css") && !strings.Contains(contentType, "/javascript") {
 		return
 	}
 	// Skip common js libraries
