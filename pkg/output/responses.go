@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 
 	errorutil "github.com/projectdiscovery/utils/errors"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -36,7 +37,7 @@ func getResponseHost(URL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.Host, nil
+	return filepath.Clean(strings.ReplaceAll(u.Host, ":", "_")), nil
 }
 
 func createHostDir(storeResponseFolder, domain string) string {
