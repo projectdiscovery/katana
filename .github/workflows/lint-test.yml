@@ -23,7 +23,7 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6.5.2
+        uses: golangci/golangci-lint-action@v7.0.0
         with:
           version: latest
           args: --timeout 5m
