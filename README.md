@@ -40,7 +40,7 @@
 
 ## Installation
 
-katana requires **Go 1.18** to install successfully. To install, just run the below command or download pre-compiled binary from [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.21+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
