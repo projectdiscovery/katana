@@ -88,7 +88,11 @@ func appendToFileField(parsed *url.URL, field, data string) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Error closing file: %v\n", err)
+		}
+	}()
 
 	_, _ = file.WriteString(data)
 	_, _ = file.Write([]byte("\n"))
