@@ -72,7 +72,11 @@ func readCustomFormConfig(formConfig string) error {
 	if err != nil {
 		return errorutil.NewWithErr(err).Msgf("could not read form config")
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Error closing file: %v\n", err)
+		}
+	}()
 
 	var data utils.FormFillData
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
@@ -131,7 +135,11 @@ func initExampleFormFillConfig() error {
 	if err != nil {
 		return errorutil.NewWithErr(err).Msgf("could not get home directory")
 	}
-	defer exampleConfig.Close()
+	defer func() {
+		if err := exampleConfig.Close(); err != nil {
+			gologger.Error().Msgf("Error closing example config: %v\n", err)
+		}
+	}()
 
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err
