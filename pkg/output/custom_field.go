@@ -77,7 +77,7 @@ func parseCustomFieldName(filePath string) error {
 		if sliceutil.Contains(FieldNames, item.Name) {
 			return errorutil.New("could not register custom field. \"%s\" already pre-defined field", item.Name)
 		}
-		// check custom field name should be unqiue
+		// check custom field name should be unique
 		if _, ok := passedCustomFieldMap[item.Name]; ok {
 			return errorutil.New("could not register custom field. \"%s\" custom field already exists", item.Name)
 		}
