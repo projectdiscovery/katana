@@ -56,7 +56,7 @@ func (s *Simple) UniqueContent(data []byte) bool {
 	return true
 }
 
-// Close closes the filter and relases associated resources
+// Close closes the filter and releases associated resources
 func (s *Simple) Close() {
 	_ = s.data.Close()
 }
