@@ -44,7 +44,11 @@ func main() {
 		}
 		gologger.Fatal().Msgf("could not create runner: %s\n", err)
 	}
-	defer katanaRunner.Close()
+	defer func() {
+		if err := katanaRunner.Close(); err != nil {
+			gologger.Error().Msgf("Error closing katana runner: %v\n", err)
+		}
+	}()
 
 	// close handler
 	resumeFilename := defaultResumeFilename()
@@ -53,7 +57,9 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			katanaRunner.Close()
+			if err := katanaRunner.Close(); err != nil {
+				gologger.Error().Msgf("Error closing katana runner: %v\n", err)
+			}
 
 			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
 			err := katanaRunner.SaveState(resumeFilename)
@@ -87,7 +93,7 @@ func main() {
 
 	// remove the resume file in case it exists
 	if fileutil.FileExists(resumeFilename) {
-		os.Remove(resumeFilename)
+		_ = os.Remove(resumeFilename)
 	}
 
 }

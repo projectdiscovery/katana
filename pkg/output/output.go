@@ -188,7 +188,7 @@ func (w *StandardWriter) Write(result *Result) error {
 			if err := fileWriter.Write(data); err != nil {
 				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
 			}
-			fileWriter.Close()
+			_ = fileWriter.Close()
 		}
 	}
 

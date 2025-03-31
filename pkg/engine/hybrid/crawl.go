@@ -36,7 +36,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
-	defer page.Close()
+	defer func() {
+		if err := page.Close(); err != nil {
+			gologger.Error().Msgf("Error closing page: %v\n", err)
+		}
+	}()
 	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
