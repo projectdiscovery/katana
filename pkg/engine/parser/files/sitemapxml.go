@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
@@ -31,7 +32,11 @@ func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []*navigation.
 	if err != nil {
 		return nil, errorutil.NewWithTag("sitemapcrawler", "could not do request").Wrap(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			gologger.Error().Msgf("Error closing response body: %v\n", err)
+		}
+	}()
 
 	navigationRequests, err = r.parseReader(resp.Body, resp)
 	if err != nil {
