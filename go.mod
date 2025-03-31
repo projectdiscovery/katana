@@ -11,7 +11,7 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.3.6
+	github.com/projectdiscovery/dsl v0.3.22
 	github.com/projectdiscovery/fastdialer v0.3.0
 	github.com/projectdiscovery/goflags v0.1.65
 	github.com/projectdiscovery/gologger v1.1.51
@@ -78,7 +78,7 @@ require (
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/sashabaranov/go-openai v1.14.2 // indirect
+	github.com/sashabaranov/go-openai v1.37.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8 // indirect
