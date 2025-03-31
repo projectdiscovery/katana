@@ -19,7 +19,7 @@ var TestCases = []TestCase{
 		Name:     "Headless Browser Without Incognito",
 		Target:   "https://www.hackerone.com/",
 		Expected: nil,
-		Args:     "-headless -no-incognito -depth 2 -silent",
+		Args:     "-headless -no-incognito -depth 2 -debug",
 		CompareFunc: func(target string, got []string) error {
 			for _, res := range got {
 				if strings.Contains(res, target) {
