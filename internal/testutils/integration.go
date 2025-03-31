@@ -12,8 +12,7 @@ func RunKatanaBinaryAndGetResults(target string, katanaBinary string, debug bool
 	cmdLine += strings.Join(args, " ")
 
 	cmd.Args = append(cmd.Args, cmdLine)
-	data, err := cmd.CombinedOutput()
-	fmt.Printf("Output: %s\n", string(data))
+	data, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
