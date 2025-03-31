@@ -45,6 +45,8 @@ type Options struct {
 	BodyReadSize int
 	// Timeout is the time to wait for request in seconds
 	Timeout int
+	// TimeStable is the time to wait until the page is stable
+	TimeStable int
 	// CrawlDuration is the duration in seconds to crawl target from
 	CrawlDuration time.Duration
 	// Delay is the delay between each crawl requests in seconds
