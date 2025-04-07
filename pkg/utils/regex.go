@@ -22,10 +22,13 @@ var (
 	JsC1 = `|((?:\.\./)?[a-zA-Z0-9\-_/\\%]+\.(aspx?|js(?:on|p)?|html|php5?|action|do)(?:[\?|#][^"']+)?)`
 	JsC2 = `|((?:\.\./)[a-zA-Z0-9\-_/\\%]+(?:/|\\)[a-zA-Z0-9\-_]{3,}(?:[\?|#][^"']+)?)`
 	JsC3 = `|((?:\.\./)[a-zA-Z0-9\-_/\\%]{3,}/)`
+	JsC4 = `|((\.{1,2}/)?[a-zA-Z0-9\-_/\\%]+\.(aspx?|js(on|p)?|html|php5?|html|action|do)([\?|#][^"']+)?)`
+	JsC5 = `|((\.{0,2}/)[a-zA-Z0-9\-_/\\%]+(/|\\)[a-zA-Z0-9\-_]{3,}([\?|#][^"|']+)?)`
+	JsC6 = `|((\.{0,2})[a-zA-Z0-9\-_/\\%]{3,}/)`
 	JsB1 = `)`
 	JsA1 = `(?:"|'|\s)`
 	// relativeEndpointsRegex is the regex to find endpoints in js files.
-	relativeEndpointsRegex = regexp.MustCompile(JsA0 + JsB0 + JsC0 + JsC1 + JsC2 + JsC3 + JsB1 + JsA1)
+	relativeEndpointsRegex = regexp.MustCompile(JsA0 + JsB0 + JsC0 + JsC1 + JsC2 + JsC3 + JsC4 + JsC5 + JsC6 + JsB1 + JsA1)
 )
 
 // ExtractBodyEndpoints extracts body endpoints from a data item
