@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -37,7 +38,7 @@ func getResponseHost(URL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.Host, nil
+	return filepath.Clean(strings.ReplaceAll(u.Host, ":", "_")), nil
 }
 
 func createHostDir(storeResponseFolder, domain string) string {
