@@ -18,6 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
+	"github.com/valyala/fasttemplate"
 )
 
 const (
@@ -57,6 +58,7 @@ type StandardWriter struct {
 	matchRegex            []*regexp.Regexp
 	filterRegex           []*regexp.Regexp
 	extensionValidator    *extensions.Validator
+	outputTemplate        *fasttemplate.Template
 	outputMatchCondition  string
 	outputFilterCondition string
 }
@@ -146,6 +148,12 @@ func New(options Options) (Writer, error) {
 
 		writer.errorFile = errorFile
 	}
+	if options.OutputTemplate != "" {
+		writer.outputTemplate, err = fasttemplate.NewTemplate(options.OutputTemplate, "{{", "}}")
+		if err != nil {
+			return nil, errorutil.NewWithTag("output", "could not create output format template").Wrap(err)
+		}
+	}
 	return writer, nil
 }
 
@@ -202,14 +210,24 @@ func (w *StandardWriter) Write(result *Result) error {
 		result.Response.Body = ""
 	}
 
-	if w.json {
+	var outputKind string
+
+	switch {
+	case w.outputTemplate != nil:
+		outputKind = "template"
+		data, err = w.formatTemplate(result)
+	case w.json:
+		outputKind = "JSON"
 		data, err = w.formatJSON(result)
-	} else {
+	default:
+		outputKind = "screen"
 		data, err = w.formatScreen(result)
 	}
+
 	if err != nil {
-		return errorutil.NewWithTag("output", "could not format output").Wrap(err)
+		return errorutil.NewWithTag("output", "could not format %s output", outputKind).Wrap(err)
 	}
+
 	if len(data) == 0 {
 		return errors.New("result is empty")
 	}

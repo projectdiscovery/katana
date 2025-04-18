@@ -24,6 +24,7 @@ require (
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stretchr/testify v1.10.0
+	github.com/valyala/fasttemplate v1.2.2
 	go.uber.org/multierr v1.11.0
 	golang.org/x/net v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -91,6 +92,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/ysmood/fetchup v0.2.3 // indirect
 	github.com/ysmood/got v0.34.1 // indirect
 	github.com/yuin/goldmark v1.7.4 // indirect

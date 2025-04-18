@@ -9,7 +9,6 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	sliceutil "github.com/projectdiscovery/utils/slice"
-	stringsutil "github.com/projectdiscovery/utils/strings"
 	"gopkg.in/yaml.v2"
 )
 
@@ -104,7 +103,6 @@ func loadCustomFields(filePath string, fields string) error {
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
 		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
 	}
-	allCustomFields := make(map[string]CustomFieldConfig)
 	for _, item := range data {
 		for _, rg := range item.Regex {
 			regex, err := regexp.Compile(rg)
@@ -116,13 +114,7 @@ func loadCustomFields(filePath string, fields string) error {
 		if item.Part == "" {
 			item.Part = Response.ToString()
 		}
-		allCustomFields[item.Name] = item
-	}
-	// Set the passed custom field value globally
-	for _, f := range stringsutil.SplitAny(fields, ",") {
-		if val, ok := allCustomFields[f]; ok {
-			CustomFieldsMap[f] = val
-		}
+		CustomFieldsMap[item.Name] = item
 	}
 	return nil
 }
