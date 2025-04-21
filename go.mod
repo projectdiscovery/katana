@@ -15,7 +15,7 @@ require (
 	github.com/projectdiscovery/fastdialer v0.4.0
 	github.com/projectdiscovery/goflags v0.1.74
 	github.com/projectdiscovery/gologger v1.1.53
-	github.com/projectdiscovery/hmap v0.0.86
+	github.com/projectdiscovery/hmap v0.0.87
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.78
 	github.com/projectdiscovery/retryablehttp-go v1.0.107
