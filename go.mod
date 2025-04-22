@@ -1,6 +1,7 @@
 module github.com/projectdiscovery/katana
 
-go 1.21
+go 1.22.2
+
 toolchain go1.24.1
 
 require (
