@@ -2,7 +2,7 @@ module github.com/projectdiscovery/katana
 
 go 1.22.2
 
-toolchain go1.24.1
+toolchain go1.24.2
 
 require (
 	github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06
@@ -20,9 +20,9 @@ require (
 	github.com/projectdiscovery/hmap v0.0.87
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.79
-	github.com/projectdiscovery/retryablehttp-go v1.0.107
+	github.com/projectdiscovery/retryablehttp-go v1.0.109
 	github.com/projectdiscovery/utils v0.4.18
-	github.com/projectdiscovery/wappalyzergo v0.2.24
+	github.com/projectdiscovery/wappalyzergo v0.2.25
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stretchr/testify v1.10.0
