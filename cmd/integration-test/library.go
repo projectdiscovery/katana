@@ -36,12 +36,20 @@ func (h *goIntegrationTest) Execute() error {
 	if err != nil {
 		return err
 	}
-	defer crawlerOptions.Close()
+	defer func() {
+		if err := crawlerOptions.Close(); err != nil {
+			fmt.Printf("Error closing crawler options: %v\n", err)
+		}
+	}()
 	crawler, err := standard.New(crawlerOptions)
 	if err != nil {
 		return err
 	}
-	defer crawler.Close()
+	defer func() {
+		if err := crawler.Close(); err != nil {
+			fmt.Printf("Error closing crawler: %v\n", err)
+		}
+	}()
 	var input = "https://public-firing-range.appspot.com"
 	err = crawler.Crawl(input)
 	if err != nil {

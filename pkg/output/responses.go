@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -36,7 +38,7 @@ func getResponseHost(URL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.Host, nil
+	return filepath.Clean(strings.ReplaceAll(u.Host, ":", "_")), nil
 }
 
 func createHostDir(storeResponseFolder, domain string) string {
@@ -70,7 +72,11 @@ func updateIndex(storeResponseFolder string, result *Result) error {
 		return err
 	}
 
-	defer index.Close()
+	defer func() {
+		if err := index.Close(); err != nil {
+			gologger.Error().Msgf("Error closing index: %v\n", err)
+		}
+	}()
 
 	builder := &bytes.Buffer{}
 
