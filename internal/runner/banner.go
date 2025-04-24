@@ -12,7 +12,7 @@ var banner = (`
 /_/\_\\_,_/\__/\_,_/_//_/\_,_/							 
 `)
 
-var version = "v1.1.2"
+var version = "v1.1.3"
 
 // showBanner is used to show the banner to the user
 func showBanner() {

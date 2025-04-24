@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/html"
 )
@@ -554,7 +555,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		// Guess content-type
 		var contentType string
 		if multipartWriter != nil {
-			multipartWriter.Close()
+			_ = multipartWriter.Close()
 			contentType = multipartWriter.FormDataContentType()
 		} else {
 			contentType = encType
@@ -665,7 +666,7 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	// Only process javascript file based on path or content type
 	// CSS, JS are supported for relative endpoint extraction.
 	contentType := resp.Resp.Header.Get("Content-Type")
-	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
+	if !stringsutil.HasSuffixAny(resp.Resp.Request.URL.Path, ".js", ".css") && !strings.Contains(contentType, "/javascript") {
 		return
 	}
 

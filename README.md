@@ -40,7 +40,7 @@
 
 ## Installation
 
-katana requires **Go 1.18** to install successfully. To install, just run the below command or download pre-compiled binary from [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.21+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -503,7 +503,7 @@ katana -u https://tesla.com -aff
 
 ## Authenticated Crawling
 
-Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perfrom authenticated crawling.
+Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perform authenticated crawling.
 
 > **Note**: User needs to be manually perform the authentication and export the session cookie / header to file to use with katana.
 
@@ -665,7 +665,7 @@ When defining custom fields, following attributes are supported:
 
 - **type** (required)
 
-> The type of custom attribute, currenly supported option - `regex` 
+> The type of custom attribute, currently supported option - `regex` 
 
 - **part** (optional)
 

@@ -36,7 +36,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
-	defer page.Close()
+	defer func() {
+		if err := page.Close(); err != nil {
+			gologger.Error().Msgf("Error closing page: %v\n", err)
+		}
+	}()
 	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
@@ -184,14 +188,17 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	waitNavigation()
 
-	// Wait for the window.onload event
-	if err := page.WaitLoad(); err != nil {
-		gologger.Warning().Msgf("\"%s\" on wait load: %s\n", request.URL, err)
+	// Wait the page to be stable a duration
+	timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
+
+	if timeout < timeStable {
+		gologger.Warning().Msgf("timeout is less than time stable, setting time stable to half of timeout to avoid timeout\n")
+		timeStable = timeout / 2
+		gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
 	}
 
-	// wait for idle the network requests
-	if err := page.WaitIdle(timeout); err != nil {
-		gologger.Warning().Msgf("\"%s\" on wait idle: %s\n", request.URL, err)
+	if err := page.WaitStable(timeStable); err != nil {
+		gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
 	}
 
 	var getDocumentDepth = int(-1)
