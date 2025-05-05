@@ -2,11 +2,11 @@ package types
 
 import (
 	"context"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"regexp"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
