@@ -6,11 +6,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-
+	"slices"
 	"strings"
 	"time"
-
-	"slices"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
