@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"slices"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -134,18 +136,28 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			requestHeaders[name] = []string{value.Str()}
 		}
 
-		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
-			xhr := navigation.Request{
+		shouldCapture := func(xhrExtraction bool) bool {
+			resourceTypes := []proto.NetworkResourceType{
+				proto.NetworkResourceTypeXHR,
+				proto.NetworkResourceTypeFetch,
+				proto.NetworkResourceTypeScript,
+			}
+
+			return xhrExtraction && slices.Contains(resourceTypes, e.ResourceType)
+		}
+
+		if shouldCapture(c.Options.Options.XhrExtraction) {
+			networkReq := navigation.Request{
 				URL:    httpreq.URL.String(),
 				Method: httpreq.Method,
 				Body:   e.Request.PostData,
 			}
 			if len(httpreq.Header) > 0 {
-				xhr.Headers = utils.FlattenHeaders(httpreq.Header)
+				networkReq.Headers = utils.FlattenHeaders(httpreq.Header)
 			} else {
-				xhr.Headers = utils.FlattenHeaders(requestHeaders)
+				networkReq.Headers = utils.FlattenHeaders(requestHeaders)
 			}
-			xhrRequests = append(xhrRequests, xhr)
+			xhrRequests = append(xhrRequests, networkReq)
 		}
 
 		// trim trailing /
