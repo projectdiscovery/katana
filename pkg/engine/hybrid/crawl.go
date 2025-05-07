@@ -15,7 +15,6 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
@@ -167,7 +166,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		// process the raw response
-		navigationRequests := parser.ParseResponse(resp)
+		navigationRequests := c.Options.Parser.ParseResponse(resp)
 		c.Enqueue(s.Queue, navigationRequests...)
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -241,7 +240,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		navigationRequests := parser.ParseResponse(&responseCopy)
+		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
 		c.Enqueue(s.Queue, navigationRequests...)
 	}
 

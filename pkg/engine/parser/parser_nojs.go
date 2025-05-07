@@ -2,18 +2,23 @@
 
 package parser
 
-import "github.com/projectdiscovery/katana/pkg/types"
+type Options struct {
+	AutomaticFormFill      bool
+	ScrapeJSLuiceResponses bool
+	ScrapeJSResponses      bool
+	DisableRedirects       bool
+}
 
-func InitWithOptions(options *types.Options) {
+func (p *Parser) InitWithOptions(options *Options) {
 	if options.AutomaticFormFill {
-		responseParsers = append(responseParsers, responseParser{bodyParser, bodyFormTagParser})
+		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
 	}
 	if options.ScrapeJSResponses {
-		responseParsers = append(responseParsers, responseParser{bodyParser, scriptContentRegexParser})
-		responseParsers = append(responseParsers, responseParser{contentParser, scriptJSFileRegexParser})
-		responseParsers = append(responseParsers, responseParser{contentParser, bodyScrapeEndpointsParser})
+		*p = append(*p, responseParser{bodyParser, scriptContentRegexParser})
+		*p = append(*p, responseParser{contentParser, scriptJSFileRegexParser})
+		*p = append(*p, responseParser{contentParser, bodyScrapeEndpointsParser})
 	}
 	if !options.DisableRedirects {
-		responseParsers = append(responseParsers, responseParser{headerParser, headerLocationParser})
+		*p = append(*p, responseParser{headerParser, headerLocationParser})
 	}
 }
