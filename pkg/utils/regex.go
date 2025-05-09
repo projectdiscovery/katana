@@ -7,10 +7,10 @@ import (
 var (
 	BodyA0 = `(?:`
 	BodyB0 = `(`
-	BodyC0 = `(?:\.\./[A-Za-z0-9\-_/\\?&@.=%]+)`
-	BodyC1 = `|(https?://[A-Za-z0-9_\-.]+(?:\.\./)?/[A-Za-z0-9\-_/\\?&@.=%]+)`
-	BodyC2 = `|(/[A-Za-z0-9\-_/\\?&@.%]+\.(aspx?|action|cfm|cgi|do|pl|css|x?html?|js(?:p|on)?|pdf|php5?|py|rss))`
-	BodyC3 = `|([A-Za-z0-9\-_?&@.%]+/[A-Za-z0-9/\\\-_?&@.%]+\.(aspx?|action|cfm|cgi|do|pl|css|x?html?|js(?:p|on)?|pdf|php5?|py|rss))`
+	BodyC0 = `(?:[\.]{1,2}/[A-Za-z0-9\-_/\\?&@\.?=%]+)`
+	BodyC1 = `|(https?://[A-Za-z0-9_\-\.]+([\.]{0,2})?\/[A-Za-z0-9\-_/\\?&@\.?=%]+)`
+	BodyC2 = `|(/[A-Za-z0-9\-_/\\?&@\.%]+\.(aspx?|action|cfm|cgi|do|pl|css|x?html?|js(p|on)?|pdf|php5?|py|rss))`
+	BodyC3 = `|([A-Za-z0-9\-_?&@\.%]+/[A-Za-z0-9/\\\-_?&@\.%]+\.(aspx?|action|cfm|cgi|do|pl|css|x?html?|js(p|on)?|pdf|php5?|py|rss))`
 	BodyB1 = `)`
 	BodyA1 = `)`
 	// pageBodyRegex extracts endpoints from page body
@@ -18,10 +18,10 @@ var (
 
 	JsA0 = `(?:"|'|\s)`
 	JsB0 = `(`
-	JsC0 = `((https?://[A-Za-z0-9_\-.]+(?:\:\d{1,5})?)+(?:\.\./)?/[A-Za-z0-9/\-_\\.%]+(?:[\?|#][^"']+)?)`
-	JsC1 = `|((?:\.\./)?[a-zA-Z0-9\-_/\\%]+\.(aspx?|js(?:on|p)?|html|php5?|action|do)(?:[\?|#][^"']+)?)`
-	JsC2 = `|((?:\.\./)[a-zA-Z0-9\-_/\\%]+(?:/|\\)[a-zA-Z0-9\-_]{3,}(?:[\?|#][^"']+)?)`
-	JsC3 = `|((?:\.\./)[a-zA-Z0-9\-_/\\%]{3,}/)`
+	JsC0 = `((https?://[A-Za-z0-9_\-.]+(?:\:\d{1,5})?)+([\.]{1,2})?/[A-Za-z0-9/\-_\\.%]+(?:[\?|#][^"']+)?)`
+	JsC1 = `|((\.{1,2}/)?[a-zA-Z0-9\-_/\\%]+\.(aspx?|js(?:on|p)?|html|php5?|action|do)(?:[\?|#][^"']+)?)`
+	JsC2 = `|((\.{0,2}/)[a-zA-Z0-9\-_/\\%]+(?:/|\\)[a-zA-Z0-9\-_]{3,}(?:[\?|#][^"']+)?)`
+	JsC3 = `|((\.{0,2})[a-zA-Z0-9\-_/\\%]{3,}/)`
 	JsB1 = `)`
 	JsA1 = `(?:"|'|\s)`
 	// relativeEndpointsRegex is the regex to find endpoints in js files.
