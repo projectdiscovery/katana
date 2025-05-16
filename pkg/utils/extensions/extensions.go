@@ -25,13 +25,19 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 	}
 
 	for _, extension := range extensionsMatch {
-		validator.extensionsMatch[normalizeExtension(extension)] = struct{}{}
+		normalized := normalizeExtension(extension)
+		validator.extensionsMatch[normalized] = struct{}{}
+		gologger.Debug().Msgf("Added match extension: %s -> %s", extension, normalized)
 	}
 	for _, item := range defaultDenylist {
-		validator.extensionsFilter[normalizeExtension(item)] = struct{}{}
+		normalized := normalizeExtension(item)
+		validator.extensionsFilter[normalized] = struct{}{}
+		gologger.Debug().Msgf("Added default deny extension: %s -> %s", item, normalized)
 	}
 	for _, extension := range extensionsFilter {
-		validator.extensionsFilter[normalizeExtension(extension)] = struct{}{}
+		normalized := normalizeExtension(extension)
+		validator.extensionsFilter[normalized] = struct{}{}
+		gologger.Debug().Msgf("Added filter extension: %s -> %s", extension, normalized)
 	}
 	return validator
 }
@@ -67,51 +73,64 @@ func (e *Validator) ExactMatch(item string) bool {
 
 // ValidatePath returns true if an extension is allowed by the validator
 func (e *Validator) ValidatePath(item string) bool {
+	// Handle local paths directly if they don't look like URLs
+	if !strings.Contains(item, "://") {
+		cleanPath := strings.TrimRight(item, "/")
+		extension := normalizeExtension(path.Ext(cleanPath))
+
+		// No extension case
+		if extension == "" {
+			return true
+		}
+
+		// Check extension matches first - if an extension is in the match list, always allow it
+		if len(e.extensionsMatch) > 0 {
+			if _, ok := e.extensionsMatch[extension]; ok {
+				return true
+			}
+			return true // allow non-matching extensions for crawling
+		}
+
+		// If no extension matches defined, check deny list
+		if _, ok := e.extensionsFilter[extension]; ok {
+			gologger.Debug().Msgf("Extension %s found in deny list", extension)
+			return false
+		}
+
+		// Allow anything not in deny list when no matches are defined
+		return true
+	}
+
+	// Handle URLs
 	u, err := urlutil.Parse(item)
 	if err != nil {
 		gologger.Warning().Msgf("validatepath: failed to parse url %v got %v", item, err)
 		return false
 	}
 
-	// Clean the path by trimming trailing slashes
-	cleanPath := strings.TrimRight(u.Path, "/")
-
 	// Always allow root domains and directory paths
-	if cleanPath == "" || strings.HasSuffix(u.Path, "/") {
+	if u.Path == "" || strings.HasSuffix(u.Path, "/") {
 		return true
 	}
 
-	// Get the extension from the clean path
-	extension := strings.ToLower(path.Ext(cleanPath))
-
-	// If we have extension matches defined
+	// For URLs, allow everything except if there are specific extension matches
 	if len(e.extensionsMatch) > 0 {
-		// Always allow paths without extensions for crawling
+		extension := normalizeExtension(path.Ext(u.Path))
 		if extension == "" {
-			return true
+			return true // allow paths without extensions
 		}
-		// Check if the extension matches
+		// Only check for matches, ignore deny list for URLs
 		if _, ok := e.extensionsMatch[extension]; ok {
 			return true
 		}
-		// For URLs, allow non-matching extensions for crawling
-		if u.Host != "" {
-			return true
-		}
-		return false
-	}
-
-	// Otherwise use the extension filter list
-	if _, ok := e.extensionsFilter[extension]; ok {
-		return false
+		return true // allow non-matching extensions for crawling
 	}
 	return true
 }
 
 func normalizeExtension(extension string) string {
+	// Make sure we have a clean extension with exactly one leading dot
 	extension = strings.ToLower(extension)
-	if strings.HasPrefix(extension, ".") {
-		return extension
-	}
+	extension = strings.TrimLeft(extension, ".")
 	return "." + extension
 }

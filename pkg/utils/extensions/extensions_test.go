@@ -12,10 +12,13 @@ func TestValidatorValidate(t *testing.T) {
 	require.True(t, validator.ValidatePath("main.go"), "should allow files with matching extension")
 	require.True(t, validator.ValidatePath("main.php"), "should allow files with non-matching extension for crawling")
 
-	// Test deny list
-	validator = NewValidator(nil, []string{".php"})
-	// require.False(t, validator.ValidatePath("main.php"), "should not allow denied extensions")
-	require.True(t, validator.ValidatePath("main.go"), "should allow non-denied extensions")
+	// Test deny list - should block unwanted file types
+	validator = NewValidator(nil, []string{".jpg", ".png", ".pdf"})
+	require.False(t, validator.ValidatePath("image.jpg"), "should block denied media extensions")
+	require.False(t, validator.ValidatePath("doc.pdf"), "should block denied document extensions")
+	require.True(t, validator.ValidatePath("script.php"), "should allow non-denied extensions")
+	// URLs with denied extensions should still be allowed for crawling
+	require.True(t, validator.ValidatePath("https://example.com/image.jpg"), "should allow URLs with denied extensions for crawling")
 
 	// Test default denylist bypass with extension matching
 	validator = NewValidator([]string{"png"}, nil)
