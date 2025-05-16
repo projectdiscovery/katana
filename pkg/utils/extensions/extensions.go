@@ -36,21 +36,60 @@ func NewValidator(extensionsMatch, extensionsFilter []string) *Validator {
 	return validator
 }
 
-// ValidatePath returns true if an extension is allowed by the validator
-func (e *Validator) ValidatePath(item string) bool {
+// ExactMatch returns true if a path matches the extension match list exactly
+func (e *Validator) ExactMatch(item string) bool {
+	if len(e.extensionsMatch) == 0 {
+		return true
+	}
+
 	var extension string
 	u, err := urlutil.Parse(item)
 	if err != nil {
-		gologger.Warning().Msgf("validatepath: failed to parse url %v got %v", item, err)
-	}
-	if u.Path != "" {
-		extension = strings.ToLower(path.Ext(u.Path))
-	} else {
-		extension = strings.ToLower(path.Ext(item))
-	}
-	if extension == "" && len(e.extensionsMatch) > 0 {
+		gologger.Warning().Msgf("exactmatch: failed to parse url %v got %v", item, err)
 		return false
 	}
+
+	cleanPath := strings.TrimRight(u.Path, "/")
+	if cleanPath != "" {
+		extension = strings.ToLower(path.Ext(cleanPath))
+	} else {
+		extension = strings.ToLower(path.Ext(strings.TrimRight(item, "/")))
+	}
+
+	// Only match if there's an extension and it's in our match list
+	if extension != "" {
+		if _, ok := e.extensionsMatch[extension]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidatePath returns true if an extension is allowed by the validator
+func (e *Validator) ValidatePath(item string) bool {
+	u, err := urlutil.Parse(item)
+	if err != nil {
+		gologger.Warning().Msgf("validatepath: failed to parse url %v got %v", item, err)
+		return false
+	}
+
+	// Clean the path by trimming trailing slashes
+	cleanPath := strings.TrimRight(u.Path, "/")
+
+	// Always allow root domains and directory paths
+	if cleanPath == "" || strings.HasSuffix(u.Path, "/") {
+		return true
+	}
+
+	// Get the extension from the clean path
+	extension := strings.ToLower(path.Ext(cleanPath))
+
+	// Handle paths without extensions
+	if extension == "" {
+		return len(e.extensionsMatch) == 0 // Allow if no extension matching is enabled
+	}
+
+	// If we have extension matches defined, only allow those extensions
 	if len(e.extensionsMatch) > 0 {
 		if _, ok := e.extensionsMatch[extension]; ok {
 			return true
@@ -58,6 +97,7 @@ func (e *Validator) ValidatePath(item string) bool {
 		return false
 	}
 
+	// Otherwise use the extension filter list
 	if _, ok := e.extensionsFilter[extension]; ok {
 		return false
 	}
