@@ -84,14 +84,18 @@ func (e *Validator) ValidatePath(item string) bool {
 	// Get the extension from the clean path
 	extension := strings.ToLower(path.Ext(cleanPath))
 
-	// Handle paths without extensions
-	if extension == "" {
-		return len(e.extensionsMatch) == 0 // Allow if no extension matching is enabled
-	}
-
-	// If we have extension matches defined, only allow those extensions
+	// If we have extension matches defined
 	if len(e.extensionsMatch) > 0 {
+		// Always allow paths without extensions for crawling
+		if extension == "" {
+			return true
+		}
+		// Check if the extension matches
 		if _, ok := e.extensionsMatch[extension]; ok {
+			return true
+		}
+		// For URLs, allow non-matching extensions for crawling
+		if u.Host != "" {
 			return true
 		}
 		return false
