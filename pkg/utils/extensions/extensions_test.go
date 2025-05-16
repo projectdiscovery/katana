@@ -58,7 +58,6 @@ func TestValidatorExactMatch(t *testing.T) {
 	require.False(t, validator.ExactMatch("https://example.com/"), "should not match root domain with slash")
 	require.False(t, validator.ExactMatch("https://example.com/js/"), "should not match directory")
 	require.False(t, validator.ExactMatch("https://example.com/page.html"), "should not match non-js file")
-	// require.False(t, validator.ExactMatch("https://example.com/js/script.js/"), "should not match file with trailing slash")
 
 	// Test with no extensions specified
 	validator = NewValidator(nil, nil)
