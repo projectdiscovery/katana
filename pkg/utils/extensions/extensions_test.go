@@ -20,15 +20,15 @@ func TestValidatorValidate(t *testing.T) {
 
 	// Test domain without extension
 	validator = NewValidator([]string{".php"}, nil)
-	require.True(t, validator.ValidatePath("https://browserstack.com"), "should allow root domain even with extension matching")
+	require.True(t, validator.ValidatePath("https://example.com"), "should allow root domain even with extension matching")
 
 	// Test URL with query parameters
-	require.False(t, validator.ValidatePath("https://browserstack.com/page.php?id=1"), "should not validate URL with non-matching extension")
-	require.True(t, validator.ValidatePath("https://browserstack.com/page.php/?id=1"), "should allow directory paths even with extension")
+	require.False(t, validator.ValidatePath("https://example.com/page.php?id=1"), "should not validate URL with non-matching extension")
+	require.True(t, validator.ValidatePath("https://example.com/page.php/?id=1"), "should allow directory paths even with extension")
 
 	// Test URL with path but no extension
 	validator = NewValidator([]string{".html"}, nil)
-	require.False(t, validator.ValidatePath("https://browserstack.com/api/v1"), "should not match path without extension when extension list is specified")
+	require.False(t, validator.ValidatePath("https://example.com/api/v1"), "should not match path without extension when extension list is specified")
 
 	// Test root domain with extension matching
 	validator = NewValidator([]string{".js"}, nil)
