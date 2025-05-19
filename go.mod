@@ -21,7 +21,7 @@ require (
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.79
 	github.com/projectdiscovery/retryablehttp-go v1.0.109
-	github.com/projectdiscovery/utils v0.4.18
+	github.com/projectdiscovery/utils v0.4.19
 	github.com/projectdiscovery/wappalyzergo v0.2.25
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -137,7 +137,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/projectdiscovery/networkpolicy v0.1.12
-	github.com/projectdiscovery/retryabledns v1.0.98 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.100 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
