@@ -108,10 +108,11 @@ func (c *Crawler) Close() error {
 // Crawl crawls a URL with the specified options
 func (c *Crawler) Crawl(rootURL string) error {
 	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
-	crawlSession.Browser = c.browser
 	if err != nil {
 		return errorutil.NewWithErr(err).WithTag("hybrid")
 	}
+	crawlSession.Browser = c.browser
+
 	defer crawlSession.CancelFunc()
 
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
