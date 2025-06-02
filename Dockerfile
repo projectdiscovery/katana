@@ -5,7 +5,7 @@ COPY . /app
 RUN go mod download
 RUN go build ./cmd/katana
 
-FROM alpine:3.21.3
+FROM alpine:3.22.0
 RUN apk add --no-cache bind-tools ca-certificates chromium
 COPY --from=build-env /app/katana /usr/local/bin/
 
