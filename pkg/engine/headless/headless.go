@@ -11,11 +11,14 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 type Headless struct {
 	logger  *slog.Logger
 	options *types.CrawlerOptions
+
+	deduplicator *mapsutil.SyncLockMap[string, struct{}]
 }
 
 // New returns a new headless crawler instance
@@ -25,6 +28,8 @@ func New(options *types.CrawlerOptions) (*Headless, error) {
 	return &Headless{
 		logger:  logger,
 		options: options,
+
+		deduplicator: mapsutil.NewSyncLockMap[string, struct{}](),
 	}, nil
 }
 
@@ -78,6 +83,7 @@ func (h *Headless) Crawl(URL string) error {
 		MaxDepth:         h.options.Options.MaxDepth,
 		ShowBrowser:      h.options.Options.ShowBrowser,
 		MaxCrawlDuration: h.options.Options.CrawlDuration,
+		MaxFailureCount:  h.options.Options.MaxFailureCount,
 		MaxBrowsers:      1,
 		PageMaxTimeout:   30 * time.Second,
 		ScopeValidator:   scopeValidator,
@@ -85,10 +91,20 @@ func (h *Headless) Crawl(URL string) error {
 			if !scopeValidator(rr.Request.URL) {
 				return
 			}
+			// navigationRequests := h.performJavascriptAnalysis(rr)
+			// for _, req := range navigationRequests {
+			// 	h.options.OutputWriter.Write(req)
+			// }
+
+			rr.Response.Raw = ""
+			rr.Response.Body = ""
 			h.options.OutputWriter.Write(rr)
 		},
-		Logger:     h.logger,
-		ChromeUser: h.options.ChromeUser,
+		Logger:              h.logger,
+		ChromeUser:          h.options.ChromeUser,
+		EnableDiagnostics:   h.options.Options.EnableDiagnostics,
+		Trace:               h.options.Options.EnableDiagnostics,
+		CookieConsentBypass: true,
 	}
 	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
 
@@ -107,3 +123,42 @@ func (h *Headless) Crawl(URL string) error {
 func (h *Headless) Close() error {
 	return nil
 }
+
+// // Integrate JS analysis and other stuff here only in request callback
+// func (h *Headless) performJavascriptAnalysis(rr *output.Result) []*output.Result {
+// 	parsedURL, err := url.Parse(rr.Request.URL)
+// 	if err != nil {
+// 		return nil
+// 	}
+
+// 	contentType := rr.Response.Headers["Content-Type"]
+// 	if !(strings.HasSuffix(parsedURL.Path, ".js") || strings.HasSuffix(parsedURL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
+// 		return nil
+// 	}
+// 	if utils.IsPathCommonJSLibraryFile(parsedURL.Path) {
+// 		return nil
+// 	}
+
+// 	endpointsItems := utils.ExtractJsluiceEndpoints(string(rr.Response.Body))
+// 	newResp := &navigation.Response{
+// 		Resp: &http.Response{
+// 			Request: &http.Request{
+// 				URL: parsedURL,
+// 			},
+// 		},
+// 	}
+
+// 	navigationRequests := make([]*output.Result, 0)
+// 	for _, item := range endpointsItems {
+// 		resp := navigation.NewNavigationRequestURLFromResponse(item.Endpoint, rr.Request.URL, "js", fmt.Sprintf("jsluice-%s", item.Type), newResp)
+// 		if _, ok := h.deduplicator.Get(resp.URL); ok {
+// 			continue
+// 		}
+// 		h.deduplicator.Set(resp.URL, struct{}{})
+
+// 		navigationRequests = append(navigationRequests, &output.Result{
+// 			Request: resp,
+// 		})
+// 	}
+// 	return navigationRequests
+// }

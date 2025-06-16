@@ -21,6 +21,8 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	rodutils "github.com/go-rod/rod/lib/utils"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/js"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -39,13 +41,15 @@ type Launcher struct {
 
 // LauncherOptions contains options for the launcher
 type LauncherOptions struct {
-	ChromiumPath   string
-	MaxBrowsers    int
-	PageMaxTimeout time.Duration
-	ShowBrowser    bool
-	Proxy          string
-	SlowMotion     bool
-	ChromeUser     *user.User // optional chrome user to use
+	ChromiumPath        string
+	MaxBrowsers         int
+	PageMaxTimeout      time.Duration
+	ShowBrowser         bool
+	Proxy               string
+	SlowMotion          bool
+	Trace               bool
+	CookieConsentBypass bool
+	ChromeUser          *user.User // optional chrome user to use
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
@@ -123,6 +127,9 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 
 	browser := rod.New().
 		ControlURL(launcherURL)
+	if l.opts.Trace {
+		browser = browser.Trace(true)
+	}
 
 	if l.opts.SlowMotion {
 		browser = browser.SlowMotion(1 * time.Second)
@@ -156,7 +163,7 @@ type BrowserPage struct {
 
 // WaitPageLoadHeurisitics waits for the page to load using heuristics
 func (b *BrowserPage) WaitPageLoadHeurisitics() error {
-	chainedTimeout := b.Timeout(30 * time.Second)
+	chainedTimeout := b.Timeout(15 * time.Second)
 
 	_ = chainedTimeout.WaitLoad()
 	_ = chainedTimeout.WaitIdle(1 * time.Second)
@@ -193,8 +200,8 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		return nil, errors.Wrap(err, "could not create new page")
 	}
 	page = page.Sleeper(func() rodutils.Sleeper {
-		return backoffCountSleeper(100*time.Millisecond, 1*time.Second, 4, func(d time.Duration) time.Duration {
-			return d + (d / 2) // This avoids the float conversion issue
+		return backoffCountSleeper(100*time.Millisecond, 1*time.Second, 3, func(d time.Duration) time.Duration {
+			return d * 1
 		})
 	})
 	ctx := page.GetContext()
@@ -209,6 +216,11 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	}
 	browserPage.handlePageDialogBoxes()
 
+	// Add stealth evasion JS
+	_, err = page.EvalOnNewDocument(stealth.JS)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not initialize stealth")
+	}
 	err = js.InitJavascriptEnv(page)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize javascript env")
@@ -258,6 +270,21 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 		},
 
 		func(e *proto.FetchRequestPaused) {
+			if b.launcher.opts.CookieConsentBypass {
+				// Check if request should be blocked by cookie consent rules
+				var originStr string
+				if origin, ok := e.Request.Headers["Origin"]; ok {
+					originStr = origin.Str()
+				}
+				if cookie.ShouldBlockRequest(e.Request.URL, e.ResourceType, originStr) {
+					_ = proto.FetchFailRequest{
+						RequestID:   e.RequestID,
+						ErrorReason: proto.NetworkErrorReasonBlockedByClient,
+					}.Call(b.Page)
+					return
+				}
+			}
+
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || *e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308 {
 				fetchContinueRequest(b.Page, e)
 				return

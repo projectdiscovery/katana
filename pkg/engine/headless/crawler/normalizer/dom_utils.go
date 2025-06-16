@@ -21,8 +21,10 @@ var DefaultDOMTransformations = []string{
 
 // NoChildrenDomTransformations removes all elements with no children
 var NoChildrenDomTransformations = []string{
-	"div",  // remove divs with no children
-	"span", // remove spans with no children
+	"div",    // remove divs with no children
+	"span",   // remove spans with no children
+	"form",   // remove forms with no children
+	"iframe", // remove iframes
 }
 
 // DOMNormalizer is a normalizer for DOM content

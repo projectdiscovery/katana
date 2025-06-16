@@ -3,7 +3,9 @@ package crawler
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"os/user"
+	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/go-rod/rod/lib/utils"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/graph"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
@@ -27,16 +30,26 @@ type Crawler struct {
 	crawlQueue    queue.Queue[*types.Action]
 	crawlGraph    *graph.CrawlGraph
 	uniqueActions map[string]struct{}
+	diagnostics   diagnostics.Writer
 }
 
 type Options struct {
-	ChromiumPath     string
-	MaxBrowsers      int
-	MaxDepth         int
-	PageMaxTimeout   time.Duration
-	ShowBrowser      bool
-	SlowMotion       bool
-	MaxCrawlDuration time.Duration
+	ChromiumPath        string
+	MaxBrowsers         int
+	MaxDepth            int
+	PageMaxTimeout      time.Duration
+	ShowBrowser         bool
+	SlowMotion          bool
+	MaxCrawlDuration    time.Duration
+	MaxFailureCount     int
+	Trace               bool
+	CookieConsentBypass bool
+
+	// EnableDiagnostics enables the diagnostics mode
+	// which writes diagnostic information to a directory
+	// specified by the DiagnosticsDir optionally.
+	EnableDiagnostics bool
+	DiagnosticsDir    string
 
 	Logger          *slog.Logger
 	ScopeValidator  browser.ScopeValidator
@@ -59,17 +72,35 @@ func init() {
 
 func New(opts Options) (*Crawler, error) {
 	launcher, err := browser.NewLauncher(browser.LauncherOptions{
-		ChromiumPath:    opts.ChromiumPath,
-		MaxBrowsers:     opts.MaxBrowsers,
-		PageMaxTimeout:  opts.PageMaxTimeout,
-		ShowBrowser:     opts.ShowBrowser,
-		RequestCallback: opts.RequestCallback,
-		SlowMotion:      opts.SlowMotion,
-		ScopeValidator:  opts.ScopeValidator,
-		ChromeUser:      opts.ChromeUser,
+		ChromiumPath:        opts.ChromiumPath,
+		MaxBrowsers:         opts.MaxBrowsers,
+		PageMaxTimeout:      opts.PageMaxTimeout,
+		ShowBrowser:         opts.ShowBrowser,
+		RequestCallback:     opts.RequestCallback,
+		SlowMotion:          opts.SlowMotion,
+		ScopeValidator:      opts.ScopeValidator,
+		ChromeUser:          opts.ChromeUser,
+		Trace:               opts.Trace,
+		CookieConsentBypass: opts.CookieConsentBypass,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	var diagnosticsWriter diagnostics.Writer
+	if opts.EnableDiagnostics {
+		directory := opts.DiagnosticsDir
+		if directory == "" {
+			cwd, _ := os.Getwd()
+			directory = filepath.Join(cwd, fmt.Sprintf("katana-diagnostics-%s", time.Now().Format(time.RFC3339)))
+		}
+
+		writer, err := diagnostics.NewWriter(directory)
+		if err != nil {
+			return nil, err
+		}
+		diagnosticsWriter = writer
+		opts.Logger.Info("Diagnostics enabled", slog.String("directory", directory))
 	}
 
 	crawler := &Crawler{
@@ -77,12 +108,16 @@ func New(opts Options) (*Crawler, error) {
 		options:       opts,
 		logger:        opts.Logger,
 		uniqueActions: make(map[string]struct{}),
+		diagnostics:   diagnosticsWriter,
 	}
 	return crawler, nil
 }
 
 func (c *Crawler) Close() {
 	c.launcher.Close()
+	if c.diagnostics != nil {
+		c.diagnostics.Close()
+	}
 }
 
 func (c *Crawler) Crawl(URL string) error {
@@ -114,12 +149,22 @@ func (c *Crawler) Crawl(URL string) error {
 		crawlTimeout = time.After(c.options.MaxCrawlDuration)
 	}
 
+	consecutiveFailures := 0
+
 	for {
 		select {
 		case <-crawlTimeout:
 			c.logger.Debug("Max crawl duration reached, stopping crawl")
 			return nil
 		default:
+			// Check for too many failures
+			if c.options.MaxFailureCount > 0 && consecutiveFailures >= c.options.MaxFailureCount {
+				c.logger.Warn("Too many consecutive failures, stopping crawl",
+					slog.Int("failures", consecutiveFailures),
+				)
+				return nil
+			}
+
 			action, err := crawlQueue.Get()
 			if err == queue.ErrNoElementsAvailable {
 				c.logger.Debug("No more actions to process")
@@ -143,8 +188,19 @@ func (c *Crawler) Crawl(URL string) error {
 			)
 
 			if err := c.crawlFn(action, page); err != nil {
+				consecutiveFailures++
 				if err == ErrNoCrawlingAction {
-					break
+					return nil
+				}
+				if errors.Is(err, ErrElementNotVisible) {
+					continue
+				}
+				if errors.Is(err, &rod.NoPointerEventsError{}) || errors.Is(err, &rod.InvisibleShapeError{}) {
+					c.logger.Debug("Skipping action as it is not visible",
+						slog.String("action", action.String()),
+						slog.String("error", err.Error()),
+					)
+					continue
 				}
 				if errors.Is(err, &rod.NavigationError{}) {
 					c.logger.Debug("Skipping action as navigation failed",
@@ -167,6 +223,9 @@ func (c *Crawler) Crawl(URL string) error {
 				)
 				return err
 			}
+
+			// Reset consecutive failures on success
+			consecutiveFailures = 0
 		}
 	}
 }
@@ -178,7 +237,7 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 		c.launcher.PutBrowserToPool(page)
 	}()
 
-	currentPageHash, err := getPageHash(page)
+	currentPageHash, _, err := getPageHash(page)
 	if err != nil {
 		return err
 	}
@@ -196,6 +255,11 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 	// proceed with actions if the scope is allowed
 
 	// Check the action and do actions based on action type
+	if c.diagnostics != nil {
+		if err := c.diagnostics.LogAction(action); err != nil {
+			return err
+		}
+	}
 	if err := c.executeCrawlStateAction(action, page); err != nil {
 		return err
 	}
@@ -203,6 +267,11 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 	pageState, err := newPageState(page, action)
 	if err != nil {
 		return err
+	}
+	if c.diagnostics != nil {
+		if err := c.diagnostics.LogPageState(pageState, diagnostics.PostActionPageState); err != nil {
+			return err
+		}
 	}
 	pageState.OriginID = currentPageHash
 
@@ -233,6 +302,7 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 			return err
 		}
 	}
+
 	err = c.crawlGraph.AddPageState(*pageState)
 	if err != nil {
 		return err
@@ -246,6 +316,8 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 	}
 	return nil
 }
+
+var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
 	var err error
@@ -266,20 +338,17 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		if err != nil {
 			return err
 		}
+		if err := element.ScrollIntoView(); err != nil {
+			return err
+		}
 		visible, err := element.Visible()
 		if err != nil {
 			return err
 		}
 		if !visible {
-			c.logger.Debug("Skipping click on element as it is not visible",
-				slog.String("element", action.Element.XPath),
-			)
-			return nil
+			return ErrElementNotVisible
 		}
 		if err := element.Click(proto.InputMouseButtonLeft, 1); err != nil {
-			if errors.Is(err, &rod.NoPointerEventsError{}) || errors.Is(err, &rod.InvisibleShapeError{}) {
-				return nil
-			}
 			return err
 		}
 		if err = page.WaitPageLoadHeurisitics(); err != nil {

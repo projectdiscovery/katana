@@ -17,28 +17,28 @@ var (
 // web application as determined by the crawler.
 // It represents the vertex of the crawl graph
 type PageState struct {
-	UniqueID    string `json:"unique_id"`
-	OriginID    string `json:"origin_id"`
-	URL         string `json:"url"`
-	Title       string `json:"title"`
-	DOM         string `json:"dom"`
-	StrippedDOM string `json:"stripped_dom"`
-	Depth       int    `json:"depth"`
-	IsRoot      bool   `json:"is_root"`
+	UniqueID    string `json:"unique_id,omitempty"`
+	OriginID    string `json:"origin_id,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Title       string `json:"title,omitempty"`
+	DOM         string `json:"dom,omitempty"`
+	StrippedDOM string `json:"stripped_dom,omitempty"`
+	Depth       int    `json:"depth,omitempty"`
+	IsRoot      bool   `json:"is_root,omitempty"`
 
 	// NavigationAction is actions taken to reach this state
-	NavigationAction *Action `json:"navigation_actions"`
+	NavigationAction *Action `json:"navigation_actions,omitempty"`
 }
 
 // Action is a action taken in the browser
 type Action struct {
-	OriginID string       `json:"origin_id"`
-	Type     ActionType   `json:"type"`
-	Input    string       `json:"input"`
-	Element  *HTMLElement `json:"element"`
-	Form     *HTMLForm    `json:"form"`
-	Depth    int          `json:"depth"`
-	ResultID string       `json:"result_id"`
+	OriginID string       `json:"origin_id,omitempty"`
+	Type     ActionType   `json:"type,omitempty"`
+	Input    string       `json:"input,omitempty"`
+	Element  *HTMLElement `json:"element,omitempty"`
+	Form     *HTMLForm    `json:"form,omitempty"`
+	Depth    int          `json:"depth,omitempty"`
+	ResultID string       `json:"result_id,omitempty"`
 }
 
 func (a *Action) Hash() string {
@@ -128,18 +128,18 @@ func ActionFromEventListener(listener *EventListener) *Action {
 
 // HTMLElement represents a DOM element
 type HTMLElement struct {
-	TagName     string            `json:"tagName"`
-	ID          string            `json:"id"`
-	Classes     string            `json:"classes"`
-	Attributes  map[string]string `json:"attributes"`
-	Hidden      bool              `json:"hidden"`
-	OuterHTML   string            `json:"outerHTML"`
-	Type        string            `json:"type"`
-	Value       string            `json:"value"`
-	CSSSelector string            `json:"cssSelector"`
-	XPath       string            `json:"xpath"`
-	TextContent string            `json:"textContent"`
-	MD5Hash     string            `json:"md5Hash"`
+	TagName     string            `json:"tagName,omitempty"`
+	ID          string            `json:"id,omitempty"`
+	Classes     string            `json:"classes,omitempty"`
+	Attributes  map[string]string `json:"attributes,omitempty"`
+	Hidden      bool              `json:"hidden,omitempty"`
+	OuterHTML   string            `json:"outerHTML,omitempty"`
+	Type        string            `json:"type,omitempty"`
+	Value       string            `json:"value,omitempty"`
+	CSSSelector string            `json:"cssSelector,omitempty"`
+	XPath       string            `json:"xpath,omitempty"`
+	TextContent string            `json:"textContent,omitempty"`
+	MD5Hash     string            `json:"md5Hash,omitempty"`
 }
 
 func (e *HTMLElement) String() string {
@@ -193,17 +193,17 @@ func (e *HTMLElement) Hash() string {
 
 // HTMLForm represents a form element
 type HTMLForm struct {
-	TagName     string            `json:"tagName"`
-	ID          string            `json:"id"`
-	Classes     string            `json:"classes"`
-	Attributes  map[string]string `json:"attributes"`
-	Hidden      bool              `json:"hidden"`
-	OuterHTML   string            `json:"outerHTML"`
-	Action      string            `json:"action"`
-	Method      string            `json:"method"`
-	Elements    []*HTMLElement    `json:"elements"`
-	CSSSelector string            `json:"cssSelector"`
-	XPath       string            `json:"xpath"`
+	TagName     string            `json:"tagName,omitempty"`
+	ID          string            `json:"id,omitempty"`
+	Classes     string            `json:"classes,omitempty"`
+	Attributes  map[string]string `json:"attributes,omitempty"`
+	Hidden      bool              `json:"hidden,omitempty"`
+	OuterHTML   string            `json:"outerHTML,omitempty"`
+	Action      string            `json:"action,omitempty"`
+	Method      string            `json:"method,omitempty"`
+	Elements    []*HTMLElement    `json:"elements,omitempty"`
+	CSSSelector string            `json:"cssSelector,omitempty"`
+	XPath       string            `json:"xpath,omitempty"`
 }
 
 func (f *HTMLForm) Hash() string {
@@ -266,9 +266,9 @@ func getStableAttributes(attrs map[string]string) []string {
 }
 
 type EventListener struct {
-	Element  *HTMLElement `json:"element"`
-	Type     string       `json:"type"`
-	Listener string       `json:"listener"`
+	Element  *HTMLElement `json:"element,omitempty"`
+	Type     string       `json:"type,omitempty"`
+	Listener string       `json:"listener,omitempty"`
 }
 
 // NavigationType represents the type of navigation
