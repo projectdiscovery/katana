@@ -21,7 +21,7 @@ builds:
       - arm
       
 archives:
-- format: zip
+- formats: zip
   name_template: '{{ .ProjectName }}_{{ .Version }}_{{ if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_{{ .Arch }}'
 
 checksum:

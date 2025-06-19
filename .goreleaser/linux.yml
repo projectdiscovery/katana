@@ -41,7 +41,7 @@ builds:
       - arm64
       
 archives:
-- format: zip
+- formats: zip
 
 checksum:
   name_template: "{{ .ProjectName }}-linux-checksums.txt"
