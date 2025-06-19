@@ -25,7 +25,7 @@ jobs:
       - name: release test
         uses: projectdiscovery/actions/goreleaser@v1
         with:
-          args: release --clean --snapshot --config=.goreleaser/mac.yml
+          args: --config=.goreleaser/mac.yml
           workdir: .
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -50,7 +50,7 @@ jobs:
       - name: release test
         uses: projectdiscovery/actions/goreleaser@v1
         with:
-          args: release --clean --snapshot  --config=.goreleaser/linux.yml
+          args: --config=.goreleaser/linux.yml
           workdir: .
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -71,7 +71,7 @@ jobs:
       - name: release test
         uses: projectdiscovery/actions/goreleaser@v1
         with:
-          args: release --clean --snapshot --config=.goreleaser/windows.yml
+          args: --config=.goreleaser/windows.yml
           workdir: .
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
