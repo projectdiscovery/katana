@@ -73,7 +73,7 @@ jobs:
       - name: release test
         uses: goreleaser/goreleaser-action@v4
         with:
-          args: release --clean --snapshot --config=.goreleaser/windows.yml"
+          args: release --clean --snapshot --config=.goreleaser/windows.yml
           version: latest
           workdir: .
         env:

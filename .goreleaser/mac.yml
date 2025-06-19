@@ -1,3 +1,5 @@
+version: 2
+
 env:
   - GO111MODULE=on
 before:
@@ -19,10 +21,10 @@ builds:
       - arm64
       - 386
       - arm
-      
+
 archives:
-- formats: zip
-  name_template: '{{ .ProjectName }}_{{ .Version }}_{{ if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_{{ .Arch }}'
+  - formats: zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_{{ .Arch }}'
 
 checksum:
   name_template: "{{ .ProjectName }}-mac-checksums.txt"
