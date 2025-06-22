@@ -18,9 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.21.x
+        uses: projectdiscovery/actions/setup/go@v1
 
       - name: release test
         uses: projectdiscovery/actions/goreleaser@v1
