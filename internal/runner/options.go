@@ -94,6 +94,10 @@ func (r *Runner) parseInputs() []string {
 			continue
 		}
 		value := normalizeInput(url)
+		if !utils.IsURL(value) {
+			gologger.Debug().Msgf("Skipping invalid URL: %s", value)
+			continue
+		}
 		if _, ok := values[value]; !ok {
 			values[value] = struct{}{}
 		}
@@ -102,6 +106,10 @@ func (r *Runner) parseInputs() []string {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			value := normalizeInput(scanner.Text())
+			if !utils.IsURL(value) {
+				gologger.Debug().Msgf("Skipping invalid URL: %s", value)
+				continue
+			}
 			if _, ok := values[value]; !ok {
 				values[value] = struct{}{}
 			}
