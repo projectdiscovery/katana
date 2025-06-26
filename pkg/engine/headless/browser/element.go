@@ -16,6 +16,35 @@ const (
 	linksCSSSelector = "a"
 )
 
+// isElementDisabled checks if a button element is disabled
+func isElementDisabled(element *types.HTMLElement) bool {
+	if element.Attributes == nil {
+		return false
+	}
+
+	// Standard HTML disabled attribute
+	if _, disabled := element.Attributes["disabled"]; disabled {
+		return true
+	}
+
+	// Tailwind or framework class-based detection
+	if classAttr, ok := element.Attributes["class"]; ok {
+		classList := strings.Fields(classAttr)
+		for _, class := range classList {
+			if class == "cursor-not-allowed" || class == "pointer-events-none" {
+				return true
+			}
+		}
+	}
+
+	// Optionally support ARIA disabled
+	if aria, ok := element.Attributes["aria-disabled"]; ok && (aria == "true" || aria == "1") {
+		return true
+	}
+
+	return false
+}
+
 // FindNavigation attempts to find more navigations on the page which could
 // be done to find more links and pages.
 //
@@ -37,6 +66,10 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 		return nil, errors.Wrap(err, "could not get buttons")
 	}
 	for _, button := range buttons {
+		if isElementDisabled(button) {
+			continue
+		}
+
 		hash := button.Hash()
 		button.MD5Hash = hash
 

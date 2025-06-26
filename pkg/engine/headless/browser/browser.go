@@ -161,13 +161,86 @@ type BrowserPage struct {
 	launcher *Launcher
 }
 
-// WaitPageLoadHeurisitics waits for the page to load using heuristics
+// WaitOptions controls how WaitPageLoadHeurisitics determines navigation completion.
+// All durations are conservative defaults and can be tuned later via package-level variables
+// or future setter methods (kept simple here to avoid breaking public API).
+type WaitOptions struct {
+	URLPollInterval time.Duration // interval between successive URL polls
+	URLPollTimeout  time.Duration // how long to keep polling before giving up on URL change
+	PostChangeWait  time.Duration // small grace period after URL change for late requests
+	IdleWait        time.Duration // network-idle window when no URL change happened
+	DOMStableWait   time.Duration // DOM-stable window (used after idle)
+	MaxTimeout      time.Duration // absolute upper bound for all waiting
+}
+
+// defaultWaitOptions are derived from empirical measurements on modern SPA pages.
+var defaultWaitOptions = WaitOptions{
+	URLPollInterval: 100 * time.Millisecond,
+	URLPollTimeout:  2 * time.Second,
+	PostChangeWait:  300 * time.Millisecond,
+	IdleWait:        1 * time.Second,
+	DOMStableWait:   1 * time.Second,
+	MaxTimeout:      15 * time.Second,
+}
+
+// WaitPageLoadHeurisitics waits for the page to load using multiple heuristics.
+// Strategy order:
+//  1. Wait for initial load event (covers classic navigation & first paint).
+//  2. Poll for a URL change – the strongest signal on SPAs with client-side routing.
+//  3. If URL changes, wait a short grace period + network-idle window.
+//  4. If URL doesn't change, fall back to network-idle + DOM-stable windows.
+//
+// This keeps fast pages fast while still succeeding on noisy, long-running SPAs.
 func (b *BrowserPage) WaitPageLoadHeurisitics() error {
-	chainedTimeout := b.Timeout(15 * time.Second)
+	opts := defaultWaitOptions
+
+	chained := b.Timeout(opts.MaxTimeout)
+
+	// 1. Wait for the basic load event (DOMContentLoaded / load).
+	_ = chained.WaitLoad()
+
+	// 2. Capture the current URL so we can detect route changes.
+	urlVal, _ := b.Eval("() => window.location.href")
+	startURL := ""
+	if urlVal != nil {
+		startURL = urlVal.Value.Str()
+	}
+
+	// 3. Poll for a different URL for up to URLPollTimeout.
+	urlChanged := false
+	if startURL != "" {
+		pollCount := int(opts.URLPollTimeout / opts.URLPollInterval)
+		for i := 0; i < pollCount; i++ {
+			time.Sleep(opts.URLPollInterval)
+			cur, err := b.Eval("() => window.location.href")
+			if err == nil && cur != nil && cur.Value.Str() != startURL {
+				urlChanged = true
+				break
+			}
+		}
+	}
+
+	if urlChanged {
+		// 4a. URL changed – short grace period then network idle & done.
+		_ = chained.WaitIdle(opts.PostChangeWait)
+		return nil
+	}
+
+	// 4b. URL didn't change – fall back to broader heuristics.
+	_ = chained.WaitIdle(opts.IdleWait)
+	_ = b.WaitNewStable(opts.DOMStableWait)
+
+	return nil
+}
+
+// WaitPageLoadHeuristicsFallback provides the enhanced timeouts for complex navigation
+func (b *BrowserPage) WaitPageLoadHeuristicsFallback() error {
+	chainedTimeout := b.Timeout(20 * time.Second)
 
 	_ = chainedTimeout.WaitLoad()
-	_ = chainedTimeout.WaitIdle(1 * time.Second)
-	_ = b.WaitNewStable(500 * time.Millisecond)
+	_ = chainedTimeout.WaitIdle(4 * time.Second)
+	_ = b.WaitNewStable(2 * time.Second)
+
 	return nil
 }
 
@@ -311,6 +384,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 
 			httpresp := netHTTPResponseFromProto(e, body)
+			httpresp.Request = httpreq
 
 			rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
 
@@ -320,6 +394,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				Headers:       utils.FlattenHeaders(httpresp.Header),
 				Raw:           string(rawBytesResponse),
 				ContentLength: httpresp.ContentLength,
+				Resp:          httpresp,
 			}
 			b.launcher.opts.RequestCallback(&output.Result{
 				Timestamp: time.Now(),

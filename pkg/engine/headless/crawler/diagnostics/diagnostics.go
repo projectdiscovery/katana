@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -16,6 +17,8 @@ type Writer interface {
 	Close() error
 	LogAction(action *types.Action) error
 	LogPageState(state *types.PageState, stateType PageStateType) error
+	LogNavigations(pageStateID string, navigations []*types.Action) error
+	LogPageStateScreenshot(pageStateID string, screenshot []byte) error
 }
 
 type PageStateType string
@@ -40,11 +43,20 @@ type stateMetadata struct {
 	Type      string `json:"type"`
 }
 
+type navigationEntry struct {
+	PageStateID     string          `json:"page_state_id"`
+	URL             string          `json:"url"`
+	NavigationCount int             `json:"navigation_count"`
+	Navigations     []*types.Action `json:"navigations"`
+	Timestamp       int64           `json:"timestamp"`
+}
+
 // NewWriter creates a new Writer.
 func NewWriter(directory string) (Writer, error) {
 	if err := os.MkdirAll(directory, 0755); err != nil {
 		return nil, err
 	}
+
 	return &diskWriter{
 		directory: directory,
 		index:     mapsutil.NewOrderedMap[string, *stateMetadata](),
@@ -124,4 +136,60 @@ func (w *diskWriter) LogPageState(state *types.PageState, stateType PageStateTyp
 		return err
 	}
 	return nil
+}
+
+func (w *diskWriter) LogNavigations(pageStateID string, navigations []*types.Action) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	metadata, exists := w.index.Get(pageStateID)
+	url := ""
+	if exists && metadata != nil {
+		url = metadata.URL
+	}
+
+	dir := filepath.Join(w.directory, pageStateID)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	navigationsFile := filepath.Join(dir, "navigations.json")
+
+	var entry navigationEntry
+	if existingData, err := os.ReadFile(navigationsFile); err == nil {
+		if err := json.Unmarshal(existingData, &entry); err != nil {
+			return err
+		}
+
+		entry.Navigations = append(entry.Navigations, navigations...)
+		entry.NavigationCount = len(entry.Navigations)
+		entry.Timestamp = time.Now().Unix()
+	} else {
+		entry = navigationEntry{
+			PageStateID:     pageStateID,
+			URL:             url,
+			NavigationCount: len(navigations),
+			Navigations:     navigations,
+			Timestamp:       time.Now().Unix(),
+		}
+	}
+	marshalledData, err := json.MarshalIndent(entry, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Write to navigations.json file in the state directory
+	return os.WriteFile(navigationsFile, marshalledData, 0644)
+}
+
+func (w *diskWriter) LogPageStateScreenshot(pageStateID string, screenshot []byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	dir := filepath.Join(w.directory, pageStateID)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	screenshotFile := filepath.Join(dir, "screenshot.png")
+	return os.WriteFile(screenshotFile, screenshot, 0644)
 }

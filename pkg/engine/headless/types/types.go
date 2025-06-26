@@ -18,6 +18,7 @@ var (
 // It represents the vertex of the crawl graph
 type PageState struct {
 	UniqueID    string `json:"unique_id,omitempty"`
+	SimHash     uint64 `json:"sim_hash,omitempty"`
 	OriginID    string `json:"origin_id,omitempty"`
 	URL         string `json:"url,omitempty"`
 	Title       string `json:"title,omitempty"`

@@ -76,7 +76,7 @@ func (g *CrawlGraph) AddPageState(n types.PageState) error {
 			if errors.Is(err, graph.ErrEdgeAlreadyExists) {
 				return nil
 			}
-			return errors.Wrap(err, "could not add edge to graph")
+			return errors.Wrapf(err, "could not add edge to graph: source vertex %s", n.OriginID)
 		}
 	}
 	return nil

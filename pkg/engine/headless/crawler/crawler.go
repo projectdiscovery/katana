@@ -18,6 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/graph"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -29,6 +30,7 @@ type Crawler struct {
 	options       Options
 	crawlQueue    queue.Queue[*types.Action]
 	crawlGraph    *graph.CrawlGraph
+	simhashOracle *simhash.Oracle
 	uniqueActions map[string]struct{}
 	diagnostics   diagnostics.Writer
 }
@@ -109,6 +111,7 @@ func New(opts Options) (*Crawler, error) {
 		logger:        opts.Logger,
 		uniqueActions: make(map[string]struct{}),
 		diagnostics:   diagnosticsWriter,
+		simhashOracle: simhash.NewOracle(),
 	}
 	return crawler, nil
 }
@@ -120,7 +123,21 @@ func (c *Crawler) Close() {
 	}
 }
 
+func (c *Crawler) GetCrawlGraph() *graph.CrawlGraph {
+	return c.crawlGraph
+}
+
 func (c *Crawler) Crawl(URL string) error {
+	defer func() {
+		if c.diagnostics == nil {
+			return
+		}
+		err := c.crawlGraph.DrawGraph(filepath.Join(c.options.DiagnosticsDir, "crawl-graph.dot"))
+		if err != nil {
+			c.logger.Error("Failed to draw crawl graph", slog.String("error", err.Error()))
+		}
+	}()
+
 	actions := []*types.Action{{
 		Type:     types.ActionTypeLoadURL,
 		Input:    URL,
@@ -242,7 +259,17 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 		return err
 	}
 
+	c.logger.Debug("Processing action - current state",
+		slog.String("current_page_hash", currentPageHash),
+		slog.String("action_origin_id", action.OriginID),
+		slog.String("action", action.String()),
+	)
+
 	if action.OriginID != "" && action.OriginID != currentPageHash {
+		c.logger.Debug("Need to navigate back to origin",
+			slog.String("from", currentPageHash),
+			slog.String("to", action.OriginID),
+		)
 		newPageHash, err := c.navigateBackToStateOrigin(action, page, currentPageHash)
 		if err != nil {
 			return err
@@ -279,6 +306,23 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 	if err != nil {
 		return err
 	}
+
+	// Log navigations for diagnostics
+	if c.diagnostics != nil {
+		screenshotState, err := page.Screenshot(false, &proto.PageCaptureScreenshot{
+			Format: proto.PageCaptureScreenshotFormatPng,
+		})
+		if err != nil {
+			c.logger.Error("Failed to take screenshot", slog.String("error", err.Error()))
+		}
+		if err := c.diagnostics.LogPageStateScreenshot(pageState.UniqueID, screenshotState); err != nil {
+			c.logger.Error("Failed to log page state screenshot", slog.String("error", err.Error()))
+		}
+		if err := c.diagnostics.LogNavigations(pageState.UniqueID, navigations); err != nil {
+			c.logger.Error("Failed to log navigations", slog.String("error", err.Error()))
+		}
+	}
+
 	for _, nav := range navigations {
 		actionHash := nav.Hash()
 		if _, ok := c.uniqueActions[actionHash]; ok {
@@ -348,6 +392,19 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		if !visible {
 			return ErrElementNotVisible
 		}
+
+		// Check if element is interactable (not blocked by overlays)
+		interactable, err := element.Interactable()
+		if err != nil {
+			if errors.Is(err, &rod.CoveredError{}) {
+				return ErrElementNotVisible
+			}
+			return err
+		}
+		if interactable == nil {
+			return ErrElementNotVisible
+		}
+
 		if err := element.Click(proto.InputMouseButtonLeft, 1); err != nil {
 			return err
 		}

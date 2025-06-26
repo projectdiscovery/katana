@@ -5,25 +5,50 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	graphlib "github.com/dominikbraun/graph"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 )
 
 var emptyPageHash = sha256Hash("")
 
-func isCorrectNavigation(page *browser.BrowserPage, action *types.Action) (string, *types.PageState, error) {
+const simhashThreshold = 2 // Allow up to 2 bits difference
+
+func (c *Crawler) isCorrectNavigation(page *browser.BrowserPage, action *types.Action) (string, *types.PageState, error) {
 	currentPageHash, pageState, err := getPageHash(page)
 	if err != nil {
 		return "", nil, err
 	}
-	if currentPageHash != action.OriginID {
-		return "", pageState, fmt.Errorf("failed to navigate back to origin page: %s != %s", currentPageHash, action.OriginID)
+
+	if currentPageHash == action.OriginID {
+		return currentPageHash, pageState, nil
 	}
-	return currentPageHash, pageState, nil
+
+	// Get the origin page state to compare SimHash
+	originPageState, err := c.crawlGraph.GetPageState(action.OriginID)
+	if err != nil {
+		return "", pageState, fmt.Errorf("failed to get origin page state: %w", err)
+	}
+
+	if pageState != nil && originPageState != nil {
+		distance := simhash.Distance(pageState.SimHash, originPageState.SimHash)
+		if distance <= simhashThreshold {
+			c.logger.Debug("Page is similar enough to origin, proceeding",
+				slog.String("current_hash", currentPageHash),
+				slog.String("origin_hash", action.OriginID),
+				slog.Uint64("simhash_distance", uint64(distance)),
+			)
+			// Treat this page as the origin state to avoid creating a new vertex
+			return originPageState.UniqueID, pageState, nil
+		}
+	}
+
+	return "", pageState, fmt.Errorf("failed to navigate back to origin page: %s != %s", currentPageHash, action.OriginID)
 }
 
 func getPageHash(page *browser.BrowserPage) (string, *types.PageState, error) {
@@ -70,6 +95,8 @@ func newPageState(page *browser.BrowserPage, action *types.Action) (*types.PageS
 
 	// Get sha256 hash of the stripped dom
 	state.UniqueID = sha256Hash(strippedDOM)
+	state.SimHash = simhash.Fingerprint(strings.NewReader(strippedDOM), 3)
+
 	return state, nil
 }
 
@@ -206,7 +233,7 @@ func (c *Crawler) tryBrowserHistoryNavigation(page *browser.BrowserPage, originP
 	if err := page.WaitPageLoadHeurisitics(); err != nil {
 		c.logger.Debug("Failed to wait for page load after navigating back using browser history", slog.String("error", err.Error()))
 	}
-	newPageHash, pageState, err := isCorrectNavigation(page, action)
+	newPageHash, pageState, err := c.isCorrectNavigation(page, action)
 	if c.diagnostics != nil && pageState != nil {
 		if err := c.diagnostics.LogPageState(pageState, diagnostics.PreActionPageState); err != nil {
 			return "", err
@@ -261,7 +288,7 @@ func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.
 			return "", err
 		}
 	}
-	newPageHash, pageState, err := isCorrectNavigation(page, action)
+	newPageHash, pageState, err := c.isCorrectNavigation(page, action)
 	if c.diagnostics != nil && pageState != nil {
 		if err := c.diagnostics.LogPageState(pageState, diagnostics.PreActionPageState); err != nil {
 			return "", err
