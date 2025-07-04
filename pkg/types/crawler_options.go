@@ -91,6 +91,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		MatchRegex:            options.MatchRegex,
 		FilterRegex:           options.FilterRegex,
 		ExtensionValidator:    extensionsValidator,
+		OutputTemplate:        options.OutputTemplate,
 		OutputMatchCondition:  options.OutputMatchCondition,
 		OutputFilterCondition: options.OutputFilterCondition,
 	}
