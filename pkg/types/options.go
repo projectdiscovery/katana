@@ -143,6 +143,8 @@ type Options struct {
 	ErrorLogFile string
 	// Resolvers contains custom resolvers
 	Resolvers goflags.StringSlice
+	// OutputTemplate enables custom output template
+	OutputTemplate string
 	// OutputMatchRegex is the regex to match output url
 	OutputMatchRegex goflags.StringSlice
 	// OutputFilterRegex is the regex to filter output url
@@ -159,7 +161,7 @@ type Options struct {
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
 	TlsImpersonate bool
-	//DisableRedirects disables the following of redirects
+	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
 }
 

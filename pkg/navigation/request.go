@@ -20,7 +20,7 @@ type Request struct {
 	Attribute      string              `json:"attribute,omitempty"`
 	RootHostname   string              `json:"-"`
 	Source         string              `json:"source,omitempty"`
-	CustomFields   map[string][]string `json:"-"`
+	CustomFields   map[string][]string `json:"custom_fields,omitempty"`
 	Raw            string              `json:"raw,omitempty"`
 }
 
