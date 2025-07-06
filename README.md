@@ -603,7 +603,7 @@ katana -headless -u https://tesla.com -cwu ws://127.0.0.1:9222/devtools/browser/
 ----
 
 > [!WARNING]
-> Deprecated: use [**`-output-template`**](#-output-template) instead.
+> Deprecated: use [**`-output-template`**](#-output-template) instead. The field flag is still supported for backward compatibility.
 
 Katana comes with built in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
 
