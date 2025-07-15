@@ -105,6 +105,7 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
 	}
 
+	// Always create a temporary user data directory to avoid SingletonLock conflicts
 	if l.opts.ChromeUser != nil {
 		tempDir, err := os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
 		if err != nil {
@@ -116,6 +117,14 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 		// Sets proper ownership of the Chrome data directory
 		if err := os.Chown(tempDir, uid, gid); err != nil {
 			return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
+		}
+		chromeLauncher = chromeLauncher.Set("user-data-dir", tempDir)
+		l.userDataDir = tempDir
+	} else {
+		// Create a temporary user data directory even when ChromeUser is not specified
+		tempDir, err := os.MkdirTemp("", "katana-chrome-data-*")
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
 		}
 		chromeLauncher = chromeLauncher.Set("user-data-dir", tempDir)
 		l.userDataDir = tempDir
