@@ -42,6 +42,7 @@ func (e *Validator) ValidatePath(item string) bool {
 	u, err := urlutil.Parse(item)
 	if err != nil {
 		gologger.Warning().Msgf("validatepath: failed to parse url %v got %v", item, err)
+		return false
 	}
 	if u.Path != "" {
 		extension = strings.ToLower(path.Ext(u.Path))

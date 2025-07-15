@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
@@ -388,6 +389,10 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 
 			rawBytesResponse, _ := httputil.DumpResponse(httpresp, true)
 
+			doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
+			if err != nil {
+				return
+			}
 			resp := &navigation.Response{
 				Body:          string(body),
 				StatusCode:    httpresp.StatusCode,
@@ -395,6 +400,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				Raw:           string(rawBytesResponse),
 				ContentLength: httpresp.ContentLength,
 				Resp:          httpresp,
+				Reader:        doc,
 			}
 			b.launcher.opts.RequestCallback(&output.Result{
 				Timestamp: time.Now(),
