@@ -15,5 +15,3 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: projectdiscovery/actions/setup/go/compat-checks@v1
-        with:
-          release-test: true
