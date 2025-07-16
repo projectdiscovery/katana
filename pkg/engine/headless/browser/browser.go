@@ -64,6 +64,7 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 		opts:        opts,
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
 	}
+
 	return l, nil
 }
 
@@ -71,7 +72,7 @@ func (l *Launcher) ScopeValidator() ScopeValidator {
 	return l.opts.ScopeValidator
 }
 
-func (l *Launcher) launchBrowser() (*rod.Browser, error) {
+func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
 	chromeLauncher := launcher.New().
 		Leakless(true).
 		Set("disable-gpu", "true").
@@ -82,9 +83,8 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 		Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
 		Set("mute-audio", "true").
 		Set("incognito", "true").
-		// Set("proxy-server", opts.Proxy).
 		Delete("use-mock-keychain").
-		Delete("disable-ipc-flooding-protection"). // somehow this causes loops
+		Delete("disable-ipc-flooding-protection").
 		Headless(true)
 
 	for _, flag := range headlessFlags {
@@ -105,29 +105,8 @@ func (l *Launcher) launchBrowser() (*rod.Browser, error) {
 		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
 	}
 
-	// Always create a temporary user data directory to avoid SingletonLock conflicts
-	if l.opts.ChromeUser != nil {
-		tempDir, err := os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
-		}
-		uid, _ := strconv.Atoi(l.opts.ChromeUser.Uid)
-		gid, _ := strconv.Atoi(l.opts.ChromeUser.Gid)
-
-		// Sets proper ownership of the Chrome data directory
-		if err := os.Chown(tempDir, uid, gid); err != nil {
-			return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
-		}
-		chromeLauncher = chromeLauncher.Set("user-data-dir", tempDir)
-		l.userDataDir = tempDir
-	} else {
-		// Create a temporary user data directory even when ChromeUser is not specified
-		tempDir, err := os.MkdirTemp("", "katana-chrome-data-*")
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
-		}
-		chromeLauncher = chromeLauncher.Set("user-data-dir", tempDir)
-		l.userDataDir = tempDir
+	if userDataDir != "" {
+		chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
 	}
 
 	launcherURL, err := chromeLauncher.Launch()
@@ -157,16 +136,14 @@ func (l *Launcher) Close() {
 		b.cancel()
 		b.CloseBrowserPage()
 	})
-	if l.userDataDir != "" {
-		_ = os.RemoveAll(l.userDataDir)
-	}
 }
 
 // BrowserPage is a combination of a browser and a page
 type BrowserPage struct {
 	*rod.Page
-	Browser *rod.Browser
-	cancel  context.CancelFunc
+	Browser     *rod.Browser
+	cancel      context.CancelFunc
+	userDataDir string
 
 	launcher *Launcher
 }
@@ -274,12 +251,36 @@ func (p *BrowserPage) WaitNewStable(d time.Duration) error {
 }
 
 func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
-	browser, err := l.launchBrowser()
+	// Create unique temp userDataDir for this browser instance
+	var tempDir string
+	if l.opts.ChromeUser != nil {
+		var err error
+		tempDir, err = os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
+		}
+		uid, _ := strconv.Atoi(l.opts.ChromeUser.Uid)
+		gid, _ := strconv.Atoi(l.opts.ChromeUser.Gid)
+		if err := os.Chown(tempDir, uid, gid); err != nil {
+			return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
+		}
+	} else {
+		var err error
+		tempDir, err = os.MkdirTemp("", "katana-chrome-data-*")
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
+		}
+	}
+
+	browser, err := l.launchBrowserWithDataDir(tempDir)
 	if err != nil {
+		_ = os.RemoveAll(tempDir)
 		return nil, err
 	}
+
 	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
+		_ = os.RemoveAll(tempDir)
 		return nil, errors.Wrap(err, "could not create new page")
 	}
 	page = page.Sleeper(func() rodutils.Sleeper {
@@ -292,10 +293,11 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	page = page.Context(cancelCtx)
 
 	browserPage := &BrowserPage{
-		Page:     page,
-		Browser:  browser,
-		launcher: l,
-		cancel:   cancel,
+		Page:        page,
+		Browser:     browser,
+		launcher:    l,
+		cancel:      cancel,
+		userDataDir: tempDir,
 	}
 	browserPage.handlePageDialogBoxes()
 
@@ -519,6 +521,10 @@ func isBrowserConnected(browser *rod.Browser) bool {
 func (b *BrowserPage) CloseBrowserPage() {
 	b.Page.Close()
 	b.Browser.Close()
+	// Clean up the temp user data directory
+	if b.userDataDir != "" {
+		_ = os.RemoveAll(b.userDataDir)
+	}
 }
 
 // taken from playwright
