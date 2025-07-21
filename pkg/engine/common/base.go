@@ -48,6 +48,9 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.Request) {
 	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
+			if s.Options.Options.OnSkipURL != nil {
+				s.Options.Options.OnSkipURL(nr.URL)
+			}
 			continue
 		}
 
@@ -203,6 +206,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}
 
 		if !utils.IsURL(req.URL) {
+			if s.Options.Options.OnSkipURL != nil {
+				s.Options.Options.OnSkipURL(req.URL)
+			}
 			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
 			continue
 		}

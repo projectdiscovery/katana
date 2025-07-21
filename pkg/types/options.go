@@ -16,6 +16,9 @@ import (
 // OnResultCallback (output.Result)
 type OnResultCallback func(output.Result)
 
+// OnSkipURLCallback (string)
+type OnSkipURLCallback func(string)
+
 type Options struct {
 	// URLs contains a list of URLs for crawling
 	URLs goflags.StringSlice
@@ -117,6 +120,8 @@ type Options struct {
 	ChromeWSUrl string
 	// OnResult allows callback function on a result
 	OnResult OnResultCallback
+	// OnSkipURL allows callback function on a skipped url
+	OnSkipURL OnSkipURLCallback
 	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
