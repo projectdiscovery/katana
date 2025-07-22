@@ -46,6 +46,8 @@ func main() {
 	}
 	defer katanaRunner.Close()
 
+	// Check if env has profiling enabled
+
 	// close handler
 	resumeFilename := defaultResumeFilename()
 	go func() {
@@ -70,9 +72,11 @@ func main() {
 		pprofServer = pprofutils.NewPprofServer()
 		pprofServer.Start()
 	}
-	if pprofServer != nil {
-		defer pprofServer.Stop()
-	}
+	defer func() {
+		if pprofServer != nil {
+			defer pprofServer.Stop()
+		}
+	}()
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
