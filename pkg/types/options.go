@@ -168,6 +168,8 @@ type Options struct {
 	TlsImpersonate bool
 	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
+	// PathClimb enables path expansion (auto crawl discovered paths)
+	PathClimb bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

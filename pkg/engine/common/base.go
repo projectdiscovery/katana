@@ -84,6 +84,37 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
+
+		if s.Options.Options.PathClimb {
+			extractedParentURLs := utils.ExtractParentPaths(nr.URL)
+			for _, extractedParentURL := range extractedParentURLs {
+				if !utils.IsURL(extractedParentURL) {
+					continue
+				}
+
+				if !s.Options.UniqueFilter.UniqueURL(extractedParentURL) {
+					continue
+				}
+				if !s.ValidateScope(extractedParentURL, nr.RootHostname) {
+					continue
+				}
+
+				parentDepth := nr.Depth
+				if parentDepth > 0 {
+					parentDepth--
+				}
+
+				parentReq := &navigation.Request{
+					Method:       nr.Method,
+					URL:          extractedParentURL,
+					Depth:        parentDepth,
+					RootHostname: nr.RootHostname,
+					Source:       nr.Source,
+					Tag:          "path-climb",
+				}
+				queue.Push(parentReq, parentDepth)
+			}
+		}
 	}
 }
 
