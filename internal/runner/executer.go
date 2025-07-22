@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
@@ -18,13 +17,6 @@ func (r *Runner) ExecuteCrawling() error {
 	inputs := r.parseInputs()
 	if len(inputs) == 0 {
 		return errorutil.New("no input provided for crawling")
-	}
-
-	if r.options.PathClimb {
-		for _, input := range inputs {
-			extractedParentURLs := utils.ExtractParentPaths(input)
-			inputs = append(inputs, extractedParentURLs...)
-		}
 	}
 
 	for _, input := range inputs {
