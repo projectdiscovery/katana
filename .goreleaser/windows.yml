@@ -1,3 +1,5 @@
+version: 2
+
 env:
   - GO111MODULE=on
 before:
@@ -20,7 +22,7 @@ builds:
       - amd64
 
 archives:
-- format: zip
+- formats: zip
 
 checksum:
   name_template: "{{ .ProjectName }}-windows-checksums.txt"
