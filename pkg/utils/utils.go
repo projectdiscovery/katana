@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/lukasbob/srcset"
@@ -65,7 +66,7 @@ func ParseRefreshTag(value string) string {
 
 // WebUserAgent returns the chrome-web user agent
 func WebUserAgent() string {
-        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+	return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
 }
 
 func FlattenHeaders(headers map[string][]string) map[string]string {
@@ -89,4 +90,29 @@ func ReplaceAllQueryParam(reqUrl, val string) string {
 	})
 	u.RawQuery = params.Encode()
 	return u.String()
+}
+
+// ExtractParentPaths returns all path directories for a given URL
+func ExtractParentPaths(rawurl string) []string {
+	u, err := urlutil.Parse(rawurl)
+	if err != nil {
+		return nil
+	}
+	path := u.Path
+	if path == "" || path == "/" {
+		return nil
+	}
+
+	path = strings.Trim(path, "/")
+	parts := strings.Split(path, "/")
+	if len(parts) == 0 {
+		return nil
+	}
+	urls := []string{}
+	for i := len(parts) - 1; i > 0; i-- {
+		if parentPath := strings.Join(parts[:i], "/"); parentPath != "" {
+			urls = append(urls, fmt.Sprintf("%s://%s/%s", u.Scheme, u.Host, parentPath))
+		}
+	}
+	return urls
 }

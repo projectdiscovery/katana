@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-
+	"slices"
 	"strings"
 	"time"
 
@@ -15,7 +15,6 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
@@ -134,18 +133,28 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			requestHeaders[name] = []string{value.Str()}
 		}
 
-		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
-			xhr := navigation.Request{
+		shouldCapture := func(xhrExtraction bool) bool {
+			resourceTypes := []proto.NetworkResourceType{
+				proto.NetworkResourceTypeXHR,
+				proto.NetworkResourceTypeFetch,
+				proto.NetworkResourceTypeScript,
+			}
+
+			return xhrExtraction && slices.Contains(resourceTypes, e.ResourceType)
+		}
+
+		if shouldCapture(c.Options.Options.XhrExtraction) {
+			networkReq := navigation.Request{
 				URL:    httpreq.URL.String(),
 				Method: httpreq.Method,
 				Body:   e.Request.PostData,
 			}
 			if len(httpreq.Header) > 0 {
-				xhr.Headers = utils.FlattenHeaders(httpreq.Header)
+				networkReq.Headers = utils.FlattenHeaders(httpreq.Header)
 			} else {
-				xhr.Headers = utils.FlattenHeaders(requestHeaders)
+				networkReq.Headers = utils.FlattenHeaders(requestHeaders)
 			}
-			xhrRequests = append(xhrRequests, xhr)
+			xhrRequests = append(xhrRequests, networkReq)
 		}
 
 		// trim trailing /
@@ -157,7 +166,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		// process the raw response
-		navigationRequests := parser.ParseResponse(resp)
+		navigationRequests := c.Options.Parser.ParseResponse(resp)
 		c.Enqueue(s.Queue, navigationRequests...)
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -231,7 +240,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		navigationRequests := parser.ParseResponse(&responseCopy)
+		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
 		c.Enqueue(s.Queue, navigationRequests...)
 	}
 

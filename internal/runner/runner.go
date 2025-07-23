@@ -8,7 +8,6 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/mapcidr"
@@ -89,8 +88,6 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create crawler options")
 	}
-
-	parser.InitWithOptions(options)
 
 	var crawler engine.Engine
 
