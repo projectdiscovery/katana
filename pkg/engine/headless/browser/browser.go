@@ -233,18 +233,25 @@ func (b *BrowserPage) WaitPageLoadHeuristicsFallback() error {
 
 // WaitStable waits until the page is stable for d duration.
 func (p *BrowserPage) WaitNewStable(d time.Duration) error {
-	var err error
+	// Enforce an upper-bound on how long we will wait for the page to become
+	// stable. We simply reuse the heuristic window (d) and give the combined
+	// operation 2× that duration. This guarantees that callers will be
+	// released after a finite time instead of blocking forever when a page
+	// keeps a long-lived connection open (analytics beacons, WebSockets, etc.).
 
+	chained := p.Timeout(2 * d)
+
+	var err error
 	setErr := sync.Once{}
 
 	rodutils.All(func() {
-		e := p.WaitLoad()
+		e := chained.WaitLoad()
 		setErr.Do(func() { err = e })
 	}, func() {
-		p.WaitRequestIdle(d, nil, []string{}, nil)()
+		chained.WaitRequestIdle(d, nil, []string{}, nil)()
 	}, func() {
-		//	e := p.WaitDOMStable(d, 0)
-		//setErr.Do(func() { err = e })
+		e := chained.WaitDOMStable(d, 0)
+		setErr.Do(func() { err = e })
 	})()
 
 	return err
@@ -319,6 +326,8 @@ func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO: should we check if the browser is alive because sometimes it
+	// might die?
 	return browserPage, nil
 }
 
@@ -483,6 +492,13 @@ func netHTTPResponseFromProto(e *proto.FetchRequestPaused, body []byte) *http.Re
 }
 
 func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
+	// Discard pages that hit a deadline or were cancelled to avoid immediately
+	// returning a poisoned page that will fail every subsequent call.
+	if cerr := browser.Page.GetContext().Err(); cerr != nil {
+		browser.cancel()
+		browser.CloseBrowserPage()
+		return
+	}
 	// If the browser is not connected, close it
 	if !isBrowserConnected(browser.Browser) {
 		browser.cancel()

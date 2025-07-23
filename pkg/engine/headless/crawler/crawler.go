@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -161,6 +162,21 @@ func (c *Crawler) Crawl(URL string) error {
 		return err
 	}
 
+	// Create a master context that will automatically cancel all page operations
+	// once the per-URL crawl deadline is reached.
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if c.options.MaxCrawlDuration > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), c.options.MaxCrawlDuration)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	defer cancel()
+
+	// Retain the legacy time.After guard as a secondary fail-safe but the
+	// context cancellation is what actually stops in-flight rod calls.
 	var crawlTimeout <-chan time.Time
 	if c.options.MaxCrawlDuration > 0 {
 		crawlTimeout = time.After(c.options.MaxCrawlDuration)
@@ -199,6 +215,10 @@ func (c *Crawler) Crawl(URL string) error {
 			if err != nil {
 				return err
 			}
+
+			// Tie this BrowserPage to the master context so any rod call will
+			// respect the crawl deadline.
+			page.Page = page.Page.Context(ctx)
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
@@ -367,7 +387,10 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
-		if err := page.Navigate(action.Input); err != nil {
+		// Apply a timeout to every critical Rod call.
+		pTimeout := page.Timeout(c.options.PageMaxTimeout)
+
+		if err := pTimeout.Navigate(action.Input); err != nil {
 			return err
 		}
 		if err = page.WaitPageLoadHeurisitics(); err != nil {
@@ -378,7 +401,8 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 			return err
 		}
 	case types.ActionTypeLeftClick, types.ActionTypeLeftClickDown:
-		element, err := page.ElementX(action.Element.XPath)
+		pTimeout := page.Timeout(c.options.PageMaxTimeout)
+		element, err := pTimeout.ElementX(action.Element.XPath)
 		if err != nil {
 			return err
 		}
