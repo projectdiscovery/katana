@@ -216,7 +216,6 @@ func (w *StandardWriter) Write(result *Result) error {
 	w.outputMutex.Lock()
 	defer w.outputMutex.Unlock()
 
-	gologger.Silent().Msgf("%s", string(data))
 	if w.outputFile != nil {
 		if !w.json {
 			data = decolorizerRegex.ReplaceAll(data, []byte(""))
