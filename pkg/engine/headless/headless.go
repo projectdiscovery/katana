@@ -12,7 +12,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
@@ -98,8 +97,6 @@ func (h *Headless) Crawl(URL string) error {
 
 	scopeValidator := validateScopeFunc(h, URL)
 
-	blcChecker := utils.NewBrokenLinkChecker()
-
 	crawlOpts := crawler.Options{
 		ChromiumPath:     h.options.Options.SystemChromePath,
 		MaxDepth:         h.options.Options.MaxDepth,
@@ -149,7 +146,7 @@ func (h *Headless) Close() error {
 	return nil
 }
 
-func (h *Headless) performAdditionalAnalysis(rr *output.Result, blcChecker *utils.BrokenLinkChecker) []*output.Result {
+func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
 	newNavigations := parser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
