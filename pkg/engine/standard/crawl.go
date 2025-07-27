@@ -55,10 +55,12 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 
 	// Apply cookies
 	if c.Shared.Jar != nil {
+		c.Shared.JarMu.Lock()
 		cookies := c.Shared.Jar.Cookies(req.Request.URL)
 		for _, cookie := range cookies {
 			req.Request.AddCookie(cookie)
 		}
+		c.Shared.JarMu.Unlock()
 	}
 
 	resp, err := s.HttpClient.Do(req)
@@ -73,7 +75,9 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 
 	// Collect cookies from the response
 	if c.Shared.Jar != nil && resp != nil {
+		c.Shared.JarMu.Lock()
 		c.Shared.Jar.SetCookies(req.Request.URL, resp.Cookies())
+		c.Shared.JarMu.Unlock()
 	}
 
 	rawRequestBytes, _ := req.Dump()
