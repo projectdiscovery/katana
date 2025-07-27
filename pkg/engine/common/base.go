@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -30,6 +31,7 @@ type Shared struct {
 	KnownFiles *files.KnownFiles
 	Options    *types.CrawlerOptions
 	Jar        http.CookieJar
+	JarMu      sync.Mutex
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
@@ -46,7 +48,10 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	}
 
 	// create an empty cookie jar, this is used to store cookies during the crawl
-	jar, _ := cookiejar.New(nil)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, errorutil.New("could not create cookie jar").Wrap(err)
+	}
 	shared.Jar = jar
 
 	return shared, nil
