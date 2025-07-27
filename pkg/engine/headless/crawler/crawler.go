@@ -406,7 +406,9 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		if err != nil {
 			return err
 		}
-		if err := element.ScrollIntoView(); err != nil {
+
+		elementTimeout := element.Timeout(c.options.PageMaxTimeout)
+		if err := elementTimeout.ScrollIntoView(); err != nil {
 			return err
 		}
 		visible, err := element.Visible()

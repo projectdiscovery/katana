@@ -523,3 +523,44 @@ func TestHtmxBodyParser(t *testing.T) {
 		require.Equal(t, "PATCH", navigationRequests[0].Method, "could not get correct method")
 	})
 }
+
+func TestDataURIFiltering(t *testing.T) {
+	parsed, _ := urlutil.Parse("https://example.com/test")
+
+	t.Run("data-uri-filtering", func(t *testing.T) {
+		// Test various HTML elements with data URIs to ensure they're filtered out by ParseResponse
+		htmlContent := `
+			<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==">
+			<a href="data:text/html,<h1>Hello</h1>">Data Link</a>
+			<link href="data:text/css,body{color:red}">
+			<script src="data:application/javascript,console.log('test')"></script>
+			<iframe src="data:text/html,<p>Test</p>"></iframe>
+			<object data="data:application/pdf,test"></object>
+			<embed src="data:application/x-shockwave-flash,test">
+			<audio src="data:audio/mp3,test"></audio>
+			<video src="data:video/mp4,test"></video>
+			<a href="mailto:test@example.com">Email Link</a>
+			<a href="javascript:alert('test')">JS Link</a>
+		`
+
+		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
+		resp := &navigation.Response{
+			Resp:   &http.Response{Request: &http.Request{URL: parsed.URL}},
+			Reader: documentReader,
+		}
+
+		// Test the main ParseResponse function to ensure all invalid URIs are filtered out
+		navigationRequests := ParseResponse(resp)
+		for _, req := range navigationRequests {
+			require.False(t, strings.HasPrefix(req.URL, "data:"),
+				"Found data URI in ParseResponse results: %s", req.URL)
+			require.False(t, strings.HasPrefix(req.URL, "mailto:"),
+				"Found mailto URI in ParseResponse results: %s", req.URL)
+			require.False(t, strings.HasPrefix(req.URL, "javascript:"),
+				"Found javascript URI in ParseResponse results: %s", req.URL)
+		}
+
+		// Ensure we have 0 requests since all should be filtered
+		require.Equal(t, 0, len(navigationRequests), "Expected all invalid URIs to be filtered out")
+	})
+}

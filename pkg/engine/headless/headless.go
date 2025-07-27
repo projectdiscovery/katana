@@ -12,6 +12,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
@@ -20,18 +21,27 @@ type Headless struct {
 	options *types.CrawlerOptions
 
 	deduplicator *mapsutil.SyncLockMap[string, struct{}]
+
+	debugger *CrawlDebugger
 }
 
 // New returns a new headless crawler instance
 func New(options *types.CrawlerOptions) (*Headless, error) {
 	logger := newLogger(options)
 
-	return &Headless{
+	headless := &Headless{
 		logger:  logger,
 		options: options,
 
 		deduplicator: mapsutil.NewSyncLockMap[string, struct{}](),
-	}, nil
+	}
+
+	// Show crawl debugger if verbose is enabled
+	if options.Options.Verbose {
+		headless.debugger = NewCrawlDebugger(8089)
+	}
+
+	return headless, nil
 }
 
 func newLogger(options *types.CrawlerOptions) *slog.Logger {
@@ -77,7 +87,18 @@ func validateScopeFunc(h *Headless, URL string) browser.ScopeValidator {
 
 // Crawl executes the headless crawling on a given URL
 func (h *Headless) Crawl(URL string) error {
+	if h.debugger != nil {
+		h.debugger.StartURL(URL, 0)
+	}
+	defer func() {
+		if h.debugger != nil {
+			h.debugger.EndURL(URL)
+		}
+	}()
+
 	scopeValidator := validateScopeFunc(h, URL)
+
+	blcChecker := utils.NewBrokenLinkChecker()
 
 	crawlOpts := crawler.Options{
 		ChromiumPath:     h.options.Options.SystemChromePath,
@@ -92,7 +113,7 @@ func (h *Headless) Crawl(URL string) error {
 			if !scopeValidator(rr.Request.URL) {
 				return
 			}
-			navigationRequests := h.performAdditionalAnalysis(rr)
+			navigationRequests := h.performAdditionalAnalysis(rr, blcChecker)
 			for _, req := range navigationRequests {
 				h.options.OutputWriter.Write(req)
 			}
@@ -122,10 +143,13 @@ func (h *Headless) Crawl(URL string) error {
 }
 
 func (h *Headless) Close() error {
+	if h.debugger != nil {
+		h.debugger.Close()
+	}
 	return nil
 }
 
-func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
+func (h *Headless) performAdditionalAnalysis(rr *output.Result, blcChecker *utils.BrokenLinkChecker) []*output.Result {
 	newNavigations := parser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)

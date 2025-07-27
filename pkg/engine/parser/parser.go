@@ -75,14 +75,36 @@ func ParseResponse(resp *navigation.Response) (navigationRequests []*navigation.
 	for _, parser := range responseParsers {
 		switch {
 		case parser.parserType == headerParser && resp.Resp != nil:
-			navigationRequests = append(navigationRequests, parser.parserFunc(resp)...)
+			navigationRequests = appendFiltered(navigationRequests, parser.parserFunc(resp))
 		case parser.parserType == bodyParser && resp.Reader != nil:
-			navigationRequests = append(navigationRequests, parser.parserFunc(resp)...)
+			navigationRequests = appendFiltered(navigationRequests, parser.parserFunc(resp))
 		case parser.parserType == contentParser && len(resp.Body) > 0:
-			navigationRequests = append(navigationRequests, parser.parserFunc(resp)...)
+			navigationRequests = appendFiltered(navigationRequests, parser.parserFunc(resp))
 		}
 	}
 	return
+}
+
+// appendFiltered filters navigation requests and appends valid ones to the slice
+func appendFiltered(existing []*navigation.Request, new []*navigation.Request) []*navigation.Request {
+	for _, req := range new {
+		if isValidNavigationRequest(req) {
+			existing = append(existing, req)
+		}
+	}
+	return existing
+}
+
+func isValidNavigationRequest(req *navigation.Request) bool {
+	if req == nil || req.URL == "" {
+		return false
+	}
+
+	// Direct checks - fastest for small number of schemes
+	url := req.URL
+	return !(strings.HasPrefix(url, "data:") ||
+		strings.HasPrefix(url, "mailto:") ||
+		strings.HasPrefix(url, "javascript:"))
 }
 
 // -------------------------------------------------------------------------
