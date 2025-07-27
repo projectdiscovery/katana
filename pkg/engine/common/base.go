@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"time"
 
@@ -28,6 +29,7 @@ type Shared struct {
 	Headers    map[string]string
 	KnownFiles *files.KnownFiles
 	Options    *types.CrawlerOptions
+	Jar        http.CookieJar
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
@@ -42,6 +44,11 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		}
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
+
+	// create an empty cookie jar, this is used to store cookies during the crawl
+	jar, _ := cookiejar.New(nil)
+	shared.Jar = jar
+
 	return shared, nil
 }
 
