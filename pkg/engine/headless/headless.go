@@ -110,7 +110,7 @@ func (h *Headless) Crawl(URL string) error {
 			if !scopeValidator(rr.Request.URL) {
 				return
 			}
-			navigationRequests := h.performAdditionalAnalysis(rr, blcChecker)
+			navigationRequests := h.performAdditionalAnalysis(rr)
 			for _, req := range navigationRequests {
 				h.options.OutputWriter.Write(req)
 			}
