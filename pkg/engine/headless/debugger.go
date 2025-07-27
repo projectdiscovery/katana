@@ -21,7 +21,6 @@ type CrawlDebugger struct {
 	mu         sync.RWMutex
 	activeURLs map[string]*ActiveURL
 	httpServer *http.Server
-	enableHTTP bool
 }
 
 // NewCrawlDebugger creates a new debugger instance
@@ -30,22 +29,20 @@ func NewCrawlDebugger(httpPort int) *CrawlDebugger {
 		activeURLs: make(map[string]*ActiveURL),
 	}
 
-	if cd.enableHTTP {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/debug/active-urls", cd.handleActiveURLs)
-		mux.HandleFunc("/debug/health", cd.handleHealth)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/active-urls", cd.handleActiveURLs)
+	mux.HandleFunc("/debug/health", cd.handleHealth)
 
-		cd.httpServer = &http.Server{
-			Addr:    fmt.Sprintf(":%d", httpPort),
-			Handler: mux,
-		}
-
-		go func() {
-			if err := cd.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				fmt.Printf("Debug HTTP server error: %v\n", err)
-			}
-		}()
+	cd.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", httpPort),
+		Handler: mux,
 	}
+
+	go func() {
+		if err := cd.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("Debug HTTP server error: %v\n", err)
+		}
+	}()
 
 	return cd
 }
