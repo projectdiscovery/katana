@@ -53,7 +53,6 @@ func (h *filterConditionIntegrationTest) Execute() error {
 
 type uniqueFilterIntegrationTest struct{}
 
-// Execute executes a test case and returns an error if occurred
 func (h *uniqueFilterIntegrationTest) Execute() error {
 	// Create a test server that returns 404 for all paths except root
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +78,6 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 	options.Concurrency = 1
 	options.DisableUniqueFilter = true
 
-	// Test with unique filter enabled (default)
 	var fourOhFourCount atomic.Int32
 	options.OnResult = func(result output.Result) {
 		if result.Response.StatusCode == http.StatusNotFound {
