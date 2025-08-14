@@ -21,7 +21,7 @@ require (
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.79
 	github.com/projectdiscovery/retryablehttp-go v1.0.118
-	github.com/projectdiscovery/utils v0.4.21
+	github.com/projectdiscovery/utils v0.4.23-0.20250814173132-b5718c7ae269
 	github.com/projectdiscovery/wappalyzergo v0.2.38
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -111,7 +111,7 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.3 // indirect
 	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
-	golang.org/x/oauth2 v0.11.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

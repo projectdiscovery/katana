@@ -5,9 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -21,6 +19,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	httputil "github.com/projectdiscovery/utils/http"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
@@ -30,8 +29,7 @@ type Shared struct {
 	Headers    map[string]string
 	KnownFiles *files.KnownFiles
 	Options    *types.CrawlerOptions
-	Jar        http.CookieJar
-	JarMu      sync.Mutex
+	Jar        *httputil.CookieJar
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
@@ -48,7 +46,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	}
 
 	// create an empty cookie jar, this is used to store cookies during the crawl
-	jar, err := cookiejar.New(nil)
+	jar, err := httputil.NewCookieJar(nil)
 	if err != nil {
 		return nil, errorutil.New("could not create cookie jar").Wrap(err)
 	}
