@@ -319,6 +319,10 @@ github.com/projectdiscovery/retryablehttp-go v1.0.118 h1:ylbb2mKOfFQOwbtGyI1C0yz
 github.com/projectdiscovery/retryablehttp-go v1.0.118/go.mod h1:pAQWFh6lg9Gmno5zrQxbfuAbc9OvIugl5P9kaoXztgM=
 github.com/projectdiscovery/utils v0.4.21 h1:yAothTUSF6NwZ9yoC4iGe5gSBrovqKR9JwwW3msxk3Q=
 github.com/projectdiscovery/utils v0.4.21/go.mod h1:HJuJFqjB6EmVaDl0ilFPKvLoMaX2GyE6Il2TqKXNs8I=
+github.com/projectdiscovery/utils v0.4.23-0.20250814172803-75635f539da3 h1:rNh1LFEHrhJQZseADZJgULGrkYzz/VuzjBGHkhV2Es0=
+github.com/projectdiscovery/utils v0.4.23-0.20250814172803-75635f539da3/go.mod h1:3l84gpCwL9KG1/ZmslOBABCrk84CcpGWJZfR8wZysR4=
+github.com/projectdiscovery/utils v0.4.23-0.20250814173132-b5718c7ae269 h1:lrRYMruoZT6vDNwm2UpEayfwZuu4CLS6Kfj4YiwYMpM=
+github.com/projectdiscovery/utils v0.4.23-0.20250814173132-b5718c7ae269/go.mod h1:3l84gpCwL9KG1/ZmslOBABCrk84CcpGWJZfR8wZysR4=
 github.com/projectdiscovery/wappalyzergo v0.2.38 h1:R7gf5NlndtKd2OFT34uIgFlXDJzE8MXRIwQandAC40M=
 github.com/projectdiscovery/wappalyzergo v0.2.38/go.mod h1:XQSgnMQnxliVw2wjKehxeJ4QTRluOJpmm55gLHdztVQ=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
@@ -548,6 +552,7 @@ golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d/go.mod h1:gOpvHmFTYa4Iltr
 golang.org/x/oauth2 v0.5.0/go.mod h1:9/XBHVqLaWO3/BRHs5jbpYCnOZVjj5V0ndyaAM7KB4I=
 golang.org/x/oauth2 v0.11.0 h1:vPL4xzxBM4niKCW6g9whtaWVXTJf1U5e4aZxxFx/gbU=
 golang.org/x/oauth2 v0.11.0/go.mod h1:LdF7O/8bLR/qWK9DrpXmbHLTouvRHK0SgJl0GmDBchk=
+golang.org/x/oauth2 v0.27.0/go.mod h1:onh5ek6nERTohokkhCD/y2cV4Do3fxFHFuAejCkRWT8=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181108010431-42b317875d0f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
