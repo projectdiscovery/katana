@@ -46,7 +46,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	}
 
 	// create an empty cookie jar, this is used to store cookies during the crawl
-	jar, err := httputil.NewCookieJar(nil)
+	jar, err := httputil.NewCookieJar()
 	if err != nil {
 		return nil, errorutil.New("could not create cookie jar").Wrap(err)
 	}
