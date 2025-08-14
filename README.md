@@ -174,6 +174,7 @@ FILTER:
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
    -mdc, -match-condition string    match response with dsl based condition
    -fdc, -filter-condition string   filter response with dsl based condition
+   -duf, -disable-unique-filter     disable duplicate content filtering
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -784,6 +785,7 @@ FILTER:
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
    -mdc, -match-condition string    match response with dsl based condition
    -fdc, -filter-condition string   filter response with dsl based condition
+   -duf, -disable-unique-filter     disable duplicate content filtering
 ```
 
 
