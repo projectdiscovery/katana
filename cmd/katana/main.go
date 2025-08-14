@@ -174,6 +174,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
 		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
+		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
 	)
 
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
