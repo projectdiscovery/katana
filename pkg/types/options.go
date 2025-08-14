@@ -170,6 +170,8 @@ type Options struct {
 	DisableRedirects bool
 	// PathClimb enables path expansion (auto crawl discovered paths)
 	PathClimb bool
+	// DisableUniqueFilter disables duplicate content filtering
+	DisableUniqueFilter bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
