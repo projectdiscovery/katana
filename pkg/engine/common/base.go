@@ -19,6 +19,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	httputil "github.com/projectdiscovery/utils/http"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
@@ -28,6 +29,7 @@ type Shared struct {
 	Headers    map[string]string
 	KnownFiles *files.KnownFiles
 	Options    *types.CrawlerOptions
+	Jar        *httputil.CookieJar
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
@@ -42,6 +44,14 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		}
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
+
+	// create an empty cookie jar, this is used to store cookies during the crawl
+	jar, err := httputil.NewCookieJar()
+	if err != nil {
+		return nil, errorutil.New("could not create cookie jar").Wrap(err)
+	}
+	shared.Jar = jar
+
 	return shared, nil
 }
 
