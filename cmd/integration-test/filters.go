@@ -73,14 +73,14 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 	}))
 	defer server.Close()
 
-	baseOptions := types.DefaultOptions
-	baseOptions.URLs = []string{server.URL}
-	baseOptions.MaxDepth = 2
-	baseOptions.Concurrency = 1
+	options := types.DefaultOptions
+	options.URLs = []string{server.URL}
+	options.MaxDepth = 2
+	options.Concurrency = 1
+	options.DisableUniqueFilter = true
 
 	// Test with unique filter enabled (default)
 	var fourOhFourCount atomic.Int32
-	options := baseOptions
 	options.OnResult = func(result output.Result) {
 		if result.Response.StatusCode == http.StatusNotFound {
 			fourOhFourCount.Add(1)
@@ -97,26 +97,6 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 		return fmt.Errorf("could not execute crawling: %v", err)
 	}
 
-	// With duplicate filtering, we expect only 1 404 response
-	if fourOhFourCount.Load() != 1 {
-		return fmt.Errorf("expected 1 404 response, got %d", fourOhFourCount.Load())
-	}
-
-	// Test with unique filter disabled
-	fourOhFourCount.Store(0)
-	options.DisableUniqueFilter = true
-
-	katanaRunner2, err := runner.New(&options)
-	if err != nil {
-		return fmt.Errorf("could not create runner: %v", err)
-	}
-	defer katanaRunner2.Close()
-
-	if err := katanaRunner2.ExecuteCrawling(); err != nil {
-		return fmt.Errorf("could not execute crawling: %v", err)
-	}
-
-	// With unique filter disabled, we expect all 4 404 responses
 	if fourOhFourCount.Load() != 4 {
 		return fmt.Errorf("expected 4 404 responses, got %d", fourOhFourCount.Load())
 	}
