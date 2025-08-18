@@ -20,7 +20,7 @@ require (
 	github.com/projectdiscovery/hmap v0.0.92
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.79
-	github.com/projectdiscovery/retryablehttp-go v1.0.119
+	github.com/projectdiscovery/retryablehttp-go v1.0.120
 	github.com/projectdiscovery/utils v0.4.23-0.20250814173132-b5718c7ae269
 	github.com/projectdiscovery/wappalyzergo v0.2.41
 	github.com/remeh/sizedwaitgroup v1.0.0
