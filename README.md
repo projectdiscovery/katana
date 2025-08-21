@@ -114,8 +114,8 @@ Usage:
 
 Flags:
 INPUT:
-   -u, -list string[]  target url / list to crawl
-   -resume string      resume scan using resume.cfg
+   -u, -list string[]     target url / list to crawl
+   -resume string         resume scan using resume.cfg
    -e, -exclude string[]  exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)
 
 CONFIGURATION:
@@ -125,12 +125,13 @@ CONFIGURATION:
    -jsl, -jsluice                enable jsluice parsing in javascript file (memory intensive)
    -ct, -crawl-duration value    maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled.
-   -mrs, -max-response-size int  maximum response size to read (default 9223372036854775807)
+   -mrs, -max-response-size int  maximum response size to read (default 4194304)
    -timeout int                  time to wait for request in seconds (default 10)
    -aff, -automatic-form-fill    enable automatic form filling (experimental)
    -fx, -form-extraction         extract form, input, textarea & select elements in jsonl output
    -retry int                    number of times to retry the request (default 1)
    -proxy string                 http/socks5 proxy to use
+   -td, -tech-detect             enable technology detection
    -H, -headers string[]         custom header/cookie to include in all http request in header:value format (file)
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
@@ -143,6 +144,7 @@ CONFIGURATION:
 DEBUG:
    -health-check, -hc        run diagnostic check up
    -elog, -error-log string  file to write sent requests error log
+   -pprof-server             enable pprof server
 
 HEADLESS:
    -hl, -headless                    enable headless hybrid crawling (experimental)
@@ -166,7 +168,7 @@ SCOPE:
 FILTER:
    -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
    -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir) (Deprecated: use -output-template instead)
    -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
@@ -186,8 +188,10 @@ UPDATE:
 
 OUTPUT:
    -o, -output string                file to write output to
+   -ot, -output-template string      custom output template
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
+   -ncb, -no-clobber                 do not overwrite output file
    -sfd, -store-field-dir string     store per-host field to custom directory
    -or, -omit-raw                    omit raw requests/responses from jsonl output
    -ob, -omit-body                   omit response body from jsonl output
@@ -598,6 +602,9 @@ katana -headless -u https://tesla.com -cwu ws://127.0.0.1:9222/devtools/browser/
 *`-field`*
 ----
 
+> [!WARNING]
+> Deprecated: use [**`-output-template`**](#-output-template) instead. The field flag is still supported for backward compatibility.
+
 Katana comes with built in fields that can be used to filter the output for the desired information, `-f` option can be used to specify any of the available fields.
 
 ```
@@ -845,6 +852,7 @@ RATE-LIMIT:
 Katana support both file output in plain text format as well as JSON which includes additional information like, `source`, `tag`, and `attribute` name to co-related the discovered endpoint.
 
 *`-output`*
+---
 
 By default, katana outputs the crawled endpoints in plain text format. The results can be written to a file by using the -output option.
 
@@ -852,6 +860,24 @@ By default, katana outputs the crawled endpoints in plain text format. The resul
 ```console
 katana -u https://example.com -no-scope -output example_endpoints.txt
 ```
+
+*`-output-template`*
+---
+
+The `-output-template` option allows you to customize the output format using template, providing flexibility in defining the output structure. This option replaces the deprecated `-field` flag for filtering output. Instead of relying on predefined fields, you can specify a custom template directly in the command line to control how the extracted data is presented.
+
+Example of using the `-output-template` option:
+
+```sh
+katana -u https://example.com -output-template '{{email}} - {{url}}'
+```
+
+In this example, `email` represents a [custom field](#custom-fields) that extracts and displays email addresses found within the source `url`.
+
+> [!NOTE]
+> If a specified field does not exist or does not contain a value, it will simply be omitted from the output.
+
+This option can effectively structure the output in a way that best suits your use case, making data extraction more intuitive and customizable.
 
 *`-jsonl`*
 ---
