@@ -40,7 +40,7 @@
 
 ## Installation
 
-katana requires Go 1.21+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.24+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -174,6 +174,7 @@ FILTER:
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
    -mdc, -match-condition string    match response with dsl based condition
    -fdc, -filter-condition string   filter response with dsl based condition
+   -duf, -disable-unique-filter     disable duplicate content filtering
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -784,6 +785,7 @@ FILTER:
    -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
    -mdc, -match-condition string    match response with dsl based condition
    -fdc, -filter-condition string   filter response with dsl based condition
+   -duf, -disable-unique-filter     disable duplicate content filtering
 ```
 
 
@@ -1006,6 +1008,24 @@ func main() {
 	}
 }
 ```
+
+## Reporting Issues & Feature Requests
+
+To maintain issue tracking and improve triage efficiency:
+
+**All reports start as [GitHub Discussions](https://github.com/projectdiscovery/katana/discussions)**
+
+- **Bug Reports** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
+- **Feature Requests** → [Start an Ideas Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=ideas)  
+- **Questions** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
+
+**Why Discussions First?**
+- **Community can help** with quick questions and troubleshooting
+- **Better triage** - confirmed bugs/features become tracked issues  
+- **Cleaner issue tracker** - focus on actionable items only
+
+Maintainers will convert discussions to issues when appropriate after proper review.
+
 --------
 
 <div align="center">
