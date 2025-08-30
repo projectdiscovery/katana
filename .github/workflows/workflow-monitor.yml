@@ -60,25 +60,35 @@ jobs:
               d => new Date(d.createdAt) >= oneWeekAgo
             );
             
-            // Generate report
-            const report = "## Discussion-First Workflow Report\n\n" +
-                          "**Period:** " + oneWeekAgo.toDateString() + " - " + new Date().toDateString() + "\n\n" +
-                          "### Activity Summary:\n" +
-                          "- **Discussions Created:** " + recentDiscussions.length + "\n" +
-                          "- **Issues Created:** " + issues.data.length + "\n" +
-                          "- **Conversion Ratio:** " + issues.data.length + "/" + recentDiscussions.length + " (" + ((issues.data.length / Math.max(recentDiscussions.length, 1)) * 100).toFixed(1) + "%)\n\n" +
-                          "### Discussion Breakdown:\n" +
-                          (recentDiscussions.map(d => "- **" + d.category.name + ":** " + d.title + " (" + d.comments.totalCount + " comments)").join('\n') || 'No discussions this week') + "\n\n" +
-                          "### Issue Creation:\n" +
-                          (issues.data.map(i => "- **" + i.title + "** (Created: " + new Date(i.created_at).toDateString() + ")").join('\n') || 'No direct issues created') + "\n\n" +
-                          "### Health Indicators:\n" +
-                          "- **Discussion Activity:** " + (recentDiscussions.length > 0 ? 'Active' : 'Low activity') + "\n" +
-                          "- **Direct Issue Creation:** " + (issues.data.length === 0 ? 'Properly blocked' : issues.data.length + ' direct issues created') + "\n" +
-                          "- **Community Engagement:** " + recentDiscussions.filter(d => d.comments.totalCount > 0).length + "/" + recentDiscussions.length + " discussions have responses\n\n" +
-                          (issues.data.length > 0 ? "### Action Required:\nDirect issues were created this week. Check if:\n- Issue templates are properly disabled\n- Discussions redirects are working\n- Users are bypassing the workflow\n\n" : "") +
-                          "---\n*This report is generated automatically to help monitor the discussion-first workflow effectiveness.*";
+            // Generate and log simple report
+            console.log("=== Discussion-First Workflow Report ===");
+            console.log(`Period: ${oneWeekAgo.toDateString()} - ${new Date().toDateString()}`);
+            console.log(`Discussions Created: ${recentDiscussions.length}`);
+            console.log(`Issues Created: ${issues.data.length}`);
+            console.log(`Conversion Ratio: ${issues.data.length}/${recentDiscussions.length}`);
             
-            console.log(report);
+            if (recentDiscussions.length > 0) {
+              console.log("\nDiscussion Categories:");
+              recentDiscussions.forEach(d => {
+                console.log(`- ${d.category.name}: ${d.title} (${d.comments.totalCount} comments)`);
+              });
+            } else {
+              console.log("No discussions this week");
+            }
+            
+            if (issues.data.length > 0) {
+              console.log("\nDirect Issues Created:");
+              issues.data.forEach(i => {
+                console.log(`- ${i.title} (${new Date(i.created_at).toDateString()})`);
+              });
+              console.log("\nWARNING: Direct issues were created - check workflow configuration");
+            } else {
+              console.log("\nNo direct issues created - workflow working correctly");
+            }
+            
+            const responseRate = recentDiscussions.length > 0 ? 
+              (recentDiscussions.filter(d => d.comments.totalCount > 0).length / recentDiscussions.length * 100).toFixed(1) : 0;
+            console.log(`Community Response Rate: ${responseRate}%`);
             
             // You could also create an issue or discussion with this report
             // For now, just log it to Actions output
