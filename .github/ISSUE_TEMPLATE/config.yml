@@ -1,26 +1,26 @@
 blank_issues_enabled: false
 
 contact_links:
-  - name: 🐛 Report a Bug (Discussion First)
+  - name: Report a Bug (Discussion First)
     url: https://github.com/projectdiscovery/katana/discussions/new?category=q-a
     about: Report bugs or issues via discussion for proper triage before issue creation
 
-  - name: 💡 Feature Request (Discussion First)
-    url: https://github.com/projectdiscovery/katana/discussions/new?category=ideas  
+  - name: Feature Request (Discussion First)
+    url: https://github.com/projectdiscovery/katana/discussions/new?category=ideas
     about: Share feature ideas via discussion for evaluation before implementation
 
-  - name: ❓ Ask a Question
+  - name: Ask a Question
     url: https://github.com/projectdiscovery/katana/discussions/new?category=q-a
     about: Ask questions about usage, configuration, or troubleshooting
 
-  - name: 💬 General Discussion
+  - name: General Discussion
     url: https://github.com/projectdiscovery/katana/discussions/new?category=general
     about: General discussion about the project
 
-  - name: 🔒 Security Issues
+  - name: Security Issues
     url: mailto:security@projectdiscovery.io
     about: Report security vulnerabilities privately via email
 
-  - name: 💬 Discord Community
+  - name: Discord Community
     url: https://discord.gg/projectdiscovery
     about: Connect with PD Team and community for real-time discussion

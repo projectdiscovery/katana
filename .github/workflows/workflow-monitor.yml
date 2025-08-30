@@ -61,42 +61,22 @@ jobs:
             );
             
             // Generate report
-            const report = `
-## 📊 Discussion-First Workflow Report
-
-**Period:** ${oneWeekAgo.toDateString()} - ${new Date().toDateString()}
-
-### 📈 Activity Summary:
-- **Discussions Created:** ${recentDiscussions.length}
-- **Issues Created:** ${issues.data.length}
-- **Conversion Ratio:** ${issues.data.length}/${recentDiscussions.length} (${((issues.data.length / Math.max(recentDiscussions.length, 1)) * 100).toFixed(1)}%)
-
-### 📋 Discussion Breakdown:
-${recentDiscussions.map(d => 
-  `- **${d.category.name}:** ${d.title} (${d.comments.totalCount} comments)`
-).join('\n') || 'No discussions this week'}
-
-### 🎯 Issue Creation:
-${issues.data.map(i => 
-  `- **${i.title}** (Created: ${new Date(i.created_at).toDateString()})`
-).join('\n') || 'No direct issues created ✅'}
-
-### 🔍 Health Indicators:
-- **Discussion Activity:** ${recentDiscussions.length > 0 ? '✅ Active' : '⚠️ Low activity'}
-- **Direct Issue Creation:** ${issues.data.length === 0 ? '✅ Properly blocked' : '⚠️ ' + issues.data.length + ' direct issues created'}
-- **Community Engagement:** ${recentDiscussions.filter(d => d.comments.totalCount > 0).length}/${recentDiscussions.length} discussions have responses
-
-${issues.data.length > 0 ? `
-### ⚠️ Action Required:
-Direct issues were created this week. Check if:
-- Issue templates are properly disabled
-- Discussions redirects are working
-- Users are bypassing the workflow
-` : ''}
-
----
-*This report is generated automatically to help monitor the discussion-first workflow effectiveness.*
-            `;
+            const report = "## Discussion-First Workflow Report\n\n" +
+                          "**Period:** " + oneWeekAgo.toDateString() + " - " + new Date().toDateString() + "\n\n" +
+                          "### Activity Summary:\n" +
+                          "- **Discussions Created:** " + recentDiscussions.length + "\n" +
+                          "- **Issues Created:** " + issues.data.length + "\n" +
+                          "- **Conversion Ratio:** " + issues.data.length + "/" + recentDiscussions.length + " (" + ((issues.data.length / Math.max(recentDiscussions.length, 1)) * 100).toFixed(1) + "%)\n\n" +
+                          "### Discussion Breakdown:\n" +
+                          (recentDiscussions.map(d => "- **" + d.category.name + ":** " + d.title + " (" + d.comments.totalCount + " comments)").join('\n') || 'No discussions this week') + "\n\n" +
+                          "### Issue Creation:\n" +
+                          (issues.data.map(i => "- **" + i.title + "** (Created: " + new Date(i.created_at).toDateString() + ")").join('\n') || 'No direct issues created') + "\n\n" +
+                          "### Health Indicators:\n" +
+                          "- **Discussion Activity:** " + (recentDiscussions.length > 0 ? 'Active' : 'Low activity') + "\n" +
+                          "- **Direct Issue Creation:** " + (issues.data.length === 0 ? 'Properly blocked' : issues.data.length + ' direct issues created') + "\n" +
+                          "- **Community Engagement:** " + recentDiscussions.filter(d => d.comments.totalCount > 0).length + "/" + recentDiscussions.length + " discussions have responses\n\n" +
+                          (issues.data.length > 0 ? "### Action Required:\nDirect issues were created this week. Check if:\n- Issue templates are properly disabled\n- Discussions redirects are working\n- Users are bypassing the workflow\n\n" : "") +
+                          "---\n*This report is generated automatically to help monitor the discussion-first workflow effectiveness.*";
             
             console.log(report);
             
