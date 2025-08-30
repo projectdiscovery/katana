@@ -18,6 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -36,7 +37,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
 	}
-	defer page.Close()
+	defer func() {
+		if err := page.Close(); err != nil {
+			gologger.Warning().Msgf("Failed to close page: %v", err)
+		}
+	}()
 	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
@@ -52,6 +57,17 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
 		}
 		body, _ := FetchGetResponseBody(page, e)
+
+		// Set URL context for similarity filter verbose logging
+		if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
+			similarityFilter.SetCurrentURL(e.Request.URL)
+		}
+
+		// Apply similarity filtering (same as standard engine)
+		if !c.Options.UniqueFilter.UniqueContent(body) {
+			return FetchContinueRequest(page, e) // Skip this response, continue request
+		}
+
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
 			headers[h.Name] = []string{h.Value}

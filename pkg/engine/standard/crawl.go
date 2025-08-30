@@ -13,6 +13,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -76,6 +77,12 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	if err != nil {
 		return response, err
 	}
+
+	// Set URL context for similarity filter verbose logging
+	if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
+		similarityFilter.SetCurrentURL(request.URL)
+	}
+
 	if !c.Options.UniqueFilter.UniqueContent(data) {
 		return &navigation.Response{}, nil
 	}

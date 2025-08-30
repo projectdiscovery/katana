@@ -15,7 +15,6 @@ import (
 	"github.com/projectdiscovery/katana/internal/runner"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"github.com/projectdiscovery/katana/pkg/tfidf"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
@@ -23,11 +22,8 @@ import (
 )
 
 var (
-	cfgFile              string
-	options              = &types.Options{}
-	useDynamicScope      bool
-	tfidfModel           *tfidf.TfIdf
-	similarityThreshold  float64 = 0.7
+	cfgFile string
+	options = &types.Options{}
 )
 
 func main() {
@@ -39,14 +35,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Initialize the TF-IDF model if dynamic scoping is enabled
-	if useDynamicScope {
-		tfidfModel = tfidf.New()
-	}
-
 	katanaRunner, err := runner.New(options)
 	handleError("could not create runner", err)
-	defer katanaRunner.Close()
+	defer func() {
+		if err := katanaRunner.Close(); err != nil {
+			gologger.Warning().Msgf("Failed to close runner: %v", err)
+		}
+	}()
 
 	resumeFilename := defaultResumeFilename()
 	setupCloseHandler(katanaRunner, resumeFilename)
@@ -60,7 +55,9 @@ func main() {
 
 	// Remove the resume file if it exists
 	if fileutil.FileExists(resumeFilename) {
-		os.Remove(resumeFilename)
+		if err := os.Remove(resumeFilename); err != nil {
+			gologger.Warning().Msgf("Failed to remove resume file: %v", err)
+		}
 	}
 }
 
@@ -97,7 +94,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
-		flagSet.BoolVarP(&options.UseDynamicScope, "use-dynamic-scope", "uds", false, "Use dynamic scoping to avoid crawling similar pages"),
+		flagSet.BoolVarP(&options.SimilarityDeduplication, "similarity-deduplication", "sdd", false, "enable content similarity detection to avoid crawling similar pages"),
+		flagSet.StringVarP(&options.SimilarityThresholdStr, "similarity-threshold", "st", "0.1", "similarity threshold for content deduplication (0.0-1.0, default 0.1)"),
 	)
 
 	// Debug group
@@ -207,7 +205,9 @@ func setupCloseHandler(runner *runner.Runner, resumeFilename string) {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			runner.Close()
+			if err := runner.Close(); err != nil {
+				gologger.Warning().Msgf("Failed to close runner on exit: %v", err)
+			}
 
 			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
 			err := runner.SaveState(resumeFilename)

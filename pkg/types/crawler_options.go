@@ -55,9 +55,21 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create scope manager")
 	}
-	itemFilter, err := filters.NewSimple()
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create filter")
+	var itemFilter filters.Filter
+
+	if options.SimilarityDeduplication {
+		// Use similarity filter with TF-IDF analysis
+		threshold := options.GetSimilarityThreshold()
+		itemFilter, err = filters.NewSimilarity(threshold)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create similarity filter")
+		}
+	} else {
+		// Use standard simple filter
+		itemFilter, err = filters.NewSimple()
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create filter")
+		}
 	}
 
 	outputOptions := output.Options{
