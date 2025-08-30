@@ -17,7 +17,7 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 				builder.WriteRune(']')
 				builder.WriteRune(' ')
 			}
-			builder.WriteString(fmt.Sprintf("%s\n", fop.value))
+			fmt.Fprintf(builder, "%s\n", fop.value)
 		}
 		return builder.Bytes(), nil
 	}

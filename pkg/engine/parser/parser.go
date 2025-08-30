@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/html"
 )
@@ -17,6 +18,8 @@ import (
 // responseParserFunc is a function that parses the document returning
 // new navigation items or requests for the crawler.
 type ResponseParserFunc func(resp *navigation.Response) []*navigation.Request
+
+type Parser []responseParser
 
 type responseParserType int
 
@@ -31,48 +34,49 @@ type responseParser struct {
 	parserFunc ResponseParserFunc
 }
 
-// responseParsers is a list of response parsers for the standard engine
-var responseParsers = []responseParser{
-	// Header based parsers
-	{headerParser, headerContentLocationParser},
-	{headerParser, headerLinkParser},
-	{headerParser, headerRefreshParser},
+func NewResponseParser() *Parser {
+	return &Parser{
+		// Header based parsers
+		{headerParser, headerContentLocationParser},
+		{headerParser, headerLinkParser},
+		{headerParser, headerRefreshParser},
 
-	// Body based parsers
-	{bodyParser, bodyATagParser},
-	{bodyParser, bodyLinkHrefTagParser},
-	{bodyParser, bodyBackgroundTagParser},
-	{bodyParser, bodyAudioTagParser},
-	{bodyParser, bodyAppletTagParser},
-	{bodyParser, bodyImgTagParser},
-	{bodyParser, bodyObjectTagParser},
-	{bodyParser, bodySvgTagParser},
-	{bodyParser, bodyTableTagParser},
-	{bodyParser, bodyVideoTagParser},
-	{bodyParser, bodyButtonFormactionTagParser},
-	{bodyParser, bodyBlockquoteCiteTagParser},
-	{bodyParser, bodyFrameSrcTagParser},
-	{bodyParser, bodyMapAreaPingTagParser},
-	{bodyParser, bodyBaseHrefTagParser},
-	{bodyParser, bodyImportImplementationTagParser},
-	{bodyParser, bodyEmbedTagParser},
-	{bodyParser, bodyFrameTagParser},
-	{bodyParser, bodyIframeTagParser},
-	{bodyParser, bodyInputSrcTagParser},
-	{bodyParser, bodyIsindexActionTagParser},
-	{bodyParser, bodyScriptSrcTagParser},
-	{bodyParser, bodyMetaContentTagParser},
-	{bodyParser, bodyHtmlManifestTagParser},
-	{bodyParser, bodyHtmlDoctypeTagParser},
-	{bodyParser, bodyHtmxAttrParser},
+		// Body based parsers
+		{bodyParser, bodyATagParser},
+		{bodyParser, bodyLinkHrefTagParser},
+		{bodyParser, bodyBackgroundTagParser},
+		{bodyParser, bodyAudioTagParser},
+		{bodyParser, bodyAppletTagParser},
+		{bodyParser, bodyImgTagParser},
+		{bodyParser, bodyObjectTagParser},
+		{bodyParser, bodySvgTagParser},
+		{bodyParser, bodyTableTagParser},
+		{bodyParser, bodyVideoTagParser},
+		{bodyParser, bodyButtonFormactionTagParser},
+		{bodyParser, bodyBlockquoteCiteTagParser},
+		{bodyParser, bodyFrameSrcTagParser},
+		{bodyParser, bodyMapAreaPingTagParser},
+		{bodyParser, bodyBaseHrefTagParser},
+		{bodyParser, bodyImportImplementationTagParser},
+		{bodyParser, bodyEmbedTagParser},
+		{bodyParser, bodyFrameTagParser},
+		{bodyParser, bodyIframeTagParser},
+		{bodyParser, bodyInputSrcTagParser},
+		{bodyParser, bodyIsindexActionTagParser},
+		{bodyParser, bodyScriptSrcTagParser},
+		{bodyParser, bodyMetaContentTagParser},
+		{bodyParser, bodyHtmlManifestTagParser},
+		{bodyParser, bodyHtmlDoctypeTagParser},
+		{bodyParser, bodyHtmxAttrParser},
 
-	// custom field regex parser
-	{bodyParser, customFieldRegexParser},
+		// custom field regex parser
+		{bodyParser, customFieldRegexParser},
+	}
 }
 
 // parseResponse runs the response parsers on the navigation response
-func ParseResponse(resp *navigation.Response) (navigationRequests []*navigation.Request) {
-	for _, parser := range responseParsers {
+func (p *Parser) ParseResponse(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	for _, parser := range *p {
 		switch {
 		case parser.parserType == headerParser && resp.Resp != nil:
 			navigationRequests = append(navigationRequests, parser.parserFunc(resp)...)
@@ -560,7 +564,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 		// Guess content-type
 		var contentType string
 		if multipartWriter != nil {
-			multipartWriter.Close()
+			_ = multipartWriter.Close()
 			contentType = multipartWriter.FormDataContentType()
 		} else {
 			contentType = encType
@@ -671,7 +675,7 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	// Only process javascript file based on path or content type
 	// CSS, JS are supported for relative endpoint extraction.
 	contentType := resp.Resp.Header.Get("Content-Type")
-	if !(strings.HasSuffix(resp.Resp.Request.URL.Path, ".js") || strings.HasSuffix(resp.Resp.Request.URL.Path, ".css") || strings.Contains(contentType, "/javascript")) {
+	if !stringsutil.HasSuffixAny(resp.Resp.Request.URL.Path, ".js", ".css") && !strings.Contains(contentType, "/javascript") {
 		return
 	}
 

@@ -20,3 +20,8 @@ func TestParseRefreshTag(t *testing.T) {
 	values := ParseRefreshTag(header)
 	require.Equal(t, "/test/headers/refresh.found", values, "could not parse correct links")
 }
+
+func TestExtractParentPaths(t *testing.T) {
+	urls := ExtractParentPaths("https://example.com/test/path/to/file.html")
+	require.ElementsMatch(t, []string{"https://example.com/test/path/to", "https://example.com/test/path", "https://example.com/test"}, urls, "could not extract correct parent paths")
+}

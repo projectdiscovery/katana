@@ -46,10 +46,19 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 			req.Host = v
 		}
 	}
+
 	for k, v := range c.Headers {
 		req.Header.Set(k, v)
 		if k == "Host" {
 			req.Host = v
+		}
+	}
+
+	// Apply cookies
+	if c.Shared.Jar != nil {
+		cookies := c.Shared.Jar.Cookies(req.Request.URL)
+		for _, cookie := range cookies {
+			req.Request.AddCookie(cookie)
 		}
 	}
 
@@ -61,6 +70,11 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 			}
 			_ = resp.Body.Close()
 		}()
+	}
+
+	// Collect cookies from the response
+	if c.Shared.Jar != nil && resp != nil {
+		c.Shared.Jar.SetCookies(req.Request.URL, resp.Cookies())
 	}
 
 	rawRequestBytes, _ := req.Dump()
@@ -78,17 +92,22 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		return response, err
 	}
 
-	// Set URL context for similarity filter verbose logging
-	if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
-		similarityFilter.SetCurrentURL(request.URL)
+	// Skip unique content filtering if disabled
+	if !c.Options.Options.DisableUniqueFilter {
+		// Set URL context for similarity filter verbose logging
+		if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
+			similarityFilter.SetCurrentURL(request.URL)
+		}
+
+		if !c.Options.UniqueFilter.UniqueContent(data) {
+			return &navigation.Response{}, nil
+		}
 	}
 
-	if !c.Options.UniqueFilter.UniqueContent(data) {
-		return &navigation.Response{}, nil
+	if c.Options.Wappalyzer != nil {
+		technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, data)
+		response.Technologies = mapsutil.GetKeys(technologies)
 	}
-
-	technologies := c.Options.Wappalyzer.Fingerprint(resp.Header, data)
-	response.Technologies = mapsutil.GetKeys(technologies)
 
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
 

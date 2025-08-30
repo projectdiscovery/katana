@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
+	pprofutils "github.com/projectdiscovery/utils/pprof"
 	"github.com/rs/xid"
 )
 
@@ -36,18 +36,33 @@ func main() {
 	}
 
 	katanaRunner, err := runner.New(options)
-	handleError("could not create runner", err)
+	if err != nil || katanaRunner == nil {
+		if options.Version {
+			return
+		}
+		gologger.Fatal().Msgf("could not create runner: %s\n", err)
+	}
 	defer func() {
 		if err := katanaRunner.Close(); err != nil {
-			gologger.Warning().Msgf("Failed to close runner: %v", err)
+			gologger.Error().Msgf("Error closing katana runner: %v\n", err)
 		}
 	}()
 
 	resumeFilename := defaultResumeFilename()
 	setupCloseHandler(katanaRunner, resumeFilename)
 
-	err = katanaRunner.ExecuteCrawling()
-	handleError("could not execute crawling", err)
+	var pprofServer *pprofutils.PprofServer
+	if options.PprofServer {
+		pprofServer = pprofutils.NewPprofServer()
+		pprofServer.Start()
+	}
+	if pprofServer != nil {
+		defer pprofServer.Stop()
+	}
+
+	if err := katanaRunner.ExecuteCrawling(); err != nil {
+		gologger.Fatal().Msgf("could not execute crawling: %s", err)
+	}
 
 	// Deduplicate lines in each file in the store-field-dir
 	storeFieldDir := "katana_field"
@@ -60,6 +75,8 @@ func main() {
 		}
 	}
 }
+
+const defaultBodyReadSize = 4 * 1024 * 1024
 
 func readFlags() (*goflags.FlagSet, error) {
 	flagSet := goflags.NewFlagSet()
@@ -80,12 +97,14 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jsl", false, "enable jsluice parsing in javascript file (memory intensive)"),
 		flagSet.DurationVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for (s, m, h, d) (default s)"),
 		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled."),
-		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", math.MaxInt, "maximum response size to read"),
+		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", defaultBodyReadSize, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
+		flagSet.IntVar(&options.TimeStable, "time-stable", 1, "time to wait until the page is stable in seconds"),
 		flagSet.BoolVarP(&options.AutomaticFormFill, "automatic-form-fill", "aff", false, "enable automatic form filling (experimental)"),
 		flagSet.BoolVarP(&options.FormExtraction, "form-extraction", "fx", false, "extract form, input, textarea & select elements in jsonl output"),
 		flagSet.IntVar(&options.Retries, "retry", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
+		flagSet.BoolVarP(&options.TechDetect, "tech-detect", "td", false, "enable technology detection"),
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in all http request in header:value format (file)", goflags.FileStringSliceOptions),
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
@@ -96,12 +115,14 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
 		flagSet.BoolVarP(&options.SimilarityDeduplication, "similarity-deduplication", "sdd", false, "enable content similarity detection to avoid crawling similar pages"),
 		flagSet.StringVarP(&options.SimilarityThresholdStr, "similarity-threshold", "st", "0.1", "similarity threshold for content deduplication (0.0-1.0, default 0.1)"),
+		flagSet.BoolVarP(&options.PathClimb, "path-climb", "pc", false, "enable path climb (auto crawl parent paths)"),
 	)
 
 	// Debug group
 	flagSet.CreateGroup("debug", "Debug",
 		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
 		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
+		flagSet.BoolVar(&options.PprofServer, "pprof-server", false, "enable pprof server"),
 	)
 
 	// Headless group
@@ -131,12 +152,13 @@ func readFlags() (*goflags.FlagSet, error) {
 	flagSet.CreateGroup("filter", "Filter",
 		flagSet.StringSliceVarP(&options.OutputMatchRegex, "match-regex", "mr", nil, "regex or list of regex to match on output url (cli, file)", goflags.FileStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutputFilterRegex, "filter-regex", "fr", nil, "regex or list of regex to filter on output url (cli, file)", goflags.FileStringSliceOptions),
-		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
+		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s) (Deprecated: use -output-template instead)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
 		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
+		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
 	)
 
 	// Rate-Limit group
@@ -157,6 +179,7 @@ func readFlags() (*goflags.FlagSet, error) {
 	// Output group
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
+		flagSet.StringVarP(&options.OutputTemplate, "output-template", "ot", "", "custom output template"),
 		flagSet.BoolVarP(&options.StoreResponse, "store-response", "sr", false, "store http requests/responses"),
 		flagSet.StringVarP(&options.StoreResponseDir, "store-response-dir", "srd", "", "store http requests/responses to custom directory"),
 		flagSet.BoolVarP(&options.NoClobber, "no-clobber", "ncb", false, "do not overwrite output file"),

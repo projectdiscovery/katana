@@ -11,7 +11,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
@@ -20,6 +19,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	httputil "github.com/projectdiscovery/utils/http"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
@@ -29,6 +29,7 @@ type Shared struct {
 	Headers    map[string]string
 	KnownFiles *files.KnownFiles
 	Options    *types.CrawlerOptions
+	Jar        *httputil.CookieJar
 }
 
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
@@ -43,12 +44,23 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		}
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
+
+	// create an empty cookie jar, this is used to store cookies during the crawl
+	jar, err := httputil.NewCookieJar()
+	if err != nil {
+		return nil, errorutil.New("could not create cookie jar").Wrap(err)
+	}
+	shared.Jar = jar
+
 	return shared, nil
 }
 
 func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.Request) {
 	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
+			if s.Options.Options.OnSkipURL != nil {
+				s.Options.Options.OnSkipURL(nr.URL)
+			}
 			continue
 		}
 
@@ -82,6 +94,37 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 		queue.Push(nr, nr.Depth)
+
+		if s.Options.Options.PathClimb {
+			extractedParentURLs := utils.ExtractParentPaths(nr.URL)
+			for _, extractedParentURL := range extractedParentURLs {
+				if !utils.IsURL(extractedParentURL) {
+					continue
+				}
+
+				if !s.Options.UniqueFilter.UniqueURL(extractedParentURL) {
+					continue
+				}
+				if !s.ValidateScope(extractedParentURL, nr.RootHostname) {
+					continue
+				}
+
+				parentDepth := nr.Depth
+				if parentDepth > 0 {
+					parentDepth--
+				}
+
+				parentReq := &navigation.Request{
+					Method:       nr.Method,
+					URL:          extractedParentURL,
+					Depth:        parentDepth,
+					RootHostname: nr.RootHostname,
+					Source:       nr.Source,
+					Tag:          "path-climb",
+				}
+				queue.Push(parentReq, parentDepth)
+			}
+		}
 	}
 }
 
@@ -156,18 +199,22 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(resp.Body)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
-		technologies := s.Options.Wappalyzer.Fingerprint(resp.Header, body)
+		var technologyKeys []string
+		if s.Options.Wappalyzer != nil {
+			technologies := s.Options.Wappalyzer.Fingerprint(resp.Header, body)
+			technologyKeys = mapsutil.GetKeys(technologies)
+		}
 		navigationResponse := &navigation.Response{
 			Depth:        depth + 1,
 			RootHostname: hostname,
 			Resp:         resp,
 			Body:         string(body),
 			Reader:       reader,
-			Technologies: mapsutil.GetKeys(technologies),
+			Technologies: technologyKeys,
 			StatusCode:   resp.StatusCode,
 			Headers:      utils.FlattenHeaders(resp.Header),
 		}
-		navigationRequests := parser.ParseResponse(navigationResponse)
+		navigationRequests := s.Options.Parser.ParseResponse(navigationResponse)
 		s.Enqueue(queue, navigationRequests...)
 	})
 	if err != nil {
@@ -200,7 +247,15 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}
 
 		if !utils.IsURL(req.URL) {
+			if s.Options.Options.OnSkipURL != nil {
+				s.Options.Options.OnSkipURL(req.URL)
+			}
 			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
+			continue
+		}
+
+		if !s.Options.ValidatePath(req.URL) {
+			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
 			continue
 		}
 
@@ -215,7 +270,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}
 
 		wg.Add()
-		// gologger.Debug().Msgf("Visting: %v", req.URL) // not sure if this is needed
+		// gologger.Debug().Msgf("Visiting: %v", req.URL) // not sure if this is needed
 		go func() {
 			defer wg.Done()
 
@@ -250,7 +305,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			}
 
-			navigationRequests := parser.ParseResponse(resp)
+			navigationRequests := s.Options.Parser.ParseResponse(resp)
 			s.Enqueue(crawlSession.Queue, navigationRequests...)
 		}()
 	}

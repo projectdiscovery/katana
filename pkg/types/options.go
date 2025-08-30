@@ -17,6 +17,9 @@ import (
 // OnResultCallback (output.Result)
 type OnResultCallback func(output.Result)
 
+// OnSkipURLCallback (string)
+type OnSkipURLCallback func(string)
+
 type Options struct {
 	// URLs contains a list of URLs for crawling
 	URLs goflags.StringSlice
@@ -46,6 +49,8 @@ type Options struct {
 	BodyReadSize int
 	// Timeout is the time to wait for request in seconds
 	Timeout int
+	// TimeStable is the time to wait until the page is stable
+	TimeStable int
 	// CrawlDuration is the duration in seconds to crawl target from
 	CrawlDuration time.Duration
 	// Delay is the delay between each crawl requests in seconds
@@ -86,6 +91,8 @@ type Options struct {
 	Silent bool
 	// Verbose specifies showing verbose output
 	Verbose bool
+	// TechDetect enables technology detection
+	TechDetect bool
 	// Version enables showing of crawler version
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
@@ -114,6 +121,8 @@ type Options struct {
 	ChromeWSUrl string
 	// OnResult allows callback function on a result
 	OnResult OnResultCallback
+	// OnSkipURL allows callback function on a skipped url
+	OnSkipURL OnSkipURLCallback
 	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
@@ -134,10 +143,14 @@ type Options struct {
 	XhrExtraction bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
+	// PprofServer enables pprof server
+	PprofServer bool
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
 	// Resolvers contains custom resolvers
 	Resolvers goflags.StringSlice
+	// OutputTemplate enables custom output template
+	OutputTemplate string
 	// OutputMatchRegex is the regex to match output url
 	OutputMatchRegex goflags.StringSlice
 	// OutputFilterRegex is the regex to filter output url
@@ -154,12 +167,16 @@ type Options struct {
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
 	TlsImpersonate bool
-	//DisableRedirects disables the following of redirects
+	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
 	// SimilarityDeduplication enables content similarity detection using TF-IDF to avoid crawling similar pages
 	SimilarityDeduplication bool
 	// SimilarityThresholdStr is the string representation of similarity threshold
 	SimilarityThresholdStr string
+	// PathClimb enables path expansion (auto crawl discovered paths)
+	PathClimb bool
+	// DisableUniqueFilter disables duplicate content filtering
+	DisableUniqueFilter bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
