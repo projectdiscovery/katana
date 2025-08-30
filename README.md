@@ -140,6 +140,8 @@ CONFIGURATION:
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
    -dr, -disable-redirects       disable following redirects (default false)
+   -sdd, -similarity-deduplication enable content similarity detection to avoid crawling similar pages
+   -st, -similarity-threshold string similarity threshold for content deduplication (0.0-1.0, default 0.1) (default "0.1")
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
@@ -244,6 +246,33 @@ echo https://tesla.com | katana
 
 ```sh
 cat domains | httpx | katana
+```
+
+### Similarity Detection (Content Deduplication)
+
+Use similarity detection to avoid crawling pages with similar content, ideal for sites with template-based pages or repeated content:
+
+```sh
+# Enable similarity detection with default threshold (0.1)
+katana -u https://example.com -sdd
+
+# Use aggressive similarity filtering for template-heavy sites
+katana -u https://shop.example.com -sdd -st 0.05
+
+# Use permissive similarity filtering for diverse content
+katana -u https://blog.example.com -sdd -st 0.3
+
+# Combine with headless mode
+katana -u https://example.com -sdd -hl -st 0.1
+
+# See detailed similarity analysis in debug mode
+katana -u https://example.com -sdd --debug
+```
+
+Example output:
+```console
+[INF] Similarity detection: 103 processed, 30 unique, 73 filtered - 70.9% filter rate  
+[INF] Crawl completed in 14s. 21 endpoints found.
 ```
 
 Example running katana -

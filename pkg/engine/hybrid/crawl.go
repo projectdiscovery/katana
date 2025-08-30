@@ -57,13 +57,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		body, _ := FetchGetResponseBody(page, e)
 
-				// Skip unique content filtering if disabled
+		// Skip unique content filtering if disabled
 		if !c.Options.Options.DisableUniqueFilter {
 			// Set URL context for similarity filter verbose logging
 			if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
 				similarityFilter.SetCurrentURL(e.Request.URL)
 			}
-			
+
 			// Apply similarity filtering (same as standard engine)
 			if !c.Options.UniqueFilter.UniqueContent(body) {
 				return FetchContinueRequest(page, e) // Skip this response, continue request
