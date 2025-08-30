@@ -1008,6 +1008,24 @@ func main() {
 	}
 }
 ```
+
+## 🐛 Reporting Issues & 💡 Feature Requests
+
+To maintain issue tracking and improve triage efficiency:
+
+**📋 All reports start as [GitHub Discussions](https://github.com/projectdiscovery/katana/discussions)**
+
+- 🐛 **Bug Reports** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
+- 💡 **Feature Requests** → [Start an Ideas Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=ideas)  
+- ❓ **Questions** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
+
+**Why Discussions First?**
+- **Community can help** with quick questions and troubleshooting
+- **Better triage** - confirmed bugs/features become tracked issues  
+- **Cleaner issue tracker** - focus on actionable items only
+
+Maintainers will convert discussions to issues when appropriate after proper review.
+
 --------
 
 <div align="center">
