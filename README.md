@@ -166,15 +166,16 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
-   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
-   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir) (Deprecated: use -output-template instead)
-   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
-   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
-   -mdc, -match-condition string    match response with dsl based condition
-   -fdc, -filter-condition string   filter response with dsl based condition
-   -duf, -disable-unique-filter     disable duplicate content filtering
+   -mr, -match-regex string[]             regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]            regex or list of regex to filter on output url (cli, file)
+   -f, -field string                      field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir) (Deprecated: use -output-template instead)
+   -sf, -store-field string               field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js)
+   -ef, -extension-filter string[]        filter output for given extension (eg, -ef png,css)
+   -ndef, -no-default-ext-filter bool     remove default extensions from the filter list
+   -mdc, -match-condition string          match response with dsl based condition
+   -fdc, -filter-condition string         filter response with dsl based condition
+   -duf, -disable-unique-filter           disable duplicate content filtering
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -731,6 +732,15 @@ Crawl output can be easily filtered for specific extension using `-ef` option wh
 
 ```
 katana -u https://tesla.com -silent -ef css,txt,md
+
+```
+*`-no-default-ext-filter`*
+---
+
+Katana filters several extensions by default. This can be disabled with the `-ndef` option.
+
+```
+katana -u https://tesla.com -silent -ndef
 ```
 
 *`-match-regex`*
@@ -777,15 +787,16 @@ katana -h filter
 
 Flags:
 FILTER:
-   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
-   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
-   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
-   -mdc, -match-condition string    match response with dsl based condition
-   -fdc, -filter-condition string   filter response with dsl based condition
-   -duf, -disable-unique-filter     disable duplicate content filtering
+   -mr, -match-regex string[]             regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]            regex or list of regex to filter on output url (cli, file)
+   -f, -field string                      field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -sf, -store-field string               field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js)
+   -ef, -extension-filter string[]        filter output for given extension (eg, -ef png,css)
+   -ndef, -no-default-ext-filter bool     remove default extensions from the filter list
+   -mdc, -match-condition string          match response with dsl based condition
+   -fdc, -filter-condition string         filter response with dsl based condition
+   -duf, -disable-unique-filter           disable duplicate content filtering
 ```
 
 
