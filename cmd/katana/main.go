@@ -42,7 +42,8 @@ func main() {
 		if options.Version {
 			return
 		}
-		gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		gologger.Error().Msgf("could not create runner: %s\n", err)
+		os.Exit(0)
 	}
 	defer func() {
 		if err := katanaRunner.Close(); err != nil {
