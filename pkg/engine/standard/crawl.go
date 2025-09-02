@@ -13,6 +13,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -54,10 +55,10 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	}
 
 	// Apply cookies
-	if c.Shared.Jar != nil {
-		cookies := c.Shared.Jar.Cookies(req.Request.URL)
+	if c.Jar != nil {
+		cookies := c.Jar.Cookies(req.Request.URL)
 		for _, cookie := range cookies {
-			req.Request.AddCookie(cookie)
+			req.AddCookie(cookie)
 		}
 	}
 
@@ -72,8 +73,8 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	}
 
 	// Collect cookies from the response
-	if c.Shared.Jar != nil && resp != nil {
-		c.Shared.Jar.SetCookies(req.Request.URL, resp.Cookies())
+	if c.Jar != nil && resp != nil {
+		c.Jar.SetCookies(req.Request.URL, resp.Cookies())
 	}
 
 	rawRequestBytes, _ := req.Dump()
@@ -90,8 +91,14 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	if err != nil {
 		return response, err
 	}
+
 	// Skip unique content filtering if disabled
 	if !c.Options.Options.DisableUniqueFilter {
+		// Set URL context for similarity filter verbose logging
+		if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
+			similarityFilter.SetCurrentURL(request.URL)
+		}
+
 		if !c.Options.UniqueFilter.UniqueContent(data) {
 			return &navigation.Response{}, nil
 		}

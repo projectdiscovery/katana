@@ -28,9 +28,7 @@ var (
 
 func main() {
 	flagSet, err := readFlags()
-	if err != nil {
-		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
-	}
+	handleError("Could not read flags", err)
 
 	if options.HealthCheck {
 		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
@@ -51,26 +49,8 @@ func main() {
 		}
 	}()
 
-	// close handler
 	resumeFilename := defaultResumeFilename()
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		for range c {
-			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			if err := katanaRunner.Close(); err != nil {
-				gologger.Error().Msgf("Error closing katana runner: %v\n", err)
-			}
-
-			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
-			err := katanaRunner.SaveState(resumeFilename)
-			if err != nil {
-				gologger.Error().Msgf("Couldn't create resume file: %s\n", err)
-			}
-
-			os.Exit(0)
-		}
-	}()
+	setupCloseHandler(katanaRunner, resumeFilename)
 
 	var pprofServer *pprofutils.PprofServer
 	if options.PprofServer {
@@ -85,33 +65,32 @@ func main() {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
 	}
 
-	// on successful execution:
-
-	// deduplicate the lines in each file in the store-field-dir
-	//use options.StoreFieldDir once https://github.com/projectdiscovery/katana/pull/877 is merged
+	// Deduplicate lines in each file in the store-field-dir
 	storeFieldDir := "katana_field"
 	_ = folderutil.DedupeLinesInFiles(storeFieldDir)
 
-	// remove the resume file in case it exists
+	// Remove the resume file if it exists
 	if fileutil.FileExists(resumeFilename) {
-		_ = os.Remove(resumeFilename)
+		if err := os.Remove(resumeFilename); err != nil {
+			gologger.Warning().Msgf("Failed to remove resume file: %v", err)
+		}
 	}
-
 }
 
 const defaultBodyReadSize = 4 * 1024 * 1024
 
 func readFlags() (*goflags.FlagSet, error) {
 	flagSet := goflags.NewFlagSet()
-	flagSet.SetDescription(`Katana is a fast crawler focused on execution in automation
-pipelines offering both headless and non-headless crawling.`)
+	flagSet.SetDescription(`Katana is a fast crawler focused on execution in automation pipelines offering both headless and non-headless crawling.`)
 
+	// Input group
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
 		flagSet.StringSliceVarP(&options.Exclude, "exclude", "e", nil, "exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
+	// Configuration group
 	flagSet.CreateGroup("config", "Configuration",
 		flagSet.StringSliceVarP(&options.Resolvers, "resolvers", "r", nil, "list of custom resolver (file or comma separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.IntVarP(&options.MaxDepth, "depth", "d", 3, "maximum depth to crawl"),
@@ -135,15 +114,19 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
+		flagSet.BoolVarP(&options.SimilarityDeduplication, "similarity-deduplication", "sdd", false, "enable content similarity detection to avoid crawling similar pages"),
+		flagSet.StringVarP(&options.SimilarityThresholdStr, "similarity-threshold", "st", "0.1", "similarity threshold for content deduplication (0.0-1.0, default 0.1)"),
 		flagSet.BoolVarP(&options.PathClimb, "path-climb", "pc", false, "enable path climb (auto crawl parent paths)"),
 	)
 
+	// Debug group
 	flagSet.CreateGroup("debug", "Debug",
 		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
 		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
 		flagSet.BoolVar(&options.PprofServer, "pprof-server", false, "enable pprof server"),
 	)
 
+	// Headless group
 	flagSet.CreateGroup("headless", "Headless",
 		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless hybrid crawling (experimental)"),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "use local installed chrome browser instead of katana installed"),
@@ -157,6 +140,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 	)
 
+	// Scope group
 	flagSet.CreateGroup("scope", "Scope",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
@@ -178,6 +162,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
 	)
 
+	// Rate-Limit group
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
 		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
 		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
@@ -186,11 +171,13 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVarP(&options.RateLimitMinute, "rate-limit-minute", "rlm", 0, "maximum number of requests to send per minute"),
 	)
 
+	// Update group
 	flagSet.CreateGroup("update", "Update",
 		flagSet.CallbackVarP(runner.GetUpdateCallback(), "update", "up", "update katana to latest version"),
 		flagSet.BoolVarP(&options.DisableUpdateCheck, "disable-update-check", "duc", false, "disable automatic katana update check"),
 	)
 
+	// Output group
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
 		flagSet.StringVarP(&options.OutputTemplate, "output-template", "ot", "", "custom output template"),
@@ -231,23 +218,45 @@ func init() {
 
 func defaultResumeFilename() string {
 	homedir, err := os.UserHomeDir()
-	if err != nil {
-		gologger.Fatal().Msgf("could not get home directory: %s", err)
-	}
+	handleError("could not get home directory", err)
 	configDir := filepath.Join(homedir, ".config", "katana")
 	return filepath.Join(configDir, fmt.Sprintf("resume-%s.cfg", xid.New().String()))
 }
 
-// cleanupOldResumeFiles cleans up resume files older than 10 days.
+func setupCloseHandler(runner *runner.Runner, resumeFilename string) {
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		for range c {
+			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
+			if err := runner.Close(); err != nil {
+				gologger.Warning().Msgf("Failed to close runner on exit: %v", err)
+			}
+
+			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
+			err := runner.SaveState(resumeFilename)
+			if err != nil {
+				gologger.Error().Msgf("Couldn't create resume file: %s\n", err)
+			}
+
+			os.Exit(0)
+		}
+	}()
+}
+
 func cleanupOldResumeFiles() {
 	homedir, err := os.UserHomeDir()
-	if err != nil {
-		gologger.Fatal().Msgf("could not get home directory: %s", err)
-	}
+	handleError("could not get home directory", err)
 	root := filepath.Join(homedir, ".config", "katana")
 	filter := fileutil.FileFilters{
 		OlderThan: 24 * time.Hour * 10, // cleanup on the 10th day
 		Prefix:    "resume-",
 	}
 	_ = fileutil.DeleteFilesOlderThan(root, filter)
+}
+
+func handleError(message string, err error) {
+	if err != nil {
+		gologger.Fatal().Msgf("%s: %s\n", message, err)
+	}
 }

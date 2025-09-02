@@ -2,6 +2,7 @@ package types
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -168,6 +169,10 @@ type Options struct {
 	TlsImpersonate bool
 	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
+	// SimilarityDeduplication enables content similarity detection using TF-IDF to avoid crawling similar pages
+	SimilarityDeduplication bool
+	// SimilarityThresholdStr is the string representation of similarity threshold
+	SimilarityThresholdStr string
 	// PathClimb enables path expansion (auto crawl discovered paths)
 	PathClimb bool
 	// DisableUniqueFilter disables duplicate content filtering
@@ -226,4 +231,19 @@ func (options *Options) ConfigureOutput() {
 	}
 
 	logutil.DisableDefaultLogger()
+}
+
+// GetSimilarityThreshold parses and returns the similarity threshold value
+func (options *Options) GetSimilarityThreshold() float64 {
+	if options.SimilarityThresholdStr == "" {
+		return 0.1 // Default threshold
+	}
+
+	threshold, err := strconv.ParseFloat(options.SimilarityThresholdStr, 64)
+	if err != nil || threshold < 0 || threshold > 1 {
+		gologger.Warning().Msgf("Invalid similarity threshold '%s', using default 0.1", options.SimilarityThresholdStr)
+		return 0.1
+	}
+
+	return threshold
 }

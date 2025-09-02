@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/logrusorgru/aurora"
@@ -40,6 +41,8 @@ type Writer interface {
 	// Write writes the event to file and/or screen.
 	Write(*Result) error
 	WriteErr(*Error) error
+	// GetResultCount returns the number of results written
+	GetResultCount() int64
 }
 
 // StandardWriter is an standard output writer structure
@@ -63,6 +66,8 @@ type StandardWriter struct {
 	outputTemplate        *fasttemplate.Template
 	outputMatchCondition  string
 	outputFilterCondition string
+	// Result counting for completion stats
+	resultCount int64
 }
 
 // New returns a new output writer instance
@@ -165,6 +170,11 @@ func (w *StandardWriter) Write(result *Result) error {
 		return errors.New("result is nil")
 	}
 
+	// Skip empty responses (e.g., from similarity filtering)
+	if result.Response != nil && result.Response.Resp == nil && result.Response.Body == "" && result.Error == "" {
+		return errors.New("response filtered by similarity detection")
+	}
+
 	if len(w.storeFields) > 0 {
 		storeFields(result, w.storeFields)
 	}
@@ -179,6 +189,7 @@ func (w *StandardWriter) Write(result *Result) error {
 	if w.filterOutput(result) {
 		return errors.New("result is filtered out")
 	}
+
 	var data []byte
 	var err error
 
@@ -233,6 +244,10 @@ func (w *StandardWriter) Write(result *Result) error {
 	if len(data) == 0 {
 		return errors.New("result is empty")
 	}
+
+	// Increment result count only for valid results that produce output
+	atomic.AddInt64(&w.resultCount, 1)
+
 	w.outputMutex.Lock()
 	defer w.outputMutex.Unlock()
 
@@ -283,6 +298,11 @@ func (w *StandardWriter) Close() error {
 		}
 	}
 	return nil
+}
+
+// GetResultCount returns the number of results written
+func (w *StandardWriter) GetResultCount() int64 {
+	return atomic.LoadInt64(&w.resultCount)
 }
 
 func createDirNameNoClobber(dir string) string {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -58,7 +59,7 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `<html><body>
+			_, _ = fmt.Fprint(w, `<html><body>
 				<a href="/page1">Page 1</a>
 				<a href="/page2">Page 2</a>
 				<a href="/page3">Page 3</a>
@@ -67,7 +68,7 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 			// Return identical 404 content for all missing pages
-			fmt.Fprint(w, `<html><body><h1>404 - Page Not Found</h1></body></html>`)
+			_, _ = fmt.Fprint(w, `<html><body><h1>404 - Page Not Found</h1></body></html>`)
 		}
 	}))
 	defer server.Close()
@@ -89,7 +90,11 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 	if err != nil {
 		return fmt.Errorf("could not create runner: %v", err)
 	}
-	defer katanaRunner.Close()
+	defer func() {
+		if err := katanaRunner.Close(); err != nil {
+			log.Printf("Failed to close katana runner: %v", err)
+		}
+	}()
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		return fmt.Errorf("could not execute crawling: %v", err)

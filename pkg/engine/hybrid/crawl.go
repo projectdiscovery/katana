@@ -17,6 +17,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/retryablehttp-go"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -55,6 +56,20 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
 		}
 		body, _ := FetchGetResponseBody(page, e)
+
+		// Skip unique content filtering if disabled
+		if !c.Options.Options.DisableUniqueFilter {
+			// Set URL context for similarity filter verbose logging
+			if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
+				similarityFilter.SetCurrentURL(e.Request.URL)
+			}
+
+			// Apply similarity filtering (same as standard engine)
+			if !c.Options.UniqueFilter.UniqueContent(body) {
+				return FetchContinueRequest(page, e) // Skip this response, continue request
+			}
+		}
+
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
 			headers[h.Name] = []string{h.Value}
