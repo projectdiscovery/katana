@@ -63,6 +63,7 @@ type StandardWriter struct {
 	outputTemplate        *fasttemplate.Template
 	outputMatchCondition  string
 	outputFilterCondition string
+	excludeOutputFields   []string
 }
 
 // New returns a new output writer instance
@@ -83,6 +84,7 @@ func New(options Options) (Writer, error) {
 		extensionValidator:    options.ExtensionValidator,
 		outputMatchCondition:  options.OutputMatchCondition,
 		outputFilterCondition: options.OutputFilterCondition,
+		excludeOutputFields:   options.ExcludeOutputFields,
 	}
 
 	if options.StoreFieldDir != "" {
