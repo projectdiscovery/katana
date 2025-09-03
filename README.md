@@ -196,6 +196,8 @@ OUTPUT:
    -sfd, -store-field-dir string     store per-host field to custom directory
    -or, -omit-raw                    omit raw requests/responses from jsonl output
    -ob, -omit-body                   omit response body from jsonl output
+   -lof, -list-output-fields         list available fields for jsonl output format
+   -eof, -exclude-output-fields      exclude fields from jsonl output
    -j, -jsonl                        write output in jsonl format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
@@ -944,6 +946,24 @@ katana_response/www.iana.org/bfc096e6dd93b993ca8918bf4c08fdc707a70723.txt http:/
 
 *`-store-response` option is not supported in `-headless` mode.*
 
+*`-list-output-fields`*
+----
+
+The `-list-output-fields` or `-lof` flag displays all available fields that can be used in JSONL output format. This is useful for understanding what data is available when using custom output templates or when excluding specific fields.
+
+```console
+katana -lof
+```
+
+*`-exclude-output-fields`*
+----
+
+The `-exclude-output-fields` or `-eof` flag allows you to exclude specific fields from the JSONL output. This is useful for reducing output size or focusing on specific data by removing unwanted fields.
+
+```console
+katana -u https://example.com -jsonl -eof raw,body
+```
+
 Here are additional CLI options related to output -
 
 ```console
@@ -953,6 +973,8 @@ OUTPUT:
    -o, -output string                file to write output to
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
+   -lof, -list-output-fields         list available fields for jsonl output format
+   -eof, -exclude-output-fields      exclude fields from jsonl output
    -j, -json                         write output in JSONL(ines) format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
