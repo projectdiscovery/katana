@@ -86,6 +86,10 @@ type Options struct {
 	NoColors bool
 	// JSON enables writing output in JSON format
 	JSON bool
+	// ExcludeOutputFields is the list of fields to exclude from the output
+	ExcludeOutputFields goflags.StringSlice
+	// ListOutputFields is the list of fields
+	ListOutputFields bool
 	// Silent shows only output
 	Silent bool
 	// Verbose specifies showing verbose output

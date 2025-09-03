@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -12,12 +13,15 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
 	pprofutils "github.com/projectdiscovery/utils/pprof"
+	sliceutil "github.com/projectdiscovery/utils/slice"
+	"github.com/projectdiscovery/utils/structs"
 	"github.com/rs/xid"
 )
 
@@ -30,6 +34,26 @@ func main() {
 	flagSet, err := readFlags()
 	if err != nil {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
+	}
+
+	if options.ListOutputFields {
+		gologger.Info().Msgf("Available fields for JSON output:")
+
+		fields := []string{}
+		topFields, _ := structs.GetStructFields(output.Result{})
+		fields = append(fields, topFields...)
+		reqFields, _ := structs.GetStructFields(navigation.Request{})
+		fields = append(fields, reqFields...)
+		respFields, _ := structs.GetStructFields(navigation.Response{})
+		fields = append(fields, respFields...)
+
+		sort.Strings(fields)
+		fields = sliceutil.PruneEmptyStrings(sliceutil.Dedupe(fields))
+
+		for _, field := range fields {
+			fmt.Println(field)
+		}
+		os.Exit(0)
 	}
 
 	if options.HealthCheck {
@@ -200,6 +224,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.StoreFieldDir, "store-field-dir", "sfd", "", "store per-host field to custom directory"),
 		flagSet.BoolVarP(&options.OmitRaw, "omit-raw", "or", false, "omit raw requests/responses from jsonl output"),
 		flagSet.BoolVarP(&options.OmitBody, "omit-body", "ob", false, "omit response body from jsonl output"),
+		flagSet.BoolVarP(&options.ListOutputFields, "list-output-fields", "lof", false, "list of fields to output in jsonl format"),
+		flagSet.StringSliceVarP(&options.ExcludeOutputFields, "exclude-output-fields", "eof", nil, "exclude fields from jsonl output", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.JSON, "jsonl", "j", false, "write output in jsonl format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
