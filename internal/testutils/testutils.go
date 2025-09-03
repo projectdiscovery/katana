@@ -3,7 +3,7 @@ package testutils
 import (
 	"strings"
 
-	errorutils "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 )
 
 type TestCase struct {
@@ -26,7 +26,7 @@ var TestCases = []TestCase{
 					return nil
 				}
 			}
-			return errorutils.New("expected %v target in output, but got %v ", target, strings.Join(got, "\n"))
+			return errkit.Newf("expected %v target in output, but got %v ", target, strings.Join(got, "\n"))
 		},
 	},
 }

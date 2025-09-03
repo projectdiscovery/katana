@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -54,7 +54,7 @@ func getResponseFile(storeResponseFolder, URL string) (string, *fileWriter, erro
 	fileName := getResponseFileName(storeResponseFolder, domain, URL)
 	output, err := newFileOutputWriter(fileName)
 	if err != nil {
-		return "", nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
+		return "", nil, errkit.Wrap(err, "output: could not create output file")
 	}
 
 	return fileName, output, nil
@@ -93,7 +93,7 @@ func updateIndex(storeResponseFolder string, result *Result) error {
 	builder.WriteRune('\n')
 
 	if _, writeErr := index.Write(builder.Bytes()); writeErr != nil {
-		return errorutil.NewWithTag("output", "could not update index").Wrap(err)
+		return errkit.Wrap(err, "output: could not update index")
 	}
 
 	return nil

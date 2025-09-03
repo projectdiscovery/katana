@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/publicsuffix"
@@ -41,7 +41,7 @@ type fieldOutput struct {
 func validateFieldNames(names string) error {
 	parts := strings.Split(names, ",")
 	if len(parts) == 0 {
-		return errorutil.NewWithTag("customfield", "no field names provided: %s", names)
+		return errkit.Newf("customfield: no field names provided: %s", names)
 	}
 	uniqueFields := make(map[string]struct{})
 	for _, field := range FieldNames {
@@ -52,7 +52,7 @@ func validateFieldNames(names string) error {
 	}
 	for _, part := range parts {
 		if _, ok := uniqueFields[part]; !ok {
-			return errorutil.NewWithTag("customfield", "invalid field %s specified: %s", part, names)
+			return errkit.Newf("customfield: invalid field %s specified: %s", part, names)
 		}
 	}
 	return nil
