@@ -18,7 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -33,7 +33,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	page, err := s.Browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
 	defer func() {
 		if err := page.Close(); err != nil {
@@ -52,7 +52,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
@@ -73,7 +73,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not new request")
 		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
@@ -192,7 +192,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.DisableRedirects && response.IsRedirect() {
 			return response, nil
 		}
-		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not navigate target")
 	}
 
 	waitNavigation()
@@ -214,23 +214,23 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get dom")
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
 	if response.Resp == nil {
-		return nil, errorutil.NewWithTag("hybrid", "response is nil").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: response is nil")
 	}
 	response.Resp.Request.URL = parsed.URL
 
@@ -252,7 +252,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
 	response.XhrRequests = xhrRequests

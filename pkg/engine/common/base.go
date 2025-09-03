@@ -18,7 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	httputil "github.com/projectdiscovery/utils/http"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -40,7 +40,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	if options.Options.KnownFiles != "" {
 		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
 		if err != nil {
-			return nil, errorutil.New("could not create http client").Wrap(err)
+			return nil, errkit.Wrap(err, "could not create http client")
 		}
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
@@ -48,7 +48,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	// create an empty cookie jar, this is used to store cookies during the crawl
 	jar, err := httputil.NewCookieJar()
 	if err != nil {
-		return nil, errorutil.New("could not create cookie jar").Wrap(err)
+		return nil, errkit.Wrap(err, "could not create cookie jar")
 	}
 	shared.Jar = jar
 
@@ -178,7 +178,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	parsed, err := urlutil.Parse(URL)
 	if err != nil {
 		cancel()
-		return nil, errorutil.New("could not parse root URL").Wrap(err)
+		return nil, errkit.Wrap(err, "could not parse root URL")
 	}
 	hostname := parsed.Hostname()
 
@@ -219,7 +219,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	})
 	if err != nil {
 		cancel()
-		return nil, errorutil.New("could not create http client").Wrap(err)
+		return nil, errkit.Wrap(err, "could not create http client")
 	}
 	crawlSession := &CrawlSession{
 		Ctx:        ctx,

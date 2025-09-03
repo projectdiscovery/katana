@@ -13,7 +13,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	proxyutil "github.com/projectdiscovery/utils/proxy"
 )
 
@@ -58,7 +58,7 @@ func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirect
 				return http.ErrUseLastResponse
 			}
 			if len(via) == 10 {
-				return errorutil.New("stopped after 10 redirects")
+				return errkit.New("stopped after 10 redirects")
 			}
 			depth, ok := req.Context().Value(navigation.Depth{}).(int)
 			if !ok {

@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	sliceutil "github.com/projectdiscovery/utils/slice"
 	"gopkg.in/yaml.v2"
@@ -55,7 +55,7 @@ func (c *CustomFieldConfig) GetName() string {
 func parseCustomFieldName(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
+		return errkit.Wrap(err, "customfield: could not read field config")
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -65,20 +65,20 @@ func parseCustomFieldName(filePath string) error {
 
 	var data []CustomFieldConfig
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
+		return errkit.Wrap(err, "customfield: could not decode field config")
 	}
 	passedCustomFieldMap := make(map[string]CustomFieldConfig)
 	for _, item := range data {
 		if !regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(item.Name) {
-			return errorutil.New("wrong custom field name %s", item.Name)
+			return errkit.Newf("customfield: wrong custom field name %s", item.Name)
 		}
 		// check custom field name is pre-defined or not
 		if sliceutil.Contains(FieldNames, item.Name) {
-			return errorutil.New("could not register custom field. \"%s\" already pre-defined field", item.Name)
+			return errkit.Newf("customfield: could not register custom field. \"%s\" already pre-defined field", item.Name)
 		}
 		// check custom field name should be unique
 		if _, ok := passedCustomFieldMap[item.Name]; ok {
-			return errorutil.New("could not register custom field. \"%s\" custom field already exists", item.Name)
+			return errkit.Newf("customfield: could not register custom field. \"%s\" custom field already exists", item.Name)
 		}
 		passedCustomFieldMap[item.Name] = item
 	}
@@ -90,7 +90,7 @@ func loadCustomFields(filePath string, fields string) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errorutil.NewWithTag("customfield", "could not read field config").Wrap(err)
+		return errkit.Wrap(err, "customfield: could not read field config")
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -101,13 +101,13 @@ func loadCustomFields(filePath string, fields string) error {
 	var data []CustomFieldConfig
 	// read the field config file
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errorutil.NewWithTag("customfield", "could not decode field config").Wrap(err)
+		return errkit.Wrap(err, "customfield: could not decode field config")
 	}
 	for _, item := range data {
 		for _, rg := range item.Regex {
 			regex, err := regexp.Compile(rg)
 			if err != nil {
-				return errorutil.NewWithTag("customfield", "could not parse regex in field config").Wrap(err)
+				return errkit.Wrap(err, "customfield: could not parse regex in field config")
 			}
 			item.SetCompiledRegexp(regex)
 		}
@@ -122,7 +122,7 @@ func loadCustomFields(filePath string, fields string) error {
 func initCustomFieldConfigFile() (string, error) {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
-		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
+		return "", errkit.Wrap(err, "customfield: could not get home directory")
 	}
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "field-config.yaml")
 
@@ -134,7 +134,7 @@ func initCustomFieldConfigFile() (string, error) {
 	}
 	customFieldConfig, err := os.Create(defaultConfig)
 	if err != nil {
-		return "", errorutil.NewWithTag("customfield", "could not get home directory").Wrap(err)
+		return "", errkit.Wrap(err, "customfield: could not get home directory")
 	}
 	defer func() {
 		if err := customFieldConfig.Close(); err != nil {
