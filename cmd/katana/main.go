@@ -14,7 +14,7 @@ import (
 	"github.com/projectdiscovery/katana/internal/runner"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
 	pprofutils "github.com/projectdiscovery/utils/pprof"
@@ -209,12 +209,12 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not parse flags")
+		return nil, errkit.Wrap(err, "could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
+			return nil, errkit.Wrap(err, "could not read config file")
 		}
 	}
 
@@ -225,7 +225,7 @@ pipelines offering both headless and non-headless crawling.`)
 func init() {
 	// show detailed stacktrace in debug mode
 	if os.Getenv("DEBUG") == "true" {
-		errorutil.ShowStackTrace = true
+		errkit.EnableTrace = true
 	}
 }
 

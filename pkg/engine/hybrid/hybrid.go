@@ -10,7 +10,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -37,7 +37,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	} else {
 		dataStore, err = os.MkdirTemp("", "katana-*")
 		if err != nil {
-			return nil, errorutil.NewWithTag("hybrid", "could not create temporary directory").Wrap(err)
+			return nil, errkit.Wrap(err, "hybrid: could not create temporary directory")
 		}
 	}
 
@@ -64,7 +64,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	browser := rod.New().ControlURL(launcherURL)
 	if browserErr := browser.Connect(); browserErr != nil {
-		return nil, errorutil.NewWithErr(browserErr).Msgf("failed to connect to chrome instance at %s", launcherURL)
+		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
 	// create a new browser instance (default to incognito mode)
@@ -74,14 +74,14 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 			if chromeLauncher != nil {
 				chromeLauncher.Kill()
 			}
-			return nil, errorutil.NewWithErr(err).Msgf("failed to create incognito browser")
+			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
 		browser = incognito
 	}
 
 	shared, err := common.NewShared(options)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).WithTag("hybrid")
+		return nil, errkit.Wrap(err, "hybrid")
 	}
 
 	crawler := &Crawler{
@@ -109,7 +109,7 @@ func (c *Crawler) Close() error {
 func (c *Crawler) Crawl(rootURL string) error {
 	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
 	if err != nil {
-		return errorutil.NewWithErr(err).WithTag("hybrid")
+		return errkit.Wrap(err, "hybrid")
 	}
 	crawlSession.Browser = c.browser
 
@@ -117,7 +117,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
-		return errorutil.NewWithErr(err).WithTag("standard")
+		return errkit.Wrap(err, "hybrid")
 	}
 	return nil
 }
@@ -144,7 +144,7 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 			if chromePath, hasChrome := launcher.LookPath(); hasChrome {
 				chromeLauncher.Bin(chromePath)
 			} else {
-				return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
+				return nil, errkit.New("hybrid: the chrome browser is not installed")
 			}
 		}
 	}

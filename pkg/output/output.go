@@ -17,7 +17,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"github.com/stoewer/go-strcase"
 	"github.com/valyala/fasttemplate"
@@ -107,20 +107,20 @@ func New(options Options) (Writer, error) {
 	// Perform validations for fields and store-fields
 	if options.Fields != "" {
 		if err := validateFieldNames(options.Fields); err != nil {
-			return nil, errorutil.NewWithTag("output", "could not validate fields").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not validate fields")
 		}
 	}
 	if options.StoreFields != "" {
 		_ = os.MkdirAll(storeFieldDir, os.ModePerm)
 		if err := validateFieldNames(options.StoreFields); err != nil {
-			return nil, errorutil.NewWithTag("output", "could not validate store fields").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not validate store fields")
 		}
 		writer.storeFields = append(writer.storeFields, strings.Split(options.StoreFields, ",")...)
 	}
 	if options.OutputFile != "" {
 		output, err := newFileOutputWriter(options.OutputFile)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create output file")
 		}
 		writer.outputFile = output
 	}
@@ -139,13 +139,13 @@ func New(options Options) (Writer, error) {
 		// todo: the index file seems never used?
 		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create index file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create index file")
 		}
 	}
 	if options.ErrorLogFile != "" {
 		errorFile, err := newFileOutputWriter(options.ErrorLogFile)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create error file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create error file")
 		}
 
 		writer.errorFile = errorFile
@@ -153,7 +153,7 @@ func New(options Options) (Writer, error) {
 	if options.OutputTemplate != "" {
 		writer.outputTemplate, err = fasttemplate.NewTemplate(options.OutputTemplate, "{{", "}}")
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create output format template").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create output format template")
 		}
 	}
 	return writer, nil
@@ -190,13 +190,13 @@ func (w *StandardWriter) Write(result *Result) error {
 			result.Response.StoredResponsePath = fileName
 			data, err := w.formatResult(result)
 			if err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			if err := updateIndex(w.storeResponseDir, result); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			if err := fileWriter.Write(data); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			_ = fileWriter.Close()
 		}
@@ -227,7 +227,7 @@ func (w *StandardWriter) Write(result *Result) error {
 	}
 
 	if err != nil {
-		return errorutil.NewWithTag("output", "could not format %s output", outputKind).Wrap(err)
+		return errkit.Wrap(err, fmt.Sprintf("output: could not format %s output", outputKind))
 	}
 
 	if len(data) == 0 {
@@ -242,7 +242,7 @@ func (w *StandardWriter) Write(result *Result) error {
 			data = decolorizerRegex.ReplaceAll(data, []byte(""))
 		}
 		if err := w.outputFile.Write(data); err != nil {
-			return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
+			return errkit.Wrap(err, "output: could not write to output")
 		}
 	}
 
@@ -252,7 +252,7 @@ func (w *StandardWriter) Write(result *Result) error {
 func (w *StandardWriter) WriteErr(errMessage *Error) error {
 	data, err := jsoniter.Marshal(errMessage)
 	if err != nil {
-		return errorutil.NewWithTag("output", "marshal").Wrap(err)
+		return errkit.Wrap(err, "output: marshal")
 	}
 	if len(data) == 0 {
 		return nil
@@ -262,7 +262,7 @@ func (w *StandardWriter) WriteErr(errMessage *Error) error {
 
 	if w.errorFile != nil {
 		if err := w.errorFile.Write(data); err != nil {
-			return errorutil.NewWithTag("output", "write to error file").Wrap(err)
+			return errkit.Wrap(err, "output: write to error file")
 		}
 	}
 	return nil
