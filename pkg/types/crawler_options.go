@@ -94,6 +94,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		OutputTemplate:        options.OutputTemplate,
 		OutputMatchCondition:  options.OutputMatchCondition,
 		OutputFilterCondition: options.OutputFilterCondition,
+		ExcludeOutputFields:   options.ExcludeOutputFields,
 	}
 
 	for _, mr := range options.OutputMatchRegex {
