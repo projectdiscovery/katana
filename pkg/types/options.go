@@ -38,6 +38,8 @@ type Options struct {
 	ExtensionsMatch goflags.StringSlice
 	// ExtensionFilter contains additional items for filter list
 	ExtensionFilter goflags.StringSlice
+	// NoDefaultExtFilter removes the default extensions from the filter list
+	NoDefaultExtFilter bool
 	// OutputMatchCondition is the condition to match output
 	OutputMatchCondition string
 	// OutputFilterCondition is the condition to filter output

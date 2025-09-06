@@ -43,7 +43,7 @@ type CrawlerOptions struct {
 // from user specified options.
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	options.ConfigureOutput()
-	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter)
+	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
 
 	parserOptions := &parser.Options{
 		AutomaticFormFill:      options.AutomaticFormFill,
