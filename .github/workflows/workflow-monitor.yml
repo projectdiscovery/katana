@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check Discussion vs Issue Activity
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const oneWeekAgo = new Date();
