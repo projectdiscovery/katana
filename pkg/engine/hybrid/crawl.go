@@ -229,7 +229,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
-	if response.Resp == nil {
+	if response == nil || response.Resp == nil {
 		return nil, errkit.Wrap(err, "hybrid: response is nil")
 	}
 	response.Resp.Request.URL = parsed.URL
@@ -245,9 +245,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.Body = body
-	response.Reader.Url, _ = url.Parse(request.URL)
-	if c.Options.Options.FormExtraction {
-		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	if response.Reader != nil {
+		response.Reader.Url, _ = url.Parse(request.URL)
+		if c.Options.Options.FormExtraction {
+			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+		}
 	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
