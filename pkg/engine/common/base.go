@@ -298,7 +298,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				_ = s.Options.OutputWriter.WriteErr(outputError)
 				return
 			}
-			if resp.Resp == nil || resp.Reader == nil {
+			if resp == nil || resp.Resp == nil || resp.Reader == nil {
 				return
 			}
 			if s.Options.Options.DisableRedirects && resp.IsRedirect() {
