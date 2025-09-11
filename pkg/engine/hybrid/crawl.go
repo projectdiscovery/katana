@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -230,7 +231,8 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	if response == nil || response.Resp == nil {
-		return nil, errkit.Wrap(err, "hybrid: response is nil")
+		// err is guaranteed to be nil, due to previous checks.
+		return nil, errors.New("hybrid: response is nil")
 	}
 	response.Resp.Request.URL = parsed.URL
 
