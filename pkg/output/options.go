@@ -25,6 +25,8 @@ type Options struct {
 	MatchRegex            []*regexp.Regexp
 	FilterRegex           []*regexp.Regexp
 	ExtensionValidator    *extensions.Validator
+	OutputTemplate        string
 	OutputMatchCondition  string
 	OutputFilterCondition string
+	ExcludeOutputFields   []string
 }

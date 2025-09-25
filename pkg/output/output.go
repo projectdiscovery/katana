@@ -15,9 +15,12 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/projectdiscovery/dsl"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
+	"github.com/stoewer/go-strcase"
+	"github.com/valyala/fasttemplate"
 )
 
 const (
@@ -57,8 +60,10 @@ type StandardWriter struct {
 	matchRegex            []*regexp.Regexp
 	filterRegex           []*regexp.Regexp
 	extensionValidator    *extensions.Validator
+	outputTemplate        *fasttemplate.Template
 	outputMatchCondition  string
 	outputFilterCondition string
+	excludeOutputFields   []string
 }
 
 // New returns a new output writer instance
@@ -79,6 +84,7 @@ func New(options Options) (Writer, error) {
 		extensionValidator:    options.ExtensionValidator,
 		outputMatchCondition:  options.OutputMatchCondition,
 		outputFilterCondition: options.OutputFilterCondition,
+		excludeOutputFields:   options.ExcludeOutputFields,
 	}
 
 	if options.StoreFieldDir != "" {
@@ -103,20 +109,20 @@ func New(options Options) (Writer, error) {
 	// Perform validations for fields and store-fields
 	if options.Fields != "" {
 		if err := validateFieldNames(options.Fields); err != nil {
-			return nil, errorutil.NewWithTag("output", "could not validate fields").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not validate fields")
 		}
 	}
 	if options.StoreFields != "" {
 		_ = os.MkdirAll(storeFieldDir, os.ModePerm)
 		if err := validateFieldNames(options.StoreFields); err != nil {
-			return nil, errorutil.NewWithTag("output", "could not validate store fields").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not validate store fields")
 		}
 		writer.storeFields = append(writer.storeFields, strings.Split(options.StoreFields, ",")...)
 	}
 	if options.OutputFile != "" {
 		output, err := newFileOutputWriter(options.OutputFile)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create output file")
 		}
 		writer.outputFile = output
 	}
@@ -135,16 +141,22 @@ func New(options Options) (Writer, error) {
 		// todo: the index file seems never used?
 		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create index file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create index file")
 		}
 	}
 	if options.ErrorLogFile != "" {
 		errorFile, err := newFileOutputWriter(options.ErrorLogFile)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create error file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create error file")
 		}
 
 		writer.errorFile = errorFile
+	}
+	if options.OutputTemplate != "" {
+		writer.outputTemplate, err = fasttemplate.NewTemplate(options.OutputTemplate, "{{", "}}")
+		if err != nil {
+			return nil, errkit.Wrap(err, "output: could not create output format template")
+		}
 	}
 	return writer, nil
 }
@@ -180,15 +192,15 @@ func (w *StandardWriter) Write(result *Result) error {
 			result.Response.StoredResponsePath = fileName
 			data, err := w.formatResult(result)
 			if err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			if err := updateIndex(w.storeResponseDir, result); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			if err := fileWriter.Write(data); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
-			fileWriter.Close()
+			_ = fileWriter.Close()
 		}
 	}
 
@@ -202,14 +214,24 @@ func (w *StandardWriter) Write(result *Result) error {
 		result.Response.Body = ""
 	}
 
-	if w.json {
+	var outputKind string
+
+	switch {
+	case w.outputTemplate != nil:
+		outputKind = "template"
+		data, err = w.formatTemplate(result)
+	case w.json:
+		outputKind = "JSON"
 		data, err = w.formatJSON(result)
-	} else {
+	default:
+		outputKind = "screen"
 		data, err = w.formatScreen(result)
 	}
+
 	if err != nil {
-		return errorutil.NewWithTag("output", "could not format output").Wrap(err)
+		return errkit.Wrap(err, fmt.Sprintf("output: could not format %s output", outputKind))
 	}
+
 	if len(data) == 0 {
 		return errors.New("result is empty")
 	}
@@ -222,7 +244,7 @@ func (w *StandardWriter) Write(result *Result) error {
 			data = decolorizerRegex.ReplaceAll(data, []byte(""))
 		}
 		if err := w.outputFile.Write(data); err != nil {
-			return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
+			return errkit.Wrap(err, "output: could not write to output")
 		}
 	}
 
@@ -232,7 +254,7 @@ func (w *StandardWriter) Write(result *Result) error {
 func (w *StandardWriter) WriteErr(errMessage *Error) error {
 	data, err := jsoniter.Marshal(errMessage)
 	if err != nil {
-		return errorutil.NewWithTag("output", "marshal").Wrap(err)
+		return errkit.Wrap(err, "output: marshal")
 	}
 	if len(data) == 0 {
 		return nil
@@ -242,7 +264,7 @@ func (w *StandardWriter) WriteErr(errMessage *Error) error {
 
 	if w.errorFile != nil {
 		if err := w.errorFile.Write(data); err != nil {
-			return errorutil.NewWithTag("output", "write to error file").Wrap(err)
+			return errkit.Wrap(err, "output: write to error file")
 		}
 	}
 	return nil
@@ -379,6 +401,29 @@ func resultToMap(result Result) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
+
+	requestMap := make(map[string]any)
+	if err := mapstructure.Decode(result.Request, &requestMap); err == nil {
+		for k, v := range requestMap {
+			resultMap[strcase.SnakeCase(k)] = v
+		}
+	}
+
+	responseMap := make(map[string]any)
+	if err := mapstructure.Decode(result.Response, &responseMap); err == nil {
+		for k, v := range responseMap {
+			if strings.ToLower(k) == "headers" {
+				if headers, ok := v.(navigation.Headers); ok {
+					for hk, hv := range headers {
+						resultMap[strcase.SnakeCase(hk)] = hv
+					}
+				}
+			} else {
+				resultMap[strcase.SnakeCase(k)] = v
+			}
+		}
+	}
+
 	return flatten(resultMap), nil
 }
 
@@ -390,10 +435,10 @@ func flatten(m map[string]any) map[string]any {
 		case map[string]any:
 			nm := flatten(child)
 			for nk, nv := range nm {
-				o[nk] = nv
+				o[strcase.SnakeCase(nk)] = nv
 			}
 		default:
-			o[k] = v
+			o[strcase.SnakeCase(k)] = v
 		}
 	}
 	return o

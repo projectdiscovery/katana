@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 )
 
 type sitemapXmlCrawler struct {
@@ -23,19 +24,23 @@ func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []*navigation.
 	requestURL := fmt.Sprintf("%s/sitemap.xml", URL)
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not create request").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not create request")
 	}
 	req.Header.Set("User-Agent", utils.WebUserAgent())
 
 	resp, err := r.httpclient.Do(req)
 	if err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not do request").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not do request")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			gologger.Error().Msgf("Error closing response body: %v\n", err)
+		}
+	}()
 
 	navigationRequests, err = r.parseReader(resp.Body, resp)
 	if err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not parse sitemap").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not parse sitemap")
 	}
 	return
 }
@@ -52,7 +57,7 @@ type parsedURL struct {
 func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response) (navigationRequests []*navigation.Request, err error) {
 	sitemap := sitemapStruct{}
 	if err := xml.NewDecoder(reader).Decode(&sitemap); err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not decode xml").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not decode xml")
 	}
 	for _, url := range sitemap.URLs {
 		navResp := &navigation.Response{

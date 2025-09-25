@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
 	"github.com/projectdiscovery/ratelimit"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -24,6 +25,8 @@ type CrawlerOptions struct {
 	OutputWriter output.Writer
 	// RateLimit is a mechanism for controlling request rate limit
 	RateLimit *ratelimit.Limiter
+	// Parser is a mechanism for extracting new URLS from responses
+	Parser *parser.Parser
 	// Options contains the user specified configuration options
 	Options *Options
 	// ExtensionsValidator is a validator for file extensions
@@ -47,7 +50,17 @@ type CrawlerOptions struct {
 // from user specified options.
 func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	options.ConfigureOutput()
-	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter)
+	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
+
+	parserOptions := &parser.Options{
+		AutomaticFormFill:      options.AutomaticFormFill,
+		ScrapeJSLuiceResponses: options.ScrapeJSLuiceResponses,
+		ScrapeJSResponses:      options.ScrapeJSResponses,
+		DisableRedirects:       options.DisableRedirects,
+	}
+
+	responseParser := parser.NewResponseParser()
+	responseParser.InitWithOptions(parserOptions)
 
 	dialerOpts := fastdialer.DefaultOptions
 	if len(options.Resolvers) > 0 {
@@ -60,11 +73,11 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 	scopeManager, err := scope.NewManager(options.Scope, options.OutOfScope, options.FieldScope, options.NoScope)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create scope manager")
+		return nil, errkit.Wrap(err, "could not create scope manager")
 	}
 	itemFilter, err := filters.NewSimple()
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create filter")
+		return nil, errkit.Wrap(err, "could not create filter")
 	}
 
 	outputOptions := output.Options{
@@ -85,32 +98,35 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		MatchRegex:            options.MatchRegex,
 		FilterRegex:           options.FilterRegex,
 		ExtensionValidator:    extensionsValidator,
+		OutputTemplate:        options.OutputTemplate,
 		OutputMatchCondition:  options.OutputMatchCondition,
 		OutputFilterCondition: options.OutputFilterCondition,
+		ExcludeOutputFields:   options.ExcludeOutputFields,
 	}
 
 	for _, mr := range options.OutputMatchRegex {
 		cr, err := regexp.Compile(mr)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("Invalid value for match regex option")
+			return nil, errkit.Wrap(err, "Invalid value for match regex option")
 		}
 		outputOptions.MatchRegex = append(outputOptions.MatchRegex, cr)
 	}
 	for _, fr := range options.OutputFilterRegex {
 		cr, err := regexp.Compile(fr)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("Invalid value for filter regex option")
+			return nil, errkit.Wrap(err, "Invalid value for filter regex option")
 		}
 		outputOptions.FilterRegex = append(outputOptions.FilterRegex, cr)
 	}
 
 	outputWriter, err := output.New(outputOptions)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create output writer")
+		return nil, errkit.Wrap(err, "could not create output writer")
 	}
 
 	crawlerOptions := &CrawlerOptions{
 		ExtensionsValidator: extensionsValidator,
+		Parser:              responseParser,
 		ScopeManager:        scopeManager,
 		UniqueFilter:        itemFilter,
 		Options:             options,

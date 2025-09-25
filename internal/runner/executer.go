@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
 )
@@ -12,17 +12,22 @@ import (
 // ExecuteCrawling executes the crawling main loop
 func (r *Runner) ExecuteCrawling() error {
 	if r.crawler == nil {
-		return errorutil.New("crawler is not initialized")
+		return errkit.New("crawler is not initialized")
 	}
 	inputs := r.parseInputs()
 	if len(inputs) == 0 {
-		return errorutil.New("no input provided for crawling")
+		return errkit.New("no input provided for crawling")
 	}
+
 	for _, input := range inputs {
 		_ = r.state.InFlightUrls.Set(addSchemeIfNotExists(input), struct{}{})
 	}
 
-	defer r.crawler.Close()
+	defer func() {
+		if err := r.crawler.Close(); err != nil {
+			gologger.Error().Msgf("Error closing crawler: %v\n", err)
+		}
+	}()
 
 	wg := sizedwaitgroup.New(r.options.Parallelism)
 	for _, input := range inputs {
@@ -39,8 +44,8 @@ func (r *Runner) ExecuteCrawling() error {
 				gologger.Warning().Msgf("Could not crawl %s: %s", input, err)
 			}
 			r.state.InFlightUrls.Delete(input)
-			}(input)
-		}
+		}(input)
+	}
 	wg.Wait()
 	return nil
 }

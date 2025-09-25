@@ -1,0 +1,94 @@
+name: Workflow Monitor
+
+on:
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  issues: read
+  discussions: read
+
+jobs:
+  monitor-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Discussion vs Issue Activity
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            const since = oneWeekAgo.toISOString();
+            
+            // Get discussions created in the last week
+            const discussions = await github.graphql(`
+              query($owner: String!, $repo: String!, $since: DateTime!) {
+                repository(owner: $owner, name: $repo) {
+                  discussions(first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+                    nodes {
+                      title
+                      createdAt
+                      category {
+                        name
+                        slug
+                      }
+                      comments(first: 1) {
+                        totalCount
+                      }
+                    }
+                  }
+                }
+              }
+            `, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: since
+            });
+            
+            // Get issues created in the last week
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: since,
+              state: 'all'
+            });
+            
+            // Filter discussions created in the last week
+            const recentDiscussions = discussions.repository.discussions.nodes.filter(
+              d => new Date(d.createdAt) >= oneWeekAgo
+            );
+            
+            // Generate and log simple report
+            console.log("=== Discussion-First Workflow Report ===");
+            console.log(`Period: ${oneWeekAgo.toDateString()} - ${new Date().toDateString()}`);
+            console.log(`Discussions Created: ${recentDiscussions.length}`);
+            console.log(`Issues Created: ${issues.data.length}`);
+            console.log(`Conversion Ratio: ${issues.data.length}/${recentDiscussions.length}`);
+            
+            if (recentDiscussions.length > 0) {
+              console.log("\nDiscussion Categories:");
+              recentDiscussions.forEach(d => {
+                console.log(`- ${d.category.name}: ${d.title} (${d.comments.totalCount} comments)`);
+              });
+            } else {
+              console.log("No discussions this week");
+            }
+            
+            if (issues.data.length > 0) {
+              console.log("\nDirect Issues Created:");
+              issues.data.forEach(i => {
+                console.log(`- ${i.title} (${new Date(i.created_at).toDateString()})`);
+              });
+              console.log("\nWARNING: Direct issues were created - check workflow configuration");
+            } else {
+              console.log("\nNo direct issues created - workflow working correctly");
+            }
+            
+            const responseRate = recentDiscussions.length > 0 ? 
+              (recentDiscussions.filter(d => d.comments.totalCount > 0).length / recentDiscussions.length * 100).toFixed(1) : 0;
+            console.log(`Community Response Rate: ${responseRate}%`);
+            
+            // You could also create an issue or discussion with this report
+            // For now, just log it to Actions output

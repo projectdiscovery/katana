@@ -14,7 +14,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
@@ -45,10 +45,19 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 			req.Host = v
 		}
 	}
+
 	for k, v := range c.Headers {
 		req.Header.Set(k, v)
 		if k == "Host" {
 			req.Host = v
+		}
+	}
+
+	// Apply cookies
+	if c.Jar != nil {
+		cookies := c.Jar.Cookies(req.Request.URL)
+		for _, cookie := range cookies {
+			req.AddCookie(cookie)
 		}
 	}
 
@@ -60,6 +69,11 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 			}
 			_ = resp.Body.Close()
 		}()
+	}
+
+	// Collect cookies from the response
+	if c.Jar != nil && resp != nil {
+		c.Jar.SetCookies(req.Request.URL, resp.Cookies())
 	}
 
 	rawRequestBytes, _ := req.Dump()
@@ -76,8 +90,11 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	if err != nil {
 		return response, err
 	}
-	if !c.Options.UniqueFilter.UniqueContent(data) {
-		return &navigation.Response{}, nil
+	// Skip unique content filtering if disabled
+	if !c.Options.Options.DisableUniqueFilter {
+		if !c.Options.UniqueFilter.UniqueContent(data) {
+			return &navigation.Response{}, nil
+		}
 	}
 
 	if c.Options.Wappalyzer != nil {
@@ -104,7 +121,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	response.Raw = string(rawResponseBytes)
 
 	if err != nil {
-		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
+		return response, errkit.Wrap(err, "standard: could not make document from reader")
 	}
 
 	return response, nil

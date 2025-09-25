@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -36,7 +38,7 @@ func getResponseHost(URL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.Host, nil
+	return filepath.Clean(strings.ReplaceAll(u.Host, ":", "_")), nil
 }
 
 func createHostDir(storeResponseFolder, domain string) string {
@@ -52,7 +54,7 @@ func getResponseFile(storeResponseFolder, URL string) (string, *fileWriter, erro
 	fileName := getResponseFileName(storeResponseFolder, domain, URL)
 	output, err := newFileOutputWriter(fileName)
 	if err != nil {
-		return "", nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
+		return "", nil, errkit.Wrap(err, "output: could not create output file")
 	}
 
 	return fileName, output, nil
@@ -70,7 +72,11 @@ func updateIndex(storeResponseFolder string, result *Result) error {
 		return err
 	}
 
-	defer index.Close()
+	defer func() {
+		if err := index.Close(); err != nil {
+			gologger.Error().Msgf("Error closing index: %v\n", err)
+		}
+	}()
 
 	builder := &bytes.Buffer{}
 
@@ -87,7 +93,7 @@ func updateIndex(storeResponseFolder string, result *Result) error {
 	builder.WriteRune('\n')
 
 	if _, writeErr := index.Write(builder.Bytes()); writeErr != nil {
-		return errorutil.NewWithTag("output", "could not update index").Wrap(err)
+		return errkit.Wrap(err, "output: could not update index")
 	}
 
 	return nil

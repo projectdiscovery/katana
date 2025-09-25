@@ -2,11 +2,12 @@ package hybrid
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-
+	"slices"
 	"strings"
 	"time"
 
@@ -15,11 +16,10 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -34,9 +34,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	page, err := s.Browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
-	defer page.Close()
+	defer func() {
+		if err := page.Close(); err != nil {
+			gologger.Error().Msgf("Error closing page: %v\n", err)
+		}
+	}()
 	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
@@ -49,7 +53,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
@@ -70,7 +74,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not new request")
 		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
@@ -130,18 +134,28 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			requestHeaders[name] = []string{value.Str()}
 		}
 
-		if e.ResourceType == "XHR" && c.Options.Options.XhrExtraction {
-			xhr := navigation.Request{
+		shouldCapture := func(xhrExtraction bool) bool {
+			resourceTypes := []proto.NetworkResourceType{
+				proto.NetworkResourceTypeXHR,
+				proto.NetworkResourceTypeFetch,
+				proto.NetworkResourceTypeScript,
+			}
+
+			return xhrExtraction && slices.Contains(resourceTypes, e.ResourceType)
+		}
+
+		if shouldCapture(c.Options.Options.XhrExtraction) {
+			networkReq := navigation.Request{
 				URL:    httpreq.URL.String(),
 				Method: httpreq.Method,
 				Body:   e.Request.PostData,
 			}
 			if len(httpreq.Header) > 0 {
-				xhr.Headers = utils.FlattenHeaders(httpreq.Header)
+				networkReq.Headers = utils.FlattenHeaders(httpreq.Header)
 			} else {
-				xhr.Headers = utils.FlattenHeaders(requestHeaders)
+				networkReq.Headers = utils.FlattenHeaders(requestHeaders)
 			}
-			xhrRequests = append(xhrRequests, xhr)
+			xhrRequests = append(xhrRequests, networkReq)
 		}
 
 		// trim trailing /
@@ -153,7 +167,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		// process the raw response
-		navigationRequests := parser.ParseResponse(resp)
+		navigationRequests := c.Options.Parser.ParseResponse(resp)
 		c.Enqueue(s.Queue, navigationRequests...)
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -179,42 +193,46 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.DisableRedirects && response.IsRedirect() {
 			return response, nil
 		}
-		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not navigate target")
 	}
 
 	waitNavigation()
 
-	// Wait for the window.onload event
-	if err := page.WaitLoad(); err != nil {
-		gologger.Warning().Msgf("\"%s\" on wait load: %s\n", request.URL, err)
+	// Wait the page to be stable a duration
+	timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
+
+	if timeout < timeStable {
+		gologger.Warning().Msgf("timeout is less than time stable, setting time stable to half of timeout to avoid timeout\n")
+		timeStable = timeout / 2
+		gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
 	}
 
-	// wait for idle the network requests
-	if err := page.WaitIdle(timeout); err != nil {
-		gologger.Warning().Msgf("\"%s\" on wait idle: %s\n", request.URL, err)
+	if err := page.WaitStable(timeStable); err != nil {
+		gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
 	}
 
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get dom")
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
-	if response.Resp == nil {
-		return nil, errorutil.NewWithTag("hybrid", "response is nil").Wrap(err)
+	if response == nil || response.Resp == nil {
+		// err is guaranteed to be nil, due to previous checks.
+		return nil, errors.New("hybrid: response is nil")
 	}
 	response.Resp.Request.URL = parsed.URL
 
@@ -224,19 +242,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 	if responseCopy.Reader != nil {
-		navigationRequests := parser.ParseResponse(&responseCopy)
+		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
 		c.Enqueue(s.Queue, navigationRequests...)
 	}
 
 	response.Body = body
-	response.Reader.Url, _ = url.Parse(request.URL)
-	if c.Options.Options.FormExtraction {
-		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	if response.Reader != nil {
+		response.Reader.Url, _ = url.Parse(request.URL)
+		if c.Options.Options.FormExtraction {
+			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+		}
 	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
 	response.XhrRequests = xhrRequests

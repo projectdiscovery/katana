@@ -53,7 +53,7 @@ func DoHealthCheck(options *types.Options, flagSet *goflags.FlagSet) string {
 	test.WriteString(fmt.Sprintf("Config file \"%s\" Write => %s\n", cfgFilePath, testResult))
 	c4, err := net.Dial("tcp4", "scanme.sh:80")
 	if err == nil && c4 != nil {
-		c4.Close()
+		_ = c4.Close()
 	}
 	testResult = "Ok"
 	if err != nil {
@@ -62,7 +62,7 @@ func DoHealthCheck(options *types.Options, flagSet *goflags.FlagSet) string {
 	test.WriteString(fmt.Sprintf("TCP IPv4 connectivity to scanme.sh:80 => %s\n", testResult))
 	c6, err := net.Dial("tcp6", "scanme.sh:80")
 	if err == nil && c6 != nil {
-		c6.Close()
+		_ = c6.Close()
 	}
 	testResult = "Ok"
 	if err != nil {
@@ -70,8 +70,8 @@ func DoHealthCheck(options *types.Options, flagSet *goflags.FlagSet) string {
 	}
 	test.WriteString(fmt.Sprintf("TCP IPv6 connectivity to scanme.sh:80 => %s\n", testResult))
 	u4, err := net.Dial("udp4", "scanme.sh:53")
-	if err == nil && c4 != nil {
-		u4.Close()
+	if err == nil && u4 != nil {
+		_ = u4.Close()
 	}
 	testResult = "Ok"
 	if err != nil {
@@ -79,8 +79,8 @@ func DoHealthCheck(options *types.Options, flagSet *goflags.FlagSet) string {
 	}
 	test.WriteString(fmt.Sprintf("UDP IPv4 connectivity to scanme.sh:80 => %s\n", testResult))
 	u6, err := net.Dial("udp6", "scanme.sh:80")
-	if err == nil && c6 != nil {
-		u6.Close()
+	if err == nil && u6 != nil {
+		_ = u6.Close()
 	}
 	testResult = "Ok"
 	if err != nil {

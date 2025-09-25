@@ -20,3 +20,5 @@ integration:
 	cd integration_tests; bash run.sh cd ..
 tidy:
 	$(GOMOD) tidy
+lint:
+	golangci-lint run ./...

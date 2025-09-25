@@ -16,6 +16,9 @@ import (
 // OnResultCallback (output.Result)
 type OnResultCallback func(output.Result)
 
+// OnSkipURLCallback (string)
+type OnSkipURLCallback func(string)
+
 type Options struct {
 	// URLs contains a list of URLs for crawling
 	URLs goflags.StringSlice
@@ -35,6 +38,8 @@ type Options struct {
 	ExtensionsMatch goflags.StringSlice
 	// ExtensionFilter contains additional items for filter list
 	ExtensionFilter goflags.StringSlice
+	// NoDefaultExtFilter removes the default extensions from the filter list
+	NoDefaultExtFilter bool
 	// OutputMatchCondition is the condition to match output
 	OutputMatchCondition string
 	// OutputFilterCondition is the condition to filter output
@@ -45,6 +50,8 @@ type Options struct {
 	BodyReadSize int
 	// Timeout is the time to wait for request in seconds
 	Timeout int
+	// TimeStable is the time to wait until the page is stable
+	TimeStable int
 	// CrawlDuration is the duration in seconds to crawl target from
 	CrawlDuration time.Duration
 	// MaxFailureCount is the maximum number of consecutive failures before stopping
@@ -83,6 +90,10 @@ type Options struct {
 	NoColors bool
 	// JSON enables writing output in JSON format
 	JSON bool
+	// ExcludeOutputFields is the list of fields to exclude from the output
+	ExcludeOutputFields goflags.StringSlice
+	// ListOutputFields is the list of fields
+	ListOutputFields bool
 	// Silent shows only output
 	Silent bool
 	// Verbose specifies showing verbose output
@@ -121,6 +132,8 @@ type Options struct {
 	ChromeWSUrl string
 	// OnResult allows callback function on a result
 	OnResult OnResultCallback
+	// OnSkipURL allows callback function on a skipped url
+	OnSkipURL OnSkipURLCallback
 	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
@@ -147,6 +160,8 @@ type Options struct {
 	ErrorLogFile string
 	// Resolvers contains custom resolvers
 	Resolvers goflags.StringSlice
+	// OutputTemplate enables custom output template
+	OutputTemplate string
 	// OutputMatchRegex is the regex to match output url
 	OutputMatchRegex goflags.StringSlice
 	// OutputFilterRegex is the regex to filter output url
@@ -163,8 +178,12 @@ type Options struct {
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
 	TlsImpersonate bool
-	//DisableRedirects disables the following of redirects
+	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
+	// PathClimb enables path expansion (auto crawl discovered paths)
+	PathClimb bool
+	// DisableUniqueFilter disables duplicate content filtering
+	DisableUniqueFilter bool
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

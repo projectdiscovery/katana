@@ -550,7 +550,8 @@ func TestDataURIFiltering(t *testing.T) {
 		}
 
 		// Test the main ParseResponse function to ensure all invalid URIs are filtered out
-		navigationRequests := ParseResponse(resp)
+		responseParser := NewResponseParser()
+		navigationRequests := responseParser.ParseResponse(resp)
 		for _, req := range navigationRequests {
 			require.False(t, strings.HasPrefix(req.URL, "data:"),
 				"Found data URI in ParseResponse results: %s", req.URL)

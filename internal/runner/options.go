@@ -11,7 +11,7 @@ import (
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"gopkg.in/yaml.v3"
 )
@@ -19,10 +19,10 @@ import (
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
 	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
-		return errorutil.New("either max-depth or crawl-duration must be specified")
+		return errkit.New("either max-depth or crawl-duration must be specified")
 	}
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
-		return errorutil.New("no inputs specified for crawler")
+		return errkit.New("no inputs specified for crawler")
 	}
 
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
@@ -34,15 +34,18 @@ func validateOptions(options *types.Options) error {
 
 	// Disallow ambiguous engine selection
 	if options.Headless && options.HeadlessHybrid {
-		return errorutil.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
+		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
 		!options.Headless && !options.HeadlessHybrid {
-		return errorutil.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
+		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
+	}
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless && !options.HeadlessHybrid {
+		return errkit.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {
-			return errorutil.New("specified system chrome binary does not exist")
+			return errkit.New("specified system chrome binary does not exist")
 		}
 	}
 	if options.StoreResponseDir != "" && !options.StoreResponse {
@@ -52,14 +55,14 @@ func validateOptions(options *types.Options) error {
 	for _, mr := range options.OutputMatchRegex {
 		cr, err := regexp.Compile(mr)
 		if err != nil {
-			return errorutil.NewWithErr(err).Msgf("Invalid value for match regex option")
+			return errkit.Wrap(err, "Invalid value for match regex option")
 		}
 		options.MatchRegex = append(options.MatchRegex, cr)
 	}
 	for _, fr := range options.OutputFilterRegex {
 		cr, err := regexp.Compile(fr)
 		if err != nil {
-			return errorutil.NewWithErr(err).Msgf("Invalid value for filter regex option")
+			return errkit.Wrap(err, "Invalid value for filter regex option")
 		}
 		options.FilterRegex = append(options.FilterRegex, cr)
 	}
@@ -75,13 +78,17 @@ func validateOptions(options *types.Options) error {
 func readCustomFormConfig(formConfig string) error {
 	file, err := os.Open(formConfig)
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not read form config")
+		return errkit.Wrap(err, "could not read form config")
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Error closing file: %v\n", err)
+		}
+	}()
 
 	var data utils.FormFillData
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not decode form config")
+		return errkit.Wrap(err, "could not decode form config")
 	}
 	utils.FormData = data
 	return nil
@@ -122,7 +129,7 @@ func normalizeInput(value string) string {
 func initExampleFormFillConfig() error {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not get home directory")
+		return errkit.Wrap(err, "could not get home directory")
 	}
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
 
@@ -134,9 +141,13 @@ func initExampleFormFillConfig() error {
 	}
 	exampleConfig, err := os.Create(defaultConfig)
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not get home directory")
+		return errkit.Wrap(err, "could not get home directory")
 	}
-	defer exampleConfig.Close()
+	defer func() {
+		if err := exampleConfig.Close(); err != nil {
+			gologger.Error().Msgf("Error closing example config: %v\n", err)
+		}
+	}()
 
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err

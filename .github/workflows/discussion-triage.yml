@@ -1,0 +1,94 @@
+name: Discussion Triage Helper
+
+on:
+  discussion:
+    types: [created]
+
+permissions:
+  discussions: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add initial response to discussions
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { discussion } = context.payload;
+            
+            // Add helpful response based on discussion category
+            let response = "";
+            
+            if (discussion.category.slug === "q-a") {
+              if (discussion.title.toLowerCase().includes("bug") || 
+                  discussion.title.toLowerCase().includes("error") || 
+                  discussion.title.toLowerCase().includes("crash") ||
+                  discussion.title.toLowerCase().includes("fail")) {
+                
+                response = "Thanks for the discussion! This looks like it might be a bug report.\n\n" +
+                          "**For Maintainers:** If this is confirmed to be a bug with proper reproduction steps, consider converting to an issue using \"Convert to issue\" in the discussion menu.\n\n" +
+                          "**For the Reporter:** To help us triage this effectively, please provide:\n" +
+                          "- [ ] Katana version (`katana -version`)\n" +
+                          "- [ ] Complete command that reproduces the issue\n" +
+                          "- [ ] Expected vs actual behavior\n" +
+                          "- [ ] Operating system and environment details\n" +
+                          "- [ ] Any error messages or logs\n\n" +
+                          "This helps us determine if this should become a tracked issue. Thank you!";
+              
+              } else {
+                response = "Thanks for your question!\n\n" +
+                          "The community and maintainers will help answer this. If this turns out to be a bug or feature request after discussion, a maintainer can convert it to a tracked issue.\n\n" +
+                          "**Tip:** For faster responses, you can also join our [Discord server](https://discord.gg/projectdiscovery) for real-time help!";
+              }
+            }
+            
+            else if (discussion.category.slug === "ideas") {
+              response = "Thanks for sharing this idea!\n\n" +
+                        "**For Maintainers:** If this feature request is well-defined and approved for implementation, consider converting to an issue using \"Convert to issue\" in the discussion menu.\n\n" +
+                        "**For the Reporter:** To help evaluate this feature:\n" +
+                        "- [ ] Describe the specific use case this would solve\n" +
+                        "- [ ] Explain how this would benefit the katana user community\n" +  
+                        "- [ ] Consider if this could be implemented as a plugin or external tool\n" +
+                        "- [ ] Check if similar functionality already exists\n\n" +
+                        "Well-defined features with clear benefits may be converted to tracked issues for implementation. Thanks for contributing!";
+            }
+            
+            if (response) {
+              await github.rest.discussions.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                discussion_number: discussion.number,
+                body: response
+              });
+            }
+
+      - name: Auto-label potential bug reports
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { discussion } = context.payload;
+            const title = discussion.title.toLowerCase();
+            const body = discussion.body.toLowerCase();
+            
+            // Check for keywords that suggest this might be a bug
+            const bugKeywords = [
+              "bug", "error", "crash", "fail", "broken", "issue", "problem", 
+              "exception", "panic", "segfault", "hang", "freeze", "incorrect"
+            ];
+            
+            const hasBugKeywords = bugKeywords.some(keyword => 
+              title.includes(keyword) || body.includes(keyword)
+            );
+            
+            if (hasBugKeywords && discussion.category.slug === "q-a") {
+              // Add a comment suggesting this might need to be converted to an issue
+              const detectedKeywords = bugKeywords.filter(k => title.includes(k) || body.includes(k));
+              await github.rest.discussions.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,  
+                discussion_number: discussion.number,
+                body: "**Maintainer Note:** This discussion contains potential bug keywords and may need to be converted to a tracked issue after confirmation.\n\n" +
+                      "**Keywords detected:** " + detectedKeywords.join(', ')
+              });
+            }

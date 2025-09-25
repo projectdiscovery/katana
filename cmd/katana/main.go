@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -12,12 +13,15 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
 	pprofutils "github.com/projectdiscovery/utils/pprof"
+	sliceutil "github.com/projectdiscovery/utils/slice"
+	"github.com/projectdiscovery/utils/structs"
 	"github.com/rs/xid"
 )
 
@@ -32,6 +36,26 @@ func main() {
 		gologger.Fatal().Msgf("Could not read flags: %s\n", err)
 	}
 
+	if options.ListOutputFields {
+		gologger.Info().Msgf("Available fields for JSON output:")
+
+		fields := []string{}
+		topFields, _ := structs.GetStructFields(output.Result{})
+		fields = append(fields, topFields...)
+		reqFields, _ := structs.GetStructFields(navigation.Request{})
+		fields = append(fields, reqFields...)
+		respFields, _ := structs.GetStructFields(navigation.Response{})
+		fields = append(fields, respFields...)
+
+		sort.Strings(fields)
+		fields = sliceutil.PruneEmptyStrings(sliceutil.Dedupe(fields))
+
+		for _, field := range fields {
+			fmt.Println(field)
+		}
+		os.Exit(0)
+	}
+
 	if options.HealthCheck {
 		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
 		os.Exit(0)
@@ -42,9 +66,14 @@ func main() {
 		if options.Version {
 			return
 		}
-		gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		gologger.Error().Msgf("could not create runner: %s\n", err)
+		os.Exit(0)
 	}
-	defer katanaRunner.Close()
+	defer func() {
+		if err := katanaRunner.Close(); err != nil {
+			gologger.Error().Msgf("Error closing katana runner: %v\n", err)
+		}
+	}()
 
 	// Check if env has profiling enabled
 
@@ -55,7 +84,9 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			katanaRunner.Close()
+			if err := katanaRunner.Close(); err != nil {
+				gologger.Error().Msgf("Error closing katana runner: %v\n", err)
+			}
 
 			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
 			err := katanaRunner.SaveState(resumeFilename)
@@ -91,7 +122,7 @@ func main() {
 
 	// remove the resume file in case it exists
 	if fileutil.FileExists(resumeFilename) {
-		os.Remove(resumeFilename)
+		_ = os.Remove(resumeFilename)
 	}
 
 }
@@ -115,9 +146,15 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jsl", false, "enable jsluice parsing in javascript file (memory intensive)"),
 		flagSet.DurationVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for (s, m, h, d) (default s)"),
-		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled."),
+		flagSet.EnumVarP(&options.KnownFiles, "known-files", "kf", goflags.EnumVariable(0), "enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled.", goflags.AllowdTypes{
+			"":           goflags.EnumVariable(0),
+			"all":        goflags.EnumVariable(1),
+			"robotstxt":  goflags.EnumVariable(2),
+			"sitemapxml": goflags.EnumVariable(3),
+		}),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", defaultBodyReadSize, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
+		flagSet.IntVar(&options.TimeStable, "time-stable", 1, "time to wait until the page is stable in seconds"),
 		flagSet.BoolVarP(&options.AutomaticFormFill, "automatic-form-fill", "aff", false, "enable automatic form filling (experimental)"),
 		flagSet.BoolVarP(&options.FormExtraction, "form-extraction", "fx", false, "extract form, input, textarea & select elements in jsonl output"),
 		flagSet.IntVar(&options.Retries, "retry", 1, "number of times to retry the request"),
@@ -131,6 +168,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
+		flagSet.BoolVarP(&options.PathClimb, "path-climb", "pc", false, "enable path climb (auto crawl parent paths)"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
@@ -167,12 +205,14 @@ pipelines offering both headless and non-headless crawling.`)
 	flagSet.CreateGroup("filter", "Filter",
 		flagSet.StringSliceVarP(&options.OutputMatchRegex, "match-regex", "mr", nil, "regex or list of regex to match on output url (cli, file)", goflags.FileStringSliceOptions),
 		flagSet.StringSliceVarP(&options.OutputFilterRegex, "filter-regex", "fr", nil, "regex or list of regex to filter on output url (cli, file)", goflags.FileStringSliceOptions),
-		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s)", availableFields)),
+		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s) (Deprecated: use -output-template instead)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
 		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.BoolVarP(&options.NoDefaultExtFilter, "no-default-ext-filter", "ndef", false, "remove default extensions from the filter list"),
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
 		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
+		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
 	)
 
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
@@ -190,12 +230,15 @@ pipelines offering both headless and non-headless crawling.`)
 
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.OutputFile, "output", "o", "", "file to write output to"),
+		flagSet.StringVarP(&options.OutputTemplate, "output-template", "ot", "", "custom output template"),
 		flagSet.BoolVarP(&options.StoreResponse, "store-response", "sr", false, "store http requests/responses"),
 		flagSet.StringVarP(&options.StoreResponseDir, "store-response-dir", "srd", "", "store http requests/responses to custom directory"),
 		flagSet.BoolVarP(&options.NoClobber, "no-clobber", "ncb", false, "do not overwrite output file"),
 		flagSet.StringVarP(&options.StoreFieldDir, "store-field-dir", "sfd", "", "store per-host field to custom directory"),
 		flagSet.BoolVarP(&options.OmitRaw, "omit-raw", "or", false, "omit raw requests/responses from jsonl output"),
 		flagSet.BoolVarP(&options.OmitBody, "omit-body", "ob", false, "omit response body from jsonl output"),
+		flagSet.BoolVarP(&options.ListOutputFields, "list-output-fields", "lof", false, "list of fields to output in jsonl format"),
+		flagSet.StringSliceVarP(&options.ExcludeOutputFields, "exclude-output-fields", "eof", nil, "exclude fields from jsonl output", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.JSON, "jsonl", "j", false, "write output in jsonl format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
@@ -205,12 +248,12 @@ pipelines offering both headless and non-headless crawling.`)
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not parse flags")
+		return nil, errkit.Wrap(err, "could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
+			return nil, errkit.Wrap(err, "could not read config file")
 		}
 	}
 
@@ -221,7 +264,7 @@ pipelines offering both headless and non-headless crawling.`)
 func init() {
 	// show detailed stacktrace in debug mode
 	if os.Getenv("DEBUG") == "true" {
-		errorutil.ShowStackTrace = true
+		errkit.EnableTrace = true
 	}
 }
 

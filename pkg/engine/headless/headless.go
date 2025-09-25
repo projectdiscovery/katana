@@ -153,7 +153,8 @@ func (h *Headless) Close() error {
 }
 
 func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
-	newNavigations := parser.ParseResponse(rr.Response)
+	responseParser := parser.NewResponseParser()
+	newNavigations := responseParser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
 	for _, resp := range newNavigations {
