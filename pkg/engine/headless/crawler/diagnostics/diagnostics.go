@@ -104,8 +104,8 @@ func (w *diskWriter) LogPageState(state *types.PageState, stateType PageStateTyp
 	w.mu.Lock()
 	val, ok := w.index.Get(state.UniqueID)
 	if ok && val != nil {
-		w.mu.Unlock()
 		val.Occurence++
+		w.mu.Unlock()
 		return nil
 	}
 	w.index.Set(state.UniqueID, &stateMetadata{

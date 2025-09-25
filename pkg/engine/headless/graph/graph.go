@@ -83,6 +83,9 @@ func (g *CrawlGraph) AddPageState(n types.PageState) error {
 }
 
 func (g *CrawlGraph) AddEdge(sourceState, targetState string, action *types.Action) error {
+	if action == nil {
+		return errors.New("add edge: action cannot be nil")
+	}
 	edgeAttrs := map[string]string{
 		"label": action.String(),
 	}
@@ -112,14 +115,14 @@ func (g *CrawlGraph) ShortestPath(sourceState, targetState string) ([]*types.Act
 	if err != nil {
 		return nil, errors.Wrap(err, "could not find shortest path")
 	}
-	var actionsSlice []*types.Action
+	actionsSlice := make([]*types.Action, 0, len(shortestPath))
 	for _, path := range shortestPath {
 		pageVertex, err := g.graph.Vertex(path)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get vertex")
 		}
 
-		if pageVertex.URL == "about:blank" {
+		if pageVertex.URL == "about:blank" || pageVertex.NavigationAction == nil {
 			continue
 		}
 		actionsSlice = append(actionsSlice, pageVertex.NavigationAction)

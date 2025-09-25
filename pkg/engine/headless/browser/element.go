@@ -61,6 +61,31 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 
 	navigations := make([]*types.Action, 0)
 
+	forms, err := b.GetAllForms()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get forms")
+	}
+	for _, form := range forms {
+		for _, element := range form.Elements {
+			if element.TagName != "BUTTON" {
+				continue
+			}
+			// TODO: Check if this button is already in the unique map
+			// and if so remove it
+			unique[element.Hash()] = struct{}{}
+		}
+		hash := form.Hash()
+		if _, found := unique[hash]; found {
+			continue
+		}
+		unique[hash] = struct{}{}
+
+		navigations = append(navigations, &types.Action{
+			Type: types.ActionTypeFillForm,
+			Form: form,
+		})
+	}
+
 	buttons, err := b.GetAllElements(buttonsCSSSelector)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get buttons")
@@ -103,6 +128,13 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 			continue
 		}
 
+		u, err := url.Parse(resolvedHref)
+		if err != nil {
+			continue
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			continue
+		}
 		if !scopeValidator(resolvedHref) {
 			continue
 		}
@@ -135,31 +167,6 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 		}
 		unique[hash] = struct{}{}
 		navigations = append(navigations, types.ActionFromEventListener(listener))
-	}
-
-	forms, err := b.GetAllForms()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get forms")
-	}
-	for _, form := range forms {
-		for _, element := range form.Elements {
-			if element.TagName != "BUTTON" {
-				continue
-			}
-			// TODO: Check if this button is already in the unique map
-			// and if so remove it
-			unique[element.Hash()] = struct{}{}
-		}
-		hash := form.Hash()
-		if _, found := unique[hash]; found {
-			continue
-		}
-		unique[hash] = struct{}{}
-
-		navigations = append(navigations, &types.Action{
-			Type: types.ActionTypeFillForm,
-			Form: form,
-		})
 	}
 
 	return navigations, nil

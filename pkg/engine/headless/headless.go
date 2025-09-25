@@ -98,14 +98,16 @@ func (h *Headless) Crawl(URL string) error {
 	scopeValidator := validateScopeFunc(h, URL)
 
 	crawlOpts := crawler.Options{
-		ChromiumPath:     h.options.Options.SystemChromePath,
-		MaxDepth:         h.options.Options.MaxDepth,
-		ShowBrowser:      h.options.Options.ShowBrowser,
-		MaxCrawlDuration: h.options.Options.CrawlDuration,
-		MaxFailureCount:  h.options.Options.MaxFailureCount,
-		MaxBrowsers:      1,
-		PageMaxTimeout:   30 * time.Second,
-		ScopeValidator:   scopeValidator,
+		ChromiumPath:      h.options.Options.SystemChromePath,
+		MaxDepth:          h.options.Options.MaxDepth,
+		ShowBrowser:       h.options.Options.ShowBrowser,
+		MaxCrawlDuration:  h.options.Options.CrawlDuration,
+		MaxFailureCount:   h.options.Options.MaxFailureCount,
+		NoSandbox:         h.options.Options.HeadlessNoSandbox,
+		MaxBrowsers:       1,
+		PageMaxTimeout:    30 * time.Second,
+		ScopeValidator:    scopeValidator,
+		AutomaticFormFill: h.options.Options.AutomaticFormFill,
 		RequestCallback: func(rr *output.Result) {
 			if !scopeValidator(rr.Request.URL) {
 				return
@@ -125,6 +127,7 @@ func (h *Headless) Crawl(URL string) error {
 		Trace:               h.options.Options.EnableDiagnostics,
 		CookieConsentBypass: true,
 	}
+
 	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
 
 	headlessCrawler, err := crawler.New(crawlOpts)

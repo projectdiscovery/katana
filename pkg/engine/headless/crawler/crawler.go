@@ -41,12 +41,14 @@ type Options struct {
 	MaxBrowsers         int
 	MaxDepth            int
 	PageMaxTimeout      time.Duration
+	NoSandbox           bool
 	ShowBrowser         bool
 	SlowMotion          bool
 	MaxCrawlDuration    time.Duration
 	MaxFailureCount     int
 	Trace               bool
 	CookieConsentBypass bool
+	AutomaticFormFill   bool
 
 	// EnableDiagnostics enables the diagnostics mode
 	// which writes diagnostic information to a directory
@@ -62,18 +64,23 @@ type Options struct {
 
 var domNormalizer *normalizer.Normalizer
 var initOnce sync.Once
+var initError error
 
 func init() {
 	initOnce.Do(func() {
 		var err error
 		domNormalizer, err = normalizer.New()
 		if err != nil {
-			panic(err)
+			initError = errors.Wrap(err, "failed to create domnormalizer")
 		}
 	})
 }
 
 func New(opts Options) (*Crawler, error) {
+	if initError != nil {
+		return nil, initError
+	}
+
 	launcher, err := browser.NewLauncher(browser.LauncherOptions{
 		ChromiumPath:        opts.ChromiumPath,
 		MaxBrowsers:         opts.MaxBrowsers,
@@ -85,6 +92,7 @@ func New(opts Options) (*Crawler, error) {
 		ChromeUser:          opts.ChromeUser,
 		Trace:               opts.Trace,
 		CookieConsentBypass: opts.CookieConsentBypass,
+		NoSandbox:           opts.NoSandbox,
 	})
 	if err != nil {
 		return nil, err
@@ -120,7 +128,9 @@ func New(opts Options) (*Crawler, error) {
 func (c *Crawler) Close() {
 	c.launcher.Close()
 	if c.diagnostics != nil {
-		c.diagnostics.Close()
+		if err := c.diagnostics.Close(); err != nil {
+			c.logger.Warn("Failed to close diagnostics", slog.String("error", err.Error()))
+		}
 	}
 }
 
@@ -448,55 +458,4 @@ var logoutPattern = regexp.MustCompile(`(?i)(log[\s-]?out|sign[\s-]?out|signout|
 func isLogoutPage(element *types.HTMLElement) bool {
 	return logoutPattern.MatchString(element.TextContent) ||
 		logoutPattern.MatchString(element.Attributes["href"])
-}
-
-var formFillingData = map[string]string{
-	"text":     "test",
-	"number":   "5",
-	"password": "test",
-	"email":    "test@test.com",
-}
-
-func (c *Crawler) processForm(page *browser.BrowserPage, form *types.HTMLForm) error {
-	var err error
-
-	var submitButtonFinal *rod.Element
-	for _, field := range form.Elements {
-		var element *rod.Element
-		if field.XPath != "" {
-			if element, err = page.ElementX(field.XPath); err != nil {
-				return err
-			}
-		}
-
-		switch field.TagName {
-		case "INPUT":
-			var inputValue string
-			switch field.Type {
-			case "text":
-				inputValue = formFillingData["text"]
-			case "number":
-				inputValue = formFillingData["number"]
-			case "password":
-				inputValue = formFillingData["password"]
-			case "email":
-				inputValue = formFillingData["email"]
-			}
-			if err := element.Input(inputValue); err != nil {
-				return err
-			}
-		case "TEXTAREA":
-
-		case "BUTTON":
-			if submitButtonFinal == nil && field.Type == "submit" {
-				submitButtonFinal = element
-			}
-		}
-	}
-	if submitButtonFinal != nil {
-		if err := submitButtonFinal.Click(proto.InputMouseButtonLeft, 1); err != nil {
-			return err
-		}
-	}
-	return nil
 }

@@ -96,15 +96,17 @@ func appendFiltered(existing []*navigation.Request, new []*navigation.Request) [
 }
 
 func isValidNavigationRequest(req *navigation.Request) bool {
-	if req == nil || req.URL == "" {
+	if req == nil {
 		return false
 	}
-
-	// Direct checks - fastest for small number of schemes
-	url := req.URL
-	return !(strings.HasPrefix(url, "data:") ||
-		strings.HasPrefix(url, "mailto:") ||
-		strings.HasPrefix(url, "javascript:"))
+	url := strings.TrimSpace(req.URL)
+	if url == "" {
+		return false
+	}
+	lc := strings.ToLower(url)
+	return !(strings.HasPrefix(lc, "data:") ||
+		strings.HasPrefix(lc, "mailto:") ||
+		strings.HasPrefix(lc, "javascript:"))
 }
 
 // -------------------------------------------------------------------------

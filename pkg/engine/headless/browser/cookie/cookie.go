@@ -5,6 +5,7 @@ package cookie
 import (
 	_ "embed"
 	"encoding/json"
+	"sort"
 	"strings"
 
 	"github.com/go-rod/rod/lib/proto"
@@ -37,6 +38,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	sort.SliceStable(cookieConsentBlockRequests, func(i, j int) bool {
+		return cookieConsentBlockRequests[i].Priority > cookieConsentBlockRequests[j].Priority
+	})
 }
 
 // ShouldBlockRequest determines if a request should be blocked based on cookie consent rules

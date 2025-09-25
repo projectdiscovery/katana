@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -46,6 +47,7 @@ type LauncherOptions struct {
 	MaxBrowsers         int
 	PageMaxTimeout      time.Duration
 	ShowBrowser         bool
+	NoSandbox           bool
 	Proxy               string
 	SlowMotion          bool
 	Trace               bool
@@ -97,6 +99,10 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 		}
 	}
 
+	if l.opts.NoSandbox {
+		chromeLauncher = chromeLauncher.NoSandbox(true)
+	}
+
 	if l.opts.ShowBrowser {
 		chromeLauncher = chromeLauncher.Headless(false)
 	}
@@ -136,6 +142,7 @@ func (l *Launcher) Close() {
 		b.cancel()
 		b.CloseBrowserPage()
 	})
+	close(l.browserPool)
 }
 
 // BrowserPage is a combination of a browser and a page
@@ -260,14 +267,30 @@ func (p *BrowserPage) WaitNewStable(d time.Duration) error {
 func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	// Create unique temp userDataDir for this browser instance
 	var tempDir string
+	shouldCleanup := true
+
+	// Deferred cleanup function that will be set after tempDir creation
+	defer func() {
+		if shouldCleanup && tempDir != "" {
+			_ = os.RemoveAll(tempDir)
+		}
+	}()
+
 	if l.opts.ChromeUser != nil {
 		var err error
 		tempDir, err = os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
 		}
-		uid, _ := strconv.Atoi(l.opts.ChromeUser.Uid)
-		gid, _ := strconv.Atoi(l.opts.ChromeUser.Gid)
+
+		uid, err := strconv.Atoi(l.opts.ChromeUser.Uid)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid user ID")
+		}
+		gid, err := strconv.Atoi(l.opts.ChromeUser.Gid)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid group ID")
+		}
 		if err := os.Chown(tempDir, uid, gid); err != nil {
 			return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
 		}
@@ -281,13 +304,11 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 
 	browser, err := l.launchBrowserWithDataDir(tempDir)
 	if err != nil {
-		_ = os.RemoveAll(tempDir)
 		return nil, err
 	}
 
 	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		_ = os.RemoveAll(tempDir)
 		return nil, errors.Wrap(err, "could not create new page")
 	}
 	page = page.Sleeper(func() rodutils.Sleeper {
@@ -317,6 +338,9 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
+
+	// Success - cancel the deferred cleanup
+	shouldCleanup = false
 	return browserPage, nil
 }
 
@@ -385,6 +409,8 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
+				// Continue the request even if we can't get the body
+				_ = fetchContinueRequest(b.Page, e)
 				return
 			}
 			_ = fetchContinueRequest(b.Page, e)
@@ -411,7 +437,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 
 			doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
 			if err != nil {
-				return
+				slog.Warn("could not parse response body", "error", err)
 			}
 			resp := &navigation.Response{
 				Body:          string(body),

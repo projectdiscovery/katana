@@ -27,13 +27,18 @@ func validateOptions(options *types.Options) error {
 
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
 	// Form filling should be handled via headless actions within the page context
-	if options.Headless && options.AutomaticFormFill {
+	if options.HeadlessHybrid && options.AutomaticFormFill {
 		options.AutomaticFormFill = false
 		gologger.Info().Msgf("Automatic form fill (-aff) has been disabled for headless navigation.")
 	}
 
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless && !options.HeadlessHybrid {
-		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
+	// Disallow ambiguous engine selection
+	if options.Headless && options.HeadlessHybrid {
+		return errorutil.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
+	}
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
+		!options.Headless && !options.HeadlessHybrid {
+		return errorutil.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {

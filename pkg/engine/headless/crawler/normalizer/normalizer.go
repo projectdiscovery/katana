@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var whiteSpacesRegex = regexp.MustCompile(`\\n|\\r|\s+`)
+var whiteSpacesRegex = regexp.MustCompile(`[\r\n]+|\s+`)
 
 // Normalizer is a normalizer for text and DOM content
 type Normalizer struct {

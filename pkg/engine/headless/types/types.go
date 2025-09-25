@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -153,8 +154,8 @@ func (e *HTMLElement) String() string {
 		builder.WriteString(fmt.Sprintf(".%s", e.Classes))
 	}
 	if e.TextContent != "" {
-		e.TextContent = strings.Trim(e.TextContent, " \n\r\t")
-		builder.WriteString(fmt.Sprintf(" (%s)", e.TextContent))
+		trimmedContent := strings.Trim(e.TextContent, " \n\r\t")
+		builder.WriteString(fmt.Sprintf(" (%s)", trimmedContent))
 	}
 	value := builder.String()
 	return value
@@ -186,7 +187,7 @@ func (e *HTMLElement) Hash() string {
 
 	hashInput := strings.Join(parts, "|")
 	if IsDiagnosticEnabled {
-		fmt.Printf("[diagnostic] Element hash input: %s\n", hashInput)
+		fmt.Fprintf(os.Stderr, "[diagnostic] Element hash input: %s\n", hashInput)
 	}
 	hasher.Write([]byte(hashInput))
 	return hex.EncodeToString(hasher.Sum(nil))
@@ -234,7 +235,7 @@ func (f *HTMLForm) Hash() string {
 
 	hashInput := strings.Join(parts, "|")
 	if IsDiagnosticEnabled {
-		fmt.Printf("[diagnostic] Form hash input: %s\n", hashInput)
+		fmt.Fprintf(os.Stderr, "[diagnostic] Form hash input: %s\n", hashInput)
 	}
 	hasher.Write([]byte(hashInput))
 	return hex.EncodeToString(hasher.Sum(nil))

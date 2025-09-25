@@ -31,16 +31,23 @@
     // getAllElements returns all the elements for a query
     // selector on the page
     window.getAllElements = function (selector) {
-      const buttons = document.querySelectorAll(selector);
-      return Array.from(buttons).map((button) => _elementDataFromElement(button));
+      try {
+        const nodes = document.querySelectorAll(selector);
+        return Array.from(nodes).map((el) => _elementDataFromElement(el));
+      } catch (_) {
+        return [];
+      }
     };
 
     window.getElementFromXPath = function (xpath) {
-      const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-      if (!element) {
+      try {
+        const element = document
+          .evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
+          .singleNodeValue;
+        return element ? _elementDataFromElement(element) : null;
+      } catch (_) {
         return null;
       }
-      return _elementDataFromElement(element);
     }
   
     // getAllElementsWithEventListeners returns all the elements
