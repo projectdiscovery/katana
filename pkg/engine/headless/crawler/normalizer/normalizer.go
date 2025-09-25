@@ -20,9 +20,6 @@ type Normalizer struct {
 }
 
 // New returns a new Normalizer
-//
-// textPatterns is a list of regex patterns to remove from the text.
-// domSelectors is a list of CSS selectors to remove from the DOM.
 func New() (*Normalizer, error) {
 	textNormalizer, err := NewTextNormalizer()
 	if err != nil {

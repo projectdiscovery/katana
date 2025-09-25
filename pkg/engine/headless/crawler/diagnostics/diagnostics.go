@@ -120,7 +120,6 @@ func (w *diskWriter) LogPageState(state *types.PageState, stateType PageStateTyp
 	// Write dom to a separate file and remove striped dom
 	// Create new directory for each state
 	dom, strippedDOM := state.DOM, state.StrippedDOM
-	state.DOM, state.StrippedDOM = "", ""
 
 	dir := filepath.Join(w.directory, state.UniqueID)
 	if err := os.MkdirAll(dir, 0755); err != nil {

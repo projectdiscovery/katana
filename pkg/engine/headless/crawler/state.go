@@ -197,14 +197,41 @@ func (c *Crawler) tryElementNavigation(page *browser.BrowserPage, action *types.
 	if err != nil {
 		return "", err
 	}
-	// Ensure its the same element in some form
-	if htmlElement.ID == action.Element.ID || htmlElement.Classes == action.Element.Classes || htmlElement.TextContent == action.Element.TextContent {
+	// Ensure its the same element with stronger identity matching
+	if isElementMatch(htmlElement, action.Element) {
 		c.logger.Debug("Found target element on current page, proceeding without navigation")
 		// FIXME: Return the origin element ID so that the graph shows
 		// correctly the fastest way to reach the state.
 		return action.OriginID, nil
 	}
 	return "", nil
+}
+
+// isElementMatch implements stronger identity matching logic to reduce false positives.
+// It treats identical ID as definitive match, otherwise requires both Classes and TextContent
+// to match, or enforces at least two matching non-empty attributes.
+func isElementMatch(current, target *types.HTMLElement) bool {
+	if current == nil || target == nil {
+		return false
+	}
+	// Definitive match: identical non-empty IDs
+	if current.ID != "" && target.ID != "" && current.ID == target.ID {
+		return true
+	}
+	matchCount := 0
+
+	if current.Classes != "" && target.Classes != "" && current.Classes == target.Classes {
+		matchCount++
+	}
+	if current.TextContent != "" && target.TextContent != "" && current.TextContent == target.TextContent {
+		matchCount++
+	}
+	if current.TagName != "" && target.TagName != "" && current.TagName == target.TagName {
+		matchCount++
+	}
+	// Require at least two matching non-empty attributes for a positive match
+	// This ensures stronger identity verification while still allowing reasonable fallbacks
+	return matchCount >= 2
 }
 
 func (c *Crawler) tryBrowserHistoryNavigation(page *browser.BrowserPage, originPageState *types.PageState, action *types.Action) (string, error) {
@@ -278,6 +305,8 @@ func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.
 			if err != nil {
 				return "", errors.Wrap(err, "could not find path to origin page")
 			}
+		} else {
+			return "", errors.Wrap(err, "failed to find shortest path")
 		}
 	}
 	c.logger.Debug("Found actions to traverse",

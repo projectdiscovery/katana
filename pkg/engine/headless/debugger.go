@@ -34,8 +34,12 @@ func NewCrawlDebugger(httpPort int) *CrawlDebugger {
 	mux.HandleFunc("/debug/health", cd.handleHealth)
 
 	cd.httpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", httpPort),
-		Handler: mux,
+		Addr:              fmt.Sprintf("127.0.0.1:%d", httpPort),
+		Handler:           mux,
+		ReadTimeout:       5 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		IdleTimeout:       30 * time.Second,
 	}
 
 	go func() {

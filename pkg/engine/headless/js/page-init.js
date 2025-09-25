@@ -25,28 +25,25 @@
       window.__navigatedLinks = [];
   
       // Hook history.pushState and history.replaceState to capture all the navigated links
-      window.history.pushState = function (a, b, c) {
-        window.__navigatedLinks.push({ url: c, source: "history.pushState" });
-      };
-      window.history.replaceState = function (a, b, c) {
-        window.__navigatedLinks.push({ url: c, source: "history.replaceState" });
-      };
-      Object.defineProperty(
-        window.history,
-        "pushState",
-        markElementReadonlyProperties
-      );
-      Object.defineProperty(
-        window.history,
-        "replaceState",
-        markElementReadonlyProperties
-      );
+      const __origPushState = window.history.pushState.bind(window.history);
+      const __origReplaceState = window.history.replaceState.bind(window.history);
+      function __wrappedPushState(a, b, c) {
+        try { window.__navigatedLinks.push({ url: c, source: "history.pushState" }); } catch (_) {}
+        return __origPushState(a, b, c);
+      }
+      function __wrappedReplaceState(a, b, c) {
+        try { window.__navigatedLinks.push({ url: c, source: "history.replaceState" }); } catch (_) {}
+        return __origReplaceState(a, b, c);
+      }
+      Object.defineProperty(window.history, "pushState", { value: __wrappedPushState, writable: false, configurable: false });
+      Object.defineProperty(window.history, "replaceState", { value: __wrappedReplaceState, writable: false, configurable: false });
       // Hook window.open to capture all the opened pages
-      window.open = function (url) {
-        console.log("[hook] open url request", url);
-        window.__navigatedLinks.push({ url: url, source: "window.open" });
-      };
-      Object.defineProperty(window, "open", markElementReadonlyProperties);
+      const __origOpen = window.open.bind(window);
+      function __wrappedOpen(url, ...rest) {
+        try { window.__navigatedLinks.push({ url, source: "window.open" }); } catch (_) {}
+        return __origOpen(url, ...rest);
+      }
+      Object.defineProperty(window, "open", { value: __wrappedOpen, writable: false, configurable: false });
   
       // Add event listener for hashchange
       window.addEventListener("hashchange", function () {

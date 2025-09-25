@@ -72,6 +72,9 @@ func validateScopeFunc(h *Headless, URL string) browser.ScopeValidator {
 	rootHostname := parsedURL.Hostname()
 
 	return func(s string) bool {
+		if h.options.ScopeManager == nil {
+			return true
+		}
 		parsed, err := url.Parse(s)
 		if err != nil {
 			return false

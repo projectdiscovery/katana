@@ -45,18 +45,26 @@ func NewDOMNormalizer() *DOMNormalizer {
 			})
 		})
 	}
-	customTransformations = append(customTransformations, func(doc *goquery.Document) {
-		doc.Find("p").Each(func(_ int, s *goquery.Selection) {
-			// Remove or replace the text node inside <p>
-			removeTextNodes(s)
+
+	// TODO: Check impact of removing paragraph text stripping
+	/*
+		customTransformations = append(customTransformations, func(doc *goquery.Document) {
+			doc.Find("p").Each(func(_ int, s *goquery.Selection) {
+				// Remove or replace the text node inside <p>
+				removeTextNodes(s)
+			})
 		})
-	})
+	*/
+
 	for _, t := range NoChildrenDomTransformations {
 		t := t
 		customTransformations = append(customTransformations, func(doc *goquery.Document) {
 			doc.Find(t).Each(func(_ int, s *goquery.Selection) {
 				if s.Children().Length() == 0 && strings.TrimSpace(s.Text()) == "" {
-					s.Remove()
+					// Only remove if there are no attributes as well
+					if node := s.Get(0); node != nil && len(node.Attr) == 0 {
+						s.Remove()
+					}
 				}
 			})
 		})
@@ -64,6 +72,10 @@ func NewDOMNormalizer() *DOMNormalizer {
 	return &DOMNormalizer{customTransformations: customTransformations}
 }
 
+// TODO: Check impact of removing this helper function
+// This function was used to strip text nodes from paragraph elements.
+// Commented out pending impact assessment on deduplication behavior.
+/*
 func removeTextNodes(s *goquery.Selection) {
 	node := s.Get(0)
 	if node == nil {
@@ -78,6 +90,7 @@ func removeTextNodes(s *goquery.Selection) {
 		c = next
 	}
 }
+*/
 
 // Apply applies the normalizers to the given content
 func (d *DOMNormalizer) Apply(content string) (string, error) {
@@ -85,15 +98,13 @@ func (d *DOMNormalizer) Apply(content string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Apply selection based transformations
-	doc.Find("*").Each(func(_ int, s *goquery.Selection) {
-		for _, f := range selectionBasedTransformationFuncs {
-			f(s)
-		}
-	})
-	// Apply custom transformations
+	// Apply custom transformations first (selector-based removals, etc.)
 	for _, f := range d.customTransformations {
 		f(doc)
+	}
+	// Apply selection based transformations once at the root (recursive helpers will traverse)
+	for _, f := range selectionBasedTransformationFuncs {
+		f(doc.Selection)
 	}
 	result, err := doc.Html()
 	if err != nil {
@@ -144,7 +155,6 @@ var attributes = []string{
 
 func removeClassIDDataAttributesDomTransformationFunc(s *goquery.Selection) {
 	removeAttributes(s)
-
 	// Handle children
 	s.Children().Each(func(_ int, child *goquery.Selection) {
 		removeClassIDDataAttributesDomTransformationFunc(child)

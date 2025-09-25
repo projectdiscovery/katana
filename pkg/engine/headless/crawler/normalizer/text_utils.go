@@ -9,21 +9,21 @@ import (
 // DefaultTextPatterns is a list of regex patterns for the text normalizer
 var DefaultTextPatterns = []string{
 	// emailAddress
-	`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}`,
+	`\b(?i)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b`,
 	// ipAddress
-	`(?:[0-9]{1,3}\.){3}[0-9]{1,3}`,
+	`\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b`,
 	// uuid
-	`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`,
+	`\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b`,
 	// relativeDates
-	`(?:[0-9]{1,2}\s(?:days?|weeks?|months?|years?)\s(?:ago|from\snow))`,
-	// priceAmounts
-	`[\$€£¥]\s*\d+(?:\.\d{1,2})?`,
+	`\b(?:[0-9]{1,2}\s(?:days?|weeks?|months?|years?)\s(?:ago|from\s+now))\b`,
+	// priceAmounts (no leading \b due to currency symbols)
+	`[\$€£¥]\s*\d+(?:\.\d{1,2})?\b`,
 	// phoneNumbers
-	`(?:\+?1[0-9]{3}|0[0-9]{2})[ -]?\d{3}[ -]?\d{4}`,
+	`\b\+?\d{7,15}\b`,
 	// ssnNumbers
-	`[\$€£¥]\s*\d+(?:\.\d{1,2})?`,
+	`\b\d{3}-\d{2}-\d{4}\b`,
 	// timestampRegex
-	`(?:(?:[0-9]{4}-[0-9]{2}-[0-9]{2})|(?:(?:[0-9]{2}\/){2}[0-9]{4}))\s(?:[0-9]{2}:[0-9]{2}:[0-9]{2})`,
+	`\b(?:(?:[0-9]{4}-[0-9]{2}-[0-9]{2})|(?:(?:[0-9]{2}\/){2}[0-9]{4}))\s(?:[0-9]{2}:[0-9]{2}:[0-9]{2})\b`,
 }
 
 // TextNormalizer is a normalizer for text
@@ -43,7 +43,7 @@ func NewTextNormalizer() (*TextNormalizer, error) {
 	var compiledPatterns []*regexp.Regexp
 	for _, pattern := range patterns {
 		pattern := pattern
-		compiledPattern, err := regexp.Compile(fmt.Sprintf("\\b%s\\b", pattern))
+		compiledPattern, err := regexp.Compile(pattern)
 		if err != nil {
 			return nil, fmt.Errorf("error compiling pattern %s: %v", pattern, err)
 		}
