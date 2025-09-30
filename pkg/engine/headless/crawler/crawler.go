@@ -332,6 +332,18 @@ func (c *Crawler) crawlFn(action *types.Action, page *browser.BrowserPage) error
 	}
 	pageState.OriginID = currentPageHash
 
+	if c.options.ScopeValidator != nil {
+		if !c.options.ScopeValidator(pageState.URL) {
+			c.logger.Debug("Skipping navigation collection - current page is out of scope",
+				slog.String("url", pageState.URL),
+			)
+			if c.crawlQueue.Size() == 0 {
+				return ErrNoCrawlingAction
+			}
+			return nil
+		}
+	}
+
 	navigations, err := page.FindNavigations()
 	if err != nil {
 		return err
