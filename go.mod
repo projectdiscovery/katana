@@ -13,16 +13,16 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/dsl v0.6.0
-	github.com/projectdiscovery/fastdialer v0.4.9
+	github.com/projectdiscovery/dsl v0.7.0
+	github.com/projectdiscovery/fastdialer v0.4.10
 	github.com/projectdiscovery/goflags v0.1.74
 	github.com/projectdiscovery/gologger v1.1.54
-	github.com/projectdiscovery/hmap v0.0.93
+	github.com/projectdiscovery/hmap v0.0.94
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.82
-	github.com/projectdiscovery/retryablehttp-go v1.0.123
-	github.com/projectdiscovery/utils v0.5.1-0.20250915202312-e8182af2041c
-	github.com/projectdiscovery/wappalyzergo v0.2.45
+	github.com/projectdiscovery/retryablehttp-go v1.0.124
+	github.com/projectdiscovery/utils v0.5.1-0.20250903104512-f707a05989b4
+	github.com/projectdiscovery/wappalyzergo v0.2.46
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stoewer/go-strcase v1.3.0
@@ -67,6 +67,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hdm/jarm-go v0.0.7 // indirect
+	github.com/iangcarroll/cookiemonster v1.6.0 // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
@@ -104,6 +105,7 @@ require (
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/ysmood/fetchup v0.2.3 // indirect
 	github.com/ysmood/got v0.34.1 // indirect
 	github.com/yuin/goldmark v1.7.4 // indirect
