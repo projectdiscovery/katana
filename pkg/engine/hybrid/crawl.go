@@ -328,7 +328,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			if err == nil {
 				navReq := &navigation.Request{
 					URL:          parsed.String(),
-					Depth:        request.Depth,
+					Depth:        depth,
 					RootHostname: s.Hostname,
 				}
 				c.Enqueue(s.Queue, navReq)
