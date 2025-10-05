@@ -190,7 +190,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	navigatedURLs := []string{}
 	navigatedURLs = append(navigatedURLs, request.URL)
 
-	go page.EachEvent(func(e *proto.PageFrameNavigated) {
+	pageCtx, cancelPageEvents := page.WithCancel()
+	defer cancelPageEvents()
+
+	waitFrameEvents := pageCtx.EachEvent(func(e *proto.PageFrameNavigated) {
 		if e.Frame.ParentID == "" {
 			frameURL := e.Frame.URL
 			if frameURL != "" && frameURL != request.URL {
@@ -199,7 +202,8 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				navigatedURLsMutex.Unlock()
 			}
 		}
-	})()
+	})
+	go waitFrameEvents()
 
 	// wait the page to be fully loaded and becoming idle
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
