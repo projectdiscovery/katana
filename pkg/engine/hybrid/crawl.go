@@ -232,9 +232,16 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	clickableLinks, err := page.Elements("a[onclick]")
 	if err == nil && len(clickableLinks) > 0 {
-		gologger.Debug().Msgf("Found %d clickable links with onclick handlers", len(clickableLinks))
+		maxLinks := c.Options.Options.MaxOnclickLinks
+		linksToProcess := len(clickableLinks)
+		if linksToProcess > maxLinks {
+			linksToProcess = maxLinks
+		}
 
-		for idx, link := range clickableLinks {
+		gologger.Debug().Msgf("Found %d clickable links with onclick handlers, processing %d", len(clickableLinks), linksToProcess)
+
+		for idx := 0; idx < linksToProcess; idx++ {
+			link := clickableLinks[idx]
 			beforeURL, _ := page.Info()
 			beforeURLStr := ""
 			if beforeURL != nil {
@@ -260,7 +267,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				navigatedURLs = append(navigatedURLs, currentURL.URL)
 				navigatedURLsMutex.Unlock()
 
-				page.Navigate(request.URL)
+				if navErr := page.Navigate(request.URL); navErr != nil {
+					gologger.Warning().Msgf("Failed to navigate back to %s after onclick redirect: %v", request.URL, navErr)
+					if reloadErr := page.Reload(); reloadErr != nil {
+						gologger.Error().Msgf("Failed to reload page after navigation error: %v", reloadErr)
+						break
+					}
+				}
 				time.Sleep(500 * time.Millisecond)
 			}
 		}
