@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -185,6 +186,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	page = page.Timeout(timeout)
 
+	var navigatedURLsMutex sync.Mutex
+	navigatedURLs := []string{}
+	navigatedURLs = append(navigatedURLs, request.URL)
+
+	go page.EachEvent(func(e *proto.PageFrameNavigated) {
+		if e.Frame.ParentID == "" {
+			frameURL := e.Frame.URL
+			if frameURL != "" && frameURL != request.URL {
+				navigatedURLsMutex.Lock()
+				navigatedURLs = append(navigatedURLs, frameURL)
+				navigatedURLsMutex.Unlock()
+			}
+		}
+	})()
+
 	// wait the page to be fully loaded and becoming idle
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
@@ -209,6 +225,45 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	if err := page.WaitStable(timeStable); err != nil {
 		gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+	}
+
+	// simulate clicks on links with onclick handlers to discover JS redirects
+	time.Sleep(200 * time.Millisecond)
+
+	clickableLinks, err := page.Elements("a[onclick]")
+	if err == nil && len(clickableLinks) > 0 {
+		gologger.Debug().Msgf("Found %d clickable links with onclick handlers", len(clickableLinks))
+
+		for idx, link := range clickableLinks {
+			beforeURL, _ := page.Info()
+			beforeURLStr := ""
+			if beforeURL != nil {
+				beforeURLStr = beforeURL.URL
+			}
+
+			// try to click the link using rod's Click method
+			clickErr := link.Click(proto.InputMouseButtonLeft, 1)
+			if clickErr != nil {
+				gologger.Debug().Msgf("Could not click link %d: %v", idx, clickErr)
+				continue
+			}
+
+			gologger.Debug().Msgf("Clicked onclick link %d", idx)
+
+			time.Sleep(1 * time.Second)
+
+			// check if URL changed (indicates redirect occurred)
+			currentURL, _ := page.Info()
+			if currentURL != nil && currentURL.URL != beforeURLStr {
+				gologger.Debug().Msgf("detected navigation to: %s", currentURL.URL)
+				navigatedURLsMutex.Lock()
+				navigatedURLs = append(navigatedURLs, currentURL.URL)
+				navigatedURLsMutex.Unlock()
+
+				page.Navigate(request.URL)
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
 	}
 
 	var getDocumentDepth = int(-1)
@@ -260,6 +315,27 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.XhrRequests = xhrRequests
+
+	// enqueue JS-triggered navigation URLs that were detected
+	navigatedURLsMutex.Lock()
+	urlsToEnqueue := make([]string, len(navigatedURLs))
+	copy(urlsToEnqueue, navigatedURLs)
+	navigatedURLsMutex.Unlock()
+
+	for _, navURL := range urlsToEnqueue {
+		if navURL != request.URL {
+			parsed, err := urlutil.Parse(navURL)
+			if err == nil {
+				navReq := &navigation.Request{
+					URL:          parsed.String(),
+					Depth:        request.Depth,
+					RootHostname: s.Hostname,
+				}
+				c.Enqueue(s.Queue, navReq)
+				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
+			}
+		}
+	}
 
 	return response, nil
 }
