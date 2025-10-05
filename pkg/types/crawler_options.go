@@ -141,6 +141,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.Wappalyzer = wappalyze
 	}
 
+	if options.MaxOnclickLinks <= 0 {
+		options.MaxOnclickLinks = 10
+	}
+
 	return crawlerOptions, nil
 }
 
