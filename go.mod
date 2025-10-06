@@ -14,13 +14,13 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.7.0
-	github.com/projectdiscovery/fastdialer v0.4.10
+	github.com/projectdiscovery/fastdialer v0.4.11
 	github.com/projectdiscovery/goflags v0.1.74
-	github.com/projectdiscovery/gologger v1.1.54
+	github.com/projectdiscovery/gologger v1.1.56
 	github.com/projectdiscovery/hmap v0.0.94
 	github.com/projectdiscovery/mapcidr v1.1.34
 	github.com/projectdiscovery/ratelimit v0.0.82
-	github.com/projectdiscovery/retryablehttp-go v1.0.124
+	github.com/projectdiscovery/retryablehttp-go v1.0.126
 	github.com/projectdiscovery/utils v0.5.1-0.20250903104512-f707a05989b4
 	github.com/projectdiscovery/wappalyzergo v0.2.46
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -56,7 +56,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/fgprof v0.9.5 // indirect
-	github.com/gaissmai/bart v0.24.0 // indirect
+	github.com/gaissmai/bart v0.25.0 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7 // indirect
@@ -138,7 +138,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/projectdiscovery/networkpolicy v0.1.24
+	github.com/projectdiscovery/networkpolicy v0.1.25
 	github.com/projectdiscovery/retryabledns v1.0.107 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
