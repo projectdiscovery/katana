@@ -25,6 +25,18 @@ func validateOptions(options *types.Options) error {
 		return errkit.New("no inputs specified for crawler")
 	}
 
+	// Validate all-input-scope flag conflicts and precedence
+	if options.AllInputScope && options.FieldScope != "rdn" {
+		return errkit.New("all-input-scope (-ais) and field-scope (-fs) flags cannot be used together")
+	}
+	if options.AllInputScope && options.NoScope {
+		gologger.Info().Msgf("all-input-scope (-ais) takes precedence over no-scope (-ns), ignoring -ns flag")
+		options.NoScope = false
+	}
+	if options.AllInputScope {
+		gologger.Info().Msgf("all-input-scope mode enabled: treating all input targets as explicit scope roots")
+	}
+
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
 	// Form filling should be handled via headless actions within the page context
 	if options.Headless && options.AutomaticFormFill {

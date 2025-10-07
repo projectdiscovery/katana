@@ -32,6 +32,8 @@ type Options struct {
 	OutOfScope goflags.StringSlice
 	// NoScope disables host based default scope
 	NoScope bool
+	// AllInputScope treats all input targets as explicit scope roots for the entire crawling session
+	AllInputScope bool
 	// DisplayOutScope displays out of scope items in results
 	DisplayOutScope bool
 	// ExtensionsMatch contains extensions to match explicitly
@@ -146,6 +148,8 @@ type Options struct {
 	HeadlessNoIncognito bool
 	// XhrExtraction extract xhr requests
 	XhrExtraction bool
+	// JavaScriptInteractions enables clicking JavaScript-enabled elements to discover hidden URLs
+	JavaScriptInteractions bool
 	// HealthCheck determines if a self-healthcheck should be performed
 	HealthCheck bool
 	// PprofServer enables pprof server

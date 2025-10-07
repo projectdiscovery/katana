@@ -184,6 +184,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
 		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
+		flagSet.BoolVarP(&options.JavaScriptInteractions, "js-interactions", "jsi", false, "enable clicking JavaScript-enabled elements to discover hidden URLs"),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
@@ -191,6 +192,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.OutOfScope, "crawl-out-scope", "cos", nil, "out of scope url regex to be excluded by crawler", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&options.FieldScope, "field-scope", "fs", "rdn", "pre-defined scope field (dn,rdn,fqdn) or custom regex (e.g., '(company-staging.io|company.com)')"),
 		flagSet.BoolVarP(&options.NoScope, "no-scope", "ns", false, "disables host based default scope"),
+		flagSet.BoolVarP(&options.AllInputScope, "all-input-scope", "ais", false, "treat all input targets as explicit scope roots for the entire crawling session"),
 		flagSet.BoolVarP(&options.DisplayOutScope, "display-out-scope", "do", false, "display external endpoint from scoped crawling"),
 	)
 
