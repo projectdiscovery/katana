@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -22,6 +21,7 @@ import (
 	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -186,9 +186,8 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	page = page.Timeout(timeout)
 
-	var navigatedURLsMutex sync.Mutex
-	navigatedURLs := []string{}
-	navigatedURLs = append(navigatedURLs, request.URL)
+	navigatedURLs := sliceutil.NewSyncSlice[string]()
+	navigatedURLs.Append(request.URL)
 
 	pageCtx, cancelPageEvents := page.WithCancel()
 	defer cancelPageEvents()
@@ -197,9 +196,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if e.Frame.ParentID == "" {
 			frameURL := e.Frame.URL
 			if frameURL != "" && frameURL != request.URL {
-				navigatedURLsMutex.Lock()
-				navigatedURLs = append(navigatedURLs, frameURL)
-				navigatedURLsMutex.Unlock()
+				navigatedURLs.Append(frameURL)
 			}
 		}
 	})
@@ -267,9 +264,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			currentURL, _ := page.Info()
 			if currentURL != nil && currentURL.URL != beforeURLStr {
 				gologger.Debug().Msgf("detected navigation to: %s", currentURL.URL)
-				navigatedURLsMutex.Lock()
-				navigatedURLs = append(navigatedURLs, currentURL.URL)
-				navigatedURLsMutex.Unlock()
+				navigatedURLs.Append(currentURL.URL)
 
 				if navErr := page.Navigate(request.URL); navErr != nil {
 					gologger.Warning().Msgf("Failed to navigate back to %s after onclick redirect: %v", request.URL, navErr)
@@ -334,10 +329,8 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	response.XhrRequests = xhrRequests
 
 	// enqueue JS-triggered navigation URLs that were detected
-	navigatedURLsMutex.Lock()
-	urlsToEnqueue := make([]string, len(navigatedURLs))
-	copy(urlsToEnqueue, navigatedURLs)
-	navigatedURLsMutex.Unlock()
+	urlsToEnqueue := make([]string, navigatedURLs.Len())
+	copy(urlsToEnqueue, navigatedURLs.Slice)
 
 	for _, navURL := range urlsToEnqueue {
 		if navURL != request.URL {
