@@ -243,7 +243,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 		for idx := 0; idx < linksToProcess; idx++ {
 			link := clickableLinks[idx]
-			beforeURL, _ := page.Info()
+			beforeURL, err := page.Info()
+			if err != nil {
+				gologger.Error().Msgf("Could not get page info: %v", err)
+				continue
+			}
 			beforeURLStr := ""
 			if beforeURL != nil {
 				beforeURLStr = beforeURL.URL
@@ -329,10 +333,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	response.XhrRequests = xhrRequests
 
 	// enqueue JS-triggered navigation URLs that were detected
-	urlsToEnqueue := make([]string, navigatedURLs.Len())
-	copy(urlsToEnqueue, navigatedURLs.Slice)
-
-	for _, navURL := range urlsToEnqueue {
+	navigatedURLs.Each(func(i int, navURL string) error {
 		if navURL != request.URL {
 			parsed, err := urlutil.Parse(navURL)
 			if err == nil {
@@ -345,7 +346,8 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
 			}
 		}
-	}
+		return nil
+	})
 
 	return response, nil
 }
