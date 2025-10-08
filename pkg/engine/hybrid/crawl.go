@@ -260,7 +260,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				continue
 			}
 
-			gologger.Debug().Msgf("Clicked onclick link %d", idx)
+			gologger.Debug().Msgf("Clicked onclick link [%d] at URL: %s", idx, beforeURLStr)
 
 			time.Sleep(1 * time.Second)
 
