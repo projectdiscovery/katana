@@ -155,6 +155,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.FormExtraction, "form-extraction", "fx", false, "extract form, input, textarea & select elements in jsonl output"),
 		flagSet.IntVar(&options.Retries, "retry", 1, "number of times to retry the request"),
 		flagSet.StringVar(&options.Proxy, "proxy", "", "http/socks5 proxy to use"),
+		flagSet.BoolVar(&options.ProxyFiltering, "proxy-filtering", false, "enable intelligent proxy filtering (only send matching requests through proxy)"),
 		flagSet.BoolVarP(&options.TechDetect, "tech-detect", "td", false, "enable technology detection"),
 		flagSet.StringSliceVarP(&options.CustomHeaders, "headers", "H", nil, "custom header/cookie to include in all http request in header:value format (file)", goflags.FileStringSliceOptions),
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),

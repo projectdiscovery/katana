@@ -96,11 +96,42 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	if c.Options.Options.ChromeDataDir == "" {
-		if err := os.RemoveAll(c.tempDir); err != nil {
-			return err
-		}
-	}
+    // Close browser first to release locks
+    if c.browser != nil {
+        _ = c.browser.Close()
+    }
+    // Kill launcher (best-effort) to ensure chrome exits
+    if c.launcher != nil {
+        c.launcher.Kill()
+    }
+
+    if c.Options.Options.ChromeDataDir == "" {
+        // Retry removal on Windows because Chrome Crashpad may keep files briefly locked
+        // Try for up to ~5 seconds
+        const maxAttempts = 25
+        var lastErr error
+        for attempt := 1; attempt <= maxAttempts; attempt++ {
+            if err := os.RemoveAll(c.tempDir); err != nil {
+                lastErr = err
+                if runtime.GOOS == "windows" {
+                    msg := err.Error()
+                    if strings.Contains(msg, "CrashpadMetrics") || strings.Contains(msg, "Access is denied") {
+                        time.Sleep(200 * time.Millisecond)
+                        continue
+                    }
+                }
+                break
+            }
+            lastErr = nil
+            break
+        }
+        if lastErr != nil {
+            if runtime.GOOS == "windows" {
+                return nil
+            }
+            return lastErr
+        }
+    }
 	// processutil.CloseProcesses(processutil.IsChromeProcess, c.previousPIDs)
 	return nil
 }
@@ -162,12 +193,23 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		chromeLauncher.Set("no-sandbox", "true")
 	}
 
+	// Handle proxy configuration for hybrid mode
 	if options.Options.Proxy != "" && options.Options.Headless {
 		proxyURL, err := urlutil.Parse(options.Options.Proxy)
 		if err != nil {
 			return nil, err
 		}
-		chromeLauncher.Set("proxy-server", proxyURL.String())
+		
+		// If proxy filtering is enabled, we need to handle proxy settings differently
+		if options.Options.ProxyFiltering && options.ProxyFilterPipeline != nil && options.ProxyFilterPipeline.IsEnabled() {
+			// In proxy filtering mode, we don't set browser-level proxy
+			// Instead, we'll handle proxy decisions per-request in the request interceptor
+			gologger.Debug().Msgf("Hybrid mode: Proxy filtering enabled, will handle proxy per-request")
+		} else {
+			// Traditional mode: set browser-level proxy for all requests
+			chromeLauncher.Set("proxy-server", proxyURL.String())
+			gologger.Debug().Msgf("Hybrid mode: Browser-level proxy set to %s", proxyURL.String())
+		}
 	}
 
 	for k, v := range options.Options.ParseHeadlessOptionalArguments() {

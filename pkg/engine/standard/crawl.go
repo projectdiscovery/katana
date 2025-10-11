@@ -61,7 +61,16 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		}
 	}
 
-	resp, err := s.HttpClient.Do(req)
+	// Use proxy-aware HTTP client if available
+	httpClient := s.HttpClient
+	if c.Options.ProxyConfig != nil {
+		proxyClient := c.Options.ProxyConfig.GetClient(request.URL, s.Hostname)
+		if proxyClient != nil {
+			httpClient = proxyClient
+		}
+	}
+	
+	resp, err := httpClient.Do(req)
 	if resp != nil {
 		defer func() {
 			if resp.Body != nil && resp.StatusCode != http.StatusSwitchingProtocols {

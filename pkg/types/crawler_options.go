@@ -7,11 +7,13 @@ import (
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
+	"github.com/projectdiscovery/katana/pkg/engine/proxy"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
 	"github.com/projectdiscovery/ratelimit"
+	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
@@ -37,6 +39,10 @@ type CrawlerOptions struct {
 	Dialer *fastdialer.Dialer
 	// Wappalyzer instance for technologies detection
 	Wappalyzer *wappalyzer.Wappalyze
+	// ProxyFilterPipeline manages proxy filtering logic
+	ProxyFilterPipeline *proxy.ProxyFilterPipeline
+	// ProxyConfig manages HTTP clients with proxy support
+	ProxyConfig *proxy.ProxyConfig
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -117,6 +123,47 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errkit.Wrap(err, "could not create output writer")
 	}
 
+	// Initialize proxy filter pipeline
+	proxyFilterConfig := &proxy.ProxyFilterConfig{
+		Proxy:                 options.Proxy,
+		ProxyFiltering:        options.ProxyFiltering,
+		Debug:                 options.Debug,
+		ExtensionsMatch:       options.ExtensionsMatch,
+		ExtensionFilter:       options.ExtensionFilter,
+		Scope:                 options.Scope,
+		OutOfScope:            options.OutOfScope,
+		OutputMatchRegex:      options.OutputMatchRegex,
+		OutputFilterRegex:     options.OutputFilterRegex,
+		OutputMatchCondition:  options.OutputMatchCondition,
+		OutputFilterCondition: options.OutputFilterCondition,
+		CacheSize:             1000,        // Cache up to 1000 filter results
+		CacheTTL:              time.Minute, // Cache results for 1 minute
+	}
+	proxyFilterPipeline := proxy.NewProxyFilterPipeline(proxyFilterConfig, extensionsValidator, scopeManager)
+	
+	// Validate proxy URL if provided
+	if options.Proxy != "" {
+		if err := proxy.ValidateProxyURL(options.Proxy); err != nil {
+			return nil, errkit.Wrap(err, "invalid proxy configuration")
+		}
+	}
+
+	// Initialize proxy configuration with enhanced HTTP client management
+	httpClientConfig := &proxy.HttpClientConfig{
+		Proxy:            options.Proxy,
+		Timeout:          options.Timeout,
+		Retries:          options.Retries,
+		TlsImpersonate:   options.TlsImpersonate,
+		DisableRedirects: options.DisableRedirects,
+	}
+	proxyConfig, err := proxy.BuildHttpClientWithProxyFilter(fastdialerInstance, httpClientConfig, proxyFilterPipeline, nil)
+	if err != nil {
+		return nil, errkit.Wrap(err, "could not create proxy configuration")
+	}
+
+	// Perform health check on proxy configuration
+	proxy.LogProxyHealthCheck(proxyConfig)
+
 	crawlerOptions := &CrawlerOptions{
 		ExtensionsValidator: extensionsValidator,
 		Parser:              responseParser,
@@ -125,6 +172,8 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		Options:             options,
 		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
+		ProxyFilterPipeline: proxyFilterPipeline,
+		ProxyConfig:         proxyConfig,
 	}
 
 	if options.RateLimit > 0 {
@@ -167,4 +216,13 @@ func (c *CrawlerOptions) ValidateScope(absURL, rootHostname string) (bool, error
 		return c.ScopeManager.Validate(parsed.URL, rootHostname)
 	}
 	return true, nil
+}
+
+// GetHttpClient returns the appropriate HTTP client based on proxy filtering
+func (c *CrawlerOptions) GetHttpClient(requestURL, rootHostname string) *retryablehttp.Client {
+	if c.ProxyConfig != nil {
+		return c.ProxyConfig.GetClient(requestURL, rootHostname)
+	}
+	// Return nil if no proxy config is available - the caller should handle this
+	return nil
 }

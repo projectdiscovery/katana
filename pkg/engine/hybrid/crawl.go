@@ -55,23 +55,54 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
-		body, _ := FetchGetResponseBody(page, e)
-		headers := make(map[string][]string)
-		for _, h := range e.ResponseHeaders {
-			headers[h.Name] = []string{h.Value}
-		}
-		var (
-			statusCode     int
-			statucCodeText string
-		)
-		if e.ResponseStatusCode != nil {
-			statusCode = *e.ResponseStatusCode
-		}
-		if e.ResponseStatusText != "" {
-			statucCodeText = e.ResponseStatusText
+		
+		// Check if we should handle this request with proxy filtering
+		shouldUseProxyFiltering := c.Options.Options.ProxyFiltering && 
+			c.Options.ProxyFilterPipeline != nil && 
+			c.Options.ProxyFilterPipeline.IsEnabled()
+		
+		var body []byte
+		var statusCode int
+		var statucCodeText string
+		var headers map[string][]string
+		
+		if shouldUseProxyFiltering {
+			// Handle request through our proxy-aware HTTP client
+			body, statusCode, statucCodeText, headers, err = c.handleProxyFilteredRequest(e, s.Hostname)
+			if err != nil {
+				gologger.Debug().Msgf("Proxy filtered request failed, falling back to browser: %v", err)
+				// Fall back to browser handling
+				body, _ = FetchGetResponseBody(page, e)
+				headers = make(map[string][]string)
+				for _, h := range e.ResponseHeaders {
+					headers[h.Name] = []string{h.Value}
+				}
+				if e.ResponseStatusCode != nil {
+					statusCode = *e.ResponseStatusCode
+				}
+				if e.ResponseStatusText != "" {
+					statucCodeText = e.ResponseStatusText
+				} else {
+					statucCodeText = http.StatusText(statusCode)
+				}
+			}
 		} else {
-			statucCodeText = http.StatusText(statusCode)
+			// Traditional browser handling
+			body, _ = FetchGetResponseBody(page, e)
+			headers = make(map[string][]string)
+			for _, h := range e.ResponseHeaders {
+				headers[h.Name] = []string{h.Value}
+			}
+			if e.ResponseStatusCode != nil {
+				statusCode = *e.ResponseStatusCode
+			}
+			if e.ResponseStatusText != "" {
+				statucCodeText = e.ResponseStatusText
+			} else {
+				statucCodeText = http.StatusText(statusCode)
+			}
 		}
+		
 		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not new request")
@@ -261,6 +292,37 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	response.XhrRequests = xhrRequests
 
+	// Handle JavaScript interactions (clicks, onclick events, etc.) if enabled
+	if c.Options.Options.JavaScriptInteractions {
+		gologger.Debug().Msgf("Starting JavaScript interactions with timeout: %d seconds", c.Options.Options.Timeout)
+		
+		// First, let's verify the page is actually responsive
+		pageTitle, err := page.Eval("() => document.title")
+		if err != nil {
+			gologger.Debug().Msgf("Page is not responsive: %v", err)
+		} else {
+			gologger.Debug().Msgf("Page is responsive, title: %s", pageTitle.Value.String())
+		}
+		
+		// Check if our target element exists
+		linkExists, err := page.Eval("() => document.querySelector('a[onclick]') !== null")
+		if err != nil {
+			gologger.Debug().Msgf("Cannot check for onclick links: %v", err)
+		} else {
+			gologger.Debug().Msgf("Onclick link exists: %v", linkExists.Value.Bool())
+		}
+		
+		if jsInteractionRequests, err := c.handleJavaScriptInteractions(page, response); err == nil {
+			gologger.Debug().Msgf("Found %d new URLs from JavaScript interactions", len(jsInteractionRequests))
+			for _, req := range jsInteractionRequests {
+				gologger.Debug().Msgf("Discovered URL: %s", req.URL)
+			}
+			c.Enqueue(s.Queue, jsInteractionRequests...)
+		} else {
+			gologger.Warning().Msgf("JavaScript interaction handling failed: %s", err)
+		}
+	}
+
 	return response, nil
 }
 
@@ -325,6 +387,234 @@ const (
 var knownElements = map[string]struct{}{
 	"a": {}, "applet": {}, "area": {}, "audio": {}, "base": {}, "blockquote": {}, "body": {}, "button": {}, "embed": {}, "form": {}, "frame": {}, "html": {}, "iframe": {}, "img": {}, "import": {}, "input": {}, "isindex": {}, "link": {}, "meta": {}, "object": {}, "script": {}, "svg": {}, "table": {}, "video": {},
 }
+
+// handleJavaScriptInteractions finds and clicks JavaScript-enabled elements to discover hidden URLs
+func (c *Crawler) handleJavaScriptInteractions(page *rod.Page, response *navigation.Response) ([]*navigation.Request, error) {
+	var navigationRequests []*navigation.Request
+	
+	gologger.Debug().Msgf("Attempting pure JavaScript approach to find and click elements")
+	
+	// Get current URL before clicking
+	currentURL, err := page.Eval("() => window.location.href")
+	if err != nil {
+		return navigationRequests, errkit.Wrap(err, "could not get current URL")
+	}
+	
+	// Use pure JavaScript to find and click onclick elements
+	clickResult, err := page.Eval(`() => {
+		const elements = document.querySelectorAll('a[onclick], [onclick]');
+		const results = [];
+		
+		for (let i = 0; i < Math.min(elements.length, 3); i++) {
+			const element = elements[i];
+			const text = element.textContent || element.innerText || 'unnamed';
+			
+			try {
+				// Trigger the click event
+				element.click();
+				results.push({
+					text: text.substring(0, 50),
+					clicked: true
+				});
+			} catch (e) {
+				results.push({
+					text: text.substring(0, 50),
+					clicked: false,
+					error: e.message
+				});
+			}
+		}
+		
+		return results;
+	}`)
+	
+	if err != nil {
+		return navigationRequests, errkit.Wrap(err, "could not execute JavaScript click")
+	}
+	
+	gologger.Debug().Msgf("JavaScript click results: %v", clickResult.Value)
+	
+	// Wait for potential navigation
+	time.Sleep(1000 * time.Millisecond)
+	
+	// Check if URL changed (indicating navigation)
+	newURL, err := page.Eval("() => window.location.href")
+	if err == nil && newURL.Value.String() != currentURL.Value.String() {
+		gologger.Debug().Msgf("Navigation detected: %s -> %s", currentURL.Value.String(), newURL.Value.String())
+		
+		// Create navigation request for the new URL
+		newReq := &navigation.Request{
+			Method: "GET",
+			URL:    newURL.Value.String(),
+			Depth:  response.Depth,
+		}
+		navigationRequests = append(navigationRequests, newReq)
+	}
+
+	return navigationRequests, nil
+}
+
+// handleProxyFilteredRequest handles a request through our proxy-aware HTTP client
+func (c *Crawler) handleProxyFilteredRequest(e *proto.FetchRequestPaused, rootHostname string) ([]byte, int, string, map[string][]string, error) {
+	// Validate input parameters
+	if e == nil {
+		return nil, 0, "", nil, errkit.New("fetch request event cannot be nil")
+	}
+	if e.Request.URL == "" {
+		return nil, 0, "", nil, errkit.New("request URL cannot be empty")
+	}
+
+	// Get the appropriate HTTP client based on proxy filtering
+	httpClient := c.Options.ProxyConfig.GetClient(e.Request.URL, rootHostname)
+	if httpClient == nil {
+		return nil, 0, "", nil, errkit.New("failed to get HTTP client - this should not happen")
+	}
+	
+	// Create HTTP request
+	req, err := http.NewRequest(e.Request.Method, e.Request.URL, strings.NewReader(e.Request.PostData))
+	if err != nil {
+		return nil, 0, "", nil, errkit.Wrap(err, "could not create HTTP request")
+	}
+	
+	// Set headers from browser request
+	for k, v := range e.Request.Headers {
+		req.Header.Set(k, v.String())
+	}
+	
+	// Set user agent if not already set
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", utils.WebUserAgent())
+	}
+	
+	// Convert to retryable request
+	retryableReq, err := retryablehttp.FromRequest(req)
+	if err != nil {
+		return nil, 0, "", nil, errkit.Wrap(err, "could not create retryable request")
+	}
+	
+	// Make the request with timeout handling
+	resp, err := httpClient.Do(retryableReq)
+	if err != nil {
+		// Provide more detailed error information
+		return nil, 0, "", nil, errkit.Wrap(err, "HTTP request failed for URL: "+e.Request.URL)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			gologger.Warning().Msgf("Failed to close response body for %s: %v", e.Request.URL, closeErr)
+		}
+	}()
+	
+	// Read response body with size limit for safety
+	const maxBodySize = 50 * 1024 * 1024 // 50MB limit
+	limitedReader := io.LimitReader(resp.Body, maxBodySize)
+	body, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return nil, 0, "", nil, errkit.Wrap(err, "could not read response body")
+	}
+	
+	// Convert headers
+	headers := make(map[string][]string)
+	for k, v := range resp.Header {
+		headers[k] = v
+	}
+	
+	// Log proxy decision for debugging
+	if c.Options.Options.Debug {
+		usingProxy := httpClient == c.Options.ProxyConfig.ProxyClient
+		if usingProxy {
+			gologger.Debug().Msgf("Hybrid mode: Request to %s sent through proxy (status: %d)", e.Request.URL, resp.StatusCode)
+		} else {
+			gologger.Debug().Msgf("Hybrid mode: Request to %s sent directly (status: %d)", e.Request.URL, resp.StatusCode)
+		}
+	}
+	
+	return body, resp.StatusCode, resp.Status, headers, nil
+}
+
+// simulateElementClick simulates clicking an element and captures any resulting navigation or content changes
+func (c *Crawler) simulateElementClick(page *rod.Page, element *rod.Element, response *navigation.Response, navigationRequests *[]*navigation.Request) error {
+	// Get current page URL for comparison
+	currentURL, err := page.Eval("() => window.location.href")
+	if err != nil {
+		return errkit.Wrap(err, "could not get current URL")
+	}
+
+	// Set up navigation monitoring
+	page.EachEvent(func(e *proto.PageFrameNavigated) {
+		// Navigation detected
+	})()
+
+	// Try to click the element using JavaScript (more reliable than physical click)
+	_, err = element.Eval("() => this.click()")
+	if err != nil {
+		return errkit.Wrap(err, "could not click element")
+	}
+
+	// Wait a bit for any navigation or content changes
+	time.Sleep(500 * time.Millisecond)
+
+	// Check if navigation occurred
+	newURL, err := page.Eval("() => window.location.href")
+	if err == nil && newURL.Value.String() != currentURL.Value.String() {
+		// Navigation occurred, create a new navigation request
+		newReq := &navigation.Request{
+			Method:       "GET",
+			URL:          newURL.Value.String(),
+			Depth:        response.Depth,
+			RootHostname: response.RootHostname,
+			Source:       response.Resp.Request.URL.String(),
+			Tag:          "javascript-click",
+			Attribute:    "navigation",
+		}
+		*navigationRequests = append(*navigationRequests, newReq)
+		gologger.Debug().Msgf("JavaScript click triggered navigation to: %s", newURL.Value.String())
+		return nil
+	}
+
+	// No navigation, check for dynamic content changes
+	return c.extractDynamicContent(page, response, navigationRequests)
+}
+
+// extractDynamicContent extracts URLs from dynamically generated content after JavaScript interactions
+func (c *Crawler) extractDynamicContent(page *rod.Page, response *navigation.Response, navigationRequests *[]*navigation.Request) error {
+	// Get updated HTML content
+	body, err := page.HTML()
+	if err != nil {
+		return errkit.Wrap(err, "could not get updated HTML")
+	}
+
+	// Parse the updated content
+	reader, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+	if err != nil {
+		return errkit.Wrap(err, "could not parse updated HTML")
+	}
+
+	// Create a temporary response object for parsing
+	tempResponse := &navigation.Response{
+		Resp:         response.Resp,
+		Body:         body,
+		Reader:       reader,
+		Depth:        response.Depth,
+		RootHostname: response.RootHostname,
+	}
+
+	// Extract navigation requests using existing parser
+	dynamicRequests := c.Options.Parser.ParseResponse(tempResponse)
+	
+	// Filter out requests that might be duplicates
+	for _, req := range dynamicRequests {
+		// Only add requests that are different from the current page
+		if req.URL != response.Resp.Request.URL.String() {
+			req.Tag = "javascript-dynamic"
+			req.Attribute = "generated"
+			req.Source = response.Resp.Request.URL.String()
+			*navigationRequests = append(*navigationRequests, req)
+		}
+	}
+
+	return nil
+}
+
 
 func buildDOMFromNode(node *proto.DOMNode, builder *strings.Builder) {
 	if node.NodeType != elementNode {

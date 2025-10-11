@@ -72,6 +72,8 @@ type Options struct {
 	FormConfig string
 	// Proxy is the URL for the proxy server
 	Proxy string
+	// ProxyFiltering enables intelligent proxy filtering
+	ProxyFiltering bool
 	// Strategy is the crawling strategy. depth-first or breadth-first
 	Strategy string
 	// FieldScope is the scope field for default DNS scope
