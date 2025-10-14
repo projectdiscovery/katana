@@ -28,4 +28,8 @@ type Options struct {
 	OutputTemplate        string
 	OutputMatchCondition  string
 	OutputFilterCondition string
+	CountPathDepth        []string
+	CountQueryParams      []string
+	CountSubdomainDepth   []string
+	DepthFilterOrLogic    bool
 }

@@ -37,6 +37,8 @@ type CrawlerOptions struct {
 	Dialer *fastdialer.Dialer
 	// Wappalyzer instance for technologies detection
 	Wappalyzer *wappalyzer.Wappalyze
+	// DepthValidator is a validator for URL depth filtering
+	DepthValidator *filters.DepthFilterValidator
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -94,6 +96,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		OutputTemplate:        options.OutputTemplate,
 		OutputMatchCondition:  options.OutputMatchCondition,
 		OutputFilterCondition: options.OutputFilterCondition,
+		CountPathDepth:        options.CountPathDepth,
+		CountQueryParams:      options.CountQueryParams,
+		CountSubdomainDepth:   options.CountSubdomainDepth,
+		DepthFilterOrLogic:    options.DepthFilterOrLogic,
 	}
 
 	for _, mr := range options.OutputMatchRegex {
@@ -116,6 +122,20 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create output writer")
 	}
 
+	// Initialize depth filter validator if depth filters are configured
+	var depthValidator *filters.DepthFilterValidator
+	if len(options.CountPathDepth) > 0 || len(options.CountQueryParams) > 0 || len(options.CountSubdomainDepth) > 0 {
+		depthValidator, err = filters.NewDepthFilterValidator(
+			options.CountPathDepth,
+			options.CountQueryParams,
+			options.CountSubdomainDepth,
+			options.DepthFilterOrLogic,
+		)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create depth filter validator")
+		}
+	}
+
 	crawlerOptions := &CrawlerOptions{
 		ExtensionsValidator: extensionsValidator,
 		Parser:              responseParser,
@@ -124,6 +144,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		Options:             options,
 		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
+		DepthValidator:      depthValidator,
 	}
 
 	if options.RateLimit > 0 {
@@ -150,9 +171,16 @@ func (c *CrawlerOptions) Close() error {
 }
 
 func (c *CrawlerOptions) ValidatePath(path string) bool {
+	// First check extension validation
 	if c.ExtensionsValidator != nil {
-		return c.ExtensionsValidator.ValidatePath(path)
+		if !c.ExtensionsValidator.ValidatePath(path) {
+			return false
+		}
 	}
+
+	// Note: Depth validation is handled at output stage to allow crawling
+	// but filter final results. This ensures we can discover URLs first.
+
 	return true
 }
 

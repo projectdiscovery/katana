@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"gopkg.in/yaml.v3"
@@ -58,6 +59,33 @@ func validateOptions(options *types.Options) error {
 		}
 		options.FilterRegex = append(options.FilterRegex, cr)
 	}
+
+	// Validate depth filter expressions
+	for _, filter := range options.CountPathDepth {
+		if filter == "" {
+			continue
+		}
+		if err := filters.ValidateAndSuggest("path depth", filter); err != nil {
+			return err
+		}
+	}
+	for _, filter := range options.CountQueryParams {
+		if filter == "" {
+			continue
+		}
+		if err := filters.ValidateAndSuggest("query parameter", filter); err != nil {
+			return err
+		}
+	}
+	for _, filter := range options.CountSubdomainDepth {
+		if filter == "" {
+			continue
+		}
+		if err := filters.ValidateAndSuggest("subdomain depth", filter); err != nil {
+			return err
+		}
+	}
+
 	if options.KnownFiles != "" && options.MaxDepth < 3 {
 		gologger.Info().Msgf("Depth automatically set to 3 to accommodate the `--known-files` option (originally set to %d).", options.MaxDepth)
 		options.MaxDepth = 3

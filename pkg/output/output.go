@@ -3,6 +3,7 @@ package output
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"github.com/stoewer/go-strcase"
@@ -63,6 +65,7 @@ type StandardWriter struct {
 	outputTemplate        *fasttemplate.Template
 	outputMatchCondition  string
 	outputFilterCondition string
+	depthValidator        *filters.DepthFilterValidator
 }
 
 // New returns a new output writer instance
@@ -83,6 +86,20 @@ func New(options Options) (Writer, error) {
 		extensionValidator:    options.ExtensionValidator,
 		outputMatchCondition:  options.OutputMatchCondition,
 		outputFilterCondition: options.OutputFilterCondition,
+	}
+
+	// Initialize depth filter validator if depth filters are configured
+	if len(options.CountPathDepth) > 0 || len(options.CountQueryParams) > 0 || len(options.CountSubdomainDepth) > 0 {
+		depthValidator, err := filters.NewDepthFilterValidator(
+			options.CountPathDepth,
+			options.CountQueryParams,
+			options.CountSubdomainDepth,
+			options.DepthFilterOrLogic,
+		)
+		if err != nil {
+			return nil, err
+		}
+		writer.depthValidator = depthValidator
 	}
 
 	if options.StoreFieldDir != "" {
@@ -353,8 +370,20 @@ func (w *StandardWriter) matchOutput(event *Result) bool {
 
 // filterOutput returns true if the event should be filtered out
 func (w *StandardWriter) filterOutput(event *Result) bool {
-	if w.filterRegex == nil && w.outputFilterCondition == "" {
+	if w.filterRegex == nil && w.outputFilterCondition == "" && w.depthValidator == nil {
 		return false
+	}
+
+	// Apply depth filtering if configured
+	if w.depthValidator != nil {
+		parsedURL, err := url.Parse(event.Request.URL)
+		if err != nil {
+			// If URL parsing fails, filter out the result
+			return true
+		}
+		if !w.depthValidator.ValidateURL(parsedURL) {
+			return true
+		}
 	}
 
 	for _, regex := range w.filterRegex {

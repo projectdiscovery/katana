@@ -42,6 +42,14 @@ type Options struct {
 	OutputMatchCondition string
 	// OutputFilterCondition is the condition to filter output
 	OutputFilterCondition string
+	// CountPathDepth filters URLs by path depth count
+	CountPathDepth goflags.StringSlice
+	// CountQueryParams filters URLs by query parameter count
+	CountQueryParams goflags.StringSlice
+	// CountSubdomainDepth filters URLs by subdomain depth count
+	CountSubdomainDepth goflags.StringSlice
+	// DepthFilterOrLogic uses OR logic between depth filter types
+	DepthFilterOrLogic bool
 	// MaxDepth is the maximum depth to crawl
 	MaxDepth int
 	// BodyReadSize is the maximum size of response body to read

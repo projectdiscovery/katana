@@ -174,6 +174,10 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
 		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
+		flagSet.StringSliceVarP(&options.CountPathDepth, "count-path-depth", "cpd", nil, "filter urls by path depth count (e.g., '>=3', '==2', '3-5')", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.CountQueryParams, "count-query-params", "cqp", nil, "filter urls by query parameter count (e.g., '>=3', '==2', '1-3')", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.CountSubdomainDepth, "count-subdomain-depth", "csd", nil, "filter urls by subdomain depth count (e.g., '>=2', '==1', '1-3')", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.BoolVar(&options.DepthFilterOrLogic, "depth-filter-or", false, "use OR logic between different depth filter types (default: AND logic)"),
 		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
 	)
 
