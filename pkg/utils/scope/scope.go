@@ -69,28 +69,23 @@ func NewManager(inScope, outOfScope []string, fieldScope string, noScope bool) (
 
 // Validate returns true if the URL matches scope rules
 func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
-	if m.noScope {
-		return true, nil
-	}
-	hostname := URL.Hostname()
-
-	// Validate host if not explicitly disabled by the user
-	dnsValidated, err := m.validateDNS(hostname, rootHostname)
-	if err != nil {
-		return false, err
-	}
-	// If we have URL rules also consider them
-	if len(m.inScope) > 0 || len(m.outOfScope) > 0 {
-		urlValidated, err := m.validateURL(URL.String())
-		if err != nil {
+	if !m.noScope {
+		// Only validate DNS if scope is enabled
+		hostname := URL.Hostname()
+		dnsValidated, err := m.validateDNS(hostname, rootHostname)
+		if err != nil || !dnsValidated {
 			return false, err
 		}
-		if urlValidated && dnsValidated {
-			return true, nil
-		}
-		return false, nil
 	}
-	return dnsValidated, nil
+
+	if len(m.inScope) > 0 || len(m.outOfScope) > 0 {
+		urlValidated, err := m.validateURL(URL.String())
+		if err != nil || !urlValidated {
+			return false, err
+		}
+	}
+
+	return true, nil
 }
 
 func (m *Manager) validateURL(URL string) (bool, error) {
