@@ -67,7 +67,8 @@ func NewManager(inScope, outOfScope []string, fieldScope string, noScope bool) (
 	return manager, nil
 }
 
-// Validate returns true if the URL matches scope rules
+// Validate returns true if the URL matches scope rules.
+// When noScope is true, DNS validation is skipped but URL-based scope rules still apply.
 func (m *Manager) Validate(URL *url.URL, rootHostname string) (bool, error) {
 	if !m.noScope {
 		// Only validate DNS if scope is enabled
