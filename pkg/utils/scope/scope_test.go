@@ -79,6 +79,10 @@ func TestGetDomainRDNandDN(t *testing.T) {
 	require.Equal(t, "projectdiscovery", dn, "could not get correct dn")
 }
 
+// TestNoScopeWithOutOfScope verifies that when noScope is enabled, host-based
+// DNS validation is bypassed while URL pattern matching (inScope/outOfScope rules)
+// continues to function correctly. It tests scenarios with only outOfScope patterns
+// and with both inScope and outOfScope patterns to ensure proper filtering behavior.
 func TestNoScopeWithOutOfScope(t *testing.T) {
 	t.Run("noScope with outOfScope rules", func(t *testing.T) {
 		// Create manager with noScope=true and outOfScope patterns
