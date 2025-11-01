@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestManagerValidate verifies the Manager's Validate method with various scope configurations,
+// including URL pattern matching and host-based DNS validation for different scope types (dn, rdn, fqdn).
 func TestManagerValidate(t *testing.T) {
 	t.Run("url", func(t *testing.T) {
 		manager, err := NewManager([]string{`example`}, []string{`logout\.php`}, "dn", false)
@@ -72,6 +74,8 @@ func TestManagerValidate(t *testing.T) {
 	})
 }
 
+// TestGetDomainRDNandDN verifies the extraction of root domain name (RDN) and
+// effective top-level domain plus one label (eTLD+1) from a hostname.
 func TestGetDomainRDNandDN(t *testing.T) {
 	rdn, dn, err := getDomainRDNandRDN("test.projectdiscovery.io")
 	require.Nil(t, err, "could not get domain rdn and dn")
