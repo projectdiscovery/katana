@@ -25,6 +25,9 @@ import (
 	"github.com/remeh/sizedwaitgroup"
 )
 
+// Shared represents the shared state and configuration used across all crawl sessions.
+// It maintains common resources like HTTP headers, cookie jars, known files database,
+// and crawler options that are reused for efficiency across multiple crawl operations.
 type Shared struct {
 	Headers    map[string]string
 	KnownFiles *files.KnownFiles
@@ -32,6 +35,9 @@ type Shared struct {
 	Jar        *httputil.CookieJar
 }
 
+// NewShared creates a new Shared instance with the provided crawler options.
+// It initializes the HTTP headers, known files database (if configured), and an empty cookie jar.
+// Returns an error if the HTTP client or cookie jar creation fails.
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	shared := &Shared{
 		Headers: options.Options.ParseCustomHeaders(),
@@ -55,6 +61,20 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 	return shared, nil
 }
 
+// Enqueue adds one or more navigation requests to the crawl queue after applying
+// validation checks. The method performs the following checks in order:
+//  1. URL format validation
+//  2. Query parameter handling (if IgnoreQueryParams is enabled)
+//  3. Depth filtering - skips URLs exceeding MaxDepth before uniqueness check
+//     to prevent caching URLs that would be rejected, allowing them to be
+//     processed if discovered later at valid depths via different paths
+//  4. Uniqueness filtering - prevents duplicate URL crawling
+//  5. Cycle detection - identifies URLs stuck in redirect loops
+//  6. Scope validation - ensures URLs belong to the allowed crawl scope
+//
+// For in-scope URLs, the method also handles path climbing when enabled,
+// extracting and enqueuing parent directory paths.
+// Out-of-scope URLs are sent to output if DisplayOutScope is enabled.
 func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.Request) {
 	for _, nr := range navigationRequests {
 		if nr.URL == "" || !utils.IsURL(nr.URL) {
@@ -131,6 +151,9 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 	}
 }
 
+// ValidateScope checks whether a given URL is within the allowed crawling scope
+// based on the configured scope rules and the root hostname.
+// Returns true if the URL passes scope validation, false otherwise.
 func (s *Shared) ValidateScope(URL string, root string) bool {
 	parsed, err := urlutil.Parse(URL)
 	if err != nil {
@@ -141,6 +164,10 @@ func (s *Shared) ValidateScope(URL string, root string) bool {
 	return err == nil && scopeValidated
 }
 
+// Output writes a crawl result to the configured output writer.
+// It creates a Result object containing the navigation request, response (if any),
+// and error information (if any), then writes it to the output writer.
+// If an OnResult callback is configured and output writing succeeds, the callback is invoked.
 func (s *Shared) Output(navigationRequest *navigation.Request, navigationResponse *navigation.Response, err error) {
 	var errData string
 	if err != nil {
@@ -161,6 +188,9 @@ func (s *Shared) Output(navigationRequest *navigation.Request, navigationRespons
 	}
 }
 
+// CrawlSession represents an active crawling session for a specific target URL.
+// It maintains the session context, cancellation function, parsed URL information,
+// the request queue, and HTTP/browser clients needed for the crawl operation.
 type CrawlSession struct {
 	Ctx        context.Context
 	CancelFunc context.CancelFunc
@@ -171,6 +201,15 @@ type CrawlSession struct {
 	Browser    *rod.Browser
 }
 
+// NewCrawlSessionWithURL creates and initializes a new crawl session for the specified URL.
+// It performs the following initialization steps:
+//  1. Creates a context with optional timeout based on CrawlDuration setting
+//  2. Parses the target URL and extracts the hostname
+//  3. Initializes the request queue with the configured strategy
+//  4. Enqueues the initial URL and any known files for the target
+//  5. Sets up the HTTP client with response parsing callbacks
+//
+// Returns the initialized CrawlSession or an error if initialization fails.
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	if s.Options.Options.CrawlDuration.Seconds() > 0 {
@@ -235,8 +274,20 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	return crawlSession, nil
 }
 
+// DoRequestFunc is a function type for executing navigation requests.
+// Implementations should perform the actual HTTP request or browser navigation
+// and return the response or an error. This allows different crawling strategies
+// (standard HTTP vs. headless browser) to provide their own request logic.
 type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*navigation.Response, error)
 
+// Do executes the main crawling loop for the given crawl session.
+// It processes items from the queue concurrently (respecting the Concurrency limit),
+// validates each request (URL format, path filters, scope), applies rate limiting
+// and delays, executes the request using the provided doRequest function, writes
+// results to output, and enqueues any newly discovered URLs from responses.
+//
+// The method returns when the queue is empty or the session context is cancelled
+// (due to timeout or manual cancellation). Returns an error if the context is cancelled.
 func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 	wg := sizedwaitgroup.New(s.Options.Options.Concurrency)
 	for item := range crawlSession.Queue.Pop() {
