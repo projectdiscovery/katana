@@ -69,6 +69,13 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			reqUrl = utils.ReplaceAllQueryParam(reqUrl, "")
 		}
 
+		// Skip adding to the crawl queue when the maximum depth is exceeded.
+		// Must be done before checking uniqueness to avoid caching item that will be skipped
+		// to handle them if faced on lower depth via another path.
+		if nr.Depth > s.Options.Options.MaxDepth {
+			continue
+		}
+
 		// Ignore blank URL items and only work on unique items
 		if !s.Options.UniqueFilter.UniqueURL(reqUrl) && len(nr.CustomFields) == 0 {
 			continue
@@ -89,10 +96,6 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 
-		// Skip adding to the crawl queue when the maximum depth is exceeded
-		if nr.Depth > s.Options.Options.MaxDepth {
-			continue
-		}
 		queue.Push(nr, nr.Depth)
 
 		if s.Options.Options.PathClimb {
