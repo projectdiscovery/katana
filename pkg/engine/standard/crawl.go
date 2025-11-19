@@ -82,9 +82,16 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	if err != nil {
 		return response, err
 	}
+
+	// If the response is empty, perform a defensive return.
+	if resp == nil {
+		return response, errorutil.NewWithTag("standard", "nil response from http client")
+	}
+
 	if resp.StatusCode == http.StatusSwitchingProtocols {
 		return response, nil
 	}
+
 	limitReader := io.LimitReader(resp.Body, int64(c.Options.Options.BodyReadSize))
 	data, err := io.ReadAll(limitReader)
 	if err != nil {
@@ -102,27 +109,36 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		response.Technologies = mapsutil.GetKeys(technologies)
 	}
 
+	// Restore the read data to resp.Body for further use.
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))
 
 	response.Body = string(data)
 	response.Resp = resp
-	response.Reader, err = goquery.NewDocumentFromReader(bytes.NewReader(data))
+
+	// First, attempt to parse using goquery. If the parsing fails, simply return safely (to avoid accessing response.Reader before checking err).
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(data))
+	if err != nil {
+		// Even if the parsing fails, try to attach the original response for debugging purposes.
+		rawResponseBytes, _ := httputil.DumpResponse(resp, true)
+		response.Raw = string(rawResponseBytes)
+		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
+	}
+	// Only set the `response.Reader` and its URL after the parsing is successful to avoid accessing a nil pointer.
+	response.Reader = doc
 	response.Reader.Url, _ = url.Parse(request.URL)
+
 	response.StatusCode = resp.StatusCode
 	response.Headers = utils.FlattenHeaders(resp.Header)
 	if c.Options.Options.FormExtraction {
 		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
 	}
 
+	// Use the actual length of the read data as ContentLength
 	resp.ContentLength = int64(len(data))
 	response.ContentLength = resp.ContentLength
 
 	rawResponseBytes, _ := httputil.DumpResponse(resp, true)
 	response.Raw = string(rawResponseBytes)
-
-	if err != nil {
-		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
-	}
 
 	return response, nil
 }
