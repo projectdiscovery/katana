@@ -14,7 +14,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
@@ -85,7 +85,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 
 	// If the response is empty, perform a defensive return.
 	if resp == nil {
-		return response, errorutil.NewWithTag("standard", "nil response from http client")
+		return response, errkit.New("standard: nil response from http client")
 	}
 
 	if resp.StatusCode == http.StatusSwitchingProtocols {
@@ -121,7 +121,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		// Even if the parsing fails, try to attach the original response for debugging purposes.
 		rawResponseBytes, _ := httputil.DumpResponse(resp, true)
 		response.Raw = string(rawResponseBytes)
-		return response, errorutil.NewWithTag("standard", "could not make document from reader").Wrap(err)
+		return response, errkit.Wrap(err, "standard: could not make document from reader")
 	}
 	// Only set the `response.Reader` and its URL after the parsing is successful to avoid accessing a nil pointer.
 	response.Reader = doc
