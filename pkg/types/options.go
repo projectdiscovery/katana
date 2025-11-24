@@ -38,6 +38,8 @@ type Options struct {
 	ExtensionsMatch goflags.StringSlice
 	// ExtensionFilter contains additional items for filter list
 	ExtensionFilter goflags.StringSlice
+	// NoDefaultExtFilter removes the default extensions from the filter list
+	NoDefaultExtFilter bool
 	// OutputMatchCondition is the condition to match output
 	OutputMatchCondition string
 	// OutputFilterCondition is the condition to filter output
@@ -86,6 +88,10 @@ type Options struct {
 	NoColors bool
 	// JSON enables writing output in JSON format
 	JSON bool
+	// ExcludeOutputFields is the list of fields to exclude from the output
+	ExcludeOutputFields goflags.StringSlice
+	// ListOutputFields is the list of fields
+	ListOutputFields bool
 	// Silent shows only output
 	Silent bool
 	// Verbose specifies showing verbose output
@@ -172,6 +178,8 @@ type Options struct {
 	PathClimb bool
 	// DisableUniqueFilter disables duplicate content filtering
 	DisableUniqueFilter bool
+	// MaxOnclickLinks is the maximum number of onclick links to process per page (default: 10)
+	MaxOnclickLinks int
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

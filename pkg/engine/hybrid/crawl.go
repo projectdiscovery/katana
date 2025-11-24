@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -18,8 +19,9 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -33,7 +35,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	page, err := s.Browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
 	defer func() {
 		if err := page.Close(); err != nil {
@@ -52,7 +54,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
 		body, _ := FetchGetResponseBody(page, e)
 		headers := make(map[string][]string)
@@ -73,7 +75,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not new request")
 		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
@@ -184,6 +186,22 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	page = page.Timeout(timeout)
 
+	navigatedURLs := sliceutil.NewSyncSlice[string]()
+	navigatedURLs.Append(request.URL)
+
+	pageCtx, cancelPageEvents := page.WithCancel()
+	defer cancelPageEvents()
+
+	waitFrameEvents := pageCtx.EachEvent(func(e *proto.PageFrameNavigated) {
+		if e.Frame.ParentID == "" {
+			frameURL := e.Frame.URL
+			if frameURL != "" && frameURL != request.URL {
+				navigatedURLs.Append(frameURL)
+			}
+		}
+	})
+	go waitFrameEvents()
+
 	// wait the page to be fully loaded and becoming idle
 	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
 
@@ -192,7 +210,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.DisableRedirects && response.IsRedirect() {
 			return response, nil
 		}
-		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not navigate target")
 	}
 
 	waitNavigation()
@@ -210,27 +228,82 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
 	}
 
+	// simulate clicks on links with onclick handlers to discover JS redirects
+	time.Sleep(200 * time.Millisecond)
+
+	clickableLinks, err := page.Elements("a[onclick]")
+	if err == nil && len(clickableLinks) > 0 {
+		maxLinks := c.Options.Options.MaxOnclickLinks
+		linksToProcess := len(clickableLinks)
+		if linksToProcess > maxLinks {
+			linksToProcess = maxLinks
+		}
+
+		gologger.Debug().Msgf("Found %d clickable links with onclick handlers, processing %d", len(clickableLinks), linksToProcess)
+
+		for idx := 0; idx < linksToProcess; idx++ {
+			link := clickableLinks[idx]
+			beforeURL, err := page.Info()
+			if err != nil {
+				gologger.Error().Msgf("Could not get page info: %v", err)
+				continue
+			}
+			beforeURLStr := ""
+			if beforeURL != nil {
+				beforeURLStr = beforeURL.URL
+			}
+
+			// try to click the link using rod's Click method
+			clickErr := link.Click(proto.InputMouseButtonLeft, 1)
+			if clickErr != nil {
+				gologger.Debug().Msgf("Could not click link %d: %v", idx, clickErr)
+				continue
+			}
+
+			gologger.Debug().Msgf("Clicked onclick link [%d] at URL: %s", idx, beforeURLStr)
+
+			time.Sleep(1 * time.Second)
+
+			// check if URL changed (indicates redirect occurred)
+			currentURL, _ := page.Info()
+			if currentURL != nil && currentURL.URL != beforeURLStr {
+				gologger.Debug().Msgf("detected navigation to: %s", currentURL.URL)
+				navigatedURLs.Append(currentURL.URL)
+
+				if navErr := page.Navigate(request.URL); navErr != nil {
+					gologger.Warning().Msgf("Failed to navigate back to %s after onclick redirect: %v", request.URL, navErr)
+					if reloadErr := page.Reload(); reloadErr != nil {
+						gologger.Error().Msgf("Failed to reload page after navigation error: %v", reloadErr)
+						break
+					}
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+	}
+
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get dom")
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
-	if response.Resp == nil {
-		return nil, errorutil.NewWithTag("hybrid", "response is nil").Wrap(err)
+	if response == nil || response.Resp == nil {
+		// err is guaranteed to be nil, due to previous checks.
+		return nil, errors.New("hybrid: response is nil")
 	}
 	response.Resp.Request.URL = parsed.URL
 
@@ -245,17 +318,36 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.Body = body
-	response.Reader.Url, _ = url.Parse(request.URL)
-	if c.Options.Options.FormExtraction {
-		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	if response.Reader != nil {
+		response.Reader.Url, _ = url.Parse(request.URL)
+		if c.Options.Options.FormExtraction {
+			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+		}
 	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
 	response.XhrRequests = xhrRequests
+
+	// enqueue JS-triggered navigation URLs that were detected
+	navigatedURLs.Each(func(i int, navURL string) error {
+		if navURL != request.URL {
+			parsed, err := urlutil.Parse(navURL)
+			if err == nil {
+				navReq := &navigation.Request{
+					URL:          parsed.String(),
+					Depth:        depth,
+					RootHostname: s.Hostname,
+				}
+				c.Enqueue(s.Queue, navReq)
+				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
+			}
+		}
+		return nil
+	})
 
 	return response, nil
 }

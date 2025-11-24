@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
 )
@@ -12,11 +12,11 @@ import (
 // ExecuteCrawling executes the crawling main loop
 func (r *Runner) ExecuteCrawling() error {
 	if r.crawler == nil {
-		return errorutil.New("crawler is not initialized")
+		return errkit.New("crawler is not initialized")
 	}
 	inputs := r.parseInputs()
 	if len(inputs) == 0 {
-		return errorutil.New("no input provided for crawling")
+		return errkit.New("no input provided for crawling")
 	}
 
 	for _, input := range inputs {

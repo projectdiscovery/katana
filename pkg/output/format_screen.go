@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 )
 
 // formatScreen formats the output for showing on screen.
@@ -42,6 +43,13 @@ func (w *StandardWriter) formatScreen(output *Result) ([]byte, error) {
 		builder.WriteRune(' ')
 		builder.WriteRune('[')
 		builder.WriteString(output.Request.Body)
+		builder.WriteRune(']')
+	}
+
+	if w.verbose {
+		builder.WriteRune(' ')
+		builder.WriteRune('[')
+		builder.WriteString(w.aurora.Yellow("depth:" + strconv.Itoa(output.Request.Depth)).String())
 		builder.WriteRune(']')
 	}
 

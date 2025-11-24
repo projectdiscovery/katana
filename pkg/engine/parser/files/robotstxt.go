@@ -11,7 +11,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 )
 
 type robotsTxtCrawler struct {
@@ -24,13 +24,13 @@ func (r *robotsTxtCrawler) Visit(URL string) ([]*navigation.Request, error) {
 	requestURL := fmt.Sprintf("%s/robots.txt", URL)
 	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, errorutil.NewWithTag("robotscrawler", "could not create request").Wrap(err)
+		return nil, errkit.Wrap(err, "robotscrawler: could not create request")
 	}
 	req.Header.Set("User-Agent", utils.WebUserAgent())
 
 	resp, err := r.httpclient.Do(req)
 	if err != nil {
-		return nil, errorutil.NewWithTag("robotscrawler", "could not do request").Wrap(err)
+		return nil, errkit.Wrap(err, "robotscrawler: could not do request")
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
