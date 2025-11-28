@@ -23,10 +23,10 @@ jobs:
       - name: release test
         uses: goreleaser/goreleaser-action@v4
         with:
-          args: --config=.goreleaser/mac.yml
+          args: "release -f .goreleaser/mac.yml --clean --snapshot"
           version: latest
           workdir: .
-        env:
+        env: 
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   release-test-linux:
@@ -70,8 +70,8 @@ jobs:
       - name: release test
         uses: goreleaser/goreleaser-action@v4
         with:
-          args: --config=.goreleaser/windows.yml
+          args: "release -f .goreleaser/windows.yml --clean --snapshot"
           version: latest
           workdir: .
-        env:
+        env: 
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
