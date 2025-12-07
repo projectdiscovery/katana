@@ -158,7 +158,7 @@ func New(options Options) (Writer, error) {
 			writer.storeResponseBodyDir = createDirNameNoClobber(writer.storeResponseBodyDir)
 			_ = os.MkdirAll(writer.storeResponseBodyDir, os.ModePerm)
 		} else {
-			removeDirsWithSuffix(writer.storeResponseBodyDir)
+			//removeDirsWithSuffix(writer.storeResponseBodyDir)
 			_ = os.MkdirAll(writer.storeResponseBodyDir, os.ModePerm)
 		}
 	}
