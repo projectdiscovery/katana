@@ -224,7 +224,7 @@ func (w *StandardWriter) Write(result *Result) error {
 	}
 	if w.storeResponseBody && result.HasResponse() {
 		if result.Response.Body != "" {
-			if fileName, fileWriter, err := getResponseFile(w.storeResponseBodyDir, result.Response.Resp.Request.URL.String()); err == nil {
+			if fileName, fileWriter, err := getResponseFile(w.storeResponseBodyDir, result.Request.URL); err == nil {
 				if absPath, err := filepath.Abs(fileName); err == nil {
 					fileName = absPath
 				}
