@@ -108,9 +108,10 @@ func isValidNavigationRequest(req *navigation.Request) bool {
 		return false
 	}
 	lc := strings.ToLower(url)
-	return !(strings.HasPrefix(lc, "data:") ||
-		strings.HasPrefix(lc, "mailto:") ||
-		strings.HasPrefix(lc, "javascript:"))
+	return !strings.HasPrefix(lc, "data:") &&
+		!strings.HasPrefix(lc, "mailto:") &&
+		!strings.HasPrefix(lc, "javascript:") &&
+		!strings.HasPrefix(lc, "vbscript:")
 }
 
 // -------------------------------------------------------------------------

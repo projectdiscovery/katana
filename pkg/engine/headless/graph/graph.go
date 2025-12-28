@@ -135,7 +135,7 @@ func (g *CrawlGraph) DrawGraph(file string) error {
 	if err != nil {
 		return errors.Wrap(err, "could not create graph file")
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	return draw.DOT(g.graph, f)
 }

@@ -134,7 +134,9 @@ func removeComments(n *html.Node) {
 }
 
 func removeCommentsDomTransformationFunc(s *goquery.Selection) {
-	removeComments(s.Get(0))
+	if n := s.Get(0); n != nil {
+		removeComments(n)
+	}
 }
 
 var attributes = []string{

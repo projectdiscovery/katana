@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -50,7 +49,7 @@ func (a *Action) Hash() string {
 	if a.Form != nil {
 		return a.Form.Hash()
 	}
-	return ""
+	return string(a.Type) + "|" + a.Input + "|" + a.OriginID
 }
 
 func (a *Action) String() string {
@@ -160,10 +159,6 @@ func (e *HTMLElement) String() string {
 	value := builder.String()
 	return value
 }
-
-var (
-	dynamicIDAndClassPattern = regexp.MustCompile(`^\d+$|^id_\d+|\bclass_\w{8}\b`)
-)
 
 func (e *HTMLElement) Hash() string {
 	hasher := md5.New()

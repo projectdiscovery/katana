@@ -67,7 +67,7 @@ func newLogger(options *types.CrawlerOptions) *slog.Logger {
 func validateScopeFunc(h *Headless, URL string) browser.ScopeValidator {
 	parsedURL, err := url.Parse(URL)
 	if err != nil {
-		return nil
+		return func(string) bool { return true }
 	}
 	rootHostname := parsedURL.Hostname()
 
@@ -112,17 +112,36 @@ func (h *Headless) Crawl(URL string) error {
 		ScopeValidator:    scopeValidator,
 		AutomaticFormFill: h.options.Options.AutomaticFormFill,
 		RequestCallback: func(rr *output.Result) {
-			if !scopeValidator(rr.Request.URL) {
+			if rr == nil || rr.Request == nil {
+				return
+			}
+			if scopeValidator != nil && !scopeValidator(rr.Request.URL) {
 				return
 			}
 			navigationRequests := h.performAdditionalAnalysis(rr)
 			for _, req := range navigationRequests {
-				h.options.OutputWriter.Write(req)
+				if err := h.options.OutputWriter.Write(req); err != nil {
+					h.logger.Debug("failed to write navigation result",
+						slog.String("url", func() string {
+							if req != nil && req.Request != nil {
+								return req.Request.URL
+							}
+							return ""
+						}()),
+						slog.String("error", err.Error()),
+					)
+				}
 			}
 
-			rr.Response.Raw = ""
-			rr.Response.Body = ""
-			h.options.OutputWriter.Write(rr)
+			if rr.Response != nil {
+				rr.Response.Raw = ""
+				rr.Response.Body = ""
+			}
+			if err := h.options.OutputWriter.Write(rr); err != nil {
+				h.logger.Debug("failed to write result",
+					slog.String("error", err.Error()),
+				)
+			}
 		},
 		Logger:              h.logger,
 		ChromeUser:          h.options.ChromeUser,
@@ -161,7 +180,13 @@ func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result
 		if _, ok := h.deduplicator.Get(resp.URL); ok {
 			continue
 		}
-		h.deduplicator.Set(resp.URL, struct{}{})
+		if err := h.deduplicator.Set(resp.URL, struct{}{}); err != nil {
+			h.logger.Debug("deduplicator set failed",
+				slog.String("url", resp.URL),
+				slog.String("error", err.Error()),
+			)
+			continue
+		}
 
 		navigationRequests = append(navigationRequests, &output.Result{
 			Request: resp,

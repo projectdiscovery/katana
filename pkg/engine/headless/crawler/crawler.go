@@ -81,6 +81,10 @@ func New(opts Options) (*Crawler, error) {
 		return nil, initError
 	}
 
+	if opts.Logger == nil {
+		opts.Logger = slog.Default()
+	}
+
 	launcher, err := browser.NewLauncher(browser.LauncherOptions{
 		ChromiumPath:        opts.ChromiumPath,
 		MaxBrowsers:         opts.MaxBrowsers,
@@ -111,6 +115,7 @@ func New(opts Options) (*Crawler, error) {
 			return nil, err
 		}
 		diagnosticsWriter = writer
+		opts.DiagnosticsDir = directory
 		opts.Logger.Info("Diagnostics enabled", slog.String("directory", directory))
 	}
 
@@ -204,6 +209,8 @@ func (c *Crawler) Crawl(URL string) error {
 			if c.options.MaxFailureCount > 0 && consecutiveFailures >= c.options.MaxFailureCount {
 				c.logger.Warn("Too many consecutive failures, stopping crawl",
 					slog.Int("failures", consecutiveFailures),
+					slog.Int("max_allowed", c.options.MaxFailureCount),
+					slog.Int("remaining_actions", c.crawlQueue.Size()),
 				)
 				return nil
 			}
@@ -226,30 +233,30 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
-			// Tie this BrowserPage to the master context so any rod call will
-			// respect the crawl deadline.
-			page.Page = page.Page.Context(ctx)
+			page.Page = page.Context(ctx)
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
 			)
 
 			if err := c.crawlFn(action, page); err != nil {
-				consecutiveFailures++
 				if err == ErrNoCrawlingAction {
 					return nil
 				}
 				if errors.Is(err, ErrElementNotVisible) {
 					continue
 				}
-				if errors.Is(err, &rod.NoPointerEventsError{}) || errors.Is(err, &rod.InvisibleShapeError{}) {
+				var npe *rod.NoPointerEventsError
+				var ish *rod.InvisibleShapeError
+				if errors.As(err, &npe) || errors.As(err, &ish) {
 					c.logger.Debug("Skipping action as it is not visible",
 						slog.String("action", action.String()),
 						slog.String("error", err.Error()),
 					)
 					continue
 				}
-				if errors.Is(err, &rod.NavigationError{}) {
+				var ne *rod.NavigationError
+				if errors.As(err, &ne) {
 					c.logger.Debug("Skipping action as navigation failed",
 						slog.String("action", action.String()),
 						slog.String("error", err.Error()),
@@ -260,10 +267,12 @@ func (c *Crawler) Crawl(URL string) error {
 					c.logger.Debug("Skipping action as no navigation possible", slog.String("action", action.String()))
 					continue
 				}
-				if errors.Is(err, &utils.MaxSleepCountError{}) {
+				var msce *utils.MaxSleepCountError
+				if errors.As(err, &msce) {
 					c.logger.Debug("Skipping action as it is taking too long", slog.String("action", action.String()))
 					continue
 				}
+
 				c.logger.Error("Error processing action",
 					slog.String("error", err.Error()),
 					slog.String("action", action.String()),
@@ -444,7 +453,8 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		// Check if element is interactable (not blocked by overlays)
 		interactable, err := element.Interactable()
 		if err != nil {
-			if errors.Is(err, &rod.CoveredError{}) {
+			var ce *rod.CoveredError
+			if errors.As(err, &ce) {
 				return ErrElementNotVisible
 			}
 			return err
@@ -465,7 +475,7 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	return nil
 }
 
-var logoutPattern = regexp.MustCompile(`(?i)(log[\s-]?out|sign[\s-]?out|signout|deconnexion|cerrar[\s-]?sesion|sair|abmelden|uitloggen|exit|disconnect|terminate|end[\s-]?session|salir|desconectar|auc.loggergen|afmelden|wyloguj|logout|sign[\s-]?off)`)
+var logoutPattern = regexp.MustCompile(`(?i)(log[\s-]?out|sign[\s-]?out|signout|deconnexion|cerrar[\s-]?sesion|sair|abmelden|uitloggen|ausloggen|exit|disconnect|terminate|end[\s-]?session|salir|desconectar|afmelden|wyloguj|logout|sign[\s-]?off)`)
 
 func isLogoutPage(element *types.HTMLElement) bool {
 	return logoutPattern.MatchString(element.TextContent) ||

@@ -99,28 +99,32 @@ func (cd *CrawlDebugger) GetActiveURLs() []ActiveURL {
 // HTTP handlers
 func (cd *CrawlDebugger) handleActiveURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	active := cd.GetActiveURLs()
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"timestamp":   time.Now().Format(time.RFC3339),
-		"active_urls": cd.GetActiveURLs(),
-		"count":       len(cd.GetActiveURLs()),
-	})
+		"active_urls": active,
+		"count":       len(active),
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (cd *CrawlDebugger) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
 		"timestamp": time.Now().Format(time.RFC3339),
-	})
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
-// Close shuts down the debugger
 func (cd *CrawlDebugger) Close() {
 	if cd == nil {
 		return
 	}
 
 	if cd.httpServer != nil {
-		cd.httpServer.Close()
+		_ = cd.httpServer.Close()
 	}
 }

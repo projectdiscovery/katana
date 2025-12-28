@@ -37,8 +37,7 @@ import (
 type Launcher struct {
 	browserPool rod.Pool[BrowserPage]
 
-	userDataDir string
-	opts        LauncherOptions
+	opts LauncherOptions
 }
 
 // LauncherOptions contains options for the launcher
@@ -327,15 +326,23 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		cancel:      cancel,
 		userDataDir: tempDir,
 	}
-	browserPage.handlePageDialogBoxes()
+	if err := browserPage.handlePageDialogBoxes(); err != nil {
+		_ = page.Close()
+		_ = browser.Close()
+		return nil, err
+	}
 
 	// Add stealth evasion JS
 	_, err = page.EvalOnNewDocument(stealth.JS)
 	if err != nil {
+		_ = page.Close()
+		_ = browser.Close()
 		return nil, errors.Wrap(err, "could not initialize stealth")
 	}
 	err = js.InitJavascriptEnv(page)
 	if err != nil {
+		_ = page.Close()
+		_ = browser.Close()
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
 
@@ -377,9 +384,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 		return errors.Wrap(err, "could not enable fetch domain")
 	}
 
-	// Handle all the javascript dialogs and accept them
-	// with optional text to ensure it doesn't block screenshots.
-	go b.Page.EachEvent(
+	go b.EachEvent(
 		func(e *proto.PageJavascriptDialogOpening) {
 			_ = proto.PageHandleJavaScriptDialog{
 				Accept:     true,
@@ -403,17 +408,23 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				}
 			}
 
-			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || *e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308 {
-				fetchContinueRequest(b.Page, e)
+			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
+				if err := fetchContinueRequest(b.Page, e); err != nil {
+					slog.Warn("fetchContinueRequest failed", "error", err)
+				}
 				return
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
 				// Continue the request even if we can't get the body
-				_ = fetchContinueRequest(b.Page, e)
+				if err := fetchContinueRequest(b.Page, e); err != nil {
+					slog.Warn("fetchContinueRequest failed", "error", err)
+				}
 				return
 			}
-			_ = fetchContinueRequest(b.Page, e)
+			if err := fetchContinueRequest(b.Page, e); err != nil {
+				slog.Warn("fetchContinueRequest failed", "error", err)
+			}
 
 			httpreq, err := netHTTPRequestFromProto(e.Request)
 			if err != nil {
@@ -539,8 +550,7 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 		return
 	}
 
-	// Close all pages except the current one
-	currentPageID := browser.Page.TargetID
+	currentPageID := browser.TargetID
 	for _, page := range pages {
 		if page.TargetID != currentPageID {
 			_ = page.Close()
@@ -561,9 +571,8 @@ func isBrowserConnected(browser *rod.Browser) bool {
 }
 
 func (b *BrowserPage) CloseBrowserPage() {
-	b.Page.Close()
-	b.Browser.Close()
-	// Clean up the temp user data directory
+	_ = b.Close()
+	_ = b.Browser.Close()
 	if b.userDataDir != "" {
 		_ = os.RemoveAll(b.userDataDir)
 	}

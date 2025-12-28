@@ -53,17 +53,23 @@
         });
       });
   
-      var oldWebSocket = window.WebSocket;
-      window.WebSocket = function (url, arg) {
-        window.__navigatedLinks.push({ url: url, source: "websocket" });
-        return new oldWebSocket(url, arg);
-      };
-  
-      var oldEventSource = window.EventSource;
-      window.EventSource = function (url, arg) {
-        window.__navigatedLinks.push({ url: url, source: "eventsource" });
-        return new oldEventSource(url, arg);
-      };
+      const __OrigWebSocket = window.WebSocket;
+      function __WrappedWebSocket(url, protocols) {
+        try { window.__navigatedLinks.push({ url, source: "websocket" }); } catch (_) {}
+        return Reflect.construct(__OrigWebSocket, [url, protocols], new.target || __WrappedWebSocket);
+      }
+      __WrappedWebSocket.prototype = __OrigWebSocket.prototype;
+      Object.setPrototypeOf(__WrappedWebSocket, __OrigWebSocket);
+      Object.defineProperty(window, "WebSocket", { value: __WrappedWebSocket, writable: false, configurable: false });
+
+      const __OrigEventSource = window.EventSource;
+      function __WrappedEventSource(url, eventSourceInitDict) {
+        try { window.__navigatedLinks.push({ url, source: "eventsource" }); } catch (_) {}
+        return Reflect.construct(__OrigEventSource, [url, eventSourceInitDict], new.target || __WrappedEventSource);
+      }
+      __WrappedEventSource.prototype = __OrigEventSource.prototype;
+      Object.setPrototypeOf(__WrappedEventSource, __OrigEventSource);
+      Object.defineProperty(window, "EventSource", { value: __WrappedEventSource, writable: false, configurable: false });
   
       var originalFetch = window.fetch;
       window.fetch = function (...args) {
@@ -77,9 +83,14 @@
     // on the page to prevent certain actions from happening
     // and to speed up certain actions.
     function hookMiscellaneousUtilities() {
-      // Hook form reset to prevent the form from being reset
-      HTMLFormElement.prototype.reset = function () {
-        console.log("[hook] cancel reset form");
+      // Hook form reset to conditionally prevent the form from being reset
+      const __origFormReset = HTMLFormElement.prototype.reset;
+      HTMLFormElement.prototype.reset = function (...args) {
+        if (window.__katanaHooksOptions?.preventFormReset === true) {
+          try { console.log("[hook] cancel reset form"); } catch (_) {}
+          return;
+        }
+        return __origFormReset.apply(this, args);
       };
       Object.defineProperty(
         HTMLFormElement.prototype,
@@ -150,8 +161,9 @@
     }
   
     // Main hook initialization part
-    // hookAddEventListener();
-    // hookNavigatedLinkSinks();
-    // hookMiscellaneousUtilities();
+    const __opts = window.__katanaHooksOptions || { hooked: false };
+    try { if (__opts.hooked !== false) hookAddEventListener(); } catch (_) {}
+    try { if (__opts.hooked !== false) hookNavigatedLinkSinks(); } catch (_) {}
+    try { if (__opts.hooked !== false) hookMiscellaneousUtilities(); } catch (_) {}
   })();
   

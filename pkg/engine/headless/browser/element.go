@@ -113,7 +113,7 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get links")
 	}
-	info, err := b.Page.Info()
+	info, err := b.Info()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get page info")
 	}
@@ -172,9 +172,8 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 	return navigations, nil
 }
 
-// GetAllElements returns all elements matching the selector
 func (b *BrowserPage) GetAllElements(selector string) ([]*types.HTMLElement, error) {
-	objects, err := b.Page.Eval(`() => window.getAllElements(` + strconv.Quote(selector) + `)`)
+	objects, err := b.Eval(`() => window.getAllElements(` + strconv.Quote(selector) + `)`)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +186,7 @@ func (b *BrowserPage) GetAllElements(selector string) ([]*types.HTMLElement, err
 }
 
 func (b *BrowserPage) GetElementFromXpath(xpath string) (*types.HTMLElement, error) {
-	object, err := b.Page.Eval(`() => window.getElementFromXPath(` + strconv.Quote(xpath) + `)`)
+	object, err := b.Eval(`() => window.getElementFromXPath(` + strconv.Quote(xpath) + `)`)
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +198,8 @@ func (b *BrowserPage) GetElementFromXpath(xpath string) (*types.HTMLElement, err
 	return element, nil
 }
 
-// GetAllForms returns all forms on the page
 func (b *BrowserPage) GetAllForms() ([]*types.HTMLForm, error) {
-	objects, err := b.Page.Eval(`() => window.getAllForms()`)
+	objects, err := b.Eval(`() => window.getAllForms()`)
 	if err != nil {
 		return nil, err
 	}
