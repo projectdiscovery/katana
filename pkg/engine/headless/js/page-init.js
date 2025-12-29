@@ -71,13 +71,13 @@
       Object.setPrototypeOf(__WrappedEventSource, __OrigEventSource);
       Object.defineProperty(window, "EventSource", { value: __WrappedEventSource, writable: false, configurable: false });
   
-      var originalFetch = window.fetch.bind(window);
-      window.fetch = function (...args) {
+      const __origFetch = window.fetch.bind(window);
+      function __wrappedFetch(...args) {
         const url = args[0] instanceof Request ? args[0].url : args[0];
-        window.__navigatedLinks.push({ url: url, source: "fetch" });
-        return originalFetch.apply(this, args);
-      };
-      Object.defineProperty(window, "fetch", { value: window.fetch, writable: false, configurable: false });
+        try { window.__navigatedLinks.push({ url: url, source: "fetch" }); } catch (_) {}
+        return __origFetch(...args);
+      }
+      Object.defineProperty(window, "fetch", { value: __wrappedFetch, writable: false, configurable: false });
     }
   
     // hookMiscellaneousUtilities performs miscellaneous hooks
@@ -108,17 +108,19 @@
       // Hook setTimeout and setInterval to speed up delayed actions
       // on the page. This is useful where there is some request happening
       // on the page after a delay or some animation happening after a delay.
-      const originalSetTimeout = window.setTimeout;
-      const originalSetInterval = window.setInterval;
-  
-      const speedUpFactor = 0.1; // For example, 10 times faster
-  
-      window.setTimeout = function (callback, delay, ...args) {
-        return originalSetTimeout(callback, delay * speedUpFactor, ...args);
-      };
-      window.setInterval = function (callback, delay, ...args) {
-        return originalSetInterval(callback, delay * speedUpFactor, ...args);
-      };
+      const __origSetTimeout = window.setTimeout;
+      const __origSetInterval = window.setInterval;
+
+      const speedUpFactor = 0.1;
+
+      function __wrappedSetTimeout(callback, delay, ...args) {
+        return __origSetTimeout(callback, delay * speedUpFactor, ...args);
+      }
+      function __wrappedSetInterval(callback, delay, ...args) {
+        return __origSetInterval(callback, delay * speedUpFactor, ...args);
+      }
+      Object.defineProperty(window, "setTimeout", { value: __wrappedSetTimeout, writable: false, configurable: false });
+      Object.defineProperty(window, "setInterval", { value: __wrappedSetInterval, writable: false, configurable: false });
     }
   
     // hookAddEventListener hooks the addTargetListener to capture
