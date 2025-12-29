@@ -119,6 +119,8 @@ func ActionFromEventListener(listener *EventListener) *Action {
 		actionType = ActionTypeMouseOverAndOut
 	case "wheel":
 		actionType = ActionTypeMouseWheel
+	default:
+		actionType = ActionTypeUnknown
 	}
 
 	return &Action{

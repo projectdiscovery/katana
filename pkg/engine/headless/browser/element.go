@@ -160,6 +160,9 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 		if _, found := relevantEventListeners[listener.Type]; !found {
 			continue
 		}
+		if listener.Element == nil {
+			continue
+		}
 		hash := listener.Element.Hash()
 		listener.Element.MD5Hash = hash
 		if _, found := unique[hash]; found {

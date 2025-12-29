@@ -459,11 +459,13 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				Resp:          httpresp,
 				Reader:        doc,
 			}
-			b.launcher.opts.RequestCallback(&output.Result{
-				Timestamp: time.Now(),
-				Request:   &req,
-				Response:  resp,
-			})
+			if b.launcher.opts.RequestCallback != nil {
+				b.launcher.opts.RequestCallback(&output.Result{
+					Timestamp: time.Now(),
+					Request:   &req,
+					Response:  resp,
+				})
+			}
 		},
 	)()
 	return nil

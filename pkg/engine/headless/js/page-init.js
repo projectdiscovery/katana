@@ -71,12 +71,13 @@
       Object.setPrototypeOf(__WrappedEventSource, __OrigEventSource);
       Object.defineProperty(window, "EventSource", { value: __WrappedEventSource, writable: false, configurable: false });
   
-      var originalFetch = window.fetch;
+      var originalFetch = window.fetch.bind(window);
       window.fetch = function (...args) {
         const url = args[0] instanceof Request ? args[0].url : args[0];
         window.__navigatedLinks.push({ url: url, source: "fetch" });
         return originalFetch.apply(this, args);
       };
+      Object.defineProperty(window, "fetch", { value: window.fetch, writable: false, configurable: false });
     }
   
     // hookMiscellaneousUtilities performs miscellaneous hooks
@@ -85,7 +86,7 @@
     function hookMiscellaneousUtilities() {
       // Hook form reset to conditionally prevent the form from being reset
       const __origFormReset = HTMLFormElement.prototype.reset;
-      HTMLFormElement.prototype.reset = function (...args) {
+      const __wrappedFormReset = function (...args) {
         if (window.__katanaHooksOptions?.preventFormReset === true) {
           try { console.log("[hook] cancel reset form"); } catch (_) {}
           return;
@@ -95,14 +96,14 @@
       Object.defineProperty(
         HTMLFormElement.prototype,
         "reset",
-        markElementReadonlyProperties
+        { value: __wrappedFormReset, writable: false, configurable: false }
       );
   
       // Hook window.close to prevent the page from being closed
-      window.close = function () {
+      const __wrappedClose = function () {
         console.log("[hook] trying to close page.");
       };
-      Object.defineProperty(window, "close", markElementReadonlyProperties);
+      Object.defineProperty(window, "close", { value: __wrappedClose, writable: false, configurable: false });
   
       // Hook setTimeout and setInterval to speed up delayed actions
       // on the page. This is useful where there is some request happening
@@ -162,8 +163,8 @@
   
     // Main hook initialization part
     const __opts = window.__katanaHooksOptions || { hooked: false };
-    try { if (__opts.hooked !== false) hookAddEventListener(); } catch (_) {}
-    try { if (__opts.hooked !== false) hookNavigatedLinkSinks(); } catch (_) {}
-    try { if (__opts.hooked !== false) hookMiscellaneousUtilities(); } catch (_) {}
+    try { if (__opts.hooked === true) hookAddEventListener(); } catch (_) {}
+    try { if (__opts.hooked === true) hookNavigatedLinkSinks(); } catch (_) {}
+    try { if (__opts.hooked === true) hookMiscellaneousUtilities(); } catch (_) {}
   })();
   
