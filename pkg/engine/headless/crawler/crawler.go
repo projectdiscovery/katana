@@ -244,6 +244,7 @@ func (c *Crawler) Crawl(URL string) error {
 					return nil
 				}
 				if errors.Is(err, ErrElementNotVisible) {
+					consecutiveFailures++
 					continue
 				}
 				var npe *rod.NoPointerEventsError
@@ -253,6 +254,7 @@ func (c *Crawler) Crawl(URL string) error {
 						slog.String("action", action.String()),
 						slog.String("error", err.Error()),
 					)
+					consecutiveFailures++
 					continue
 				}
 				var ne *rod.NavigationError
@@ -261,26 +263,29 @@ func (c *Crawler) Crawl(URL string) error {
 						slog.String("action", action.String()),
 						slog.String("error", err.Error()),
 					)
+					consecutiveFailures++
 					continue
 				}
 				if errors.Is(err, ErrNoNavigationPossible) {
 					c.logger.Debug("Skipping action as no navigation possible", slog.String("action", action.String()))
+					consecutiveFailures++
 					continue
 				}
 				var msce *utils.MaxSleepCountError
 				if errors.As(err, &msce) {
 					c.logger.Debug("Skipping action as it is taking too long", slog.String("action", action.String()))
+					consecutiveFailures++
 					continue
 				}
 
-				c.logger.Error("Error processing action",
+				c.logger.Debug("Skipping action due to site-specific error",
 					slog.String("error", err.Error()),
 					slog.String("action", action.String()),
 				)
-				return err
+				consecutiveFailures++
+				continue
 			}
 
-			// Reset consecutive failures on success
 			consecutiveFailures = 0
 		}
 	}
