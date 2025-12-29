@@ -46,22 +46,11 @@ func NewDOMNormalizer() *DOMNormalizer {
 		})
 	}
 
-	// TODO: Check impact of removing paragraph text stripping
-	/*
-		customTransformations = append(customTransformations, func(doc *goquery.Document) {
-			doc.Find("p").Each(func(_ int, s *goquery.Selection) {
-				// Remove or replace the text node inside <p>
-				removeTextNodes(s)
-			})
-		})
-	*/
-
 	for _, t := range NoChildrenDomTransformations {
 		t := t
 		customTransformations = append(customTransformations, func(doc *goquery.Document) {
 			doc.Find(t).Each(func(_ int, s *goquery.Selection) {
 				if s.Children().Length() == 0 && strings.TrimSpace(s.Text()) == "" {
-					// Only remove if there are no attributes as well
 					if node := s.Get(0); node != nil && len(node.Attr) == 0 {
 						s.Remove()
 					}
@@ -69,28 +58,9 @@ func NewDOMNormalizer() *DOMNormalizer {
 			})
 		})
 	}
+
 	return &DOMNormalizer{customTransformations: customTransformations}
 }
-
-// TODO: Check impact of removing this helper function
-// This function was used to strip text nodes from paragraph elements.
-// Commented out pending impact assessment on deduplication behavior.
-/*
-func removeTextNodes(s *goquery.Selection) {
-	node := s.Get(0)
-	if node == nil {
-		return
-	}
-	for c := node.FirstChild; c != nil; {
-		next := c.NextSibling
-		// If it's a text node, remove it.
-		if c.Type == html.TextNode {
-			node.RemoveChild(c)
-		}
-		c = next
-	}
-}
-*/
 
 // Apply applies the normalizers to the given content
 func (d *DOMNormalizer) Apply(content string) (string, error) {
@@ -142,8 +112,8 @@ func removeCommentsDomTransformationFunc(s *goquery.Selection) {
 var attributes = []string{
 	"class",
 	"id",
-	"name", // name tags is often random
-	"href", // remove href
+	"name",
+	"href",
 	"style",
 	"width",
 	"height",
@@ -153,6 +123,10 @@ var attributes = []string{
 	"valign",
 	"cellpadding",
 	"cellspacing",
+	"value",
+	"placeholder",
+	"title",
+	"alt",
 }
 
 func removeClassIDDataAttributesDomTransformationFunc(s *goquery.Selection) {

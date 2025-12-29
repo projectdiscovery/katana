@@ -8,12 +8,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
+	htmlpkg "golang.org/x/net/html"
 )
 
 var whiteSpacesRegex = regexp.MustCompile(`[\r\n]+|\s+`)
 
-// Normalizer is a normalizer for text and DOM content
 type Normalizer struct {
 	dom  *DOMNormalizer
 	text *TextNormalizer
@@ -45,10 +46,16 @@ func (n *Normalizer) Apply(text string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to apply DOM normalizer")
 	}
-	secondpass := n.text.Apply(firstpass)
 
-	thirdpass := normalizeDocument(secondpass)
-	return thirdpass, nil
+	secondpass, err := stripTextContent(firstpass)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to strip text content")
+	}
+
+	thirdpass := n.text.Apply(secondpass)
+
+	fourthpass := normalizeDocument(thirdpass)
+	return fourthpass, nil
 }
 
 // normalizeDocument normalizes the given document by:
@@ -98,4 +105,35 @@ func convertHexEscapeSequencesToEntities(input string) string {
 	return pattern.ReplaceAllStringFunc(input, func(match string) string {
 		return replaceHexEscapeSequence(match)
 	})
+}
+
+func stripTextContent(content string) (string, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		return "", err
+	}
+
+	doc.Find("h1, h2, h3, h4, h5, h6, p, span, div, td, th, li, a").Each(func(_ int, s *goquery.Selection) {
+		removeTextNodesFromSelection(s)
+	})
+
+	result, err := doc.Html()
+	if err != nil {
+		return "", err
+	}
+	return result, nil
+}
+
+func removeTextNodesFromSelection(s *goquery.Selection) {
+	node := s.Get(0)
+	if node == nil {
+		return
+	}
+	for c := node.FirstChild; c != nil; {
+		next := c.NextSibling
+		if c.Type == htmlpkg.TextNode {
+			node.RemoveChild(c)
+		}
+		c = next
+	}
 }
