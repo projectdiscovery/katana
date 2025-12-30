@@ -310,6 +310,15 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create new page")
 	}
+
+	successfulPageCreation := false
+	defer func() {
+		if !successfulPageCreation {
+			_ = page.Close()
+			_ = browser.Close()
+		}
+	}()
+
 	page = page.Sleeper(func() rodutils.Sleeper {
 		return backoffCountSleeper(100*time.Millisecond, 1*time.Second, 3, func(d time.Duration) time.Duration {
 			return d * 1
@@ -327,26 +336,21 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		userDataDir: tempDir,
 	}
 	if err := browserPage.handlePageDialogBoxes(); err != nil {
-		_ = page.Close()
-		_ = browser.Close()
 		return nil, err
 	}
 
 	// Add stealth evasion JS
 	_, err = page.EvalOnNewDocument(stealth.JS)
 	if err != nil {
-		_ = page.Close()
-		_ = browser.Close()
 		return nil, errors.Wrap(err, "could not initialize stealth")
 	}
 	err = js.InitJavascriptEnv(page)
 	if err != nil {
-		_ = page.Close()
-		_ = browser.Close()
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
 
 	// Success - cancel the deferred cleanup
+	successfulPageCreation = true
 	shouldCleanup = false
 	return browserPage, nil
 }
