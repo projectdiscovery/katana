@@ -2,6 +2,8 @@ package types
 
 import (
 	"context"
+	"log/slog"
+	"os/user"
 	"regexp"
 	"time"
 
@@ -37,6 +39,11 @@ type CrawlerOptions struct {
 	Dialer *fastdialer.Dialer
 	// Wappalyzer instance for technologies detection
 	Wappalyzer *wappalyzer.Wappalyze
+
+	// Optional structured logger for headless crawler
+	Logger *slog.Logger
+	// ChromeUser is the user to use for chrome
+	ChromeUser *user.User
 }
 
 // NewCrawlerOptions creates a new crawler options structure

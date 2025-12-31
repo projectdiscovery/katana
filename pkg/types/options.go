@@ -54,6 +54,8 @@ type Options struct {
 	TimeStable int
 	// CrawlDuration is the duration in seconds to crawl target from
 	CrawlDuration time.Duration
+	// MaxFailureCount is the maximum number of consecutive failures before stopping
+	MaxFailureCount int
 	// Delay is the delay between each crawl requests in seconds
 	Delay int
 	// RateLimit is the maximum number of requests to send per second
@@ -98,6 +100,8 @@ type Options struct {
 	Verbose bool
 	// TechDetect enables technology detection
 	TechDetect bool
+	// EnableDiagnostics enables diagnostics
+	EnableDiagnostics bool
 	// Version enables showing of crawler version
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
@@ -108,6 +112,8 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// HeadlessHybrid enables headless hybrid scraping
+	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
 	// FormExtraction enables extraction of form, input, textarea & select elements
