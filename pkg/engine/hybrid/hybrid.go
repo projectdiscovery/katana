@@ -3,13 +3,17 @@ package hybrid
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
+	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -118,6 +122,81 @@ func (c *Crawler) Crawl(rootURL string) error {
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
 		return errkit.Wrap(err, "hybrid")
+	}
+	return nil
+}
+
+// Do executes the crawling loop with browser-safe concurrency.
+// Unlike the base implementation, this uses sequential processing (concurrency=1)
+// because Chrome DevTools Protocol operations cannot safely run concurrently
+// on the same browser instance. Multiple concurrent page operations cause
+// race conditions, navigation conflicts, and network interception issues.
+func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
+	for item := range crawlSession.Queue.Pop() {
+		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		req, ok := item.(*navigation.Request)
+		if !ok {
+			continue
+		}
+
+		if !utils.IsURL(req.URL) {
+			if c.Options.Options.OnSkipURL != nil {
+				c.Options.Options.OnSkipURL(req.URL)
+			}
+			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
+			continue
+		}
+
+		if !c.Options.ValidatePath(req.URL) {
+			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
+			continue
+		}
+
+		inScope, scopeErr := c.Options.ValidateScope(req.URL, crawlSession.Hostname)
+		if scopeErr != nil {
+			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
+			continue
+		}
+		if !req.SkipValidation && !inScope {
+			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+			continue
+		}
+
+		c.Options.RateLimit.Take()
+
+		if c.Options.Options.Delay > 0 {
+			time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
+		}
+
+		resp, err := doRequest(crawlSession, req)
+
+		if inScope {
+			c.Output(req, resp, err)
+		}
+
+		if err != nil {
+			gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
+			outputError := &output.Error{
+				Timestamp: time.Now(),
+				Endpoint:  req.RequestURL(),
+				Source:    req.Source,
+				Error:     err.Error(),
+			}
+			_ = c.Options.OutputWriter.WriteErr(outputError)
+			continue
+		}
+		if resp == nil || resp.Resp == nil || resp.Reader == nil {
+			continue
+		}
+		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
+			continue
+		}
+
+		navigationRequests := c.Options.Parser.ParseResponse(resp)
+		c.Enqueue(crawlSession.Queue, navigationRequests...)
 	}
 	return nil
 }

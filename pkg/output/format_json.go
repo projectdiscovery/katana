@@ -7,34 +7,34 @@ import (
 
 // formatJSON formats the output for json based formatting
 func (w *StandardWriter) formatJSON(output *Result) ([]byte, error) {
-	finalMap, err := structs.FilterStructToMap(*output, nil, w.excludeOutputFields)
+	finalOrdMap, err := structs.FilterStructToMap(*output, nil, w.excludeOutputFields)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, ok := finalMap["request"]; ok && output.Request != nil {
-		reqMap, err := structs.FilterStructToMap(*output.Request, nil, w.excludeOutputFields)
+	if _, ok := finalOrdMap.Get("request"); ok && output.Request != nil {
+		reqOrdMap, err := structs.FilterStructToMap(*output.Request, nil, w.excludeOutputFields)
 		if err != nil {
 			return nil, err
 		}
-		if len(reqMap) > 0 {
-			finalMap["request"] = reqMap
+		if reqOrdMap.Len() > 0 {
+			finalOrdMap.Set("request", reqOrdMap)
 		} else {
-			delete(finalMap, "request")
+			finalOrdMap.Delete("request")
 		}
 	}
 
-	if _, ok := finalMap["response"]; ok && output.Response != nil {
-		respMap, err := structs.FilterStructToMap(*output.Response, nil, w.excludeOutputFields)
+	if _, ok := finalOrdMap.Get("response"); ok && output.Response != nil {
+		respOrdMap, err := structs.FilterStructToMap(*output.Response, nil, w.excludeOutputFields)
 		if err != nil {
 			return nil, err
 		}
-		if len(respMap) > 0 {
-			finalMap["response"] = respMap
+		if respOrdMap.Len() > 0 {
+			finalOrdMap.Set("response", respOrdMap)
 		} else {
-			delete(finalMap, "response")
+			finalOrdMap.Delete("response")
 		}
 	}
 
-	return jsoniter.Marshal(finalMap)
+	return jsoniter.Marshal(finalOrdMap)
 }
