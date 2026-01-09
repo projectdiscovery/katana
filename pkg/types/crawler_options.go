@@ -2,6 +2,8 @@ package types
 
 import (
 	"context"
+	"log/slog"
+	"os/user"
 	"regexp"
 	"time"
 
@@ -43,6 +45,11 @@ type CrawlerOptions struct {
 	ProxyFilterPipeline *proxy.ProxyFilterPipeline
 	// ProxyConfig manages HTTP clients with proxy support
 	ProxyConfig *proxy.ProxyConfig
+
+	// Optional structured logger for headless crawler
+	Logger *slog.Logger
+	// ChromeUser is the user to use for chrome
+	ChromeUser *user.User
 }
 
 // NewCrawlerOptions creates a new crawler options structure
@@ -140,7 +147,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		CacheTTL:              time.Minute, // Cache results for 1 minute
 	}
 	proxyFilterPipeline := proxy.NewProxyFilterPipeline(proxyFilterConfig, extensionsValidator, scopeManager)
-	
+
 	// Validate proxy URL if provided
 	if options.Proxy != "" {
 		if err := proxy.ValidateProxyURL(options.Proxy); err != nil {
@@ -188,6 +195,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 			return nil, err
 		}
 		crawlerOptions.Wappalyzer = wappalyze
+	}
+
+	if options.MaxOnclickLinks <= 0 {
+		options.MaxOnclickLinks = 10
 	}
 
 	return crawlerOptions, nil
