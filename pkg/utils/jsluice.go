@@ -16,6 +16,14 @@ var (
 
 	// urlLikePattern matches strings that look like URLs or paths
 	urlLikePattern = regexp.MustCompile(`^(?:https?://|//|/[a-zA-Z]|\.\.?/|\./|[a-zA-Z][a-zA-Z0-9+.-]*://|/api/|/v\d+/)`)
+
+	// fallbackURLPatterns are compiled once for the regex fallback extractor
+	fallbackURLPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`['"]((https?://|//)[^'"]+)['"]`),
+		regexp.MustCompile(`['"](/[a-zA-Z][^'"]*?)['"]`),
+		regexp.MustCompile(`['"](\./[^'"]+)['"]`),
+		regexp.MustCompile(`['"](\.\./[^'"]+)['"]`),
+	}
 )
 
 // IsPathCommonJSLibraryFile checks if a given path is a common js library file.
@@ -371,9 +379,10 @@ func (e *endpointExtractor) handleCallExpression(call *ast.CallExpression) {
 			}
 		}
 	case "open":
-		// window.open(url) or open(url)
+		// window.open(url) - but NOT xhr.open(method, url) which is handled separately
+		// Only extract if the first argument looks like a URL (not an HTTP method)
 		if len(call.ArgumentList) > 0 {
-			if url := e.extractStringValue(call.ArgumentList[0]); url != "" {
+			if url := e.extractStringValue(call.ArgumentList[0]); url != "" && e.looksLikeURL(url) {
 				e.addEndpoint(url, "windowOpen")
 			}
 		}
@@ -678,15 +687,7 @@ func (e *endpointExtractor) looksLikeURL(s string) bool {
 
 // extractWithRegex is a fallback when AST parsing fails
 func (e *endpointExtractor) extractWithRegex(data string) {
-	// Simple regex patterns for common URL patterns
-	patterns := []*regexp.Regexp{
-		regexp.MustCompile(`['"]((https?://|//)[^'"]+)['"]`),
-		regexp.MustCompile(`['"](/[a-zA-Z][^'"]*?)['"]`),
-		regexp.MustCompile(`['"](\./[^'"]+)['"]`),
-		regexp.MustCompile(`['"](\.\./[^'"]+)['"]`),
-	}
-
-	for _, pattern := range patterns {
+	for _, pattern := range fallbackURLPatterns {
 		matches := pattern.FindAllStringSubmatch(data, -1)
 		for _, match := range matches {
 			if len(match) > 1 {

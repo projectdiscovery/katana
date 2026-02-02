@@ -116,6 +116,11 @@ func TestExtractJsluiceEndpoints(t *testing.T) {
 					t.Errorf("ExtractJsluiceEndpoints() missing expected URL %q, got %v", wantURL, endpoints)
 				}
 			}
+
+			// Check that no unexpected URLs were extracted
+			if len(endpoints) != len(tt.wantURLs) {
+				t.Errorf("ExtractJsluiceEndpoints() returned %d endpoints, want %d", len(endpoints), len(tt.wantURLs))
+			}
 		})
 	}
 }
