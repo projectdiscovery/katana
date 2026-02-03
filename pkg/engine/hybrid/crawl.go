@@ -158,16 +158,19 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		gologger.Warning().Msgf("\"%s\" on wait idle: %s\n", request.URL, err)
 	}
 
+    // Create a fresh timeout context for DOM extraction operations
+    domPage := page.Timeout(timeout)
+
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
-	result, err := getDocument.Call(page)
+	result, err := getDocument.Call(domPage)
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	body, err := domPage.HTML()
 	if err != nil {
 		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
 	}

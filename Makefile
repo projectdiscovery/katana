@@ -7,10 +7,11 @@ GOFLAGS := -v
 # This should be disabled if the binary uses pprof
 LDFLAGS := -s -w
 
+ifeq ($(STATIC),1)
 ifneq ($(shell go env GOOS),darwin)
-LDFLAGS := -extldflags "-static"
+LDFLAGS += -extldflags "-static"
 endif
-
+endif
 all: build
 build:
 	$(GOBUILD) $(GOFLAGS) -ldflags '$(LDFLAGS)' -o "katana" cmd/katana/main.go
