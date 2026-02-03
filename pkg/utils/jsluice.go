@@ -24,6 +24,12 @@ var (
 
 	// stringPattern matches quoted strings (single quotes, double quotes, or backticks)
 	stringPattern = regexp.MustCompile("[\"'`]([^\"'`]+)[\"'`]")
+
+	// ES module preprocessing patterns
+	// importPattern matches ES6 import statements
+	importPattern = regexp.MustCompile(`(?m)^\s*import\s+.*?from\s+['"][^'"]+['"];?\s*$|^\s*import\s+['"][^'"]+['"];?\s*$`)
+	// exportPattern matches ES6 export statements
+	exportPattern = regexp.MustCompile(`(?m)^\s*export\s+(default\s+)?`)
 )
 
 // IsPathCommonJSLibraryFile checks if a given path is a common js library file.
@@ -54,11 +60,41 @@ func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 		// If valid JavaScript, extract string literals using regex
 		endpoints = extractFromValidJS(data, seen)
 	} else {
-		// Fallback to simple regex extraction if not valid JS
-		endpoints = extractFromRegex(data, seen)
+		// If parsing failed, try preprocessing for ES module syntax
+		preprocessed := preprocessModuleCode(data)
+		_, err2 := parser.ParseFile(nil, "", preprocessed, 0)
+		if err2 == nil {
+			// Successfully parsed after preprocessing, extract from original data
+			endpoints = extractFromValidJS(data, seen)
+		} else {
+			// Fallback to simple regex extraction if not valid JS
+			endpoints = extractFromRegex(data, seen)
+		}
 	}
 
 	return endpoints
+}
+
+// preprocessModuleCode removes or comments out ES module syntax (import/export statements)
+// so the code can be parsed by parsers that don't support modules.
+// This allows extraction of endpoints from the rest of the code even if module syntax is present.
+func preprocessModuleCode(data string) string {
+	// Remove import statements (multiple forms):
+	// import X from 'module'
+	// import { X } from 'module'
+	// import * as X from 'module'
+	// import 'module'
+	data = importPattern.ReplaceAllString(data, "")
+
+	// Remove export statements (multiple forms):
+	// export default X
+	// export { X }
+	// export function X() {}
+	// export class X {}
+	// export const X = ...
+	data = exportPattern.ReplaceAllString(data, "")
+
+	return data
 }
 
 // extractFromValidJS extracts endpoints from valid JavaScript code
@@ -82,11 +118,9 @@ func extractFromValidJS(data string, seen map[string]bool) []JSLuiceEndpoint {
 	}
 
 	// Also apply regex patterns for better coverage
+	// Note: extractFromRegex already marks seen for its results, so we append unconditionally
 	for _, urlEndpoint := range extractFromRegex(data, seen) {
-		if !seen[urlEndpoint.Endpoint] {
-			seen[urlEndpoint.Endpoint] = true
-			endpoints = append(endpoints, urlEndpoint)
-		}
+		endpoints = append(endpoints, urlEndpoint)
 	}
 
 	return endpoints
