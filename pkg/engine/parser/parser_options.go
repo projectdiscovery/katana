@@ -1,5 +1,3 @@
-//go:build !(386 || windows)
-
 package parser
 
 import (
@@ -12,6 +10,7 @@ import (
 	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
+// Options contains parser configuration options.
 type Options struct {
 	AutomaticFormFill      bool
 	ScrapeJSLuiceResponses bool
@@ -19,6 +18,7 @@ type Options struct {
 	DisableRedirects       bool
 }
 
+// InitWithOptions initializes the parser with the given options.
 func (p *Parser) InitWithOptions(options *Options) {
 	if options.AutomaticFormFill {
 		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
@@ -37,7 +37,7 @@ func (p *Parser) InitWithOptions(options *Options) {
 	}
 }
 
-// scriptContentJsluiceParser parses script content endpoints using jsluice from response
+// scriptContentJsluiceParser parses script content endpoints using AST parsing from response
 func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
 		text := item.Text()
@@ -53,7 +53,7 @@ func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests [
 	return
 }
 
-// scriptJSFileJsluiceParser parses endpoints using jsluice from js file pages
+// scriptJSFileJsluiceParser parses endpoints using AST parsing from js file pages
 func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	// Only process javascript file based on path or content type
 	// CSS, JS are supported for relative endpoint extraction.
