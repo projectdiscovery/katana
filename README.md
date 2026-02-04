@@ -43,7 +43,7 @@
 katana requires Go 1.24+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
-CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
+go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
 **More options to install / run katana-**
@@ -122,7 +122,7 @@ CONFIGURATION:
    -r, -resolvers string[]       list of custom resolver (file or comma separated)
    -d, -depth int                maximum depth to crawl (default 3)
    -jc, -js-crawl                enable endpoint parsing / crawling in javascript file
-   -jsl, -jsluice                enable jsluice parsing in javascript file (memory intensive)
+   -jsl, -jsluice                enable endpoint parsing in javascript file using AST analysis
    -ct, -crawl-duration value    maximum duration to crawl the target for (s, m, h, d) (default s)
    -kf, -known-files string      enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled.
    -mrs, -max-response-size int  maximum response size to read (default 4194304)

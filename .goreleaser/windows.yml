@@ -11,8 +11,6 @@ builds:
     ldflags:
       - -s -w
     binary: katana
-    env:
-    - CGO_ENABLED=1
     main: ./cmd/katana/main.go
     goos:
       - windows
