@@ -18,6 +18,20 @@ import (
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
+// stderrLogger redirects rod download progress to stderr instead of stdout
+type stderrLogger struct{}
+
+func (l stderrLogger) Println(vs ...interface{}) {
+	fmt.Fprintln(os.Stderr, vs...)
+}
+
+// ensureBrowser downloads browser if needed, with output to stderr instead of stdout
+func ensureBrowser() {
+	browser := launcher.NewBrowser()
+	browser.Logger = stderrLogger{}
+	_ = browser.Download()
+}
+
 // Crawler is a standard crawler instance
 type Crawler struct {
 	*common.Shared
@@ -53,6 +67,10 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if options.Options.ChromeWSUrl != "" {
 		launcherURL = options.Options.ChromeWSUrl
 	} else {
+		// ensure browser is downloaded (with stderr logging instead of stdout)
+		if !options.Options.UseInstalledChrome && options.Options.SystemChromePath == "" {
+			ensureBrowser()
+		}
 		// create new chrome launcher instance
 		chromeLauncher, err = buildChromeLauncher(options, dataStore)
 		if err != nil {
@@ -205,6 +223,7 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*launcher.Launcher, error) {
 	chromeLauncher := launcher.New().
 		Leakless(true).
+		Logger(os.Stderr). // redirect browser output to stderr to avoid mixing with JSON output
 		Set("disable-gpu", "true").
 		Set("ignore-certificate-errors", "true").
 		Set("ignore-certificate-errors", "1").

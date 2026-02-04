@@ -59,6 +59,20 @@ type LauncherOptions struct {
 
 type ScopeValidator func(string) bool
 
+// stderrLogger redirects rod download progress to stderr instead of stdout
+type stderrLogger struct{}
+
+func (l stderrLogger) Println(vs ...interface{}) {
+	fmt.Fprintln(os.Stderr, vs...)
+}
+
+// ensureBrowser downloads browser if needed, with output to stderr instead of stdout
+func ensureBrowser() {
+	browser := launcher.NewBrowser()
+	browser.Logger = stderrLogger{}
+	_ = browser.Download()
+}
+
 // NewLauncher returns a new launcher instance
 func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	l := &Launcher{
@@ -74,8 +88,13 @@ func (l *Launcher) ScopeValidator() ScopeValidator {
 }
 
 func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
+	// ensure browser is downloaded (with stderr logging instead of stdout)
+	if l.opts.ChromiumPath == "" {
+		ensureBrowser()
+	}
 	chromeLauncher := launcher.New().
 		Leakless(true).
+		Logger(os.Stderr). // redirect browser output to stderr to avoid mixing with JSON output
 		Set("disable-gpu", "true").
 		Set("ignore-certificate-errors", "true").
 		Set("disable-crash-reporter", "true").

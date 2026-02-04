@@ -282,18 +282,26 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	var builder strings.Builder
+	var body string
+
+	// Try to get DOM - don't fail the request if this times out since we already have response data
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
+		gologger.Warning().Msgf("could not get dom for %s: %s (response data still captured)", request.URL, err)
+	} else {
+		traverseDOMNode(result.Root, &builder)
 	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	// Try to get HTML - don't fail if this times out
+	body, err = page.HTML()
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
+		gologger.Warning().Msgf("could not get html for %s: %s", request.URL, err)
+		if response != nil {
+			body = response.Body // fallback to body captured by page router
+		}
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -327,7 +335,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not parse html")
+		gologger.Warning().Msgf("could not parse html for %s: %s", request.URL, err)
 	}
 
 	response.XhrRequests = xhrRequests
