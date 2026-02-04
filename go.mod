@@ -101,7 +101,6 @@ require (
 	github.com/sashabaranov/go-openai v1.37.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
-	github.com/smacker/go-tree-sitter v0.0.0-20230720070738-0d0a9f78d8f8 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
@@ -171,3 +170,7 @@ require (
 	golang.org/x/tools v0.39.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+// Use jsluice fork with official tree-sitter bindings to fix build issues
+// This can be removed once https://github.com/BishopFox/jsluice/pull/33 is merged
+replace github.com/BishopFox/jsluice => github.com/1234-ad/jsluice v0.0.0-20260204150300-fbbc6fac5b14
