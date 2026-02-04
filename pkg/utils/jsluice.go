@@ -1,4 +1,4 @@
-//go:build !(386 || windows)
+//go:build !(386 || windows || nocgo)
 
 package utils
 
