@@ -316,13 +316,13 @@ func (v *urlVisitor) handleMemberCallExpression(member *ast.DotExpression, call 
 				v.addEndpoint(str, "xhr")
 			}
 		}
-	case "send":
-		if len(call.ArgumentList) >= 1 {
-			v.extractFromArgs(call.ArgumentList, "send")
-		}
 	case "assign", "replace":
 		// location.assign(url), location.replace(url)
-		v.extractFromArgs(call.ArgumentList, "location")
+		// Only extract from location objects to avoid String.replace() and Object.assign()
+		objName := getExpressionName(member.Left)
+		if isLocationObject(objName) {
+			v.extractFromArgs(call.ArgumentList, "location")
+		}
 	case "setAttribute":
 		// element.setAttribute("href", url)
 		if len(call.ArgumentList) >= 2 {

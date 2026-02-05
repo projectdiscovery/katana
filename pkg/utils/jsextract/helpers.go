@@ -57,7 +57,12 @@ func extractStringValue(expr ast.Expression) string {
 	case *ast.StringLiteral:
 		return e.Value.String()
 	case *ast.TemplateLiteral:
-		return buildTemplateString(e, true)
+		result := buildTemplateString(e, true)
+		// Avoid returning placeholder-only values like "EXPR"
+		if strings.TrimSpace(strings.ReplaceAll(result, "EXPR", "")) == "" {
+			return ""
+		}
+		return result
 	case *ast.BinaryExpression:
 		return handleBinaryExpression(e)
 	case *ast.Identifier:
