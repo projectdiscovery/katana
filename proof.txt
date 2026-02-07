@@ -1,0 +1,68 @@
+Proof of tests (issue #1367)
+Date: 2026-02-07T22:31:30Z
+
+> go test ./...
+?   	github.com/projectdiscovery/katana/cmd/functional-test	[no test files]
+?   	github.com/projectdiscovery/katana/cmd/integration-test	[no test files]
+?   	github.com/projectdiscovery/katana/cmd/katana	[no test files]
+?   	github.com/projectdiscovery/katana/cmd/tools/crawl-maze-score	[no test files]
+?   	github.com/projectdiscovery/katana/internal/runner	[no test files]
+?   	github.com/projectdiscovery/katana/internal/testutils	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/common	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/browser	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/crawler	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/graph	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/js	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/types	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/hybrid	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/parser	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/engine/parser/files	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/standard	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/navigation	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/output	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/types	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/extensions	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/filters	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/queue	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/scope	(cached)
+
+> CGO_ENABLED=1 go test -tags jsluice ./...
+?   	github.com/projectdiscovery/katana/cmd/functional-test	[no test files]
+?   	github.com/projectdiscovery/katana/cmd/integration-test	[no test files]
+?   	github.com/projectdiscovery/katana/cmd/katana	[no test files]
+?   	github.com/projectdiscovery/katana/cmd/tools/crawl-maze-score	[no test files]
+?   	github.com/projectdiscovery/katana/internal/runner	[no test files]
+?   	github.com/projectdiscovery/katana/internal/testutils	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/common	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/browser	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/crawler	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/graph	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/js	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/headless/types	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/engine/hybrid	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/engine/parser	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/engine/parser/files	(cached)
+?   	github.com/projectdiscovery/katana/pkg/engine/standard	[no test files]
+?   	github.com/projectdiscovery/katana/pkg/navigation	[no test files]
+ok  	github.com/projectdiscovery/katana/pkg/output	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/types	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/extensions	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/filters	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/queue	(cached)
+ok  	github.com/projectdiscovery/katana/pkg/utils/scope	(cached)

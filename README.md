@@ -43,7 +43,13 @@
 katana requires Go 1.24+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
-CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
+go install github.com/projectdiscovery/katana/cmd/katana@latest
+```
+
+To enable jsluice parsing (requires CGO and go-tree-sitter), build with:
+
+```console
+CGO_ENABLED=1 go install -tags jsluice github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
 **More options to install / run katana-**
@@ -206,6 +212,8 @@ OUTPUT:
    -debug                            display debug output
    -version                          display project version
 ```
+
+Note: `-jsl` requires building with `-tags jsluice` and `CGO_ENABLED=1`. Default builds omit jsluice and keep CGO off.
 
 ## Running Katana
 
