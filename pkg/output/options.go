@@ -29,4 +29,6 @@ type Options struct {
 	OutputMatchCondition  string
 	OutputFilterCondition string
 	ExcludeOutputFields   []string
+	QueryParamCount       []string
+	PathDepth             []string
 }

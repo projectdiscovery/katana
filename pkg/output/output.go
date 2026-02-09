@@ -16,6 +16,7 @@ import (
 	"github.com/projectdiscovery/dsl"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
@@ -64,6 +65,8 @@ type StandardWriter struct {
 	outputMatchCondition  string
 	outputFilterCondition string
 	excludeOutputFields   []string
+	queryParamCount       []string
+	pathDepth             []string
 }
 
 // New returns a new output writer instance
@@ -85,6 +88,8 @@ func New(options Options) (Writer, error) {
 		outputMatchCondition:  options.OutputMatchCondition,
 		outputFilterCondition: options.OutputFilterCondition,
 		excludeOutputFields:   options.ExcludeOutputFields,
+		queryParamCount:       options.QueryParamCount,
+		pathDepth:             options.PathDepth,
 	}
 
 	if options.StoreFieldDir != "" {
@@ -180,6 +185,28 @@ func (w *StandardWriter) Write(result *Result) error {
 	}
 	if w.filterOutput(result) {
 		return errors.New("result is filtered out")
+	}
+
+	// Filter by query parameter count
+	if len(w.queryParamCount) > 0 {
+		matches, err := utils.MatchesQueryParamCount(result.Request.URL, w.queryParamCount)
+		if err != nil {
+			return errkit.Wrap(err, "error checking query param count")
+		}
+		if !matches {
+			return errors.New("result does not match query param count filter")
+		}
+	}
+
+	// Filter by path depth
+	if len(w.pathDepth) > 0 {
+		matches, err := utils.MatchesPathDepth(result.Request.URL, w.pathDepth)
+		if err != nil {
+			return errkit.Wrap(err, "error checking path depth")
+		}
+		if !matches {
+			return errors.New("result does not match path depth filter")
+		}
 	}
 	var data []byte
 	var err error

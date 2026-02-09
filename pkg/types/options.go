@@ -186,6 +186,10 @@ type Options struct {
 	DisableUniqueFilter bool
 	// MaxOnclickLinks is the maximum number of onclick links to process per page (default: 10)
 	MaxOnclickLinks int
+	// QueryParamCount is a list of conditions to filter URLs based on query parameter count
+	QueryParamCount goflags.StringSlice
+	// PathDepth is a list of conditions to filter URLs based on path depth
+	PathDepth goflags.StringSlice
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

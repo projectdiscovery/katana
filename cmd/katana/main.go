@@ -213,6 +213,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
 		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
 		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
+		flagSet.StringSliceVarP(&options.QueryParamCount, "query-param-count", "cqp", nil, "filter URLs based on query parameter count (e.g., >=3, ==5, <2)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.PathDepth, "path-depth", "cpd", nil, "filter URLs based on path depth (e.g., >=4, ==3, <=2)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
