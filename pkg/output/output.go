@@ -262,6 +262,16 @@ func (w *StandardWriter) WriteErr(errMessage *Error) error {
 	w.outputMutex.Lock()
 	defer w.outputMutex.Unlock()
 
+	// Write to stdout when JSON output is enabled
+	if w.json {
+		gologger.Silent().Msgf("%s", string(data))
+		if w.outputFile != nil {
+			if err := w.outputFile.Write(data); err != nil {
+				return errkit.Wrap(err, "output: write error to output file")
+			}
+		}
+	}
+
 	if w.errorFile != nil {
 		if err := w.errorFile.Write(data); err != nil {
 			return errkit.Wrap(err, "output: write to error file")
