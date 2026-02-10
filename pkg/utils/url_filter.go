@@ -7,13 +7,15 @@ import (
 	"strings"
 )
 
-// Condition represents a comparison condition
+// Condition represents a comparison condition.
 type Condition struct {
+	// Operator is the comparison operator (>=, <=, ==, >, <).
 	Operator string
-	Value    int
+	// Value is the numeric value to compare against.
+	Value int
 }
 
-// ParseCondition parses a condition string like ">=3", "==5", "<2"
+// ParseCondition parses a condition string like ">=3", "==5", "<2".
 func ParseCondition(condStr string) (*Condition, error) {
 	condStr = strings.TrimSpace(condStr)
 
@@ -35,7 +37,7 @@ func ParseCondition(condStr string) (*Condition, error) {
 	return nil, fmt.Errorf("invalid condition format: %s (expected format: >=3, ==5, <2, etc.)", condStr)
 }
 
-// Evaluate checks if the actual value satisfies the condition
+// Evaluate checks if the actual value satisfies the condition.
 func (c *Condition) Evaluate(actual int) bool {
 	switch c.Operator {
 	case ">=":
@@ -53,7 +55,7 @@ func (c *Condition) Evaluate(actual int) bool {
 	}
 }
 
-// CountQueryParams counts the number of query parameters in a URL
+// CountQueryParams counts the number of query parameters in a URL.
 func CountQueryParams(rawURL string) (int, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
@@ -64,8 +66,8 @@ func CountQueryParams(rawURL string) (int, error) {
 	return len(values), nil
 }
 
-// CountPathDepth counts the depth of the path in a URL
-// For example: /a/b/c has depth 3, / has depth 0
+// CountPathDepth counts the depth of the path in a URL.
+// For example: /a/b/c has depth 3, / has depth 0.
 func CountPathDepth(rawURL string) (int, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
@@ -81,7 +83,7 @@ func CountPathDepth(rawURL string) (int, error) {
 	return len(segments), nil
 }
 
-// CheckConditions checks if a value satisfies all conditions
+// CheckConditions checks if a value satisfies all conditions.
 func CheckConditions(value int, conditionStrs []string) (bool, error) {
 	if len(conditionStrs) == 0 {
 		return true, nil
@@ -101,7 +103,7 @@ func CheckConditions(value int, conditionStrs []string) (bool, error) {
 	return true, nil
 }
 
-// MatchesQueryParamCount checks if URL matches query parameter count conditions
+// MatchesQueryParamCount checks if URL matches query parameter count conditions.
 func MatchesQueryParamCount(rawURL string, conditions []string) (bool, error) {
 	if len(conditions) == 0 {
 		return true, nil
@@ -115,7 +117,7 @@ func MatchesQueryParamCount(rawURL string, conditions []string) (bool, error) {
 	return CheckConditions(count, conditions)
 }
 
-// MatchesPathDepth checks if URL matches path depth conditions
+// MatchesPathDepth checks if URL matches path depth conditions.
 func MatchesPathDepth(rawURL string, conditions []string) (bool, error) {
 	if len(conditions) == 0 {
 		return true, nil
