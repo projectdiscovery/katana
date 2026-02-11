@@ -275,6 +275,10 @@ func walkExpression(expr ast.Expression, emit func(value, kind string)) {
 		walkExpression(e.Argument, emit)
 	case *ast.AwaitExpression:
 		walkExpression(e.Argument, emit)
+	case *ast.Optional:
+		walkExpression(e.Expression, emit)
+	case *ast.OptionalChain:
+		walkExpression(e.Expression, emit)
 	}
 }
 
@@ -380,6 +384,8 @@ func classifyCallType(funcName string) string {
 	switch {
 	case lower == "fetch":
 		return "fetch"
+	case lower == "window.open":
+		return "window_open"
 	case strings.Contains(lower, "open"):
 		return "xhr"
 	case strings.HasPrefix(lower, "$.") || strings.HasPrefix(lower, "jquery"):
@@ -396,7 +402,7 @@ func classifyCallType(funcName string) string {
 // isXHROpen checks if the function name matches XMLHttpRequest.open or similar.
 func isXHROpen(funcName string) bool {
 	lower := strings.ToLower(funcName)
-	return strings.HasSuffix(lower, ".open") && funcName != "window.open"
+	return strings.HasSuffix(lower, ".open") && lower != "window.open"
 }
 
 // isURLProperty checks if a property name typically contains URLs.
