@@ -282,16 +282,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	// Use a fresh timeout for DOM extraction to avoid context deadline errors
+	// when the original timeout has been consumed by navigation, page stability
+	// waiting, and onclick link processing. (fixes #611)
+	domPage := page.CancelTimeout().Timeout(timeout)
+
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
-	result, err := getDocument.Call(page)
+	result, err := getDocument.Call(domPage)
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not get dom")
 	}
 	var builder strings.Builder
 	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	body, err := domPage.HTML()
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
