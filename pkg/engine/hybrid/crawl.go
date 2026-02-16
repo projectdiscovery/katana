@@ -282,14 +282,17 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	var builder strings.Builder
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
+		// DOM traversal can fail due to context deadline on slow pages;
+		// log a warning and continue with regular HTML extraction
+		gologger.Warning().Msgf("hybrid: could not get dom for %s: %v", request.URL, err)
+	} else {
+		traverseDOMNode(result.Root, &builder)
 	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
