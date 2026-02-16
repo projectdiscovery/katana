@@ -182,9 +182,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			gologger.Warning().Msgf("%s\n", err)
 		}
 	}()
-
 	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
+	if c.Options.Options.Headless && c.Options.Options.JSONL {
+		timeout = timeout * 2
+	}
 	page = page.Timeout(timeout)
+	
+	
 
 	navigatedURLs := sliceutil.NewSyncSlice[string]()
 	navigatedURLs.Append(request.URL)
