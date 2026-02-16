@@ -183,8 +183,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}()
 
-	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
+		timeout := time.Duration(c.Options.Options.Timeout) * time.Second
+
+	if c.Options.Options.Headless && c.Options.Options.JSON {
+		timeout = timeout * 2
+	}
 	page = page.Timeout(timeout)
+	
 
 	navigatedURLs := sliceutil.NewSyncSlice[string]()
 	navigatedURLs.Append(request.URL)
