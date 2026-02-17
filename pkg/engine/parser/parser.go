@@ -1,4 +1,4 @@
-٦،package parser
+package parser
 
 import (
 	"mime/multipart"
