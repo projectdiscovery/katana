@@ -32,7 +32,7 @@ const (
 type responseParser struct {
 	parserType responseParserType
 	parserFunc ResponseParserFunc
-}
+p.SetLanguage(javascript.Language())
 
 func NewResponseParser() *Parser {
 	return &Parser{
