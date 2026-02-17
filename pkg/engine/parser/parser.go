@@ -32,16 +32,12 @@ const (
 type responseParser struct {
 	parserType responseParserType
 	parserFunc ResponseParserFunc
-}
-
 func NewResponseParser() *Parser {
-	return &Parser{
-		// Header based parsers
+	p := &Parser{
 		{headerParser, headerContentLocationParser},
 		{headerParser, headerLinkParser},
 		{headerParser, headerRefreshParser},
 
-		// Body based parsers
 		{bodyParser, bodyATagParser},
 		{bodyParser, bodyLinkHrefTagParser},
 		{bodyParser, bodyBackgroundTagParser},
@@ -69,11 +65,12 @@ func NewResponseParser() *Parser {
 		{bodyParser, bodyHtmlDoctypeTagParser},
 		{bodyParser, bodyHtmxAttrParser},
 
-		// custom field regex parser
 		{bodyParser, customFieldRegexParser},
 	}
+	p.SetLanguage(javascript.Language())
+	return p
 }
-
+	
 // parseResponse runs the response parsers on the navigation response
 func (p *Parser) ParseResponse(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	for _, parser := range *p {
