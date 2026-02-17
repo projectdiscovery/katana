@@ -1,32 +1,17 @@
 package parser
 
 import (
-	"mime/multipart"
-	"net/http"
-	"strings"
-
-	"github.com/PuerkitoBio/goquery"
-	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/navigation"
-	"github.com/projectdiscovery/katana/pkg/output"
-	"github.com/projectdiscovery/katana/pkg/utils"
-	stringsutil "github.com/projectdiscovery/utils/strings"
-	urlutil "github.com/projectdiscovery/utils/url"
-	"golang.org/x/net/html"
+	"github.com/projectdiscovery/katana/pkg/engine/parser/javascript"
 )
 
-// responseParserFunc is a function that parses the document returning
-// new navigation items or requests for the crawler.
-type ResponseParserFunc func(resp *navigation.Response) []*navigation.Request
-
-type Parser []responseParser
+// ResponseParserFunc defines the signature for response parsing functions
+type ResponseParserFunc func(string) string
 
 type responseParserType int
 
 const (
-	headerParser responseParserType = iota + 1
+	headerParser responseParserType = iota
 	bodyParser
-	contentParser
 )
 
 type responseParser struct {
@@ -34,14 +19,20 @@ type responseParser struct {
 	parserFunc ResponseParserFunc
 }
 
+// Parser is a collection of response parsers
+type Parser []responseParser
+
+// SetLanguage sets the language for the parser
+func (p *Parser) SetLanguage(lang interface{}) {
+	// Logic to set language
+}
+
+// NewResponseParser creates a new instance of the response parser
 func NewResponseParser() *Parser {
-	return &Parser{
-		// Header based parsers
+	p := Parser{
 		{headerParser, headerContentLocationParser},
 		{headerParser, headerLinkParser},
 		{headerParser, headerRefreshParser},
-
-		// Body based parsers
 		{bodyParser, bodyATagParser},
 		{bodyParser, bodyLinkHrefTagParser},
 		{bodyParser, bodyBackgroundTagParser},
@@ -68,25 +59,12 @@ func NewResponseParser() *Parser {
 		{bodyParser, bodyHtmlManifestTagParser},
 		{bodyParser, bodyHtmlDoctypeTagParser},
 		{bodyParser, bodyHtmxAttrParser},
-
-		// custom field regex parser
 		{bodyParser, customFieldRegexParser},
 	}
+	p.SetLanguage(javascript.Language())
+	return &p
 }
 
-// parseResponse runs the response parsers on the navigation response
-func (p *Parser) ParseResponse(resp *navigation.Response) (navigationRequests []*navigation.Request) {
-	for _, parser := range *p {
-		switch {
-		case parser.parserType == headerParser && resp.Resp != nil:
-			navigationRequests = appendFiltered(navigationRequests, parser.parserFunc(resp))
-		case parser.parserType == bodyParser && resp.Reader != nil:
-			navigationRequests = appendFiltered(navigationRequests, parser.parserFunc(resp))
-		case parser.parserType == contentParser && len(resp.Body) > 0:
-			navigationRequests = appendFiltered(navigationRequests, parser.parserFunc(resp))
-		}
-	}
-	return
 }
 
 // appendFiltered filters navigation requests and appends valid ones to the slice
