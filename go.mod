@@ -171,3 +171,8 @@ require (
 	golang.org/x/tools v0.39.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+require (
+	github.com/project/pure-go-parser v1.0.0
+	...
+)

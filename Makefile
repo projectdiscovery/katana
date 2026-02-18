@@ -22,3 +22,6 @@ tidy:
 	$(GOMOD) tidy
 lint:
 	golangci-lint run ./...
+
+build-darwin-arm:
+	GOOS=darwin GOARCH=arm64 go build ...
