@@ -1,5 +1,5 @@
 FROM golang:1.25.5-alpine AS build-env
-RUN apk add --no-cache git gcc musl-dev
+RUN apk add --no-cache git
 WORKDIR /app
 COPY . /app
 RUN go mod download

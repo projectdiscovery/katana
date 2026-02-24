@@ -12,7 +12,7 @@ builds:
       - -s -w
     binary: katana
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     main: ./cmd/katana/main.go
     goos:
       - linux
@@ -34,8 +34,7 @@ builds:
       - -s -w
     binary: katana
     env:
-      - CGO_ENABLED=1
-      - CC=aarch64-linux-gnu-gcc
+      - CGO_ENABLED=0
     main: ./cmd/katana/main.go
     goos:
       - linux
