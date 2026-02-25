@@ -282,6 +282,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	// Use a fresh timeout for DOM retrieval so that navigation and WaitStable
+	// cannot exhaust the page deadline before DOMGetDocument is called.
+	page = page.Timeout(timeout)
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
