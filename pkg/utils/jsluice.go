@@ -1,11 +1,7 @@
-//go:build !(386 || windows)
-
 package utils
 
 import (
 	"regexp"
-
-	"github.com/BishopFox/jsluice"
 )
 
 var (
@@ -24,29 +20,26 @@ type JSLuiceEndpoint struct {
 	Type     string
 }
 
-// ExtractJsluiceEndpoints extracts jsluice endpoints from a given string.
+// ExtractJsluiceEndpoints extracts URL endpoints from JavaScript source code
+// using a pure-Go tree-sitter parser (no CGO required).
 //
-// We use tomnomnom and bishopfox's jsluice to extract endpoints from javascript
-// files.
-//
-// We apply several optimizations before running jsluice:
-//   - We skip common js library files.
-//   - We skip lines that are too long and contain a lot of characters.
+// This replaces the previous jsluice/CGO implementation while maintaining the
+// same API contract. It detects:
+//   - fetch(), import() calls
+//   - XMLHttpRequest .open() calls
+//   - jQuery AJAX methods ($.get, $.post, $.ajax, $.getJSON)
+//   - location assignments and method calls
+//   - window.open() calls
+//   - URL-like string literals
+//   - String concatenation and template literals (resolved with EXPR placeholders)
 func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
-	analyzer := jsluice.NewAnalyzer([]byte(data))
-
-	// TODO: add new user url matchers
-	// analyzer.AddURLMatcher(matcher)
-
-	var endpoints []JSLuiceEndpoint
-	foundURLs := analyzer.GetURLs()
-
-	for _, url := range foundURLs {
-		url := url
-		endpoints = append(endpoints, JSLuiceEndpoint{
-			Endpoint: url.URL,
-			Type:     url.Type,
-		})
+	eps := extractEndpoints([]byte(data))
+	out := make([]JSLuiceEndpoint, len(eps))
+	for i, ep := range eps {
+		out[i] = JSLuiceEndpoint{
+			Endpoint: ep.URL,
+			Type:     ep.Type,
+		}
 	}
-	return endpoints
+	return out
 }
