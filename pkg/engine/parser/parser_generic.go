@@ -1,5 +1,3 @@
-//go:build !(386 || windows)
-
 package parser
 
 import (
@@ -12,6 +10,7 @@ import (
 	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
+// Options contains parser configuration options.
 type Options struct {
 	AutomaticFormFill      bool
 	ScrapeJSLuiceResponses bool
@@ -19,6 +18,7 @@ type Options struct {
 	DisableRedirects       bool
 }
 
+// InitWithOptions initializes the parser with the given options.
 func (p *Parser) InitWithOptions(options *Options) {
 	if options.AutomaticFormFill {
 		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
