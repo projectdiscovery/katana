@@ -282,6 +282,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	// The page-level timeout set earlier is shared across navigation, WaitStable,
+	// and onclick processing. On heavier pages those phases can consume most or
+	// all of the budget, leaving DOM retrieval with an already-expired context.
+	// Cancel the previous timeout and allocate a fresh window so that DOM and
+	// HTML extraction always have enough time to complete.
+	page = page.CancelTimeout().Timeout(timeout)
+
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
