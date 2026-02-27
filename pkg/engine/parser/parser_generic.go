@@ -20,6 +20,9 @@ type Options struct {
 
 // InitWithOptions initializes the parser with the given options.
 func (p *Parser) InitWithOptions(options *Options) {
+	if options == nil {
+		return
+	}
 	if options.AutomaticFormFill {
 		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
 	}

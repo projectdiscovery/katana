@@ -26,7 +26,7 @@ var (
 	commonJSLibraryFileRegexCompiled = regexp.MustCompile(CommonJSLibraryFileRegex)
 
 	// es6ImportExportRegex matches ES6 import/export statements for preprocessing.
-	es6ImportExportRegex = regexp.MustCompile(`(?m)^\s*(?:import\s+.*?(?:from\s+)?['"].*?['"];?\s*$|export\s+(?:default\s+)?(?:function|class|const|let|var|async)\s)`)
+	es6ImportExportRegex = regexp.MustCompile(`(?m)^\s*(?:import\s+.*?(?:from\s+)?['"].*?['"];?\s*$|export\s+(?:default\s+)?(?:function|class|const|let|var|async)\s|export\s*\{[^}]*\}\s*(?:from\s*['"][^'"]*['"])?\s*;?\s*$|export\s*\*\s*from\s*['"][^'"]*['"];?\s*$)`)
 )
 
 // IsPathCommonJSLibraryFile checks if a given path is a common js library file.
