@@ -55,6 +55,13 @@ var jsURLPatterns = []struct {
 // stripJSComments returns the source with JS line (//) and block (/* */)
 // comments removed. String literals are copied verbatim so that the regex
 // patterns applied afterwards can still see their call-site context.
+//
+// Limitation: JavaScript regex literals are not recognised, so a regex
+// containing // or /* (e.g. /https?:\/\//) will be misinterpreted as a
+// comment delimiter, potentially stripping code on the same line.
+//
+// Limitation: Template expression depth tracking (${...}) uses simple brace
+// counting and does not account for braces inside nested string literals.
 func stripJSComments(data string) string {
 	var sb strings.Builder
 	sb.Grow(len(data))
@@ -74,12 +81,18 @@ func stripJSComments(data string) string {
 		case ch == '/' && i+1 < n && data[i+1] == '*':
 			// Block comment — skip to */
 			i += 2
+			found := false
 			for i+1 < n {
 				if data[i] == '*' && data[i+1] == '/' {
 					i += 2
+					found = true
 					break
 				}
 				i++
+			}
+			// If unterminated, consume any remaining character so it is not emitted.
+			if !found {
+				i = n
 			}
 
 		case ch == '\'' || ch == '"' || ch == '`':
@@ -267,8 +280,14 @@ func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 		}
 	}
 
-	// 2. Generic string literal extraction — catches any remaining URL strings
+	// 2. Generic string literal extraction — catches any remaining URL strings.
+	// Skip strings containing "EXPR" since those are template literal artifacts
+	// (e.g. "/api/usersEXPR") that were already captured with the original
+	// ${...} syntax by the pattern pass above.
 	for _, s := range extractJSStrings(cleaned) {
+		if strings.Contains(s, "EXPR") {
+			continue
+		}
 		add(s, "string")
 	}
 

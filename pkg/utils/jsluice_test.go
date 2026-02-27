@@ -149,9 +149,10 @@ func TestExtractJsluiceEndpoints(t *testing.T) {
 			wantURLs: nil,
 		},
 		{
-			name:     "template literal with fetch",
-			input:    "fetch(`/api/users/${id}`)",
-			wantURLs: []string{"/api/users/${id}"},
+			name:        "template literal with fetch",
+			input:       "fetch(`/api/users/${id}`)",
+			wantURLs:    []string{"/api/users/${id}"},
+			excludeURLs: []string{"/api/usersEXPR"},
 		},
 		{
 			name:     "protocol-relative URL",
@@ -213,6 +214,11 @@ func TestStripJSComments(t *testing.T) {
 			name:  "block comment inside string preserved",
 			input: `var s = "/* not a comment */";`,
 			want:  `var s = "/* not a comment */";`,
+		},
+		{
+			name:  "unterminated block comment consumed",
+			input: "var x = 1; /* unterminated",
+			want:  "var x = 1; ",
 		},
 	}
 	for _, tt := range tests {
