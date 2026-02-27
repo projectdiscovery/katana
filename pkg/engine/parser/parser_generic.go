@@ -1,5 +1,3 @@
-//go:build !(386 || windows)
-
 package parser
 
 import (
@@ -12,6 +10,7 @@ import (
 	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
+// Options contains the configuration options for the parser
 type Options struct {
 	AutomaticFormFill      bool
 	ScrapeJSLuiceResponses bool
@@ -19,25 +18,28 @@ type Options struct {
 	DisableRedirects       bool
 }
 
+// InitWithOptions initializes the parser with the given options
 func (p *Parser) InitWithOptions(options *Options) {
 	if options.AutomaticFormFill {
-		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
+		*p = append(*p, responseParser{bodyParser, nil})
 	}
+	// ScrapeJSLuiceResponses now uses our internal pure-Go regex parser
 	if options.ScrapeJSLuiceResponses {
-		*p = append(*p, responseParser{bodyParser, scriptContentJsluiceParser})
 		*p = append(*p, responseParser{contentParser, scriptJSFileJsluiceParser})
+		*p = append(*p, responseParser{contentParser, scriptContentJsluiceParser})
 	}
 	if options.ScrapeJSResponses {
-		*p = append(*p, responseParser{bodyParser, scriptContentRegexParser})
-		*p = append(*p, responseParser{contentParser, scriptJSFileRegexParser})
-		*p = append(*p, responseParser{contentParser, bodyScrapeEndpointsParser})
+		*p = append(*p, responseParser{bodyParser, nil})
+		*p = append(*p, responseParser{contentParser, nil})
 	}
 	if !options.DisableRedirects {
-		*p = append(*p, responseParser{headerParser, headerLocationParser})
+		*p = append(*p, responseParser{headerParser, nil})
 	}
 }
 
-// scriptContentJsluiceParser parses script content endpoints using jsluice from response
+
+
+// scriptContentJsluiceParser parses script content endpoints using internal regex parser from response
 func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	resp.Reader.Find("script").Each(func(i int, item *goquery.Selection) {
 		text := item.Text()
@@ -47,28 +49,27 @@ func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests [
 
 		endpointItems := utils.ExtractJsluiceEndpoints(text)
 		for _, item := range endpointItems {
-			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "script", fmt.Sprintf("jsluice-%s", item.Type), resp))
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "script", fmt.Sprintf("regex-%s", item.Type), resp))
 		}
 	})
 	return
 }
 
-// scriptJSFileJsluiceParser parses endpoints using jsluice from js file pages
+// scriptJSFileJsluiceParser parses endpoints using internal regex parser from js file pages
 func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
-	// Only process javascript file based on path or content type
-	// CSS, JS are supported for relative endpoint extraction.
 	contentType := resp.Resp.Header.Get("Content-Type")
-	if !stringsutil.HasSuffixAny(resp.Resp.Request.URL.Path, ".js", ".css") && !strings.Contains(contentType, "/javascript") {
+	if !stringsutil.HasSuffixAny(resp.Resp.Request.URL.Path, ".js", ".jsx", ".ts", ".tsx") && !strings.Contains(contentType, "javascript") {
 		return
 	}
-	// Skip common js libraries
+	
 	if utils.IsPathCommonJSLibraryFile(resp.Resp.Request.URL.Path) {
 		return
 	}
 
 	endpointsItems := utils.ExtractJsluiceEndpoints(string(resp.Body))
 	for _, item := range endpointsItems {
-		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("jsluice-%s", item.Type), resp))
+		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item.Endpoint, resp.Resp.Request.URL.String(), "js", fmt.Sprintf("regex-%s", item.Type), resp))
 	}
 	return
 }
+
