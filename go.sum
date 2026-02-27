@@ -284,8 +284,8 @@ github.com/nwaples/rardecode/v2 v2.2.2 h1:/5oL8dzYivRM/tqX9VcTSWfbpwcbwKG1QtSJr3
 github.com/nwaples/rardecode/v2 v2.2.2/go.mod h1:7uz379lSxPe6j9nvzxUZ+n7mnJNgjsRNb6IbvGVHRmw=
 github.com/nxadm/tail v1.4.11 h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=
 github.com/nxadm/tail v1.4.11/go.mod h1:OTaG3NK980DZzxbRq6lEuzgU+mug70nY11sMd4JXXHc=
-github.com/odvcencio/gotreesitter v0.5.3-0.20260227054203-b8f38a96b956 h1:MbVenaBN5yJlqCmsvlpWngikSDXmXS8GlOWRVFgTJcQ=
-github.com/odvcencio/gotreesitter v0.5.3-0.20260227054203-b8f38a96b956/go.mod h1:CEjhRXmfP38AHqxwWxNcLaMsLQ3YoGMrwNGle1huZdU=
+github.com/odvcencio/gotreesitter v0.5.3-0.20260227062155-717a376038a2 h1:qkbjcMvdKGtfaGlpPYwW94vBG+26oL+4Od+pqI8PYSY=
+github.com/odvcencio/gotreesitter v0.5.3-0.20260227062155-717a376038a2/go.mod h1:CEjhRXmfP38AHqxwWxNcLaMsLQ3YoGMrwNGle1huZdU=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.16.4 h1:29JGrr5oVBm5ulCWet69zQkzWipVXIol6ygQUe/EzNc=

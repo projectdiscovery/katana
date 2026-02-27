@@ -16,7 +16,7 @@ require (
 	github.com/lukasbob/srcset v0.0.0-20190730101422-86b742e617f3
 	github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/odvcencio/gotreesitter v0.5.3-0.20260227054203-b8f38a96b956
+	github.com/odvcencio/gotreesitter v0.5.3-0.20260227062155-717a376038a2
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/dsl v0.8.5
 	github.com/projectdiscovery/fastdialer v0.5.2
