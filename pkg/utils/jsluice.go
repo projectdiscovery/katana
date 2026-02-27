@@ -3,8 +3,6 @@ package utils
 import (
 	"regexp"
 	"strings"
-
-	"github.com/dop251/goja"
 )
 
 type JsluiceEndpoint struct {
@@ -12,41 +10,14 @@ type JsluiceEndpoint struct {
 	Type     string
 }
 
-var stringPattern = regexp.MustCompile(`(["'])(?:(?=(\\?))\2.)*?\1`)
-var urlPattern = regexp.MustCompile(`(?i)^(?:/|[a-z0-9.\-_]+://|[a-z0-9_\-/]+\.(?:php|asp|aspx|jsp|json|js|html|xml))(?:[a-z0-9\-._~:/?#\[\]@!$&'()*+,;=]+)?$`)
+// JSLuiceEndpoint is an alias for backward compatibility
+type JSLuiceEndpoint = JsluiceEndpoint
 
-func ExtractJsluiceEndpoints(data string) []JsluiceEndpoint {
-	var endpoints []JsluiceEndpoint
-	seen := make(map[string]bool)
-
-	vm := goja.New()
-	_, _ = vm.RunString(data)
-
-	matches := stringPattern.FindAllStringSubmatch(data, -1)
-	for _, match := range matches {
-		if len(match) > 0 {
-			val := strings.Trim(match[0], "\"'")
-			val = strings.TrimSpace(val)
-
-			if len(val) >= 2 && urlPattern.MatchString(val) {
-				if !seen[val] {
-					seen[val] = true
-					endpoints = append(endpoints, JsluiceEndpoint{
-						Endpoint: val,
-						Type:     "stringLiteral",
-					})
-				}
-			}
-		}
-	}
-
-	return endpoints
-}
-
-// IsPathCommonJSLibraryFile checks if the path is a common js library file
-func IsPathCommonJSLibraryFile(path string) bool {
-	lowerPath := strings.ToLower(path)
-	commonLibs := []string{
+var (
+	stringPattern = regexp.MustCompile(`(["'])(?:(?=(\\?))\2.)*?\1`)
+	urlPattern    = regexp.MustCompile(`(?i)^(?:/|[a-z0-9.\-_]+://|[a-z0-9_\-/]+\.(?:php|asp|aspx|jsp|json|js|html|xml))(?:[a-z0-9\-._~:/?#\[\]@!$&'()*+,;=]+)?$`)
+	
+	commonLibs = []string{
 		"jquery", "bootstrap", "react", "vue", "angular", "lodash",
 		"moment", "d3", "chart.js", "axios", "sweetalert", "toastr",
 		"font-awesome", "modernizr", "popper.js", "slick", "swiper",
@@ -67,7 +38,35 @@ func IsPathCommonJSLibraryFile(path string) bool {
 		"numeric", "gl-matrix", "gl-vec2", "gl-vec3", "gl-vec4",
 		"gl-mat2", "gl-mat3", "gl-mat4", "gl-quat", "backbone", "underscore",
 	}
+)
 
+func ExtractJsluiceEndpoints(data string) []JsluiceEndpoint {
+	var endpoints []JsluiceEndpoint
+	seen := make(map[string]bool)
+
+	matches := stringPattern.FindAllStringSubmatch(data, -1)
+	for _, match := range matches {
+		if len(match) > 0 {
+			val := strings.Trim(match[0], "\"'")
+			val = strings.TrimSpace(val)
+
+			if val != "" && urlPattern.MatchString(val) {
+				if !seen[val] {
+					seen[val] = true
+					endpoints = append(endpoints, JsluiceEndpoint{
+						Endpoint: val,
+						Type:     "stringLiteral",
+					})
+				}
+			}
+		}
+	}
+
+	return endpoints
+}
+
+func IsPathCommonJSLibraryFile(path string) bool {
+	lowerPath := strings.ToLower(path)
 	for _, lib := range commonLibs {
 		if strings.Contains(lowerPath, lib) {
 			return true
