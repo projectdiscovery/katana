@@ -172,6 +172,14 @@ func isLikelyURL(s string) bool {
 	if strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") {
 		return true
 	}
+	// Plain relative paths (e.g. "api/v1/users") — must contain a slash,
+	// no whitespace, and not start with a fragment or query marker.
+	if strings.Contains(s, "/") &&
+		!strings.ContainsAny(s, " \t\r\n") &&
+		!strings.HasPrefix(s, "#") &&
+		!strings.HasPrefix(s, "?") {
+		return true
+	}
 	return false
 }
 

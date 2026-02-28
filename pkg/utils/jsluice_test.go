@@ -159,6 +159,16 @@ func TestExtractJsluiceEndpoints(t *testing.T) {
 			input:    `var cdn = "//cdn.example.com/script.js";`,
 			wantURLs: []string{"//cdn.example.com/script.js"},
 		},
+		{
+			name:     "plain relative path",
+			input:    `fetch("api/v1/users")`,
+			wantURLs: []string{"api/v1/users"},
+		},
+		{
+			name:     "plain relative path in string literal",
+			input:    `var endpoint = "admin/settings/config";`,
+			wantURLs: []string{"admin/settings/config"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -241,6 +251,8 @@ func TestIsLikelyURL(t *testing.T) {
 		{"//cdn.example.com/script.js", true},
 		{"./relative/path", true},
 		{"../parent/path", true},
+		{"api/v1/users", true},
+		{"assets/js/app.js", true},
 		{"hello world", false},
 		{"data:image/png;base64,abc", false},
 		{"http://www.w3.org/1999/xhtml", false},
