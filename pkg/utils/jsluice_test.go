@@ -169,6 +169,18 @@ func TestExtractJsluiceEndpoints(t *testing.T) {
 			input:    `var endpoint = "admin/settings/config";`,
 			wantURLs: []string{"admin/settings/config"},
 		},
+		{
+			name:        "MIME types not extracted as endpoints",
+			input:       `var headers = {"Content-Type": "application/json", "Accept": "text/html"};`,
+			wantURLs:    nil,
+			excludeURLs: []string{"application/json", "text/html"},
+		},
+		{
+			name:        "MIME type with params not extracted",
+			input:       `var ct = "text/html; charset=utf-8";`,
+			wantURLs:    nil,
+			excludeURLs: []string{"text/html; charset=utf-8", "text/html"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -258,6 +270,22 @@ func TestIsLikelyURL(t *testing.T) {
 		{"http://www.w3.org/1999/xhtml", false},
 		{"", false},
 		{"/", false},
+		// MIME types must be rejected (false positives)
+		{"application/json", false},
+		{"application/xml", false},
+		{"text/plain", false},
+		{"text/html", false},
+		{"image/png", false},
+		{"image/jpeg", false},
+		{"audio/mpeg", false},
+		{"video/mp4", false},
+		{"font/woff2", false},
+		{"multipart/form-data", false},
+		{"application/octet-stream", false},
+		{"text/html; charset=utf-8", false},
+		{"application/x-www-form-urlencoded", false},
+		// MIME-like but with dots/paths should still be accepted
+		{"application/api.v1.json", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

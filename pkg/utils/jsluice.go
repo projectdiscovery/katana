@@ -142,6 +142,53 @@ func stripJSComments(data string) string {
 	return sb.String()
 }
 
+// mimeTypePrefixes lists the standard IANA top-level media type prefixes.
+// Used to reject MIME values (e.g. "application/json") that would otherwise
+// pass the plain-relative-path heuristic in isLikelyURL.
+var mimeTypePrefixes = []string{
+	"application/",
+	"text/",
+	"image/",
+	"audio/",
+	"video/",
+	"font/",
+	"multipart/",
+	"message/",
+	"model/",
+	"chemical/",
+	"x-conference/",
+}
+
+// isMIMEType returns true if s looks like a MIME type value (e.g.
+// "application/json", "text/html; charset=utf-8"). It checks for a known
+// top-level type prefix and ensures the value contains exactly one slash
+// before any parameters (semicolon-delimited).
+func isMIMEType(s string) bool {
+	// Work on the part before any parameters (e.g. "; charset=utf-8").
+	base := s
+	if idx := strings.IndexByte(s, ';'); idx >= 0 {
+		base = s[:idx]
+	}
+	base = strings.TrimSpace(base)
+	lower := strings.ToLower(base)
+
+	// A MIME type has exactly one slash and no path-like separators.
+	if strings.Count(lower, "/") != 1 {
+		return false
+	}
+	// Must not contain dots, query params, or anchors — those indicate
+	// file paths or URLs, not MIME types.
+	if strings.ContainsAny(lower, ".?&=#") {
+		return false
+	}
+	for _, prefix := range mimeTypePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // isLikelyURL returns true if the string looks like a URL or path worth
 // reporting as an endpoint.
 func isLikelyURL(s string) bool {
@@ -178,6 +225,12 @@ func isLikelyURL(s string) bool {
 		!strings.ContainsAny(s, " \t\r\n") &&
 		!strings.HasPrefix(s, "#") &&
 		!strings.HasPrefix(s, "?") {
+		// Reject MIME type values (e.g. "application/json", "text/plain").
+		// These are common in JS headers/options and should not be treated
+		// as URL endpoints.
+		if isMIMEType(s) {
+			return false
+		}
 		return true
 	}
 	return false
