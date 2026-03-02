@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -369,7 +370,7 @@ func shouldFallbackOnDOMError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(err.Error()), "context deadline exceeded")
+	return errors.Is(err, context.DeadlineExceeded)
 }
 
 func fallbackBodyFromResponse(response *navigation.Response) (string, bool) {

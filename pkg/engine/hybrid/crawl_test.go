@@ -1,7 +1,9 @@
 package hybrid
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -9,8 +11,9 @@ import (
 )
 
 func TestShouldFallbackOnDOMError(t *testing.T) {
-	require.True(t, shouldFallbackOnDOMError(errors.New("context deadline exceeded <- could not get dom")))
-	require.True(t, shouldFallbackOnDOMError(errors.New("CONTEXT DEADLINE EXCEEDED")))
+	require.True(t, shouldFallbackOnDOMError(context.DeadlineExceeded))
+	require.True(t, shouldFallbackOnDOMError(fmt.Errorf("dom error: %w", context.DeadlineExceeded)))
+	require.False(t, shouldFallbackOnDOMError(errors.New("context deadline exceeded")))
 	require.False(t, shouldFallbackOnDOMError(errors.New("navigation failed")))
 	require.False(t, shouldFallbackOnDOMError(nil))
 }
