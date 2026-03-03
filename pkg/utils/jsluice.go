@@ -24,7 +24,6 @@ func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 	foundURLs := analyzer.GetURLs()
 
 	for _, url := range foundURLs {
-		url := url
 		endpoints = append(endpoints, JSLuiceEndpoint{
 			Endpoint: url.URL,
 			Type:     url.Type,

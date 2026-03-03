@@ -13,6 +13,7 @@ func (p *Parser) InitWithOptions(options *Options) {
 	if options.AutomaticFormFill {
 		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
 	}
+	// In non-jsluice builds, ScrapeJSLuiceResponses is intentionally ignored.
 	if options.ScrapeJSResponses {
 		*p = append(*p, responseParser{bodyParser, scriptContentRegexParser})
 		*p = append(*p, responseParser{contentParser, scriptJSFileRegexParser})
