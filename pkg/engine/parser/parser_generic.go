@@ -1,4 +1,4 @@
-//go:build !(386 || windows)
+//go:build jsluice && !(386 || windows)
 
 package parser
 
