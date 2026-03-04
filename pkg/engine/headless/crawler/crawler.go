@@ -238,7 +238,9 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
-			page.Page = page.Context(ctx)
+			// Use a fresh background context for all rod.Page operations (DOM extraction, etc.)
+            // per-call timeouts are applied via page.Timeout; avoid using the global crawl ctx here
+            page.Page = page.Context(context.Background())
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
