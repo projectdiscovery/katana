@@ -283,8 +283,28 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	var getDocumentDepth = int(-1)
-	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
-	result, err := getDocument.Call(page)
+	
+	// FIX #611: Use extended timeout and retry logic for getDocument
+	// This prevents "context deadline exceeded" errors on complex websites when using -headless -jsonl
+	var result *proto.DOMGetDocumentReturn
+	var err error
+	maxRetries := 2
+	
+	// Use extended timeout for DOM operations on complex pages (2x original timeout)
+	getDocTimeout := time.Duration(c.Options.Options.Timeout*2) * time.Second
+	pageWithDocTimeout := page.Timeout(getDocTimeout)
+	
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
+		result, err = getDocument.Call(pageWithDocTimeout)
+		if err == nil {
+			break
+		}
+		if attempt < maxRetries {
+			gologger.Debug().Msgf("getDocument failed (attempt %d/%d): %v, retrying...", attempt+1, maxRetries+1, err)
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not get dom")
 	}
