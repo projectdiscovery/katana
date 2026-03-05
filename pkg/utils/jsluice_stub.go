@@ -68,12 +68,12 @@ func isValidEndpoint(s string) bool {
 		return false
 	}
 	
-	// Skip data URIs and javascript: URIs
-	if len(s) > 5 {
-		prefix := s[:5]
-		if prefix == "data:" || prefix == "javas" {
-			return false
-		}
+	// Normalize to lowercase for case-insensitive comparison
+	lower := strings.ToLower(s)
+	
+	// Skip data URIs and javascript URIs
+	if strings.HasPrefix(lower, "data:") || strings.HasPrefix(lower, "javascript:") {
+		return false
 	}
 	
 	// Skip very long strings (likely not URLs)
