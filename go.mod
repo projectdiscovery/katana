@@ -6,6 +6,7 @@ require (
 	github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/adrianbrad/queue v1.3.0
+	// github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9c482 // optional: requires CGO, enable with -tags tree_sitter
 	github.com/dominikbraun/graph v0.23.0
 	github.com/go-rod/rod v0.116.2
 	github.com/happyhackingspace/dit v0.0.14

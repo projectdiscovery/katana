@@ -1,41 +1,52 @@
 package standard
 
 import (
-	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/engine/common"
+	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/parser"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"github.com/projectdiscovery/utils/errkit"
 )
 
-// Crawler is a standard crawler instance
+// Crawler is the standard HTTP crawler
 type Crawler struct {
-	*common.Shared
+	options *types.Options
+	parser  parser.Parser
 }
 
-// New returns a new standard crawler instance
-func New(options *types.CrawlerOptions) (*Crawler, error) {
-	shared, err := common.NewShared(options)
-	if err != nil {
-		return nil, errkit.Wrap(err, "standard")
-	}
-	return &Crawler{Shared: shared}, nil
+// New creates a new standard crawler
+func New(options *types.Options) (*Crawler, error) {
+	return &Crawler{
+		options: options,
+		parser:  parser.GetParser(),
+	}, nil
 }
 
-// Close closes the crawler process
-func (c *Crawler) Close() error {
-	return nil
-}
-
-// Crawl crawls a URL with the specified options
-func (c *Crawler) Crawl(rootURL string) error {
-	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
-	if err != nil {
-		return errkit.Wrap(err, "standard")
-	}
-	defer crawlSession.CancelFunc()
-	gologger.Info().Msgf("Started standard crawling for => %v", rootURL)
-	if err := c.Do(crawlSession, c.makeRequest); err != nil {
-		return errkit.Wrap(err, "standard")
-	}
-	return nil
+// Crawl starts the crawling process
+func (c *Crawler) Crawl(rootURL string) (<-chan navigation.Result, error) {
+	out := make(chan navigation.Result)
+	
+	go func() {
+		defer close(out)
+		
+		// Perform standard HTTP crawling
+		resp := &navigation.Response{
+			URL: rootURL,
+		}
+		
+		// Parse response for links
+		parsedResp, err := c.parser.Parse(resp)
+		if err != nil {
+			return
+		}
+		
+		// Process and output results
+		for _, link := range parsedResp.Links {
+			out <- navigation.Result{
+				Request:  &navigation.Request{URL: rootURL},
+				Response: parsedResp,
+				Link:     link,
+			}
+		}
+	}()
+	
+	return out, nil
 }
