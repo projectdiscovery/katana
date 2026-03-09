@@ -285,16 +285,32 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
+	var domErr error
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
-	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
+		domErr = errkit.Wrap(err, "hybrid: could not get dom")
+	} else {
+		var builder strings.Builder
+		traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+		// Create a copy of interpolated shadow DOM elements and parse them separately.
+		responseCopy := *response
+		responseCopy.Body = builder.String()
+		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
+		if responseCopy.Reader != nil {
+			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
+	}
+
+	body, err := getOutputBody(func() (string, error) {
+		return page.HTML()
+	}, response)
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
+		if domErr != nil {
+			return response, domErr
+		}
+		return response, err
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -308,16 +324,6 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 	response.Resp.Request.URL = parsed.URL
 
-	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = builder.String()
-
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-		c.Enqueue(s.Queue, navigationRequests...)
-	}
-
 	response.Body = body
 	if response.Reader != nil {
 		response.Reader.Url, _ = url.Parse(request.URL)
@@ -328,7 +334,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not parse html")
+		if domErr != nil {
+			return response, domErr
+		}
+		return response, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
 	response.XhrRequests = xhrRequests
@@ -351,6 +360,20 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	return response, nil
+}
+
+func getOutputBody(htmlFetcher func() (string, error), response *navigation.Response) (string, error) {
+	body, err := htmlFetcher()
+	if err == nil {
+		return body, nil
+	}
+
+	if response != nil && response.Body != "" {
+		gologger.Debug().Msgf("headless: falling back to captured response body after html extraction failed: %v", err)
+		return response.Body, nil
+	}
+
+	return "", errkit.Wrap(err, "hybrid: could not get html")
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {
