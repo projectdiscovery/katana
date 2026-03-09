@@ -371,7 +371,7 @@ func shouldFallbackOnDOMError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, context.DeadlineExceeded)
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)
 }
 
 func fallbackBodyFromResponse(response *navigation.Response) (string, bool) {
