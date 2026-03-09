@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -285,16 +286,29 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
+	var builder strings.Builder
+
+	page = page.CancelTimeout().Timeout(timeout)
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
+		if shouldFallbackOnDOMError(err) {
+			gologger.Debug().Msgf("hybrid: dom extraction failed for %s: %v; continuing with response fallback", request.URL, err)
+		} else {
+			return nil, errkit.Wrap(err, "hybrid: could not get dom")
+		}
+	} else {
+		traverseDOMNode(result.Root, &builder)
 	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
+	page = page.CancelTimeout().Timeout(timeout)
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
+		fallbackBody, ok := fallbackBodyFromResponse(response)
+		if !ok {
+			return nil, errkit.Wrap(err, "hybrid: could not get html")
+		}
+		gologger.Debug().Msgf("hybrid: html extraction failed for %s: %v; using captured response body", request.URL, err)
+		body = fallbackBody
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -351,6 +365,20 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	return response, nil
+}
+
+func shouldFallbackOnDOMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, context.DeadlineExceeded)
+}
+
+func fallbackBodyFromResponse(response *navigation.Response) (string, bool) {
+	if response == nil || response.Body == "" {
+		return "", false
+	}
+	return response.Body, true
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {
