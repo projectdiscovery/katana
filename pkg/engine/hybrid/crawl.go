@@ -286,15 +286,31 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
-	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	var builder strings.Builder
+	var body string
+
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
+		// DOM extraction failed (e.g. context deadline exceeded after page navigation).
+		// Fall back to the network-intercepted response body so links are still parsed
+		// and -jsonl output is produced instead of a hard error. The shadow-DOM traversal
+		// pass is skipped since we have no DOM tree.
+		gologger.Warning().Msgf("hybrid: could not get dom for %s: %v, falling back to captured response body", request.URL, err)
+		body = fallbackBody(response)
+	} else {
+		traverseDOMNode(result.Root, &builder)
+
+		body, err = page.HTML()
+		if err != nil {
+			// page.HTML() can also time out; prefer the DOM traversal result over
+			// a hard failure, or fall back to the captured response as last resort.
+			gologger.Warning().Msgf("hybrid: could not get html for %s: %v, using fallback", request.URL, err)
+			if domContent := builder.String(); domContent != "" {
+				body = domContent
+			} else {
+				body = fallbackBody(response)
+			}
+		}
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -308,14 +324,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 	response.Resp.Request.URL = parsed.URL
 
-	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = builder.String()
+	// Create a copy with shadow DOM elements and parse them separately.
+	// Only meaningful when the full DOM tree was retrieved; skip when we
+	// fell back to the captured response body (builder is empty).
+	if domTraversal := builder.String(); domTraversal != "" {
+		responseCopy := *response
+		responseCopy.Body = domTraversal
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-		c.Enqueue(s.Queue, navigationRequests...)
+		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
+		if responseCopy.Reader != nil {
+			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 	}
 
 	response.Body = body
@@ -351,6 +371,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	return response, nil
+}
+
+// fallbackBody returns the captured response body from the network interceptor,
+// or an empty string if no response was captured.
+func fallbackBody(response *navigation.Response) string {
+	if response != nil && response.Body != "" {
+		return response.Body
+	}
+	return ""
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {
