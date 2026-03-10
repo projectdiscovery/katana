@@ -286,15 +286,28 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
-	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	var builder strings.Builder
+	var body string
+
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
+		// DOM is unavailable (e.g. context deadline exceeded after page navigation).
+		// Fall back to the raw body captured by the network interceptor so that
+		// the crawl can continue and links are still parsed; the shadow-DOM pass
+		// is simply skipped in this case.
+		gologger.Warning().Msgf("[hybrid] could not get dom for %s: %s, falling back to captured response body", request.URL, err)
+		if response != nil {
+			body = response.Body
+		}
+	} else {
+		traverseDOMNode(result.Root, &builder)
+
+		body, err = page.HTML()
+		if err != nil {
+			// page.HTML() can also time out; use the DOM traversal result instead.
+			gologger.Warning().Msgf("[hybrid] could not get html for %s: %s, using DOM traversal result", request.URL, err)
+			body = builder.String()
+		}
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -308,14 +321,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 	response.Resp.Request.URL = parsed.URL
 
-	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = builder.String()
+	// Create a copy with interpolated shadow DOM elements and parse them separately.
+	// This pass is only meaningful when the full DOM tree was retrieved; skip it
+	// when we fell back to the captured response body (builder is empty).
+	if domTraversal := builder.String(); domTraversal != "" {
+		responseCopy := *response
+		responseCopy.Body = domTraversal
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-		c.Enqueue(s.Queue, navigationRequests...)
+		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
+		if responseCopy.Reader != nil {
+			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 	}
 
 	response.Body = body
