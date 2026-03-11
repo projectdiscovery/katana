@@ -155,6 +155,8 @@ func TestExtractJsluiceEndpoints_ComplexJS(t *testing.T) {
 		"/api/users",
 		"/dashboard",
 		"https://api.example.com",
+		"EXPR/users",
+		"/users",
 		"wss://realtime.example.com/socket",
 	}
 
@@ -167,5 +169,9 @@ func TestExtractJsluiceEndpoints_ComplexJS(t *testing.T) {
 		if !foundURLs[wantURL] {
 			t.Errorf("Missing expected URL %q in complex JS test", wantURL)
 		}
+	}
+
+	if len(endpoints) != len(expectedURLs) {
+		t.Errorf("ExtractJsluiceEndpoints() returned %d endpoints, want %d", len(endpoints), len(expectedURLs))
 	}
 }
