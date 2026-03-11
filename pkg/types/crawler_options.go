@@ -56,10 +56,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
 
 	parserOptions := &parser.Options{
-		AutomaticFormFill:      options.AutomaticFormFill,
-		ScrapeJSLuiceResponses: options.ScrapeJSLuiceResponses,
-		ScrapeJSResponses:      options.ScrapeJSResponses,
-		DisableRedirects:       options.DisableRedirects,
+		DisableRedirects:       	options.DisableRedirects,
+		AutomaticFormFill:      	options.AutomaticFormFill,
+		ScrapeJSResponses:      	options.ScrapeJSResponses,
+		ScrapeJSParsingResponses: options.ScrapeJSParsingResponses,
 	}
 
 	responseParser := parser.NewResponseParser()
