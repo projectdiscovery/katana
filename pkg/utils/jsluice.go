@@ -1,12 +1,19 @@
 package utils
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/dop251/goja/ast"
 	"github.com/dop251/goja/parser"
 	"github.com/dop251/goja/unistring"
+)
+
+const (
+	maxASTDepth     = 500
+	parseTimeout    = 5 * time.Second
 )
 
 var (
@@ -54,6 +61,7 @@ func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 type endpointExtractor struct {
 	endpoints []JSLuiceEndpoint
 	seen      map[string]bool
+	depth     int
 }
 
 func newEndpointExtractor() *endpointExtractor {
@@ -76,22 +84,48 @@ func (e *endpointExtractor) addEndpoint(url, urlType string) {
 }
 
 func (e *endpointExtractor) extract(data string) {
-	// Try to parse as a complete program
-	program, err := parser.ParseFile(nil, "", data, parser.IgnoreRegExpErrors)
-	if err != nil {
-		// If parsing fails, try extracting URLs with regex fallback
+	type parseResult struct {
+		program *ast.Program
+		err     error
+	}
+
+	ch := make(chan parseResult, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- parseResult{err: fmt.Errorf("parser panic: %v", r)}
+			}
+		}()
+		p, err := parser.ParseFile(nil, "", data, parser.IgnoreRegExpErrors)
+		ch <- parseResult{program: p, err: err}
+	}()
+
+	var result parseResult
+	select {
+	case result = <-ch:
+	case <-time.After(parseTimeout):
+		e.extractWithRegex(data)
+		return
+	}
+
+	if result.err != nil {
 		e.extractWithRegex(data)
 		return
 	}
 
 	// Walk the AST
-	for _, stmt := range program.Body {
+	for _, stmt := range result.program.Body {
 		e.walkStatement(stmt)
 	}
 }
 
 func (e *endpointExtractor) walkStatement(stmt ast.Statement) {
 	if stmt == nil {
+		return
+	}
+	e.depth++
+	defer func() { e.depth-- }()
+	if e.depth > maxASTDepth {
 		return
 	}
 
@@ -206,6 +240,11 @@ func (e *endpointExtractor) walkForIntoVar(into ast.ForInto) {
 
 func (e *endpointExtractor) walkExpression(expr ast.Expression) {
 	if expr == nil {
+		return
+	}
+	e.depth++
+	defer func() { e.depth-- }()
+	if e.depth > maxASTDepth {
 		return
 	}
 
