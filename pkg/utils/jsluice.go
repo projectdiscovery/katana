@@ -1,11 +1,9 @@
-//go:build !(386 || windows)
-
 package utils
 
 import (
 	"regexp"
 
-	"github.com/BishopFox/jsluice"
+	"github.com/Mzack9999/jsluice"
 )
 
 var (
@@ -26,8 +24,9 @@ type JSLuiceEndpoint struct {
 
 // ExtractJsluiceEndpoints extracts jsluice endpoints from a given string.
 //
-// We use tomnomnom and bishopfox's jsluice to extract endpoints from javascript
-// files.
+// We use tomnomnom and bishopfox's jsluice (via Mzack9999/jsluice which uses
+// the pure-Go odvcencio/gotreesitter runtime — no CGO required) to extract
+// endpoints from javascript files.
 //
 // We apply several optimizations before running jsluice:
 //   - We skip common js library files.
