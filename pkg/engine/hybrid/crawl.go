@@ -297,6 +297,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// pass is skipped since we have no DOM tree.
 		gologger.Warning().Msgf("hybrid: could not get dom for %s: %v, falling back to captured response body", request.URL, err)
 		body = fallbackBody(response)
+		if body == "" {
+			gologger.Debug().Msgf("hybrid: no captured response body available for %s; page content will be empty", request.URL)
+		}
 	} else {
 		traverseDOMNode(result.Root, &builder)
 
