@@ -62,12 +62,23 @@ type endpointExtractor struct {
 	endpoints []JSLuiceEndpoint
 	seen      map[string]bool
 	depth     int
+	done      chan struct{}
 }
 
 func newEndpointExtractor() *endpointExtractor {
 	return &endpointExtractor{
 		endpoints: make([]JSLuiceEndpoint, 0),
 		seen:      make(map[string]bool),
+		done:      make(chan struct{}),
+	}
+}
+
+func (e *endpointExtractor) stopped() bool {
+	select {
+	case <-e.done:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -84,43 +95,42 @@ func (e *endpointExtractor) addEndpoint(url, urlType string) {
 }
 
 func (e *endpointExtractor) extract(data string) {
-	type parseResult struct {
-		program *ast.Program
-		err     error
-	}
-
-	ch := make(chan parseResult, 1)
+	ch := make(chan struct{}, 1)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				ch <- parseResult{err: fmt.Errorf("parser panic: %v", r)}
+				_ = fmt.Errorf("parser panic: %v", r)
 			}
+			ch <- struct{}{}
 		}()
-		p, err := parser.ParseFile(nil, "", data, parser.IgnoreRegExpErrors)
-		ch <- parseResult{program: p, err: err}
+
+		program, err := parser.ParseFile(nil, "", data, parser.IgnoreRegExpErrors)
+		if err != nil || e.stopped() {
+			if !e.stopped() {
+				e.extractWithRegex(data)
+			}
+			return
+		}
+
+		for _, stmt := range program.Body {
+			if e.stopped() {
+				return
+			}
+			e.walkStatement(stmt)
+		}
 	}()
 
-	var result parseResult
 	select {
-	case result = <-ch:
+	case <-ch:
+		// Goroutine finished normally
 	case <-time.After(parseTimeout):
+		close(e.done)
 		e.extractWithRegex(data)
-		return
-	}
-
-	if result.err != nil {
-		e.extractWithRegex(data)
-		return
-	}
-
-	// Walk the AST
-	for _, stmt := range result.program.Body {
-		e.walkStatement(stmt)
 	}
 }
 
 func (e *endpointExtractor) walkStatement(stmt ast.Statement) {
-	if stmt == nil {
+	if stmt == nil || e.stopped() {
 		return
 	}
 	e.depth++
@@ -239,7 +249,7 @@ func (e *endpointExtractor) walkForIntoVar(into ast.ForInto) {
 }
 
 func (e *endpointExtractor) walkExpression(expr ast.Expression) {
-	if expr == nil {
+	if expr == nil || e.stopped() {
 		return
 	}
 	e.depth++
