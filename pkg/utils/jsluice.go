@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/dop251/goja/ast"
 	"github.com/dop251/goja/parser"
@@ -724,10 +725,11 @@ func (e *endpointExtractor) looksLikeURL(s string) bool {
 	if strings.HasPrefix(s, "/") && len(s) > 1 {
 		// Avoid matching things like "/", "//", or paths with only special chars
 		rest := strings.TrimPrefix(s, "/")
-		if len(rest) > 0 && (rest[0] >= 'a' && rest[0] <= 'z' ||
-			rest[0] >= 'A' && rest[0] <= 'Z' ||
-			rest[0] >= '0' && rest[0] <= '9') {
-			return true
+		if len(rest) > 0 {
+			c := rune(rest[0])
+			if unicode.IsLetter(c) || unicode.IsDigit(c) {
+				return true
+			}
 		}
 	}
 
