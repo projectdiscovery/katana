@@ -144,8 +144,12 @@ func (h *Headless) Crawl(URL string) error {
 
 			if rr.Response != nil {
 				rr.Response.KnowledgeBase = h.options.ClassifyPage(rr.Response.Body)
-				rr.Response.Raw = ""
-				rr.Response.Body = ""
+				if h.options.Options.OmitRaw {
+					rr.Response.Raw = ""
+				}
+				if h.options.Options.OmitBody {
+					rr.Response.Body = ""
+				}
 			}
 			if err := h.options.OutputWriter.Write(rr); err != nil {
 				h.logger.Debug("failed to write result",

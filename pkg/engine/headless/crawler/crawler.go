@@ -462,6 +462,9 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		if err := c.processForm(page, action.Form); err != nil {
 			return err
 		}
+		if err = page.WaitPageLoadHeurisitics(); err != nil {
+			return err
+		}
 	case types.ActionTypeLeftClick, types.ActionTypeLeftClickDown:
 		pTimeout := page.Timeout(c.options.PageMaxTimeout)
 		element, err := pTimeout.ElementX(action.Element.XPath)
