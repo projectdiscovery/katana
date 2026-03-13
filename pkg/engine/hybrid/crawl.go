@@ -301,6 +301,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			break
 		}
 		if attempt < maxRetries {
+			// Debug logging only enabled with -debug flag (gologger.Debug() respects log level)
 			gologger.Debug().Msgf("getDocument failed (attempt %d/%d): %v, retrying...", attempt+1, maxRetries+1, err)
 			time.Sleep(500 * time.Millisecond)
 		}
