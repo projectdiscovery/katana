@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -283,18 +284,33 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	var builder strings.Builder
+	domReady := false
+
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	result, err := getDocument.Call(page)
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
+		if isContextDeadlineError(err) {
+			gologger.Warning().Msgf("DOM extraction timed out for %s, falling back to response body\n", request.URL)
+		} else {
+			return nil, errkit.Wrap(err, "hybrid: could not get dom")
+		}
+	} else {
+		traverseDOMNode(result.Root, &builder)
+		domReady = true
 	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
 	body, err := page.HTML()
 	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
+		if isContextDeadlineError(err) {
+			gologger.Warning().Msgf("HTML extraction timed out for %s, using captured response\n", request.URL)
+			if response != nil {
+				body = response.Body
+			}
+		} else {
+			return nil, errkit.Wrap(err, "hybrid: could not get html")
+		}
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -309,13 +325,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	response.Resp.Request.URL = parsed.URL
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = builder.String()
+	if domReady {
+		responseCopy := *response
+		responseCopy.Body = builder.String()
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-		c.Enqueue(s.Queue, navigationRequests...)
+		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
+		if responseCopy.Reader != nil {
+			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 	}
 
 	response.Body = body
@@ -380,6 +398,16 @@ func (c *Crawler) addHeadersToPage(page *rod.Page) {
 			gologger.Error().Msgf("headless: could not set extra headers: %v", err)
 		}
 	}
+}
+
+// isContextDeadlineError checks whether an error is caused by a context
+// deadline being exceeded. It uses errors.Is for wrapped errors and falls
+// back to string matching for opaque wrappers.
+func isContextDeadlineError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	return strings.Contains(err.Error(), "context deadline exceeded")
 }
 
 // traverseDOMNode performs traversal of node completely building a pseudo-HTML
