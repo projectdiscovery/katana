@@ -7,7 +7,6 @@ import (
 
 	"github.com/dop251/goja/ast"
 	"github.com/dop251/goja/parser"
-	"github.com/dop251/goja/unistring"
 )
 
 var (
@@ -83,7 +82,7 @@ func maybeURL(in string) bool {
 	}
 
 	parts := strings.Split(u.Path, ".")
-	ext := parts[len(parts)-1]
+	ext := strings.ToLower(parts[len(parts)-1])
 	return urlFileExtensions[ext]
 }
 
@@ -95,16 +94,15 @@ func exprToString(expr ast.Expression) (string, bool) {
 	case *ast.StringLiteral:
 		return e.Value.String(), true
 	case *ast.TemplateLiteral:
-		if len(e.Expressions) == 0 && len(e.Elements) > 0 {
+		if len(e.Elements) > 0 {
 			var sb strings.Builder
 			for _, elem := range e.Elements {
 				sb.WriteString(elem.Parsed.String())
 			}
-			return sb.String(), true
-		}
-		// Template with expressions: collect static prefix
-		if len(e.Elements) > 0 {
-			return e.Elements[0].Parsed.String(), e.Elements[0].Parsed.String() != ""
+			result := sb.String()
+			if result != "" {
+				return result, true
+			}
 		}
 	}
 	return "", false
@@ -134,6 +132,33 @@ func isLocationAssignment(name string) bool {
 		return true
 	}
 	return false
+}
+
+// objectLiteralURL extracts the "url" property string from an object literal expression.
+func objectLiteralURL(expr ast.Expression) string {
+	obj, ok := expr.(*ast.ObjectLiteral)
+	if !ok {
+		return ""
+	}
+	for _, prop := range obj.Value {
+		pk, ok := prop.(*ast.PropertyKeyed)
+		if !ok {
+			continue
+		}
+		keyName := ""
+		switch k := pk.Key.(type) {
+		case *ast.StringLiteral:
+			keyName = k.Value.String()
+		case *ast.Identifier:
+			keyName = k.Name.String()
+		}
+		if keyName == "url" {
+			if s, ok := exprToString(pk.Value); ok {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 // ExtractJsluiceEndpoints extracts URL endpoints from JavaScript source code
@@ -194,6 +219,26 @@ func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 			if len(e.ArgumentList) == 0 {
 				return
 			}
+
+			// Handle call-shape-specific branches first (some don't need a string first arg)
+			switch {
+			case callName == "$.ajax" || callName == "jQuery.ajax":
+				// $.ajax({url: "/path"}) or $.ajax("/path")
+				if firstArg, ok := exprToString(e.ArgumentList[0]); ok {
+					addEndpoint(firstArg, "$.ajax")
+				} else if urlStr := objectLiteralURL(e.ArgumentList[0]); urlStr != "" {
+					addEndpoint(urlStr, "$.ajax")
+				}
+				return
+			case (callName == "XMLHttpRequest.open" || strings.HasSuffix(callName, ".open")) && len(e.ArgumentList) >= 2:
+				// xhr.open(method, "/url") — URL is the second argument
+				if secondArg, ok := exprToString(e.ArgumentList[1]); ok {
+					addEndpoint(secondArg, "XMLHttpRequest.open")
+				}
+				return
+			}
+
+			// For remaining patterns, the first argument must be a string
 			firstArg, ok := exprToString(e.ArgumentList[0])
 			if !ok {
 				return
@@ -210,12 +255,6 @@ func ExtractJsluiceEndpoints(data string) []JSLuiceEndpoint {
 				addEndpoint(firstArg, "$.get")
 			case callName == "$.post" || callName == "jQuery.post":
 				addEndpoint(firstArg, "$.post")
-			case callName == "$.ajax" || callName == "jQuery.ajax":
-				addEndpoint(firstArg, "$.ajax")
-			case (callName == "XMLHttpRequest.open" || strings.HasSuffix(callName, ".open")) && len(e.ArgumentList) >= 2:
-				if secondArg, ok := exprToString(e.ArgumentList[1]); ok {
-					addEndpoint(secondArg, "XMLHttpRequest.open")
-				}
 			default:
 				if maybeURL(firstArg) {
 					addEndpoint(firstArg, callName)
@@ -356,6 +395,7 @@ func walkExpr(expr ast.Expression, fn func(ast.Expression)) {
 
 	switch e := expr.(type) {
 	case *ast.AssignExpression:
+		walkExpr(e.Left, fn)
 		walkExpr(e.Right, fn)
 	case *ast.BinaryExpression:
 		walkExpr(e.Left, fn)
@@ -448,6 +488,3 @@ func extractURLsByRegex(data string) []JSLuiceEndpoint {
 	}
 	return endpoints
 }
-
-// Ensure unistring is used (it's a goja dependency needed for string values)
-var _ unistring.String
