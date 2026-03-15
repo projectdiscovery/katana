@@ -1,5 +1,3 @@
-//go:build !(386 || windows)
-
 package parser
 
 import (
