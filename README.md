@@ -1123,3 +1123,4 @@ katana is made with ❤️ by the [projectdiscovery](https://projectdiscovery.io
 <a href="https://discord.gg/projectdiscovery"><img src="https://raw.githubusercontent.com/projectdiscovery/nuclei-burp-plugin/main/static/join-discord.png" width="300" alt="Join Discord"></a>
 
 </div>
+\n- [Community Katana Website](https://mindful-refuge-vghp.here.now/)
