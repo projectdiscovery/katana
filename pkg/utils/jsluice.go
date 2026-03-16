@@ -101,7 +101,20 @@ func exprToString(expr ast.Expression) (string, bool) {
 			}
 			result := sb.String()
 			if result != "" {
-				return result, true
+				if maybeURL(result) {
+					return result, true
+				}
+				// Fallback: extract path fragments from templates like `https://${host}/foo`
+				// where concatenation produces an invalid URL but contains valid paths
+				for _, elem := range e.Elements {
+					part := elem.Parsed.String()
+					if idx := strings.Index(part, "/"); idx >= 0 {
+						fragment := part[idx:]
+						if len(fragment) > 2 && maybeURL(fragment) {
+							return fragment, true
+						}
+					}
+				}
 			}
 		}
 	}
@@ -460,6 +473,26 @@ func walkExpr(expr ast.Expression, fn func(ast.Expression)) {
 	case *ast.AwaitExpression:
 		if e.Argument != nil {
 			walkExpr(e.Argument, fn)
+		}
+	case *ast.ClassLiteral:
+		if e.SuperClass != nil {
+			walkExpr(e.SuperClass, fn)
+		}
+		for _, elem := range e.Body {
+			switch ce := elem.(type) {
+			case *ast.MethodDefinition:
+				if ce.Body != nil && ce.Body.Body != nil {
+					walkStatement(ce.Body.Body, fn)
+				}
+			case *ast.FieldDefinition:
+				if ce.Initializer != nil {
+					walkExpr(ce.Initializer, fn)
+				}
+			case *ast.ClassStaticBlock:
+				if ce.Block != nil {
+					walkStatement(ce.Block, fn)
+				}
+			}
 		}
 	}
 }
