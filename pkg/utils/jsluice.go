@@ -110,6 +110,10 @@ func exprToString(expr ast.Expression) (string, bool) {
 					part := elem.Parsed.String()
 					if idx := strings.Index(part, "/"); idx >= 0 {
 						fragment := part[idx:]
+						// Skip scheme suffixes like "://" from "https://"
+						if strings.HasPrefix(fragment, "://") {
+							continue
+						}
 						if len(fragment) > 2 && maybeURL(fragment) {
 							return fragment, true
 						}
@@ -393,6 +397,10 @@ func walkStatement(stmt ast.Statement, fn func(ast.Expression)) {
 				case *ast.FieldDefinition:
 					if ce.Initializer != nil {
 						walkExpr(ce.Initializer, fn)
+					}
+				case *ast.ClassStaticBlock:
+					if ce.Block != nil {
+						walkStatement(ce.Block, fn)
 					}
 				}
 			}
