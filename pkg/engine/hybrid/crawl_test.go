@@ -1,6 +1,7 @@
 package hybrid
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -16,7 +17,7 @@ func TestGetOutputBodyFallsBackToCapturedResponse(t *testing.T) {
 	}
 
 	body, err := getOutputBody(func() (string, error) {
-		return "", errors.New("could not get dom")
+		return "", context.DeadlineExceeded
 	}, resp)
 
 	require.NoError(t, err)
@@ -32,6 +33,15 @@ func TestGetOutputBodyErrorsWithoutFallback(t *testing.T) {
 	require.Empty(t, body)
 }
 
+func TestGetOutputBodyErrorsOnNonDeadlineFailures(t *testing.T) {
+	body, err := getOutputBody(func() (string, error) {
+		return "", errors.New("could not get dom")
+	}, &navigation.Response{Resp: &http.Response{}, Body: "<html>fallback</html>"})
+
+	require.Error(t, err)
+	require.Empty(t, body)
+}
+
 func TestGetOutputBodyReturnsCapturedEmptyBody(t *testing.T) {
 	resp := &navigation.Response{
 		Resp: &http.Response{},
@@ -39,7 +49,7 @@ func TestGetOutputBodyReturnsCapturedEmptyBody(t *testing.T) {
 	}
 
 	body, err := getOutputBody(func() (string, error) {
-		return "", errors.New("could not get dom")
+		return "", context.DeadlineExceeded
 	}, resp)
 
 	require.NoError(t, err)
