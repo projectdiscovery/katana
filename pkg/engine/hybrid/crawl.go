@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -368,7 +369,7 @@ func getOutputBody(htmlFetcher func() (string, error), response *navigation.Resp
 		return body, nil
 	}
 
-	if response != nil && response.Resp != nil {
+	if response != nil && response.Resp != nil && errors.Is(err, context.DeadlineExceeded) {
 		gologger.Debug().Msgf("headless: falling back to captured response body after html extraction failed: %v", err)
 		return response.Body, nil
 	}
