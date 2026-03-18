@@ -17,7 +17,7 @@ func TestGetOutputBodyFallsBackToCapturedResponse(t *testing.T) {
 	}
 
 	body, err := getOutputBody(func() (string, error) {
-		return "", context.DeadlineExceeded
+		return "", errors.New("could not get dom")
 	}, resp)
 
 	require.NoError(t, err)
@@ -33,10 +33,10 @@ func TestGetOutputBodyErrorsWithoutFallback(t *testing.T) {
 	require.Empty(t, body)
 }
 
-func TestGetOutputBodyErrorsOnNonDeadlineFailures(t *testing.T) {
+func TestGetOutputBodyErrorsWithNilResponse(t *testing.T) {
 	body, err := getOutputBody(func() (string, error) {
-		return "", errors.New("could not get dom")
-	}, &navigation.Response{Resp: &http.Response{}, Body: "<html>fallback</html>"})
+		return "", context.DeadlineExceeded
+	}, nil)
 
 	require.Error(t, err)
 	require.Empty(t, body)
@@ -49,7 +49,7 @@ func TestGetOutputBodyReturnsCapturedEmptyBody(t *testing.T) {
 	}
 
 	body, err := getOutputBody(func() (string, error) {
-		return "", context.DeadlineExceeded
+		return "", errors.New("could not get dom")
 	}, resp)
 
 	require.NoError(t, err)
