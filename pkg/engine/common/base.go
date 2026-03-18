@@ -223,10 +223,16 @@ type CrawlSession struct {
 //
 // Returns the initialized CrawlSession or an error if initialization fails.
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	parentCtx := s.Options.Options.Context
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	var ctx context.Context
+	var cancel context.CancelFunc
 	if s.Options.Options.CrawlDuration.Seconds() > 0 {
-		//nolint
-		ctx, cancel = context.WithTimeout(ctx, s.Options.Options.CrawlDuration)
+		ctx, cancel = context.WithTimeout(parentCtx, s.Options.Options.CrawlDuration)
+	} else {
+		ctx, cancel = context.WithCancel(parentCtx)
 	}
 
 	parsed, err := urlutil.Parse(URL)
@@ -244,7 +250,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0, SkipValidation: true}, 0)
 
 	if s.KnownFiles != nil {
-		navigationRequests, err := s.KnownFiles.Request(URL)
+		navigationRequests, err := s.KnownFiles.RequestWithContext(ctx, URL)
 		if err != nil {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", URL, err)
 		}
@@ -303,7 +309,7 @@ type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*n
 // (due to timeout or manual cancellation). Returns an error if the context is cancelled.
 func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 	wg := sizedwaitgroup.New(s.Options.Options.Concurrency)
-	for item := range crawlSession.Queue.Pop() {
+	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
@@ -343,9 +349,18 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			s.Options.RateLimit.Take()
 
-			// Delay if the user has asked for it
+			// Check if context was cancelled while waiting for rate limit token.
+			if crawlSession.Ctx.Err() != nil {
+				return
+			}
+
+			// Context-aware delay
 			if s.Options.Options.Delay > 0 {
-				time.Sleep(time.Duration(s.Options.Options.Delay) * time.Second)
+				select {
+				case <-crawlSession.Ctx.Done():
+					return
+				case <-time.After(time.Duration(s.Options.Options.Delay) * time.Second):
+				}
 			}
 
 			resp, err := doRequest(crawlSession, req)

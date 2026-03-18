@@ -138,10 +138,14 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		OutputWriter:        outputWriter,
 	}
 
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if options.RateLimit > 0 {
-		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
+		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimit), time.Second)
 	} else if options.RateLimitMinute > 0 {
-		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
+		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimitMinute), time.Minute)
 	}
 
 	if options.TechDetect {
@@ -172,6 +176,9 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 
 // Close closes the crawler options resources
 func (c *CrawlerOptions) Close() error {
+	if c.RateLimit != nil {
+		c.RateLimit.Stop()
+	}
 	c.UniqueFilter.Close()
 	return c.OutputWriter.Close()
 }

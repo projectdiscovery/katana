@@ -132,7 +132,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 // on the same browser instance. Multiple concurrent page operations cause
 // race conditions, navigation conflicts, and network interception issues.
 func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
-	for item := range crawlSession.Queue.Pop() {
+	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
@@ -167,8 +167,16 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 
 		c.Options.RateLimit.Take()
 
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+
 		if c.Options.Options.Delay > 0 {
-			time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
+			select {
+			case <-crawlSession.Ctx.Done():
+				continue
+			case <-time.After(time.Duration(c.Options.Options.Delay) * time.Second):
+			}
 		}
 
 		resp, err := doRequest(crawlSession, req)

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"regexp"
 	"strings"
 	"time"
@@ -134,6 +135,11 @@ type Options struct {
 	OnResult OnResultCallback
 	// OnSkipURL allows callback function on a skipped url
 	OnSkipURL OnSkipURLCallback
+	// Context is an optional parent context for the crawl lifecycle.
+	// When set, cancelling this context stops the rate limiter, crawl session,
+	// queue, known-files requests, and headless browser.
+	// Defaults to context.Background() if nil.
+	Context context.Context
 	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
