@@ -38,14 +38,16 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
-	// Bind session context with per-request timeout early, before any rod operations
+	// Keep the original page reference for cleanup — page.Context() returns a clone,
+	// so closing only the clone after timeout would leak the original tab.
+	basePage := page
 	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	timeoutCtx, timeoutCancel := context.WithTimeout(s.Ctx, timeout)
 	defer timeoutCancel()
 	page = page.Context(timeoutCtx)
 
 	defer func() {
-		if err := page.Close(); err != nil {
+		if err := basePage.Close(); err != nil {
 			gologger.Error().Msgf("Error closing page: %v\n", err)
 		}
 	}()
