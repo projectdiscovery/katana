@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -52,6 +53,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	xhrRequests := []navigation.Request{}
+	var sharedMu sync.RWMutex
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
@@ -158,7 +160,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			} else {
 				networkReq.Headers = utils.FlattenHeaders(requestHeaders)
 			}
+			sharedMu.Lock()
 			xhrRequests = append(xhrRequests, networkReq)
+			sharedMu.Unlock()
 		}
 
 		// trim trailing /
@@ -166,7 +170,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
 		if matchOriginalURL {
 			request.Raw = string(rawBytesRequest)
+			sharedMu.Lock()
 			response = resp
+			sharedMu.Unlock()
 		}
 
 		// process the raw response
@@ -302,15 +308,25 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	body, err := page.HTML()
+	var finalResponse *navigation.Response
 	if err != nil {
 		if isContextDeadlineError(err) {
 			gologger.Warning().Msgf("HTML extraction timed out for %s, using captured response\n", request.URL)
-			if response != nil {
-				body = response.Body
+			sharedMu.RLock()
+			finalResponse = response
+			if finalResponse != nil && finalResponse.Resp != nil {
+				body = finalResponse.Body
 			}
+			sharedMu.RUnlock()
 		} else {
 			return nil, errkit.Wrap(err, "hybrid: could not get html")
 		}
+	}
+
+	if finalResponse == nil {
+		sharedMu.RLock()
+		finalResponse = response
+		sharedMu.RUnlock()
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
@@ -318,15 +334,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
-	if response == nil || response.Resp == nil {
+	if finalResponse == nil || finalResponse.Resp == nil {
 		// err is guaranteed to be nil, due to previous checks.
 		return nil, errors.New("hybrid: response is nil")
 	}
-	response.Resp.Request.URL = parsed.URL
+	finalResponse.Resp.Request.URL = parsed.URL
 
 	// Create a copy of intrapolated shadow DOM elements and parse them separately
 	if domReady {
-		responseCopy := *response
+		responseCopy := *finalResponse
 		responseCopy.Body = builder.String()
 
 		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
@@ -336,20 +352,23 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
-	response.Body = body
-	if response.Reader != nil {
-		response.Reader.Url, _ = url.Parse(request.URL)
+	finalResponse.Body = body
+	if finalResponse.Reader != nil {
+		finalResponse.Reader.Url, _ = url.Parse(request.URL)
 		if c.Options.Options.FormExtraction {
-			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+			finalResponse.Forms = append(finalResponse.Forms, utils.ParseFormFields(finalResponse.Reader)...)
 		}
 	}
 
-	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
+	finalResponse.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(finalResponse.Body))
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
-	response.XhrRequests = xhrRequests
+	sharedMu.RLock()
+	finalResponse.XhrRequests = make([]navigation.Request, len(xhrRequests))
+	copy(finalResponse.XhrRequests, xhrRequests)
+	sharedMu.RUnlock()
 
 	// enqueue JS-triggered navigation URLs that were detected
 	navigatedURLs.Each(func(i int, navURL string) error {
@@ -368,7 +387,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil
 	})
 
-	return response, nil
+	return finalResponse, nil
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {
