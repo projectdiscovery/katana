@@ -139,7 +139,7 @@ type Options struct {
 	// When set, cancelling this context stops the rate limiter, crawl session,
 	// queue, known-files requests, and headless browser.
 	// Defaults to context.Background() if nil.
-	Context context.Context
+	Context context.Context `json:"-" yaml:"-"`
 	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses

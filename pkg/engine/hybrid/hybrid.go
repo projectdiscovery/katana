@@ -165,6 +165,12 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			continue
 		}
 
+		// Check context before taking a rate-limit token to avoid blocking
+		// on a stopped limiter during shutdown.
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+
 		c.Options.RateLimit.Take()
 
 		if crawlSession.Ctx.Err() != nil {

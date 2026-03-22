@@ -34,8 +34,8 @@ func TestPopWithContextNil(t *testing.T) {
 	require.NoError(t, err)
 	q.Push("item1", 0)
 
-	// nil context should not panic
-	items := q.PopWithContext(nil)
+	// nil context should not panic (testing nil-safety contract)
+	items := q.PopWithContext(nil) //nolint:staticcheck // SA1012: intentionally testing nil context
 	item := <-items
 	require.Equal(t, "item1", item)
 }

@@ -114,6 +114,9 @@ func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 				}
 				return
 			} else {
+				// NOTE: if ctx is cancelled during this send, the popped item is
+				// discarded. This is acceptable because cancellation means the crawl
+				// is shutting down and no consumer will process it.
 				select {
 				case <-ctx.Done():
 					return
