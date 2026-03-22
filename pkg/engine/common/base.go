@@ -310,8 +310,8 @@ type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*n
 func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 	wg := sizedwaitgroup.New(s.Options.Options.Concurrency)
 	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
-		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
-			return ctxErr
+		if crawlSession.Ctx.Err() != nil {
+			break
 		}
 
 		req, ok := item.(*navigation.Request)
@@ -392,5 +392,5 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}()
 	}
 	wg.Wait()
-	return nil
+	return crawlSession.Ctx.Err()
 }

@@ -26,14 +26,20 @@ func TestNewCrawlerOptionsWithContext(t *testing.T) {
 
 		crawlerOpts.RateLimit.Take()
 
+		// Ensure the goroutine is blocked on Take() before we cancel.
+		ready := make(chan struct{})
 		done := make(chan struct{})
 		go func() {
+			close(ready)
 			crawlerOpts.RateLimit.Take()
 			close(done)
 		}()
+		<-ready
 
 		cancel()
 
+		// The rate limiter detects cancellation on its next tick (~1s for
+		// RateLimit:1). Use 2s to allow for scheduling jitter.
 		select {
 		case <-done:
 		case <-time.After(2 * time.Second):
@@ -48,11 +54,14 @@ func TestNewCrawlerOptionsWithContext(t *testing.T) {
 
 		crawlerOpts.RateLimit.Take()
 
+		ready := make(chan struct{})
 		done := make(chan struct{})
 		go func() {
+			close(ready)
 			crawlerOpts.RateLimit.Take()
 			close(done)
 		}()
+		<-ready
 
 		require.NoError(t, crawlerOpts.Close())
 

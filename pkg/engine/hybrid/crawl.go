@@ -40,14 +40,17 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 	// Keep the original page reference for cleanup — page.Context() returns a clone,
 	// so closing only the clone after timeout would leak the original tab.
-	basePage := page
+	cleanupPage := page
+	// sessionPage is bound to the crawl session context so that DOM/HTML
+	// operations with fresh timeouts still respect external cancellation.
+	sessionPage := page.Context(s.Ctx)
 	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
 	timeoutCtx, timeoutCancel := context.WithTimeout(s.Ctx, timeout)
 	defer timeoutCancel()
-	page = page.Context(timeoutCtx)
+	page = sessionPage.Context(timeoutCtx)
 
 	defer func() {
-		if err := basePage.Close(); err != nil {
+		if err := cleanupPage.Close(); err != nil {
 			gologger.Error().Msgf("Error closing page: %v\n", err)
 		}
 	}()
@@ -294,7 +297,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	// does not share the navigation timeout budget. If it fails (e.g. timeout
 	// on complex SPAs), we still proceed with regular page HTML.
 	var domResult *proto.DOMGetDocumentResult
-	domPage := basePage.Timeout(timeout)
+	domPage := sessionPage.Timeout(timeout)
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	domResult, domErr := getDocument.Call(domPage)
@@ -304,7 +307,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	// Use basePage with a fresh timeout for HTML retrieval so it succeeds
 	// even if the navigation or DOM timeout was exhausted.
-	body, err := basePage.Timeout(timeout).HTML()
+	body, err := sessionPage.Timeout(timeout).HTML()
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
