@@ -289,16 +289,22 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	// Attempt to get the full DOM tree for shadow DOM traversal.
+	// Use basePage (pre-timeout) with a fresh timeout so that DOM inspection
+	// does not share the navigation timeout budget. If it fails (e.g. timeout
+	// on complex SPAs), we still proceed with regular page HTML.
+	var domResult *proto.DOMGetDocumentResult
+	domPage := basePage.Timeout(timeout)
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
-	result, err := getDocument.Call(page)
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get dom")
+	domResult, domErr := getDocument.Call(domPage)
+	if domErr != nil {
+		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
 	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	// Use basePage with a fresh timeout for HTML retrieval so it succeeds
+	// even if the navigation or DOM timeout was exhausted.
+	body, err := basePage.Timeout(timeout).HTML()
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
@@ -314,14 +320,19 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 	response.Resp.Request.URL = parsed.URL
 
-	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = builder.String()
+	// Create a copy of interpolated shadow DOM elements and parse them separately
+	if domResult != nil && domResult.Root != nil {
+		var builder strings.Builder
+		traverseDOMNode(domResult.Root, &builder)
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-		c.Enqueue(s.Queue, navigationRequests...)
+		responseCopy := *response
+		responseCopy.Body = builder.String()
+
+		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
+		if responseCopy.Reader != nil {
+			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 	}
 
 	response.Body = body

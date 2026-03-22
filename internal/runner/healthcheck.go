@@ -50,7 +50,7 @@ func DoHealthCheck(options *types.Options, flagSet *goflags.FlagSet) string {
 	if err != nil {
 		testResult += fmt.Sprintf(" (%s)", err)
 	}
-	fmt.Fprintf(&test, "Config file \"%s\" Write => %s\n", cfgFilePath, testResult)
+	_, _ = fmt.Fprintf(&test, "Config file \"%s\" Write => %s\n", cfgFilePath, testResult)
 	c4, err := net.Dial("tcp4", "scanme.sh:80")
 	if err == nil && c4 != nil {
 		_ = c4.Close()
@@ -59,7 +59,7 @@ func DoHealthCheck(options *types.Options, flagSet *goflags.FlagSet) string {
 	if err != nil {
 		testResult = fmt.Sprintf("Ko (%s)", err)
 	}
-	fmt.Fprintf(&test, "TCP IPv4 connectivity to scanme.sh:80 => %s\n", testResult)
+	_, _ = fmt.Fprintf(&test, "TCP IPv4 connectivity to scanme.sh:80 => %s\n", testResult)
 	c6, err := net.Dial("tcp6", "scanme.sh:80")
 	if err == nil && c6 != nil {
 		_ = c6.Close()

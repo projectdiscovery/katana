@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  release-test-mac:
-    runs-on: macos-latest
+  release-test:
+    runs-on: ubuntu-latest
     steps:
       - name: "Check out code"
         uses: actions/checkout@v6
@@ -23,49 +23,7 @@ jobs:
       - name: release test
         uses: projectdiscovery/actions/goreleaser@v1
         with:
-          args: --config=.goreleaser/mac.yml
-          workdir: .
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-  release-test-linux:
-    runs-on: ubuntu-latest-16-cores
-    steps:
-      - name: "Check out code"
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: projectdiscovery/actions/setup/go@v1
-
-      # todo: musl compatible?
-      - name: Install Dependences
-        run: sudo apt update && sudo apt install gcc-aarch64-linux-gnu
-
-      - name: release test
-        uses: projectdiscovery/actions/goreleaser@v1
-        with:
-          args: --config=.goreleaser/linux.yml
-          workdir: .
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-  release-test-windows:
-    runs-on: windows-latest-8-cores
-    steps:
-      - name: "Check out code"
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: projectdiscovery/actions/setup/go@v1
-
-      - name: release test
-        uses: projectdiscovery/actions/goreleaser@v1
-        with:
-          args: --config=.goreleaser/windows.yml
+          args: --snapshot --clean
           workdir: .
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

@@ -92,8 +92,8 @@ type getTaskResultRequest struct {
 
 type getTaskResultResponse struct {
 	ErrorID          int            `json:"errorId"`
-	ErrorCode        string `json:"errorCode"`
-	ErrorDescription string `json:"errorDescription"`
+	ErrorCode        string         `json:"errorCode"`
+	ErrorDescription string         `json:"errorDescription"`
 	Status           string         `json:"status"`
 	Solution         map[string]any `json:"solution"`
 }
