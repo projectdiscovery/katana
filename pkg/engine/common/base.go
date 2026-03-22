@@ -347,9 +347,20 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		go func() {
 			defer wg.Done()
 
-			s.Options.RateLimit.Take()
+			// Race Take() against the session context so that workers
+			// don't block shutdown waiting for the next limiter tick
+			// (the limiter is bound to options.Context, not the session).
+			takeDone := make(chan struct{})
+			go func() {
+				s.Options.RateLimit.Take()
+				close(takeDone)
+			}()
+			select {
+			case <-crawlSession.Ctx.Done():
+				return
+			case <-takeDone:
+			}
 
-			// Check if context was cancelled while waiting for rate limit token.
 			if crawlSession.Ctx.Err() != nil {
 				return
 			}

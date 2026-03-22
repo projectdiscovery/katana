@@ -165,13 +165,21 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			continue
 		}
 
-		// Check context before taking a rate-limit token to avoid blocking
-		// on a stopped limiter during shutdown.
+		// Race Take() against the session context so the loop doesn't
+		// block on a limiter tick when the crawl has been cancelled.
 		if crawlSession.Ctx.Err() != nil {
 			continue
 		}
-
-		c.Options.RateLimit.Take()
+		takeDone := make(chan struct{})
+		go func() {
+			c.Options.RateLimit.Take()
+			close(takeDone)
+		}()
+		select {
+		case <-crawlSession.Ctx.Done():
+			continue
+		case <-takeDone:
+		}
 
 		if crawlSession.Ctx.Err() != nil {
 			continue
