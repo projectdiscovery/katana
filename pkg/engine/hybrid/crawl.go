@@ -239,7 +239,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	// simulate clicks on links with onclick handlers to discover JS redirects
-	time.Sleep(200 * time.Millisecond)
+	select {
+	case <-timeoutCtx.Done():
+		return nil, timeoutCtx.Err()
+	case <-time.After(200 * time.Millisecond):
+	}
 
 	clickableLinks, err := page.Elements("a[onclick]")
 	if err == nil && len(clickableLinks) > 0 {
@@ -272,7 +276,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 			gologger.Debug().Msgf("Clicked onclick link [%d] at URL: %s", idx, beforeURLStr)
 
-			time.Sleep(1 * time.Second)
+			select {
+			case <-timeoutCtx.Done():
+				return nil, timeoutCtx.Err()
+			case <-time.After(1 * time.Second):
+			}
 
 			// check if URL changed (indicates redirect occurred)
 			currentURL, _ := page.Info()
@@ -287,7 +295,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 						break
 					}
 				}
-				time.Sleep(500 * time.Millisecond)
+				select {
+				case <-timeoutCtx.Done():
+					return nil, timeoutCtx.Err()
+				case <-time.After(500 * time.Millisecond):
+				}
 			}
 		}
 	}
