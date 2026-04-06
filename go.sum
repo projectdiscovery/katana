@@ -342,8 +342,8 @@ github.com/projectdiscovery/retryablehttp-go v1.3.6 h1:dLb0/YVX+oX70gpWxN5GXT8pC
 github.com/projectdiscovery/retryablehttp-go v1.3.6/go.mod h1:tKVxmL4ixWy1MjYk5GJvFL0Cp10fnQgSp2F6bSBEypI=
 github.com/projectdiscovery/utils v0.10.0 h1:E3nMm0h3LWt2bbnpRd8Whyj/y0DrMJKYx2zV8gqFDF0=
 github.com/projectdiscovery/utils v0.10.0/go.mod h1:FL0cQdg3oBMtJdmbBrfLd5i73syNxpkbKO9tivQ0+rI=
-github.com/projectdiscovery/wappalyzergo v0.2.74 h1:Oh9IIOJbcbIN2dok9bF/sWrZCABmS++54qK3+kLqvQ0=
-github.com/projectdiscovery/wappalyzergo v0.2.74/go.mod h1:hRsnKNleH693FFJsBOD5NMUDbxw/Q94f0Oq2OV04Q6M=
+github.com/projectdiscovery/wappalyzergo v0.2.75 h1:ScmpgoYuIzERh4lJpjWPPY89PUWbhUu6vFbCYAr0kWc=
+github.com/projectdiscovery/wappalyzergo v0.2.75/go.mod h1:hRsnKNleH693FFJsBOD5NMUDbxw/Q94f0Oq2OV04Q6M=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/refraction-networking/utls v1.8.2 h1:j4Q1gJj0xngdeH+Ox/qND11aEfhpgoEvV+S9iJ2IdQo=
 github.com/refraction-networking/utls v1.8.2/go.mod h1:jkSOEkLqn+S/jtpEHPOsVv/4V4EVnelwbMQl4vCWXAM=
