@@ -172,6 +172,39 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 		navigations = append(navigations, types.ActionFromEventListener(listener))
 	}
 
+	// Iframe content: discover interactive elements inside iframes
+	iframeNavs, err := b.FindIframeNavigations()
+	if err == nil {
+		for _, nav := range iframeNavs {
+			if nav.Element != nil {
+				hash := nav.Element.Hash()
+				nav.Element.MD5Hash = hash
+				if _, found := unique[hash]; found {
+					continue
+				}
+				unique[hash] = struct{}{}
+			}
+			navigations = append(navigations, nav)
+		}
+	}
+
+	// Cursor-interactive elements: clickable divs/spans without semantic markup
+	cursorElements, err := b.FindCursorInteractiveElements()
+	if err == nil {
+		for _, elem := range cursorElements {
+			hash := elem.Hash()
+			elem.MD5Hash = hash
+			if _, found := unique[hash]; found {
+				continue
+			}
+			unique[hash] = struct{}{}
+			navigations = append(navigations, &types.Action{
+				Type:    types.ActionTypeLeftClick,
+				Element: elem,
+			})
+		}
+	}
+
 	return navigations, nil
 }
 
@@ -271,6 +304,115 @@ func (b *BrowserPage) GetNavigatedLinks() ([]*NavigatedLink, error) {
 		return nil, err
 	}
 	return listeners, nil
+}
+
+// FindIframeNavigations discovers interactive elements inside iframes on the page.
+// Only recurses one level deep to avoid unbounded depth.
+func (b *BrowserPage) FindIframeNavigations() ([]*types.Action, error) {
+	iframes, err := b.Elements("iframe")
+	if err != nil || len(iframes) == 0 {
+		return nil, nil
+	}
+
+	var navigations []*types.Action
+	for _, iframe := range iframes {
+		framePage, err := iframe.Frame()
+		if err != nil {
+			continue // cross-origin or detached iframe
+		}
+
+		// Get buttons and links from iframe content
+		for _, selector := range []string{buttonsCSSSelector, linksCSSSelector, "[onclick]"} {
+			objects, err := framePage.Eval(`(sel) => {
+				try {
+					var nodes = document.querySelectorAll(sel);
+					return Array.from(nodes).map(function(el) { return window._elementDataFromElement ? window._elementDataFromElement(el) : null; }).filter(Boolean);
+				} catch(e) { return []; }
+			}`, selector)
+			if err != nil {
+				continue
+			}
+
+			var elements []*types.HTMLElement
+			if err := objects.Value.Unmarshal(&elements); err != nil {
+				continue
+			}
+
+			for _, elem := range elements {
+				if elem.TextContent == "" && elem.Attributes["href"] == "" {
+					continue
+				}
+				navigations = append(navigations, &types.Action{
+					Type:    types.ActionTypeLeftClick,
+					Element: elem,
+				})
+			}
+		}
+	}
+	return navigations, nil
+}
+
+// FindCursorInteractiveElements discovers elements with cursor:pointer, onclick, or
+// tabindex that aren't standard interactive elements. These are common in SPAs that
+// use styled divs/spans as buttons without proper semantic markup.
+func (b *BrowserPage) FindCursorInteractiveElements() ([]*types.HTMLElement, error) {
+	objects, err := b.Eval(`() => {
+		var results = [];
+		if (!document.body) return results;
+
+		var interactiveTags = {'A':1,'BUTTON':1,'INPUT':1,'SELECT':1,'TEXTAREA':1,'DETAILS':1,'SUMMARY':1};
+		var interactiveRoles = {
+			'button':1,'link':1,'textbox':1,'checkbox':1,'radio':1,'combobox':1,'listbox':1,
+			'menuitem':1,'menuitemcheckbox':1,'menuitemradio':1,'option':1,'searchbox':1,
+			'slider':1,'spinbutton':1,'switch':1,'tab':1,'treeitem':1
+		};
+
+		var allElements = document.body.querySelectorAll('*');
+		for (var i = 0; i < allElements.length; i++) {
+			var el = allElements[i];
+
+			if (el.closest && el.closest('[hidden], [aria-hidden="true"]')) continue;
+			if (interactiveTags[el.tagName]) continue;
+
+			var role = el.getAttribute('role');
+			if (role && interactiveRoles[role.toLowerCase()]) continue;
+			if (el.hasAttribute('aria-expanded') || el.hasAttribute('aria-haspopup')) continue;
+
+			var computedStyle = getComputedStyle(el);
+			var hasCursorPointer = computedStyle.cursor === 'pointer';
+			var hasOnClick = el.hasAttribute('onclick') || el.onclick !== null;
+			var tabIndex = el.getAttribute('tabindex');
+			var hasTabIndex = tabIndex !== null && tabIndex !== '-1';
+			var ce = el.getAttribute('contenteditable');
+			var isEditable = ce === '' || ce === 'true';
+
+			if (!hasCursorPointer && !hasOnClick && !hasTabIndex && !isEditable) continue;
+
+			// Skip inherited cursor:pointer from parent
+			if (hasCursorPointer && !hasOnClick && !hasTabIndex && !isEditable) {
+				var parent = el.parentElement;
+				if (parent && getComputedStyle(parent).cursor === 'pointer') continue;
+			}
+
+			var text = (el.textContent || '').trim();
+			if (!text || text.length > 200) continue;
+
+			var rect = el.getBoundingClientRect();
+			if (rect.width === 0 || rect.height === 0) continue;
+
+			results.push(window._elementDataFromElement(el));
+		}
+		return results;
+	}`)
+	if err != nil {
+		return nil, err
+	}
+
+	elements := make([]*types.HTMLElement, 0)
+	if err := objects.Value.Unmarshal(&elements); err != nil {
+		return nil, err
+	}
+	return elements, nil
 }
 
 // Define the map to hold event types

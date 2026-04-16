@@ -198,6 +198,16 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
+		flagSet.StringVarP(&options.AuthConfig, "auth-config", "ac", "", "path to authentication configuration YAML file"),
+		flagSet.StringVarEnv(&options.AuthAIProvider, "auth-ai-provider", "aap", "", "AUTH_AI_PROVIDER", "AI provider for login agent (e.g., anthropic)"),
+		flagSet.StringVarEnv(&options.AuthAIAPIKey, "auth-ai-key", "aak", "", "AUTH_AI_KEY", "API key for login AI agent"),
+		flagSet.BoolVarP(&options.AIPlanner, "ai-planner", "aip", false, "enable AI-driven page exploration (uses LLM to plan what to click, fill, and explore)"),
+		flagSet.IntVarP(&options.HeadlessConcurrency, "headless-concurrency", "hlc", 1, "number of concurrent browser tabs for headless crawling (experimental)"),
+		flagSet.StringVarP(&options.HAROutput, "har-output", "haro", "", "write HAR (HTTP Archive) file with all captured requests/responses"),
+		flagSet.BoolVarP(&options.CoverageGuided, "coverage-guided", "cg", false, "enable JS coverage-guided crawling (boosts actions that trigger new code paths)"),
+		flagSet.BoolVarP(&options.Secrets, "secrets", "sec", false, "enable secrets scanning in HTTP responses (uses titus)"),
+		flagSet.BoolVarP(&options.SecretsValidate, "secrets-validate", "sv", false, "validate detected secrets against source APIs (requires --secrets)"),
+		flagSet.StringSliceVarP(&options.SecretsExclude, "secrets-exclude", "sxc", nil, "exclude secret rules by name pattern (e.g. 'generic,jwt')", goflags.CommaSeparatedStringSliceOptions),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
@@ -253,6 +263,9 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.Verbose, "verbose", "v", false, "display verbose output"),
 		flagSet.BoolVar(&options.Debug, "debug", false, "display debug output"),
 		flagSet.BoolVar(&options.Version, "version", false, "display project version"),
+		flagSet.BoolVarP(&options.Report, "report", "rp", false, "generate attack surface report after crawl"),
+		flagSet.StringVarP(&options.ReportFormat, "report-format", "rpf", "json", "report format (json, markdown)"),
+		flagSet.StringVarP(&options.ReportOutput, "report-output", "rpo", "", "file to write report to (default: stdout)"),
 	)
 
 	if err := flagSet.Parse(); err != nil {

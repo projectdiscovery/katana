@@ -162,6 +162,19 @@ func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.
 		return newPageHash, nil
 	}
 
+	// Try direct URL navigation — faster than shortest-path graph replay.
+	// On SPAs, navigating directly to the URL often works because the app
+	// handles client-side routing and cookies persist in the browser context.
+	if originPageState.URL != "" && originPageState.URL != "about:blank" {
+		newPageHash, err = c.tryDirectURLNavigation(page, originPageState, action)
+		if err != nil {
+			c.logger.Debug("Failed direct URL navigation", slog.String("error", err.Error()))
+		}
+		if newPageHash != "" {
+			return newPageHash, nil
+		}
+	}
+
 	// Finally try Shortest path walking from root.
 	newPageHash, err = c.tryShortestPathNavigation(action, page, currentPageHash)
 	if err != nil {
@@ -289,6 +302,45 @@ func (c *Crawler) isBackNavigationPossible(page *browser.BrowserPage, originPage
 		}
 	}
 	return false, 0, nil
+}
+
+// tryDirectURLNavigation navigates directly to the origin page URL.
+// This is faster than shortest-path graph replay on SPAs where client-side
+// routing handles the navigation and cookies persist in the browser context.
+// Only used when the origin page has a real navigable URL (not about:blank).
+func (c *Crawler) tryDirectURLNavigation(page *browser.BrowserPage, originPageState *types.PageState, action *types.Action) (string, error) {
+	c.logger.Debug("Trying direct URL navigation to origin",
+		slog.String("url", originPageState.URL),
+	)
+
+	pTimeout := page.Timeout(c.options.PageMaxTimeout)
+	if err := pTimeout.Navigate(originPageState.URL); err != nil {
+		return "", err
+	}
+	if err := page.WaitPageLoadHeurisitics(); err != nil {
+		return "", err
+	}
+
+	// First try the standard hash/simhash check
+	newPageHash, pageState, err := c.isCorrectNavigation(page, action)
+	if c.diagnostics != nil && pageState != nil {
+		_ = c.diagnostics.LogPageState(pageState, diagnostics.PreActionPageState)
+	}
+	if err == nil && newPageHash != "" {
+		return newPageHash, nil
+	}
+
+	// On SPAs, the DOM hash often changes between visits (dynamic content,
+	// timestamps, etc.) even though we're on the correct page. If the current
+	// URL matches the origin URL, accept it — the page is functionally correct.
+	if pageState != nil && pageState.URL == originPageState.URL {
+		c.logger.Debug("Direct URL nav: URL matches origin, accepting despite hash mismatch",
+			slog.String("url", pageState.URL),
+		)
+		return pageState.UniqueID, nil
+	}
+
+	return "", fmt.Errorf("direct URL navigation: page URL %q != origin %q", pageState.URL, originPageState.URL)
 }
 
 func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {

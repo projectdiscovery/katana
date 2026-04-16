@@ -6,6 +6,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/projectdiscovery/katana/pkg/secrets"
 )
 
 type Headers map[string]string
@@ -42,6 +43,7 @@ type Response struct {
 	XhrRequests        []Request         `json:"xhr_requests,omitempty"`
 	StoredResponsePath string            `json:"stored_response_path,omitempty"`
 	KnowledgeBase      map[string]any    `json:"knowledgebase,omitempty"`
+	Secrets            []secrets.Finding `json:"secrets,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

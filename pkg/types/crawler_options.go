@@ -5,11 +5,13 @@ import (
 	"log/slog"
 	"os/user"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/secrets"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -42,6 +44,8 @@ type CrawlerOptions struct {
 	Wappalyzer *wappalyzer.Wappalyze
 	// DitClassifier instance for knowledge base classification
 	DitClassifier *dit.Classifier
+	// SecretsScanner instance for secrets detection in HTTP responses
+	SecretsScanner *secrets.Scanner
 
 	// Optional structured logger for headless crawler
 	Logger *slog.Logger
@@ -163,6 +167,19 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.DitClassifier = classifier
 	}
 
+	if options.Secrets {
+		// Pass nil for exclude patterns to use defaults, or user-specified list
+		var excludePatterns []string
+		if len(options.SecretsExclude) > 0 {
+			excludePatterns = options.SecretsExclude
+		}
+		secretsScanner, err := secrets.NewScanner(options.SecretsValidate, excludePatterns)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not init secrets scanner")
+		}
+		crawlerOptions.SecretsScanner = secretsScanner
+	}
+
 	if options.MaxOnclickLinks <= 0 {
 		options.MaxOnclickLinks = 10
 	}
@@ -173,6 +190,9 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 // Close closes the crawler options resources
 func (c *CrawlerOptions) Close() error {
 	c.UniqueFilter.Close()
+	if c.SecretsScanner != nil {
+		c.SecretsScanner.Close()
+	}
 	return c.OutputWriter.Close()
 }
 
@@ -199,6 +219,56 @@ func (c *CrawlerOptions) ClassifyPage(body string) map[string]any {
 		kb["Forms"] = result.Forms
 	}
 	return kb
+}
+
+// maxSecretsScanSize is the maximum response body size to scan for secrets (10MB).
+const maxSecretsScanSize = 10 * 1024 * 1024
+
+// skipContentTypes are content-type prefixes that are never scanned for secrets.
+var skipContentTypes = []string{
+	"image/",
+	"audio/",
+	"video/",
+	"font/",
+	"application/octet-stream",
+	"application/pdf",
+	"application/zip",
+	"application/gzip",
+	"application/wasm",
+}
+
+// ScanSecrets scans HTTP response headers and body for leaked secrets.
+// Only responses are scanned — request data is excluded because it contains
+// user-supplied credentials (form submissions, auth headers) which are not leaks.
+// Skips binary content types and bodies larger than 512KB for performance.
+func (c *CrawlerOptions) ScanSecrets(rr *output.Result) []secrets.Finding {
+	if c.SecretsScanner == nil || rr == nil || rr.Response == nil {
+		return nil
+	}
+
+	// Skip binary/non-text content types
+	if ct, ok := rr.Response.Headers["content-type"]; ok {
+		ctLower := strings.ToLower(ct)
+		for _, skip := range skipContentTypes {
+			if strings.HasPrefix(ctLower, skip) {
+				return nil
+			}
+		}
+	}
+
+	url := ""
+	if rr.Request != nil {
+		url = rr.Request.URL
+	}
+
+	var findings []secrets.Finding
+	if rr.Response.Headers != nil {
+		findings = append(findings, c.SecretsScanner.ScanHeaders(map[string]string(rr.Response.Headers), "response_header", url)...)
+	}
+	if rr.Response.Body != "" && len(rr.Response.Body) <= maxSecretsScanSize {
+		findings = append(findings, c.SecretsScanner.ScanString(rr.Response.Body, "response_body", url)...)
+	}
+	return findings
 }
 
 // ValidateScope validates scope for an AbsURL

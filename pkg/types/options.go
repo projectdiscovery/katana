@@ -198,8 +198,39 @@ type Options struct {
 	DOMWaitTime           int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
+	// AuthConfig is the path to the authentication configuration YAML file
+	AuthConfig string
+	// AuthAIProvider is the AI provider for login agent (e.g., "anthropic")
+	AuthAIProvider string
+	// AuthAIAPIKey is the API key for the login AI agent
+	AuthAIAPIKey string
+	// AIPlanner enables AI-driven page exploration planning.
+	// When enabled, an LLM analyzes each new page type and produces a prioritized
+	// exploration plan (which forms to fill, menus to expand, buttons to click).
+	// Requires ANTHROPIC_API_KEY env var or --auth-ai-key flag.
+	AIPlanner bool
+	// HeadlessConcurrency is the number of concurrent browser tabs for headless crawling.
+	// Default 1 (single-threaded). Higher values enable multi-tab parallel crawling (experimental).
+	HeadlessConcurrency int
+	// Report enables attack surface report generation after crawl
+	Report bool
+	// ReportFormat is the output format: json, markdown (default: json)
+	ReportFormat string
+	// ReportOutput is the file path to write the report to (default: stdout)
+	ReportOutput string
 	// KnowledgeBase enables knowledge base classification using dit
 	KnowledgeBase bool
+	// Secrets enables scanning HTTP responses for leaked secrets using Titus
+	Secrets bool
+	// SecretsValidate enables live validation of detected secrets against source APIs
+	SecretsValidate bool
+	// SecretsExclude is a list of rule name patterns to exclude from secrets scanning
+	SecretsExclude goflags.StringSlice
+	// HAROutput is the file path to write a HAR (HTTP Archive) file with all captured requests/responses.
+	HAROutput string
+	// CoverageGuided enables JS code coverage feedback for headless crawling priority.
+	// Actions that trigger new code paths are boosted in the crawl queue.
+	CoverageGuided bool
 	// FilterPageType filters results by page type
 	FilterPageType goflags.StringSlice
 }

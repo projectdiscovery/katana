@@ -38,8 +38,10 @@ type Action struct {
 	Input    string       `json:"input,omitempty"`
 	Element  *HTMLElement `json:"element,omitempty"`
 	Form     *HTMLForm    `json:"form,omitempty"`
-	Depth    int          `json:"depth,omitempty"`
-	ResultID string       `json:"result_id,omitempty"`
+	Depth         int          `json:"depth,omitempty"`
+	ResultID      string       `json:"result_id,omitempty"`
+	CoverageBoost int          `json:"coverage_boost,omitempty"` // negative = higher priority
+	OriginURL     string       `json:"origin_url,omitempty"`     // URL of the page where this action was discovered
 }
 
 func (a *Action) Hash() string {

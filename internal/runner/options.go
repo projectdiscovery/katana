@@ -88,6 +88,23 @@ func validateOptions(options *types.Options) error {
 		}
 		options.FilterRegex = append(options.FilterRegex, cr)
 	}
+	// Auto-enable similar URL filtering for headless modes with a lower threshold
+	// to prevent wasting crawl budget on template pages (e.g., /user/1, /user/2, ...).
+	if (options.Headless || options.HeadlessHybrid || options.ChromeWSUrl != "") && !options.FilterSimilar {
+		options.FilterSimilar = true
+		if options.FilterSimilarThreshold == 0 {
+			options.FilterSimilarThreshold = 5
+		}
+		gologger.Info().Msgf("Similar URL filtering auto-enabled for headless mode (threshold=%d)", options.FilterSimilarThreshold)
+	}
+
+	if options.SecretsValidate && !options.Secrets {
+		return errkit.New("--secrets-validate requires --secrets to be enabled")
+	}
+	if options.Secrets && !options.Headless && !options.HeadlessHybrid && options.ChromeWSUrl == "" {
+		gologger.Warning().Msgf("--secrets flag is designed for headless mode; secrets scanning may not work in standard mode")
+	}
+
 	if options.KnownFiles != "" && options.MaxDepth < 3 {
 		gologger.Info().Msgf("Depth automatically set to 3 to accommodate the `--known-files` option (originally set to %d).", options.MaxDepth)
 		options.MaxDepth = 3

@@ -117,7 +117,7 @@ func TestPerformAdditionalAnalysisDedups(t *testing.T) {
 	// Register the real request URL first (matching the reordered callback flow).
 	h.isUniqueURL(rr.Request.URL)
 
-	results := h.performAdditionalAnalysis(rr)
+	results := h.performAdditionalAnalysis(rr, nil)
 
 	// Count occurrences to verify dedup actually works (a map would hide duplicates).
 	counts := make(map[string]int)
@@ -155,7 +155,7 @@ func TestAdditionalAnalysisStillRunsForDuplicateRequests(t *testing.T) {
 	isUnique := h.isUniqueURL(rr.Request.URL)
 	require.False(t, isUnique, "B should be a duplicate")
 
-	results := h.performAdditionalAnalysis(rr)
+	results := h.performAdditionalAnalysis(rr, nil)
 
 	var foundC bool
 	for _, r := range results {

@@ -37,6 +37,14 @@ import (
 type Launcher struct {
 	browserPool rod.Pool[BrowserPage]
 
+	// Shared browser instance for multi-tab mode.
+	// Initialized once via browserOnce. All pages share this browser.
+	browser     *rod.Browser
+	browserOnce sync.Once
+	browserErr  error
+	userDataDir string // shared data dir for the browser
+	cleanupDir  bool   // whether to remove userDataDir on close
+
 	opts LauncherOptions
 }
 
@@ -81,6 +89,90 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	}
 
 	return l, nil
+}
+
+// initBrowser lazily launches a single shared browser process.
+// Safe to call from multiple goroutines — only runs once.
+func (l *Launcher) initBrowser() (*rod.Browser, error) {
+	l.browserOnce.Do(func() {
+		// Determine data dir
+		if l.opts.ChromeWSUrl == "" {
+			if l.opts.UserDataDir != "" {
+				l.userDataDir = l.opts.UserDataDir
+				l.cleanupDir = false
+			} else if l.opts.ChromeUser != nil {
+				var err error
+				l.userDataDir, err = os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
+				if err != nil {
+					l.browserErr = errors.Wrap(err, "could not create temporary chrome data directory")
+					return
+				}
+				uid, _ := strconv.Atoi(l.opts.ChromeUser.Uid)
+				gid, _ := strconv.Atoi(l.opts.ChromeUser.Gid)
+				_ = os.Chown(l.userDataDir, uid, gid)
+				l.cleanupDir = true
+			} else {
+				var err error
+				l.userDataDir, err = os.MkdirTemp("", "katana-chrome-data-*")
+				if err != nil {
+					l.browserErr = errors.Wrap(err, "could not create temporary chrome data directory")
+					return
+				}
+				l.cleanupDir = true
+			}
+		}
+
+		l.browser, l.browserErr = l.launchBrowserWithDataDir(l.userDataDir)
+	})
+	return l.browser, l.browserErr
+}
+
+// createPageInSharedBrowser creates a new tab in the shared browser.
+// Used when MaxBrowsers > 1 (multi-tab mode).
+func (l *Launcher) createPageInSharedBrowser() (*BrowserPage, error) {
+	browser, err := l.initBrowser()
+	if err != nil {
+		return nil, err
+	}
+
+	page, err := browser.Page(proto.TargetCreateTarget{})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create new page in shared browser")
+	}
+
+	page = page.Sleeper(func() rodutils.Sleeper {
+		return backoffCountSleeper(100*time.Millisecond, 1*time.Second, 3, func(d time.Duration) time.Duration {
+			return d * 1
+		})
+	})
+	ctx := page.GetContext()
+	cancelCtx, cancel := context.WithCancel(ctx)
+	page = page.Context(cancelCtx)
+
+	browserPage := &BrowserPage{
+		Page:        page,
+		Browser:     browser,
+		launcher:    l,
+		cancel:      cancel,
+		userDataDir: l.userDataDir,
+	}
+	if err := browserPage.handlePageDialogBoxes(); err != nil {
+		page.Close()
+		return nil, err
+	}
+
+	_, err = page.EvalOnNewDocument(stealth.JS)
+	if err != nil {
+		page.Close()
+		return nil, errors.Wrap(err, "could not initialize stealth")
+	}
+	err = js.InitJavascriptEnv(page)
+	if err != nil {
+		page.Close()
+		return nil, errors.Wrap(err, "could not initialize javascript env")
+	}
+
+	return browserPage, nil
 }
 
 func (l *Launcher) ScopeValidator() ScopeValidator {
@@ -194,9 +286,21 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 func (l *Launcher) Close() {
 	l.browserPool.Cleanup(func(b *BrowserPage) {
 		b.cancel()
-		b.CloseBrowserPage()
+		if l.opts.MaxBrowsers <= 1 {
+			b.CloseBrowserPage()
+		} else {
+			_ = b.Page.Close() // just close the tab, not the browser
+		}
 	})
 	close(l.browserPool)
+
+	// In multi-tab mode, close the shared browser after all pages are closed
+	if l.browser != nil && l.opts.ChromeWSUrl == "" {
+		_ = l.browser.Close()
+	}
+	if l.cleanupDir && l.userDataDir != "" {
+		_ = os.RemoveAll(l.userDataDir)
+	}
 }
 
 // BrowserPage is a combination of a browser and a page
@@ -229,6 +333,17 @@ var defaultWaitOptions = WaitOptions{
 	IdleWait:        1 * time.Second,
 	DOMStableWait:   1 * time.Second,
 	MaxTimeout:      15 * time.Second,
+}
+
+// QuickWaitOptions are reduced timeouts for non-link clicks (buttons, toggles)
+// that typically don't trigger full page navigation.
+var QuickWaitOptions = WaitOptions{
+	URLPollInterval: 100 * time.Millisecond,
+	URLPollTimeout:  500 * time.Millisecond, // down from 2s — buttons rarely change URL
+	PostChangeWait:  200 * time.Millisecond,
+	IdleWait:        500 * time.Millisecond, // down from 1s
+	DOMStableWait:   1 * time.Second,        // keep same — safety net
+	MaxTimeout:      8 * time.Second,         // down from 15s
 }
 
 // WaitPageLoadHeurisitics waits for the page to load using multiple heuristics.
@@ -273,47 +388,54 @@ func (b *BrowserPage) WaitPageLoadHeurisitics() error {
 	case "heuristic":
 		fallthrough
 	default:
-		// Use the original heuristic approach
-		opts := defaultWaitOptions
+		return b.waitHeuristic(defaultWaitOptions)
+	}
+}
 
-		chained := b.Timeout(opts.MaxTimeout)
+// WaitPageLoadHeuristicsQuick uses reduced timeouts for non-link clicks
+// (buttons, toggles) that typically don't trigger full page navigation.
+func (b *BrowserPage) WaitPageLoadHeuristicsQuick() error {
+	return b.waitHeuristic(QuickWaitOptions)
+}
 
-		// 1. Wait for the basic load event (DOMContentLoaded / load).
-		_ = chained.WaitLoad()
+// waitHeuristic implements the multi-signal heuristic page load strategy.
+func (b *BrowserPage) waitHeuristic(opts WaitOptions) error {
+	chained := b.Timeout(opts.MaxTimeout)
 
-		// 2. Capture the current URL so we can detect route changes.
-		urlVal, _ := b.Eval("() => window.location.href")
-		startURL := ""
-		if urlVal != nil {
-			startURL = urlVal.Value.Str()
-		}
+	// 1. Wait for the basic load event (DOMContentLoaded / load).
+	_ = chained.WaitLoad()
 
-		// 3. Poll for a different URL for up to URLPollTimeout.
-		urlChanged := false
-		if startURL != "" {
-			pollCount := int(opts.URLPollTimeout / opts.URLPollInterval)
-			for i := 0; i < pollCount; i++ {
-				time.Sleep(opts.URLPollInterval)
-				cur, err := b.Eval("() => window.location.href")
-				if err == nil && cur != nil && cur.Value.Str() != startURL {
-					urlChanged = true
-					break
-				}
+	// 2. Capture the current URL so we can detect route changes.
+	urlVal, _ := b.Eval("() => window.location.href")
+	startURL := ""
+	if urlVal != nil {
+		startURL = urlVal.Value.Str()
+	}
+
+	// 3. Poll for a different URL for up to URLPollTimeout.
+	urlChanged := false
+	if startURL != "" {
+		pollCount := int(opts.URLPollTimeout / opts.URLPollInterval)
+		for i := 0; i < pollCount; i++ {
+			time.Sleep(opts.URLPollInterval)
+			cur, err := b.Eval("() => window.location.href")
+			if err == nil && cur != nil && cur.Value.Str() != startURL {
+				urlChanged = true
+				break
 			}
 		}
+	}
 
-		if urlChanged {
-			// 4a. URL changed – short grace period then network idle & done.
-			_ = chained.WaitIdle(opts.PostChangeWait)
-			return nil
-		}
-
-		// 4b. URL didn't change – fall back to broader heuristics.
-		_ = chained.WaitIdle(opts.IdleWait)
-		_ = b.WaitNewStable(opts.DOMStableWait)
-
+	if urlChanged {
+		// 4a. URL changed – short grace period then network idle & done.
+		_ = chained.WaitIdle(opts.PostChangeWait)
 		return nil
 	}
+
+	// 4b. URL didn't change – fall back to broader heuristics.
+	_ = chained.WaitIdle(opts.IdleWait)
+	_ = b.WaitNewStable(opts.DOMStableWait)
+	return nil
 }
 
 // WaitPageLoadHeuristicsFallback provides the enhanced timeouts for complex navigation
@@ -457,14 +579,20 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	return browserPage, nil
 }
 
-// GetPageFromPool returns a page from the pool
+// GetPageFromPool returns a page from the pool.
+// When MaxBrowsers > 1, pages are tabs in a single shared browser.
+// When MaxBrowsers == 1, falls back to the legacy one-browser-per-page model.
 func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
-	browserPage, err := l.browserPool.Get(l.createBrowserPageFunc)
+	var createFunc func() (*BrowserPage, error)
+	if l.opts.MaxBrowsers > 1 {
+		createFunc = l.createPageInSharedBrowser
+	} else {
+		createFunc = l.createBrowserPageFunc
+	}
+	browserPage, err := l.browserPool.Get(createFunc)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: should we check if the browser is alive because sometimes it
-	// might die?
 	return browserPage, nil
 }
 
@@ -636,35 +764,61 @@ func netHTTPResponseFromProto(e *proto.FetchRequestPaused, body []byte) *http.Re
 	return httpresp
 }
 
-func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
+func (l *Launcher) PutBrowserToPool(bp *BrowserPage) {
 	// Discard pages that hit a deadline or were cancelled to avoid immediately
 	// returning a poisoned page that will fail every subsequent call.
-	if cerr := browser.Page.GetContext().Err(); cerr != nil {
-		browser.cancel()
-		browser.CloseBrowserPage()
+	if cerr := bp.Page.GetContext().Err(); cerr != nil {
+		bp.cancel()
+		if l.opts.MaxBrowsers <= 1 {
+			bp.CloseBrowserPage()
+		} else {
+			_ = bp.Page.Close()
+		}
 		return
 	}
 	// If the browser is not connected, close it
-	if !isBrowserConnected(browser.Browser) {
-		browser.cancel()
-		browser.CloseBrowserPage()
-		return
-	}
-
-	pages, err := browser.Browser.Pages()
-	if err != nil {
-		browser.cancel()
-		browser.CloseBrowserPage()
-		return
-	}
-
-	currentPageID := browser.TargetID
-	for _, page := range pages {
-		if page.TargetID != currentPageID {
-			_ = page.Close()
+	if !isBrowserConnected(bp.Browser) {
+		bp.cancel()
+		if l.opts.MaxBrowsers <= 1 {
+			bp.CloseBrowserPage()
 		}
+		// In multi-tab mode, don't close the shared browser — other tabs may be active
+		return
 	}
-	l.browserPool.Put(browser)
+
+	// Check if the page target is still alive. SPA interactions (form submits,
+	// dialog closes) can destroy the tab, leaving a stale page that fails every
+	// subsequent CDP call with "No target with given id found". Discard it so
+	// GetPageFromPool creates a fresh one.
+	if _, err := bp.Eval("() => document.readyState"); err != nil {
+		bp.cancel()
+		if l.opts.MaxBrowsers <= 1 {
+			bp.CloseBrowserPage()
+		} else {
+			_ = bp.Page.Close()
+		}
+		return
+	}
+
+	if l.opts.MaxBrowsers <= 1 {
+		// Legacy mode: close extra popup pages, keep single page
+		pages, err := bp.Browser.Pages()
+		if err != nil {
+			bp.cancel()
+			bp.CloseBrowserPage()
+			return
+		}
+		currentPageID := bp.TargetID
+		for _, page := range pages {
+			if page.TargetID != currentPageID {
+				_ = page.Close()
+			}
+		}
+	} else {
+		// Multi-tab mode: navigate to about:blank to reset state for reuse
+		_ = bp.Navigate("about:blank")
+	}
+	l.browserPool.Put(bp)
 }
 
 func isBrowserConnected(browser *rod.Browser) bool {
