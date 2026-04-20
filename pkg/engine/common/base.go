@@ -305,10 +305,14 @@ type CrawlSession struct {
 //
 // Returns the initialized CrawlSession or an error if initialization fails.
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
 	if s.Options.Options.CrawlDuration.Seconds() > 0 {
-		//nolint
-		ctx, cancel = context.WithTimeout(ctx, s.Options.Options.CrawlDuration)
+		ctx, cancel = context.WithTimeout(context.Background(), s.Options.Options.CrawlDuration)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
 	}
 
 	parsed, err := urlutil.Parse(URL)
