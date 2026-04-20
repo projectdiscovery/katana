@@ -178,6 +178,15 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 
 // Close closes the crawler options resources
 func (c *CrawlerOptions) Close() error {
+	if c.RateLimit != nil {
+		c.RateLimit.Stop()
+	}
+	if c.HostRateLimit != nil {
+		c.HostRateLimit.Stop()
+	}
+	if c.Dialer != nil {
+		c.Dialer.Close()
+	}
 	c.UniqueFilter.Close()
 	return c.OutputWriter.Close()
 }
