@@ -22,7 +22,8 @@ import (
 type Crawler struct {
 	*common.Shared
 
-	browser *rod.Browser
+	browser        *rod.Browser
+	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
 	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
 	// This change will be made if there are no complaints about zombie Chrome processes.
 	// References:
@@ -68,6 +69,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	browser := rod.New().ControlURL(launcherURL)
 	if browserErr := browser.Connect(); browserErr != nil {
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
@@ -75,6 +79,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if !options.Options.HeadlessNoIncognito {
 		incognito, err := browser.Incognito()
 		if err != nil {
+			_ = browser.Close()
 			if chromeLauncher != nil {
 				chromeLauncher.Kill()
 			}
@@ -85,12 +90,17 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	shared, err := common.NewShared(options)
 	if err != nil {
+		_ = browser.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
 		return nil, errkit.Wrap(err, "hybrid")
 	}
 
 	crawler := &Crawler{
-		Shared:  shared,
-		browser: browser,
+		Shared:         shared,
+		browser:        browser,
+		chromeLauncher: chromeLauncher,
 		// previousPIDs: previousPIDs,
 		tempDir: dataStore,
 	}
@@ -100,6 +110,12 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
+	if c.browser != nil {
+		_ = c.browser.Close()
+	}
+	if c.chromeLauncher != nil {
+		c.chromeLauncher.Kill()
+	}
 	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
