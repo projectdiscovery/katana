@@ -167,6 +167,12 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 
 		// Race Take() against the session context so the loop doesn't
 		// block on a limiter tick when the crawl has been cancelled.
+		//
+		// Note: when the session is cancelled mid-Take, this inner
+		// goroutine outlives the loop iteration and stays blocked on
+		// the limiter until the next tick or until RateLimit.Stop() is
+		// called by CrawlerOptions.Close(). The leak is bounded by
+		// Close() and acceptable.
 		if crawlSession.Ctx.Err() != nil {
 			continue
 		}

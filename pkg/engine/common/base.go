@@ -350,6 +350,12 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			// Race Take() against the session context so that workers
 			// don't block shutdown waiting for the next limiter tick
 			// (the limiter is bound to options.Context, not the session).
+			//
+			// Note: when the session is cancelled mid-Take, this inner
+			// goroutine outlives the worker and stays blocked on the
+			// limiter until the next tick or until RateLimit.Stop() is
+			// called by CrawlerOptions.Close(). The leak is therefore
+			// bounded by Close() and acceptable.
 			takeDone := make(chan struct{})
 			go func() {
 				s.Options.RateLimit.Take()
