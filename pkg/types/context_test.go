@@ -13,7 +13,7 @@ func TestNewCrawlerOptionsWithContext(t *testing.T) {
 		opts := &Options{RateLimit: 10}
 		crawlerOpts, err := NewCrawlerOptions(opts)
 		require.NoError(t, err)
-		defer crawlerOpts.Close()
+		defer func() { _ = crawlerOpts.Close() }()
 		require.NotNil(t, crawlerOpts.RateLimit)
 	})
 
@@ -22,7 +22,7 @@ func TestNewCrawlerOptionsWithContext(t *testing.T) {
 		opts := &Options{Context: ctx, RateLimit: 1}
 		crawlerOpts, err := NewCrawlerOptions(opts)
 		require.NoError(t, err)
-		defer crawlerOpts.Close()
+		defer func() { _ = crawlerOpts.Close() }()
 
 		crawlerOpts.RateLimit.Take()
 

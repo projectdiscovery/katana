@@ -48,6 +48,6 @@ func TestRequestWithContextNil(t *testing.T) {
 	kf := New(client, "robotstxt")
 
 	// This will fail because there's no server, but it should not panic
-	_, err := kf.RequestWithContext(nil, "http://localhost:1")
+	_, err := kf.RequestWithContext(nil, "http://localhost:1") //nolint
 	require.Error(t, err)
 }
