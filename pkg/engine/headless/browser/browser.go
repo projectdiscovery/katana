@@ -47,11 +47,17 @@ type LauncherOptions struct {
 	PageMaxTimeout      time.Duration
 	ShowBrowser         bool
 	NoSandbox           bool
+	NoIncognito         bool
 	Proxy               string
 	SlowMotion          bool
 	Trace               bool
 	CookieConsentBypass bool
+	PageLoadStrategy    string
+	ChromeWSUrl         string // WebSocket URL to connect to existing Chrome
+	DOMWaitTime         int    // Time in seconds to wait for DOM (used with domcontentloaded strategy)
+	UserDataDir         string // User-provided chrome data directory to preserve sessions
 	ChromeUser          *user.User // optional chrome user to use
+	UserArguments       map[string]string // user-supplied Chrome flags via -headless-options
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
@@ -61,6 +67,15 @@ type ScopeValidator func(string) bool
 
 // NewLauncher returns a new launcher instance
 func NewLauncher(opts LauncherOptions) (*Launcher, error) {
+	// Default to "heuristic" if not specified
+	if opts.PageLoadStrategy == "" {
+		opts.PageLoadStrategy = "heuristic"
+	}
+	
+	if opts.DOMWaitTime <= 0 {
+		opts.DOMWaitTime = 5
+	}
+	
 	l := &Launcher{
 		opts:        opts,
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
@@ -73,54 +88,95 @@ func (l *Launcher) ScopeValidator() ScopeValidator {
 	return l.opts.ScopeValidator
 }
 
+func (l *Launcher) shouldUseIncognito() bool {
+	return !l.opts.NoIncognito
+}
+
+func (l *Launcher) shouldSkipHeadlessFlag(flagName string) bool {
+	if l.opts.UserDataDir == "" || !l.opts.NoIncognito {
+		return false
+	}
+
+	switch flagName {
+	case "use-mock-keychain", "password-store", "disable-extensions", "enable-automation":
+		return true
+	default:
+		return false
+	}
+}
+
+func (l *Launcher) shouldPreserveUserDataDir(tempDir string) bool {
+	return tempDir != "" && tempDir == l.opts.UserDataDir
+}
+
 func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
-	chromeLauncher := launcher.New().
-		Leakless(true).
-		Set("disable-gpu", "true").
-		Set("ignore-certificate-errors", "true").
-		Set("disable-crash-reporter", "true").
-		Set("disable-notifications", "true").
-		Set("hide-scrollbars", "true").
-		Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
-		Set("mute-audio", "true").
-		Set("incognito", "true").
-		Delete("use-mock-keychain").
-		Delete("disable-ipc-flooding-protection").
-		Headless(true)
+	var launcherURL string
+	
+	// If ChromeWSUrl is provided, connect to existing Chrome instead of launching new one
+	if l.opts.ChromeWSUrl != "" {
+		launcherURL = l.opts.ChromeWSUrl
+	} else {
+		// Launch a new Chrome instance
+		chromeLauncher := launcher.New().
+			Leakless(true).
+			Set("disable-gpu", "true").
+			Set("ignore-certificate-errors", "true").
+			Set("disable-crash-reporter", "true").
+			Set("disable-notifications", "true").
+			Set("hide-scrollbars", "true").
+			Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
+			Set("mute-audio", "true").
+			Delete("use-mock-keychain").
+			Delete("disable-ipc-flooding-protection").
+			Headless(true)
 
-	for _, flag := range headlessFlags {
-		splitted := strings.TrimPrefix(flag, "--")
-		values := strings.Split(splitted, "=")
-		if len(values) == 2 {
-			chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
-		} else {
-			chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
+		if l.shouldUseIncognito() {
+			chromeLauncher = chromeLauncher.Set("incognito", "true")
 		}
-	}
 
-	if l.opts.Proxy != "" {
-		chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
-	}
+		for _, flag := range headlessFlags {
+			splitted := strings.TrimPrefix(flag, "--")
+			values := strings.Split(splitted, "=")
+			flagName := values[0]
+			if l.shouldSkipHeadlessFlag(flagName) {
+				continue
+			}
+			if len(values) == 2 {
+				chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
+			} else {
+				chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
+			}
+		}
 
-	if l.opts.NoSandbox {
-		chromeLauncher = chromeLauncher.NoSandbox(true)
-	}
+		if l.opts.Proxy != "" {
+			chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
+		}
 
-	if l.opts.ShowBrowser {
-		chromeLauncher = chromeLauncher.Headless(false)
-	}
+		if l.opts.NoSandbox {
+			chromeLauncher = chromeLauncher.NoSandbox(true)
+		}
 
-	if l.opts.ChromiumPath != "" {
-		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
-	}
+		if l.opts.ShowBrowser {
+			chromeLauncher = chromeLauncher.Headless(false)
+		}
 
-	if userDataDir != "" {
-		chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
-	}
+		if l.opts.ChromiumPath != "" {
+			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+		}
 
-	launcherURL, err := chromeLauncher.Launch()
-	if err != nil {
-		return nil, err
+		if userDataDir != "" {
+			chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
+		}
+
+		for k, v := range l.opts.UserArguments {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
+		}
+
+		var err error
+		launcherURL, err = chromeLauncher.Launch()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	browser := rod.New().
@@ -189,45 +245,80 @@ var defaultWaitOptions = WaitOptions{
 //
 // This keeps fast pages fast while still succeeding on noisy, long-running SPAs.
 func (b *BrowserPage) WaitPageLoadHeurisitics() error {
-	opts := defaultWaitOptions
+	// Respect the page load strategy from launcher options
+	strategy := b.launcher.opts.PageLoadStrategy
+	
+	switch strategy {
+	case "none":
+		// Don't wait at all, return immediately
+		return nil
+		
+	case "load":
+		// Just wait for the load event
+		chained := b.Timeout(15 * time.Second)
+		return chained.WaitLoad()
+		
+	case "domcontentloaded":
+		// WaitLoad checks document.readyState via JS, so it's safe to call
+		// after Navigate() has already started (no race with missed events).
+		chained := b.Timeout(15 * time.Second)
+		_ = chained.WaitLoad()
+		if b.launcher.opts.DOMWaitTime > 0 {
+			time.Sleep(time.Duration(b.launcher.opts.DOMWaitTime) * time.Second)
+		}
+		return nil
+		
+	case "networkidle":
+		// Wait for network activity to stop
+		chained := b.Timeout(15 * time.Second)
+		_ = chained.WaitLoad()
+		_ = chained.WaitIdle(2 * time.Second)
+		return nil
+		
+	case "heuristic":
+		fallthrough
+	default:
+		// Use the original heuristic approach
+		opts := defaultWaitOptions
 
-	chained := b.Timeout(opts.MaxTimeout)
+		chained := b.Timeout(opts.MaxTimeout)
 
-	// 1. Wait for the basic load event (DOMContentLoaded / load).
-	_ = chained.WaitLoad()
+		// 1. Wait for the basic load event (DOMContentLoaded / load).
+		_ = chained.WaitLoad()
 
-	// 2. Capture the current URL so we can detect route changes.
-	urlVal, _ := b.Eval("() => window.location.href")
-	startURL := ""
-	if urlVal != nil {
-		startURL = urlVal.Value.Str()
-	}
+		// 2. Capture the current URL so we can detect route changes.
+		urlVal, _ := b.Eval("() => window.location.href")
+		startURL := ""
+		if urlVal != nil {
+			startURL = urlVal.Value.Str()
+		}
 
-	// 3. Poll for a different URL for up to URLPollTimeout.
-	urlChanged := false
-	if startURL != "" {
-		pollCount := int(opts.URLPollTimeout / opts.URLPollInterval)
-		for i := 0; i < pollCount; i++ {
-			time.Sleep(opts.URLPollInterval)
-			cur, err := b.Eval("() => window.location.href")
-			if err == nil && cur != nil && cur.Value.Str() != startURL {
-				urlChanged = true
-				break
+		// 3. Poll for a different URL for up to URLPollTimeout.
+		urlChanged := false
+		if startURL != "" {
+			pollCount := int(opts.URLPollTimeout / opts.URLPollInterval)
+			for i := 0; i < pollCount; i++ {
+				time.Sleep(opts.URLPollInterval)
+				cur, err := b.Eval("() => window.location.href")
+				if err == nil && cur != nil && cur.Value.Str() != startURL {
+					urlChanged = true
+					break
+				}
 			}
 		}
-	}
 
-	if urlChanged {
-		// 4a. URL changed – short grace period then network idle & done.
-		_ = chained.WaitIdle(opts.PostChangeWait)
+		if urlChanged {
+			// 4a. URL changed – short grace period then network idle & done.
+			_ = chained.WaitIdle(opts.PostChangeWait)
+			return nil
+		}
+
+		// 4b. URL didn't change – fall back to broader heuristics.
+		_ = chained.WaitIdle(opts.IdleWait)
+		_ = b.WaitNewStable(opts.DOMStableWait)
+
 		return nil
 	}
-
-	// 4b. URL didn't change – fall back to broader heuristics.
-	_ = chained.WaitIdle(opts.IdleWait)
-	_ = b.WaitNewStable(opts.DOMStableWait)
-
-	return nil
 }
 
 // WaitPageLoadHeuristicsFallback provides the enhanced timeouts for complex navigation
@@ -268,45 +359,53 @@ func (p *BrowserPage) WaitNewStable(d time.Duration) error {
 }
 
 func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
-	// Create unique temp userDataDir for this browser instance
+	// When using ChromeWSUrl, we don't need temp directories
+	// since we're connecting to an existing browser
 	var tempDir string
-	shouldCleanup := true
+	shouldCleanupTempDir := false
+	
+	if l.opts.ChromeWSUrl == "" {
+		if l.opts.UserDataDir != "" {
+			// Use user-provided data directory (preserve sessions/cookies)
+			tempDir = l.opts.UserDataDir
+			shouldCleanupTempDir = false
+		} else if l.opts.ChromeUser != nil {
+			var err error
+			tempDir, err = os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
+			if err != nil {
+				return nil, errors.Wrap(err, "could not create temporary chrome data directory")
+			}
 
-	// Deferred cleanup function that will be set after tempDir creation
-	defer func() {
-		if shouldCleanup && tempDir != "" {
-			_ = os.RemoveAll(tempDir)
-		}
-	}()
-
-	if l.opts.ChromeUser != nil {
-		var err error
-		tempDir, err = os.MkdirTemp(l.opts.ChromeUser.HomeDir, "chrome-data-*")
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
-		}
-
-		uid, err := strconv.Atoi(l.opts.ChromeUser.Uid)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid user ID")
-		}
-		gid, err := strconv.Atoi(l.opts.ChromeUser.Gid)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid group ID")
-		}
-		if err := os.Chown(tempDir, uid, gid); err != nil {
-			return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
-		}
-	} else {
-		var err error
-		tempDir, err = os.MkdirTemp("", "katana-chrome-data-*")
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create temporary chrome data directory")
+			uid, err := strconv.Atoi(l.opts.ChromeUser.Uid)
+			if err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, errors.Wrap(err, "invalid user ID")
+			}
+			gid, err := strconv.Atoi(l.opts.ChromeUser.Gid)
+			if err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, errors.Wrap(err, "invalid group ID")
+			}
+			if err := os.Chown(tempDir, uid, gid); err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, errors.Wrap(err, "could not change ownership of chrome data directory")
+			}
+			shouldCleanupTempDir = true
+		} else {
+			var err error
+			tempDir, err = os.MkdirTemp("", "katana-chrome-data-*")
+			if err != nil {
+				return nil, errors.Wrap(err, "could not create temporary chrome data directory")
+			}
+			shouldCleanupTempDir = true
 		}
 	}
 
 	browser, err := l.launchBrowserWithDataDir(tempDir)
 	if err != nil {
+		if shouldCleanupTempDir {
+			_ = os.RemoveAll(tempDir)
+		}
 		return nil, err
 	}
 
@@ -319,7 +418,12 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	defer func() {
 		if !successfulPageCreation {
 			_ = page.Close()
-			_ = browser.Close()
+			if l.opts.ChromeWSUrl == "" {
+				_ = browser.Close()
+			}
+			if shouldCleanupTempDir {
+				_ = os.RemoveAll(tempDir)
+			}
 		}
 	}()
 
@@ -353,9 +457,8 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
 
-	// Success - cancel the deferred cleanup
+	// Success - cancel any deferred cleanup
 	successfulPageCreation = true
-	shouldCleanup = false
 	return browserPage, nil
 }
 
@@ -581,9 +684,16 @@ func isBrowserConnected(browser *rod.Browser) bool {
 }
 
 func (b *BrowserPage) CloseBrowserPage() {
-	_ = b.Close()
-	_ = b.Browser.Close()
-	if b.userDataDir != "" {
+	_ = b.Close() // Close the page/tab
+
+	// Only close the browser if we launched it ourselves (not connecting via ChromeWSUrl)
+	// If ChromeWSUrl was used, we should leave the browser running
+	if b.launcher.opts.ChromeWSUrl == "" {
+		_ = b.Browser.Close()
+	}
+
+	// Only cleanup temp data dir if we created it (not user-provided)
+	if b.userDataDir != "" && !b.launcher.shouldPreserveUserDataDir(b.userDataDir) {
 		_ = os.RemoveAll(b.userDataDir)
 	}
 }

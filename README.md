@@ -79,12 +79,19 @@ docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -h
 
 ```sh
 sudo apt update
+sudo apt install zip curl wget git snapd
 sudo snap refresh
-sudo apt install zip curl wget git
 sudo snap install golang --classic
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 
-sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-sudo apt update 
+
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] \
+  http://dl.google.com/linux/chrome/deb/ stable main" \
+  | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+
+sudo apt update
 sudo apt install google-chrome-stable
 ```
 
@@ -143,6 +150,7 @@ CONFIGURATION:
    -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
    -dr, -disable-redirects       disable following redirects (default false)
    -kb, -knowledge-base          enable knowledge base classification
+   -mdp, -max-domain-pages int   maximum number of pages to crawl per domain (default unlimited)
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
@@ -160,6 +168,8 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
+   -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
+   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
 
@@ -175,13 +185,13 @@ FILTER:
    -fr, -filter-regex string[]            regex or list of regex to filter on output url (cli, file)
    -f, -field string                      field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir) (Deprecated: use -output-template instead)
    -sf, -store-field string               field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js)
+   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js,none)
    -ef, -extension-filter string[]        filter output for given extension (eg, -ef png,css)
    -ndef, -no-default-ext-filter bool     remove default extensions from the filter list
    -mdc, -match-condition string          match response with dsl based condition
    -fdc, -filter-condition string         filter response with dsl based condition
    -duf, -disable-unique-filter           disable duplicate content filtering
-   -fpt, -filter-page-type string[]      filter response with page type (e.g. error,captcha,parked)
+   -filter-page-type string[]      filter response with page type (e.g. error,captcha,parked)
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -189,6 +199,8 @@ RATE-LIMIT:
    -rd, -delay int               request delay between each request in seconds
    -rl, -rate-limit int          maximum requests to send per second (default 150)
    -rlm, -rate-limit-minute int  maximum number of requests to send per minute
+   -hrl, -host-rate-limit int    maximum requests to send per second per host
+   -hrlm, -host-rate-limit-minute int  maximum number of requests to send per minute per host
 
 UPDATE:
    -up, -update                 update katana to latest version
@@ -196,7 +208,7 @@ UPDATE:
 
 OUTPUT:
    -o, -output string                file to write output to
-   -ot, -output-template string      custom output template
+   -output-template string      custom output template
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
    -ncb, -no-clobber                 do not overwrite output file
@@ -336,6 +348,8 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr requests
+   -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
+   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
 ```
@@ -358,6 +372,12 @@ Runs headless chrome browser without incognito mode, useful when using the local
 katana -u https://tesla.com -headless -no-incognito
 ```
 
+To preserve cookies and other browser session data across runs, combine `-no-incognito` with `-chrome-data-dir` so Katana reuses your chosen Chrome profile directory instead of an isolated temporary one.
+
+```console
+katana -u https://tesla.com -headless -no-incognito -chrome-data-dir /tmp/katana-profile
+```
+
 *`-headless-options`*
 ----
 
@@ -366,6 +386,34 @@ When crawling in headless mode, additional chrome options can be specified using
 
 ```console
 katana -u https://tesla.com -headless -system-chrome -headless-options --disable-gpu,proxy-server=http://127.0.0.1:8080
+```
+
+*`-page-load-strategy`*
+----
+
+Controls how katana waits for pages to load in headless mode. Different strategies are useful for different types of web applications:
+
+| Strategy | Description |
+|----------|-------------|
+| `heuristic` | (default) Smart waiting that adapts to page behavior - waits for load event, network idle, and DOM stability |
+| `load` | Waits only for the browser's load event |
+| `domcontentloaded` | Waits for DOMContentLoaded event plus additional time (configurable via `-dwt`) for JavaScript rendering |
+| `networkidle` | Waits for network activity to stop |
+| `none` | No waiting - returns immediately after navigation starts |
+
+```console
+katana -u https://tesla.com -headless -pls domcontentloaded
+```
+
+The `domcontentloaded` strategy is particularly useful for Single Page Applications (SPAs) that never fully complete loading due to continuous background requests (websockets, polling, etc.).
+
+*`-dom-wait-time`*
+----
+
+When using the `domcontentloaded` page load strategy, this option specifies how many seconds to wait after the DOMContentLoaded event fires. This allows time for JavaScript to render interactive elements. Default is 5 seconds.
+
+```console
+katana -u https://tesla.com -headless -pls domcontentloaded -dwt 10
 ```
 
 
@@ -545,6 +593,17 @@ Automatic form filling is experimental feature.
 katana -u https://tesla.com -aff
 ```
 
+Form config values support DSL helper functions for dynamic data generation. All `rand_*` functions from the [projectdiscovery/dsl](https://github.com/projectdiscovery/dsl) library are available:
+
+```yaml
+# $HOME/.config/katana/form-config.yaml
+email: "rand_email()"
+phone: "rand_phone()"
+placeholder: "rand_first_name()"
+password: 'rand_base(16, "")'
+color: "#e66465"
+```
+
 *`-filter-similar`*
 ----
 
@@ -558,6 +617,15 @@ The promotion threshold (how many distinct values at a path position before it's
 
 ```
 katana -u https://tesla.com -fsu -fst 5
+```
+
+*`-max-domain-pages`*
+----
+
+Option to limit the number of pages crawled per domain. Prevents any single domain from consuming the entire crawl budget, useful for large sites or crawler trap protection.
+
+```
+katana -u https://tesla.com -mdp 100
 ```
 
 ## Authenticated Crawling
@@ -618,6 +686,7 @@ CONFIGURATION:
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
    -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
+   -mdp, -max-domain-pages int   maximum number of pages to crawl per domain (default unlimited)
 ```
 
 ### Connecting to Active Browser Session
@@ -781,6 +850,12 @@ Crawl output can be easily matched for specific extension using `-em` option to 
 katana -u https://tesla.com -silent -em js,jsp,json
 ```
 
+Use the special value `none` to also include URLs without a file extension in the output:
+
+```
+katana -u https://tesla.com -silent -em js,jsp,json,none
+```
+
 *`-extension-filter`*
 ---
 
@@ -847,7 +922,7 @@ FILTER:
    -fr, -filter-regex string[]            regex or list of regex to filter on output url (cli, file)
    -f, -field string                      field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
    -sf, -store-field string               field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js)
+   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js,none)
    -ef, -extension-filter string[]        filter output for given extension (eg, -ef png,css)
    -ndef, -no-default-ext-filter bool     remove default extensions from the filter list
    -mdc, -match-condition string          match response with dsl based condition
@@ -888,7 +963,7 @@ katana -u https://tesla.com -p 20
 
 *`-rate-limit`*
 -----
-option to use to define max number of request can go out per second.
+Maximum requests per second, applied globally across all hosts.
 
 ```
 katana -u https://tesla.com -rl 100
@@ -896,10 +971,26 @@ katana -u https://tesla.com -rl 100
 
 *`-rate-limit-minute`*
 -----
-option to use to define max number of request can go out per minute.
+Maximum requests per minute, applied globally across all hosts.
 
 ```
 katana -u https://tesla.com -rlm 500
+```
+
+*`-host-rate-limit`*
+-----
+Maximum requests per second per host. Each host gets its own rate limit bucket, so a slow host won't throttle fast ones. Replaces the global rate limit when set. Katana also backs off automatically with exponential delay and jitter when a host returns 429 or 503.
+
+```console
+katana -u https://tesla.com -hrl 50
+```
+
+*`-host-rate-limit-minute`*
+-----
+Maximum requests per minute per host.
+
+```console
+katana -u https://tesla.com -hrlm 200
 ```
 
 Here is all long / short CLI options for rate limit control -
@@ -914,6 +1005,8 @@ RATE-LIMIT:
    -rd, -delay int               request delay between each request in seconds
    -rl, -rate-limit int          maximum requests to send per second (default 150)
    -rlm, -rate-limit-minute int  maximum number of requests to send per minute
+   -hrl, -host-rate-limit int    maximum requests to send per second per host
+   -hrlm, -host-rate-limit-minute int  maximum number of requests to send per minute per host
 ```
 
 ## Output
@@ -1040,7 +1133,7 @@ OUTPUT:
    -srd, -store-response-dir string  store http requests/responses to custom directory
    -lof, -list-output-fields         list available fields for jsonl output format
    -eof, -exclude-output-fields      exclude fields from jsonl output
-   -j, -json                         write output in JSONL(ines) format
+   -j, -json                         write output in JSON Lines format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
    -v, -verbose                      display verbose output

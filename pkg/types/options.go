@@ -65,6 +65,10 @@ type Options struct {
 	Retries int
 	// RateLimitMinute is the maximum number of requests to send per minute
 	RateLimitMinute int
+	// HostRateLimit is the maximum number of requests to send per second per host
+	HostRateLimit int
+	// HostRateLimitMinute is the maximum number of requests to send per minute per host
+	HostRateLimitMinute int
 	// Concurrency is the number of concurrent crawling goroutines
 	Concurrency int
 	// Parallelism is the number of urls processing goroutines
@@ -197,13 +201,21 @@ type Options struct {
 	// DisableUniqueFilter disables duplicate content filtering
 	DisableUniqueFilter bool
 	// MaxOnclickLinks is the maximum number of onclick links to process per page (default: 10)
-	MaxOnclickLinks       int
+	MaxOnclickLinks int
+	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
+	PageLoadStrategy      string
+	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
+	DOMWaitTime           int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
 	// KnowledgeBase enables knowledge base classification using dit
 	KnowledgeBase bool
 	// FilterPageType filters results by page type
 	FilterPageType goflags.StringSlice
+	// AuthCredentials holds username:password for automatic login
+	AuthCredentials string
+	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
+	MaxDomainPages int
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

@@ -3,8 +3,11 @@ package utils
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/dsl"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	"github.com/rs/xid"
 )
@@ -31,6 +34,64 @@ var DefaultFormFillData = FormFillData{
 	Password:    "katanaP@assw0rd1",
 	PhoneNumber: "2124567890",
 	Placeholder: "katana",
+}
+
+var formDSLEngine *dsl.Engine
+var formDSLOnce sync.Once
+
+func getFormDSLEngine() *dsl.Engine {
+	formDSLOnce.Do(func() {
+		engine, err := dsl.NewEngine()
+		if err != nil {
+			return
+		}
+		for name, fn := range dsl.FakerFunctions() {
+			engine.HelperFunctions[name] = fn
+		}
+		formDSLEngine = engine
+	})
+	return formDSLEngine
+}
+
+// resolveField evaluates a string through the DSL engine if it
+// looks like a function call (contains parentheses). Plain values
+// like "test@example.com" or "5551234567" are returned as-is.
+func resolveField(value string) string {
+	if value == "" || !strings.Contains(value, "(") {
+		return value
+	}
+	engine := getFormDSLEngine()
+	if engine == nil {
+		return value
+	}
+	result, err := safeEvalExpr(engine, value)
+	if err != nil {
+		return value
+	}
+	return fmt.Sprintf("%v", result)
+}
+
+// safeEvalExpr wraps engine.EvalExpr with panic recovery since the
+// underlying govaluate library can panic on inputs that aren't
+// valid expressions (e.g. plain strings treated as undefined variables).
+func safeEvalExpr(engine *dsl.Engine, expr string) (result interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("expression eval panic: %v", r)
+		}
+	}()
+	return engine.EvalExpr(expr, map[string]interface{}{})
+}
+
+// Resolve evaluates all fields through the DSL engine, resolving any
+// helper function calls like rand_email() or rand_password(8, true).
+// Plain string values pass through unchanged.
+func (f *FormFillData) Resolve() {
+	f.Email = resolveField(f.Email)
+	f.Color = resolveField(f.Color)
+	f.Password = resolveField(f.Password)
+	f.PhoneNumber = resolveField(f.PhoneNumber)
+	f.Placeholder = resolveField(f.Placeholder)
 }
 
 // FormInput is an input for a form field

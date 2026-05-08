@@ -24,8 +24,10 @@ import (
 type CrawlerOptions struct {
 	// OutputWriter is the interface for writing output
 	OutputWriter output.Writer
-	// RateLimit is a mechanism for controlling request rate limit
+	// RateLimit is the global rate limiter (used when -rl is set)
 	RateLimit *ratelimit.Limiter
+	// HostRateLimit is the per-host rate limiter (used when -hrl is set, replaces global)
+	HostRateLimit *ratelimit.AutoLimiter
 	// Parser is a mechanism for extracting new URLS from responses
 	Parser *parser.Parser
 	// Options contains the user specified configuration options
@@ -142,7 +144,11 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if options.RateLimit > 0 {
+	if options.HostRateLimit > 0 {
+		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(uint(options.HostRateLimit)), ratelimit.WithDuration(time.Second))
+	} else if options.HostRateLimitMinute > 0 {
+		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(uint(options.HostRateLimitMinute)), ratelimit.WithDuration(time.Minute))
+	} else if options.RateLimit > 0 {
 		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimit), time.Second)
 	} else if options.RateLimitMinute > 0 {
 		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimitMinute), time.Minute)
@@ -156,7 +162,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.Wappalyzer = wappalyze
 	}
 
-	if len(options.FilterPageType) > 0 {
+	if len(options.FilterPageType) > 0 || options.AuthCredentials != "" {
 		options.KnowledgeBase = true
 	}
 	if options.KnowledgeBase {
@@ -178,6 +184,12 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 func (c *CrawlerOptions) Close() error {
 	if c.RateLimit != nil {
 		c.RateLimit.Stop()
+	}
+	if c.HostRateLimit != nil {
+		c.HostRateLimit.Stop()
+	}
+	if c.Dialer != nil {
+		c.Dialer.Close()
 	}
 	c.UniqueFilter.Close()
 	return c.OutputWriter.Close()

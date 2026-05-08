@@ -172,6 +172,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
 		flagSet.BoolVarP(&options.PathClimb, "path-climb", "pc", false, "enable path climb (auto crawl parent paths)"),
 		flagSet.BoolVarP(&options.KnowledgeBase, "knowledge-base", "kb", false, "enable knowledge base classification"),
+		flagSet.IntVarP(&options.MaxDomainPages, "max-domain-pages", "mdp", 0, "maximum number of pages to crawl per domain (default unlimited)"),
 	)
 
 	flagSet.CreateGroup("debug", "Debug",
@@ -194,8 +195,11 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 		flagSet.IntVarP(&options.MaxFailureCount, "max-failure-count", "mfc", 10, "maximum number of consecutive action failures before stopping"),
 		flagSet.BoolVarP(&options.EnableDiagnostics, "enable-diagnostics", "ed", false, "enable diagnostics"),
+		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "heuristic", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
+		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
+		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
 	)
 
 	flagSet.CreateGroup("scope", "Scope",
@@ -212,7 +216,7 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.StringSliceVarP(&options.OutputFilterRegex, "filter-regex", "fr", nil, "regex or list of regex to filter on output url (cli, file)", goflags.FileStringSliceOptions),
 		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s) (Deprecated: use -output-template instead)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
-		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js,none)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.NoDefaultExtFilter, "no-default-ext-filter", "ndef", false, "remove default extensions from the filter list"),
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
@@ -227,6 +231,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
 		flagSet.IntVarP(&options.RateLimit, "rate-limit", "rl", 150, "maximum requests to send per second"),
 		flagSet.IntVarP(&options.RateLimitMinute, "rate-limit-minute", "rlm", 0, "maximum number of requests to send per minute"),
+		flagSet.IntVarP(&options.HostRateLimit, "host-rate-limit", "hrl", 0, "maximum requests to send per second per host"),
+		flagSet.IntVarP(&options.HostRateLimitMinute, "host-rate-limit-minute", "hrlm", 0, "maximum number of requests to send per minute per host"),
 	)
 
 	flagSet.CreateGroup("update", "Update",

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
@@ -25,6 +26,17 @@ func validateOptions(options *types.Options) error {
 		return errkit.New("no inputs specified for crawler")
 	}
 
+	// Validate page load strategy
+	if options.PageLoadStrategy != "" {
+		validStrategies := []string{"heuristic", "load", "domcontentloaded", "networkidle", "none"}
+		if !slices.Contains(validStrategies, options.PageLoadStrategy) {
+			return errkit.New("invalid page-load-strategy: must be one of (heuristic, load, domcontentloaded, networkidle, none)")
+		}
+	} else {
+		// Default to heuristic
+		options.PageLoadStrategy = "heuristic"
+	}
+
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
 	// Form filling should be handled via headless actions within the page context
 	if options.HeadlessHybrid && options.AutomaticFormFill {
@@ -37,12 +49,31 @@ func validateOptions(options *types.Options) error {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
 	
+	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
+	// The ChromeWSUrl takes precedence and pure headless engine will be used
+	if options.Headless && options.ChromeWSUrl != "" {
+		gologger.Warning().Msgf("Using -cwu with existing browser session. The -headless flag is redundant.")
+		gologger.Info().Msgf("Connecting to Chrome at: %s", options.ChromeWSUrl)
+	} else if options.HeadlessHybrid && options.ChromeWSUrl != "" {
+		gologger.Warning().Msgf("Using -cwu forces pure headless engine. The -hh (hybrid) flag will be ignored.")
+		gologger.Info().Msgf("Connecting to Chrome at: %s (using pure headless engine)", options.ChromeWSUrl)
+	} else if options.ChromeWSUrl != "" {
+		gologger.Info().Msgf("Connecting to Chrome at: %s (using pure headless engine)", options.ChromeWSUrl)
+	}
+
+	if options.AuthCredentials != "" {
+		if !strings.Contains(options.AuthCredentials, ":") {
+			return errkit.New("auth credentials must be in username:password format")
+		}
+		if !options.Headless && !options.HeadlessHybrid {
+			options.Headless = true
+			gologger.Info().Msgf("Headless mode enabled automatically for authenticated crawling.")
+		}
+	}
+
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
 		!options.Headless && !options.HeadlessHybrid {
 		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
-	}
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless && !options.HeadlessHybrid {
-		return errkit.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {
@@ -91,6 +122,7 @@ func readCustomFormConfig(formConfig string) error {
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
 		return errkit.Wrap(err, "could not decode form config")
 	}
+	data.Resolve()
 	utils.FormData = data
 	return nil
 }

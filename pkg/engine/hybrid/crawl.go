@@ -212,8 +212,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 	go waitFrameEvents()
 
-	// wait the page to be fully loaded and becoming idle
-	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
+	// Arm the lifecycle listener before navigate so the event is not missed.
+	// Which event we wait for depends on the page-load strategy.
+	strategy := c.Options.Options.PageLoadStrategy
+
+	var waitNavigation func()
+	switch strategy {
+	case "none":
+		// no lifecycle wait
+	case "domcontentloaded":
+		waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+	case "load":
+		waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	default:
+		waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
+	}
 
 	err = page.Navigate(request.URL)
 	if err != nil {
@@ -223,19 +236,38 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errkit.Wrap(err, "hybrid: could not navigate target")
 	}
 
-	waitNavigation()
-
-	// Wait the page to be stable a duration
-	timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
-
-	if timeout < timeStable {
-		gologger.Warning().Msgf("timeout is less than time stable, setting time stable to half of timeout to avoid timeout\n")
-		timeStable = timeout / 2
-		gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
+	if waitNavigation != nil {
+		waitNavigation()
 	}
 
-	if err := page.WaitStable(timeStable); err != nil {
-		gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+	// Post-navigation stability wait, strategy-specific
+	switch strategy {
+	case "none":
+		gologger.Debug().Msgf("page-load-strategy=none: skipping stability wait\n")
+
+	case "domcontentloaded":
+		waitTime := time.Duration(c.Options.Options.DOMWaitTime) * time.Second
+		gologger.Debug().Msgf("page-load-strategy=domcontentloaded: waiting %s for DOM\n", waitTime)
+		if waitTime > 0 {
+			time.Sleep(waitTime)
+		}
+
+	case "load":
+		gologger.Debug().Msgf("page-load-strategy=load: basic load wait only\n")
+		time.Sleep(500 * time.Millisecond)
+
+	default:
+		timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
+
+		if timeout < timeStable {
+			gologger.Warning().Msgf("timeout is less than time stable, setting time stable to half of timeout to avoid timeout\n")
+			timeStable = timeout / 2
+			gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
+		}
+
+		if err := page.WaitStable(timeStable); err != nil {
+			gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+		}
 	}
 
 	// simulate clicks on links with onclick handlers to discover JS redirects

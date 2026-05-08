@@ -172,6 +172,27 @@ func (b *BrowserPage) FindNavigations() ([]*types.Action, error) {
 		navigations = append(navigations, types.ActionFromEventListener(listener))
 	}
 
+	navLinks, err := b.GetNavigatedLinks()
+	if err == nil {
+		for _, link := range navLinks {
+			if link.URL == "" {
+				continue
+			}
+			resolved, err := resolveURL(info.URL, link.URL)
+			if err != nil {
+				continue
+			}
+			if _, found := unique[resolved]; found {
+				continue
+			}
+			unique[resolved] = struct{}{}
+			navigations = append(navigations, &types.Action{
+				Type:  types.ActionTypeLoadURL,
+				Input: resolved,
+			})
+		}
+	}
+
 	return navigations, nil
 }
 

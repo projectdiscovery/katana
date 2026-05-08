@@ -4,10 +4,16 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/gologger"
@@ -28,21 +34,39 @@ import (
 // Shared represents the shared state and configuration used across all crawl sessions.
 // It maintains common resources like HTTP headers, cookie jars, known files database,
 // and crawler options that are reused for efficiency across multiple crawl operations.
+const (
+	backoffBase = 1 * time.Second
+	backoffMax  = 30 * time.Second
+)
+
+type hostBackoff struct {
+	consecutive atomic.Int32
+}
+
+const hostBackoffsCacheSize = 10000
+
 type Shared struct {
-	Headers    map[string]string
-	KnownFiles *files.KnownFiles
-	Options    *types.CrawlerOptions
-	Jar        *httputil.CookieJar
-	PathTrie   *utils.PathTrie
+	Headers            map[string]string
+	KnownFiles         *files.KnownFiles
+	Options            *types.CrawlerOptions
+	Jar                *httputil.CookieJar
+	PathTrie           *utils.PathTrie
+	DomainPageCounter sync.Map
+	hostBackoffs *lru.Cache[string, *hostBackoff]
 }
 
 // NewShared creates a new Shared instance with the provided crawler options.
 // It initializes the HTTP headers, known files database (if configured), and an empty cookie jar.
 // Returns an error if the HTTP client or cookie jar creation fails.
 func NewShared(options *types.CrawlerOptions) (*Shared, error) {
+	backoffCache, err := lru.New[string, *hostBackoff](hostBackoffsCacheSize)
+	if err != nil {
+		return nil, errkit.Wrap(err, "could not create backoff cache")
+	}
 	shared := &Shared{
-		Headers: options.Options.ParseCustomHeaders(),
-		Options: options,
+		Headers:      options.Options.ParseCustomHeaders(),
+		Options:      options,
+		hostBackoffs: backoffCache,
 	}
 	if options.Options.KnownFiles != "" {
 		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
@@ -97,11 +121,25 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			reqUrl = utils.FingerprintURL(reqUrl, s.PathTrie)
 		}
 
-		// Skip adding to the crawl queue when the maximum depth is exceeded.
-		// Must be done before checking uniqueness to avoid caching item that will be skipped
-		// to handle them if faced on lower depth via another path.
-		if nr.Depth > s.Options.Options.MaxDepth {
+		if s.Options.Options.AuthCredentials != "" && isLogoutURL(nr.URL) {
 			continue
+		}
+
+		// When maximum depth is exceeded, output discovered URLs without enqueuing
+		// them for visiting. Uniqueness is intentionally not consumed here so that
+		// URLs can still be visited if later discovered at a valid depth via another path.
+		if nr.Depth > s.Options.Options.MaxDepth {
+			s.Output(nr, nil, ErrMaxDepthReached)
+			continue
+		}
+
+		if s.Options.Options.MaxDomainPages > 0 {
+			if domain := nr.RootHostname; domain != "" {
+				counter := s.DomainCounter(domain)
+				if counter.Load() >= int64(s.Options.Options.MaxDomainPages) {
+					continue
+				}
+			}
 		}
 
 		// Ignore blank URL items and only work on unique items
@@ -200,6 +238,61 @@ func (s *Shared) Output(navigationRequest *navigation.Request, navigationRespons
 	}
 }
 
+var logoutURLPattern = regexp.MustCompile(`(?i)(log[\s_-]?out|sign[\s_-]?out|signout|deconnexion|cerrar[\s_-]?sesion|sair|abmelden|uitloggen|ausloggen|disconnect|terminate|end[\s_-]?session|salir|desconectar|afmelden|wyloguj|sign[\s_-]?off)`)
+
+func isLogoutURL(rawURL string) bool {
+	return logoutURLPattern.MatchString(rawURL)
+}
+
+func (s *Shared) DomainCounter(domain string) *atomic.Int64 {
+	val, _ := s.DomainPageCounter.LoadOrStore(domain, &atomic.Int64{})
+	return val.(*atomic.Int64)
+}
+
+func (s *Shared) backoffFor(host string) *hostBackoff {
+	if val, ok := s.hostBackoffs.Get(host); ok {
+		return val
+	}
+	b := &hostBackoff{}
+	s.hostBackoffs.Add(host, b)
+	return b
+}
+
+// ApplyBackoff sleeps if the host has accumulated throttle signals.
+func (s *Shared) ApplyBackoff(host string) {
+	b := s.backoffFor(host)
+	n := b.consecutive.Load()
+	if n <= 0 {
+		return
+	}
+	delay := time.Duration(math.Min(
+		float64(backoffBase)*math.Pow(2, float64(n-1)),
+		float64(backoffMax),
+	))
+	jitter := time.Duration(rand.Int64N(int64(delay) / 2))
+	time.Sleep(delay + jitter)
+}
+
+// RecordThrottle increments backoff state for a throttled host.
+func (s *Shared) RecordThrottle(host string, statusCode int) {
+	b := s.backoffFor(host)
+	b.consecutive.Add(1)
+	gologger.Debug().Msgf("Host %s returned %d, backing off", host, statusCode)
+}
+
+// RecordSuccess decrements backoff state on a successful response.
+func (s *Shared) RecordSuccess(host string) {
+	b := s.backoffFor(host)
+	if b.consecutive.Load() > 0 {
+		b.consecutive.Add(-1)
+	}
+}
+
+// IsThrottled returns true if the status code indicates rate limiting.
+func IsThrottled(statusCode int) bool {
+	return statusCode == http.StatusTooManyRequests || statusCode == http.StatusServiceUnavailable
+}
+
 // CrawlSession represents an active crawling session for a specific target URL.
 // It maintains the session context, cancellation function, parsed URL information,
 // the request queue, and HTTP/browser clients needed for the crawl operation.
@@ -227,8 +320,10 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	if parentCtx == nil {
 		parentCtx = context.Background()
 	}
-	var ctx context.Context
-	var cancel context.CancelFunc
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
 	if s.Options.Options.CrawlDuration.Seconds() > 0 {
 		ctx, cancel = context.WithTimeout(parentCtx, s.Options.Options.CrawlDuration)
 	} else {
@@ -358,7 +453,11 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			// bounded by Close() and acceptable.
 			takeDone := make(chan struct{})
 			go func() {
-				s.Options.RateLimit.Take()
+				if s.Options.HostRateLimit != nil {
+					_ = s.Options.HostRateLimit.Take(crawlSession.Hostname)
+				} else if s.Options.RateLimit != nil {
+					s.Options.RateLimit.Take()
+				}
 				close(takeDone)
 			}()
 			select {
@@ -366,6 +465,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			case <-takeDone:
 			}
+			s.ApplyBackoff(crawlSession.Hostname)
 
 			if crawlSession.Ctx.Err() != nil {
 				return
@@ -380,7 +480,20 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				}
 			}
 
+			if s.Options.Options.MaxDomainPages > 0 {
+				counter := s.DomainCounter(crawlSession.Hostname)
+				if counter.Add(1) > int64(s.Options.Options.MaxDomainPages) {
+					return
+				}
+			}
+
 			resp, err := doRequest(crawlSession, req)
+
+			if resp != nil && IsThrottled(resp.StatusCode) {
+				s.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+			} else if resp != nil {
+				s.RecordSuccess(crawlSession.Hostname)
+			}
 
 			if inScope {
 				s.Output(req, resp, err)
