@@ -140,14 +140,18 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		OutputWriter:        outputWriter,
 	}
 
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if options.HostRateLimit > 0 {
-		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(context.Background(), ratelimit.WithMaxCount(uint(options.HostRateLimit)), ratelimit.WithDuration(time.Second))
+		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(uint(options.HostRateLimit)), ratelimit.WithDuration(time.Second))
 	} else if options.HostRateLimitMinute > 0 {
-		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(context.Background(), ratelimit.WithMaxCount(uint(options.HostRateLimitMinute)), ratelimit.WithDuration(time.Minute))
+		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(uint(options.HostRateLimitMinute)), ratelimit.WithDuration(time.Minute))
 	} else if options.RateLimit > 0 {
-		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
+		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimit), time.Second)
 	} else if options.RateLimitMinute > 0 {
-		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
+		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimitMinute), time.Minute)
 	}
 
 	if options.TechDetect {

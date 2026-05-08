@@ -2,6 +2,7 @@ package files
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,10 +20,10 @@ type robotsTxtCrawler struct {
 }
 
 // Visit visits the provided URL with file crawlers
-func (r *robotsTxtCrawler) Visit(URL string) ([]*navigation.Request, error) {
+func (r *robotsTxtCrawler) Visit(ctx context.Context, URL string) ([]*navigation.Request, error) {
 	URL = strings.TrimSuffix(URL, "/")
 	requestURL := fmt.Sprintf("%s/robots.txt", URL)
-	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, errkit.Wrap(err, "robotscrawler: could not create request")
 	}

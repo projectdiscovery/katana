@@ -148,7 +148,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 // on the same browser instance. Multiple concurrent page operations cause
 // race conditions, navigation conflicts, and network interception issues.
 func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
-	for item := range crawlSession.Queue.Pop() {
+	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
@@ -181,15 +181,43 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			continue
 		}
 
-		if c.Options.HostRateLimit != nil {
-			_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
-		} else if c.Options.RateLimit != nil {
-			c.Options.RateLimit.Take()
+		// Race Take() against the session context so the loop doesn't
+		// block on a limiter tick when the crawl has been cancelled.
+		//
+		// Note: when the session is cancelled mid-Take, this inner
+		// goroutine outlives the loop iteration and stays blocked on
+		// the limiter until the next tick or until RateLimit.Stop() is
+		// called by CrawlerOptions.Close(). The leak is bounded by
+		// Close() and acceptable.
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+		takeDone := make(chan struct{})
+		go func() {
+			if c.Options.HostRateLimit != nil {
+				_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
+			} else if c.Options.RateLimit != nil {
+				c.Options.RateLimit.Take()
+			}
+			close(takeDone)
+		}()
+		select {
+		case <-crawlSession.Ctx.Done():
+			continue
+		case <-takeDone:
 		}
 		c.ApplyBackoff(crawlSession.Hostname)
 
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+
 		if c.Options.Options.Delay > 0 {
-			time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
+			select {
+			case <-crawlSession.Ctx.Done():
+				continue
+			case <-time.After(time.Duration(c.Options.Options.Delay) * time.Second):
+			}
 		}
 
 		if c.Options.Options.MaxDomainPages > 0 {

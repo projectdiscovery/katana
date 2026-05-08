@@ -1,11 +1,13 @@
 package files
 
 import (
+	"context"
+
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
-type visitFunc func(URL string) ([]*navigation.Request, error)
+type visitFunc func(ctx context.Context, URL string) ([]*navigation.Request, error)
 
 type KnownFiles struct {
 	parsers    []visitFunc
@@ -33,10 +35,19 @@ func New(httpclient *retryablehttp.Client, files string) *KnownFiles {
 	return parser
 }
 
-// Request requests all known files with visitors
+// Request requests all known files with visitors (backward-compatible, no context).
 func (k *KnownFiles) Request(URL string) (navigationRequests []*navigation.Request, err error) {
+	return k.RequestWithContext(context.Background(), URL)
+}
+
+// RequestWithContext requests all known files with context support.
+// If ctx is nil, context.Background() is used.
+func (k *KnownFiles) RequestWithContext(ctx context.Context, URL string) (navigationRequests []*navigation.Request, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	for _, visitor := range k.parsers {
-		navRequests, err := visitor(URL)
+		navRequests, err := visitor(ctx, URL)
 		if err != nil {
 			return navigationRequests, err
 		}
