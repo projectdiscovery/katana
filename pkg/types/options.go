@@ -6,9 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/projectdiscovery/katana/pkg/output"
 	fileutil "github.com/projectdiscovery/utils/file"
 	logutil "github.com/projectdiscovery/utils/log"
@@ -19,6 +21,9 @@ type OnResultCallback func(output.Result)
 
 // OnSkipURLCallback (string)
 type OnSkipURLCallback func(string)
+
+// AfterActionCallback (page *rod.Page, action *types.Action)
+type AfterActionCallback func(page *rod.Page, action *types.Action)
 
 type Options struct {
 	// URLs contains a list of URLs for crawling
@@ -203,7 +208,7 @@ type Options struct {
 	// MaxOnclickLinks is the maximum number of onclick links to process per page (default: 10)
 	MaxOnclickLinks int
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
-	PageLoadStrategy      string
+	PageLoadStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
 	DOMWaitTime           int
 	CaptchaSolverProvider string
@@ -216,6 +221,8 @@ type Options struct {
 	AuthCredentials string
 	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
 	MaxDomainPages int
+	// AfterAction is called after each action is successfully performed in headless mode
+	AfterAction AfterActionCallback
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {

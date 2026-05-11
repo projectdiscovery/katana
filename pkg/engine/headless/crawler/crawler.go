@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/adrianbrad/queue"
-	"github.com/happyhackingspace/dit"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
+	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
@@ -75,9 +75,10 @@ type Options struct {
 	CaptchaHandler  *captcha.Handler
 	UserArguments   map[string]string
 
-	AuthUsername   string
-	AuthPassword   string
+	AuthUsername  string
+	AuthPassword  string
 	DitClassifier *dit.Classifier
+	AfterAction   func(page *rod.Page, action *types.Action)
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -540,6 +541,11 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	default:
 		return fmt.Errorf("unknown action type: %v", action.Type)
 	}
+
+	if c.options.AfterAction != nil {
+		c.options.AfterAction(page.Page, action)
+	}
+
 	return nil
 }
 

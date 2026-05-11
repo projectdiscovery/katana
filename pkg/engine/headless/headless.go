@@ -180,7 +180,8 @@ func (h *Headless) Crawl(URL string) error {
 		Trace:               h.options.Options.EnableDiagnostics,
 		CookieConsentBypass: true,
 		UserArguments:       h.options.Options.ParseHeadlessOptionalArguments(),
-		DitClassifier:      h.options.DitClassifier,
+		DitClassifier:       h.options.DitClassifier,
+		AfterAction:         h.options.Options.AfterAction,
 	}
 
 	if creds := h.options.Options.AuthCredentials; creds != "" {
