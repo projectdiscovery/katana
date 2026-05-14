@@ -181,7 +181,9 @@ func (h *Headless) Crawl(URL string) error {
 		CookieConsentBypass: true,
 		UserArguments:       h.options.Options.ParseHeadlessOptionalArguments(),
 		DitClassifier:       h.options.DitClassifier,
+		BeforeAction:        h.options.Options.BeforeAction,
 		AfterAction:         h.options.Options.AfterAction,
+		BeforeNavigateBack:  h.options.Options.BeforeNavigateBack,
 	}
 
 	if creds := h.options.Options.AuthCredentials; creds != "" {

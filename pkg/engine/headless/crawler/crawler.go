@@ -75,10 +75,12 @@ type Options struct {
 	CaptchaHandler  *captcha.Handler
 	UserArguments   map[string]string
 
-	AuthUsername  string
-	AuthPassword  string
-	DitClassifier *dit.Classifier
-	AfterAction   func(page *rod.Page, action *types.Action)
+	AuthUsername       string
+	AuthPassword       string
+	DitClassifier      *dit.Classifier
+	BeforeAction       func(page *rod.Page, action *types.Action)
+	AfterAction        func(page *rod.Page, action *types.Action)
+	BeforeNavigateBack func(page *rod.Page)
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -481,6 +483,10 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
+	if c.options.BeforeAction != nil {
+		c.options.BeforeAction(page.Page, action)
+	}
+
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
