@@ -4,9 +4,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-rod/rod"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPageFingerprint_Stability(t *testing.T) {
@@ -170,4 +174,22 @@ func TestSimHashSimilarity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExecuteCrawlStateAction_Callbacks(t *testing.T) {
+	var beforeCalled, afterCalled bool
+
+	c := &Crawler{
+		options: Options{
+			BeforeAction: func(_ *rod.Page, _ *types.Action) { beforeCalled = true },
+			AfterAction:  func(_ *rod.Page, _ *types.Action) { afterCalled = true },
+		},
+	}
+
+	action := &types.Action{Type: types.ActionTypeUnknown} // hits default branch in switch
+	err := c.executeCrawlStateAction(action, &browser.BrowserPage{})
+
+	require.Error(t, err)
+	assert.True(t, beforeCalled, "BeforeAction should be called before executing the action")
+	assert.False(t, afterCalled, "AfterAction should not be called when action returns an error")
 }
