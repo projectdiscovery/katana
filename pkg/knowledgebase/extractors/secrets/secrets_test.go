@@ -17,7 +17,7 @@ func TestExtract_DetectsKnownCredentials(t *testing.T) {
 		const s = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 	</script>`
 
-	out := e.Extract(body)
+	out := e.Extract(body, nil, nil)
 	if out == nil {
 		t.Fatal("expected findings map, got nil")
 	}
@@ -46,7 +46,7 @@ func TestExtract_EmptyBody(t *testing.T) {
 	}
 	defer func() { _ = e.Close() }()
 
-	if got := e.Extract(""); got != nil {
+	if got := e.Extract("", nil, nil); got != nil {
 		t.Errorf("expected nil for empty body, got %#v", got)
 	}
 }
@@ -58,7 +58,7 @@ func TestExtract_NoSecrets(t *testing.T) {
 	}
 	defer func() { _ = e.Close() }()
 
-	if got := e.Extract("<html><body>hello world</body></html>"); got != nil {
+	if got := e.Extract("<html><body>hello world</body></html>", nil, nil); got != nil {
 		t.Errorf("expected nil for body without secrets, got %#v", got)
 	}
 }

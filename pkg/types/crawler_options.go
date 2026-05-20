@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os/user"
 	"regexp"
 	"time"
@@ -223,7 +224,9 @@ func (c *CrawlerOptions) ValidatePath(path string) bool {
 // BuildKnowledgeBase assembles the response KnowledgeBase map by merging
 // output from the dit page-type classifier (when enabled) with each registered
 // Extractor. Returns nil when no producer is configured or none produced output.
-func (c *CrawlerOptions) BuildKnowledgeBase(body string) map[string]any {
+// req and resp are forwarded to extractors that classify by request shape
+// (endpoints, headers_audit, etc.); body-only extractors ignore them.
+func (c *CrawlerOptions) BuildKnowledgeBase(body string, req *http.Request, resp *http.Response) map[string]any {
 	if c.DitClassifier == nil && len(c.Extractors) == 0 {
 		return nil
 	}
@@ -237,7 +240,7 @@ func (c *CrawlerOptions) BuildKnowledgeBase(body string) map[string]any {
 		}
 	}
 	for _, e := range c.Extractors {
-		if out := e.Extract(body); out != nil {
+		if out := e.Extract(body, req, resp); out != nil {
 			kb[e.Name()] = out
 		}
 	}
