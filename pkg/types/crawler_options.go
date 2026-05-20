@@ -229,8 +229,11 @@ func (c *CrawlerOptions) ValidatePath(path string) bool {
 // BuildKnowledgeBase assembles the response KnowledgeBase map by merging
 // output from the dit page-type classifier (when enabled) with each registered
 // Extractor. Returns nil when no producer is configured or none produced output.
-// req and resp are forwarded to extractors that classify by request shape
-// (endpoints, headers_audit, etc.); body-only extractors ignore them.
+//
+// body is the fully drained response body (resp.Body has already been
+// consumed by the caller). req and resp are forwarded to extractors that
+// classify by request shape (endpoints, headers_audit, etc.); body-only
+// extractors ignore them. Extractors MUST treat req/resp as read-only.
 func (c *CrawlerOptions) BuildKnowledgeBase(body string, req *http.Request, resp *http.Response) map[string]any {
 	if c.DitClassifier == nil && len(c.Extractors) == 0 {
 		return nil
