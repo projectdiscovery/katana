@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/endpoints"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
@@ -185,6 +186,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 			return nil, errkit.Wrap(err, "could not init secrets extractor")
 		}
 		crawlerOptions.Extractors = append(crawlerOptions.Extractors, secretsExtractor)
+	}
+
+	if options.Endpoints {
+		crawlerOptions.Extractors = append(crawlerOptions.Extractors, endpoints.New())
 	}
 
 	if options.MaxOnclickLinks <= 0 {

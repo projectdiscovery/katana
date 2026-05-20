@@ -152,6 +152,7 @@ CONFIGURATION:
    -kb, -knowledge-base          enable knowledge base classification
    -kb-secrets                   enable secrets extractor in the knowledge base
    -kb-validate-secrets          validate detected secrets against their provider (sends live API calls)
+   -kb-endpoints                 enable endpoints extractor (classifies REST/GraphQL/SOAP/XHR requests)
    -mdp, -max-domain-pages int   maximum number of pages to crawl per domain (default unlimited)
 
 DEBUG:
