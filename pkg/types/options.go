@@ -210,6 +210,12 @@ type Options struct {
 	CaptchaSolverAPIKey   string
 	// KnowledgeBase enables knowledge base classification using dit
 	KnowledgeBase bool
+	// Secrets enables the knowledgebase secrets extractor (Titus-backed)
+	Secrets bool
+	// ValidateSecrets enables live API validation of detected secrets.
+	// Validation sends a real request to the credential's provider, which logs
+	// against the credential owner, so it is opt-in.
+	ValidateSecrets bool
 	// FilterPageType filters results by page type
 	FilterPageType goflags.StringSlice
 	// AuthCredentials holds username:password for automatic login

@@ -172,6 +172,8 @@ pipelines offering both headless and non-headless crawling.`)
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
 		flagSet.BoolVarP(&options.PathClimb, "path-climb", "pc", false, "enable path climb (auto crawl parent paths)"),
 		flagSet.BoolVarP(&options.KnowledgeBase, "knowledge-base", "kb", false, "enable knowledge base classification"),
+		flagSet.BoolVar(&options.Secrets, "kb-secrets", false, "enable secrets extractor in the knowledge base"),
+		flagSet.BoolVar(&options.ValidateSecrets, "kb-validate-secrets", false, "validate detected secrets against their provider (sends live API calls)"),
 		flagSet.IntVarP(&options.MaxDomainPages, "max-domain-pages", "mdp", 0, "maximum number of pages to crawl per domain (default unlimited)"),
 	)
 

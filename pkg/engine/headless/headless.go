@@ -160,7 +160,7 @@ func (h *Headless) Crawl(URL string) error {
 			}
 
 			if rr.Response != nil {
-				rr.Response.KnowledgeBase = h.options.ClassifyPage(rr.Response.Body)
+				rr.Response.KnowledgeBase = h.options.BuildKnowledgeBase(rr.Response.Body)
 				if h.options.Options.OmitRaw {
 					rr.Response.Raw = ""
 				}

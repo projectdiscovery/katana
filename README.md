@@ -150,6 +150,8 @@ CONFIGURATION:
    -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
    -dr, -disable-redirects       disable following redirects (default false)
    -kb, -knowledge-base          enable knowledge base classification
+   -kb-secrets                   enable secrets extractor in the knowledge base
+   -kb-validate-secrets          validate detected secrets against their provider (sends live API calls)
    -mdp, -max-domain-pages int   maximum number of pages to crawl per domain (default unlimited)
 
 DEBUG:
