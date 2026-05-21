@@ -216,6 +216,9 @@ type Options struct {
 	// Validation sends a real request to the credential's provider, which logs
 	// against the credential owner, so it is opt-in.
 	ValidateSecrets bool
+	// Endpoints enables the knowledgebase endpoints extractor (classifies REST,
+	// GraphQL, SOAP, AJAX/XHR requests).
+	Endpoints bool
 	// FilterPageType filters results by page type
 	FilterPageType goflags.StringSlice
 	// AuthCredentials holds username:password for automatic login

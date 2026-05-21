@@ -2,6 +2,7 @@ package headless
 
 import (
 	"log/slog"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -160,7 +161,11 @@ func (h *Headless) Crawl(URL string) error {
 			}
 
 			if rr.Response != nil {
-				rr.Response.KnowledgeBase = h.options.BuildKnowledgeBase(rr.Response.Body)
+				var req *http.Request
+				if rr.Response.Resp != nil {
+					req = rr.Response.Resp.Request
+				}
+				rr.Response.KnowledgeBase = h.options.BuildKnowledgeBase(rr.Response.Body, req, rr.Response.Resp)
 				if h.options.Options.OmitRaw {
 					rr.Response.Raw = ""
 				}

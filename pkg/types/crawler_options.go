@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os/user"
 	"regexp"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/endpoints"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
@@ -186,6 +188,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.Extractors = append(crawlerOptions.Extractors, secretsExtractor)
 	}
 
+	if options.Endpoints {
+		crawlerOptions.Extractors = append(crawlerOptions.Extractors, endpoints.New())
+	}
+
 	if options.MaxOnclickLinks <= 0 {
 		options.MaxOnclickLinks = 10
 	}
@@ -223,7 +229,12 @@ func (c *CrawlerOptions) ValidatePath(path string) bool {
 // BuildKnowledgeBase assembles the response KnowledgeBase map by merging
 // output from the dit page-type classifier (when enabled) with each registered
 // Extractor. Returns nil when no producer is configured or none produced output.
-func (c *CrawlerOptions) BuildKnowledgeBase(body string) map[string]any {
+//
+// body is the fully drained response body (resp.Body has already been
+// consumed by the caller). req and resp are forwarded to extractors that
+// classify by request shape (endpoints, headers_audit, etc.); body-only
+// extractors ignore them. Extractors MUST treat req/resp as read-only.
+func (c *CrawlerOptions) BuildKnowledgeBase(body string, req *http.Request, resp *http.Response) map[string]any {
 	if c.DitClassifier == nil && len(c.Extractors) == 0 {
 		return nil
 	}
@@ -237,7 +248,7 @@ func (c *CrawlerOptions) BuildKnowledgeBase(body string) map[string]any {
 		}
 	}
 	for _, e := range c.Extractors {
-		if out := e.Extract(body); out != nil {
+		if out := e.Extract(body, req, resp); out != nil {
 			kb[e.Name()] = out
 		}
 	}

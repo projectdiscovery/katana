@@ -6,6 +6,7 @@ package secrets
 
 import (
 	"context"
+	"net/http"
 
 	titus "github.com/praetorian-inc/titus"
 )
@@ -34,7 +35,7 @@ func New(cfg Config) (*Extractor, error) {
 
 func (e *Extractor) Name() string { return Name }
 
-func (e *Extractor) Extract(body string) map[string]any {
+func (e *Extractor) Extract(body string, _ *http.Request, _ *http.Response) map[string]any {
 	if body == "" {
 		return nil
 	}
