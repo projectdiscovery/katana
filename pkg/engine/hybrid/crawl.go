@@ -139,7 +139,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			Headers:       utils.FlattenHeaders(headers),
 			Raw:           string(rawBytesResponse),
 			ContentLength: httpresp.ContentLength,
-			KnowledgeBase: c.Options.ClassifyPage(string(body)),
+			KnowledgeBase: c.Options.BuildKnowledgeBase(string(body)),
 		}
 		response.ContentLength = resp.ContentLength
 

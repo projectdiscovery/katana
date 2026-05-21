@@ -109,7 +109,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		response.Technologies = mapsutil.GetKeys(technologies)
 	}
 
-	response.KnowledgeBase = c.Options.ClassifyPage(string(data))
+	response.KnowledgeBase = c.Options.BuildKnowledgeBase(string(data))
 
 	// Restore the read data to resp.Body for further use.
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))

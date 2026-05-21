@@ -9,6 +9,8 @@ import (
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
@@ -44,6 +46,9 @@ type CrawlerOptions struct {
 	Wappalyzer *wappalyzer.Wappalyze
 	// DitClassifier instance for knowledge base classification
 	DitClassifier *dit.Classifier
+	// Extractors is the chain of knowledgebase.Extractor implementations whose
+	// outputs are merged into the response KnowledgeBase map by BuildKnowledgeBase.
+	Extractors []knowledgebase.Extractor
 
 	// Optional structured logger for headless crawler
 	Logger *slog.Logger
@@ -173,6 +178,14 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.DitClassifier = classifier
 	}
 
+	if options.Secrets {
+		secretsExtractor, err := secrets.New(secrets.Config{Validate: options.ValidateSecrets})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not init secrets extractor")
+		}
+		crawlerOptions.Extractors = append(crawlerOptions.Extractors, secretsExtractor)
+	}
+
 	if options.MaxOnclickLinks <= 0 {
 		options.MaxOnclickLinks = 10
 	}
@@ -191,6 +204,11 @@ func (c *CrawlerOptions) Close() error {
 	if c.Dialer != nil {
 		c.Dialer.Close()
 	}
+	for _, e := range c.Extractors {
+		if closer, ok := e.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}
 	c.UniqueFilter.Close()
 	return c.OutputWriter.Close()
 }
@@ -202,20 +220,29 @@ func (c *CrawlerOptions) ValidatePath(path string) bool {
 	return true
 }
 
-// ClassifyPage classifies a page using the dit classifier and returns the knowledge base map.
-func (c *CrawlerOptions) ClassifyPage(body string) map[string]any {
-	if c.DitClassifier == nil {
+// BuildKnowledgeBase assembles the response KnowledgeBase map by merging
+// output from the dit page-type classifier (when enabled) with each registered
+// Extractor. Returns nil when no producer is configured or none produced output.
+func (c *CrawlerOptions) BuildKnowledgeBase(body string) map[string]any {
+	if c.DitClassifier == nil && len(c.Extractors) == 0 {
 		return nil
 	}
-	result, err := c.DitClassifier.ExtractPageType(body)
-	if err != nil {
+	kb := map[string]any{}
+	if c.DitClassifier != nil {
+		if result, err := c.DitClassifier.ExtractPageType(body); err == nil {
+			kb["PageType"] = result.Type
+			if len(result.Forms) > 0 {
+				kb["Forms"] = result.Forms
+			}
+		}
+	}
+	for _, e := range c.Extractors {
+		if out := e.Extract(body); out != nil {
+			kb[e.Name()] = out
+		}
+	}
+	if len(kb) == 0 {
 		return nil
-	}
-	kb := map[string]any{
-		"PageType": result.Type,
-	}
-	if len(result.Forms) > 0 {
-		kb["Forms"] = result.Forms
 	}
 	return kb
 }

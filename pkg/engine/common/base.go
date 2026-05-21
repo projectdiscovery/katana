@@ -368,7 +368,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 			Technologies:  technologyKeys,
 			StatusCode:    resp.StatusCode,
 			Headers:       utils.FlattenHeaders(resp.Header),
-			KnowledgeBase: s.Options.ClassifyPage(string(body)),
+			KnowledgeBase: s.Options.BuildKnowledgeBase(string(body)),
 		}
 		navigationRequests := s.Options.Parser.ParseResponse(navigationResponse)
 		s.Enqueue(queue, navigationRequests...)
