@@ -75,12 +75,13 @@ type Options struct {
 	CaptchaHandler  *captcha.Handler
 	UserArguments   map[string]string
 
-	AuthUsername       string
-	AuthPassword       string
-	DitClassifier      *dit.Classifier
-	BeforeAction       func(page *rod.Page, action *types.Action)
-	AfterAction        func(page *rod.Page, action *types.Action)
-	BeforeNavigateBack func(page *rod.Page)
+	AuthUsername  string
+	AuthPassword  string
+	DitClassifier *dit.Classifier
+
+	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
+	// The zero value disables all callbacks.
+	Hooks Hooks
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -483,10 +484,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
-	if c.options.BeforeAction != nil {
-		c.options.BeforeAction(page.Page, action)
-	}
+	return runWithActionHooks(c.options.Hooks, page, action, func() error {
+		return c.dispatchCrawlAction(action, page)
+	})
+}
 
+func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.BrowserPage) error {
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
@@ -546,10 +549,6 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		}
 	default:
 		return fmt.Errorf("unknown action type: %v", action.Type)
-	}
-
-	if c.options.AfterAction != nil {
-		c.options.AfterAction(page.Page, action)
 	}
 
 	return nil

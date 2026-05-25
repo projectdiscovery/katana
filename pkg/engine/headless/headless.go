@@ -26,6 +26,8 @@ type Headless struct {
 	pathTrie *utils.PathTrie
 
 	debugger *CrawlDebugger
+
+	hooks *Hooks
 }
 
 // New returns a new headless crawler instance
@@ -181,9 +183,9 @@ func (h *Headless) Crawl(URL string) error {
 		CookieConsentBypass: true,
 		UserArguments:       h.options.Options.ParseHeadlessOptionalArguments(),
 		DitClassifier:       h.options.DitClassifier,
-		BeforeAction:        h.options.Options.BeforeAction,
-		AfterAction:         h.options.Options.AfterAction,
-		BeforeNavigateBack:  h.options.Options.BeforeNavigateBack,
+	}
+	if h.hooks != nil {
+		crawlOpts.Hooks = *h.hooks
 	}
 
 	if creds := h.options.Options.AuthCredentials; creds != "" {

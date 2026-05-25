@@ -6,11 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/projectdiscovery/katana/pkg/output"
 	fileutil "github.com/projectdiscovery/utils/file"
 	logutil "github.com/projectdiscovery/utils/log"
@@ -21,9 +19,6 @@ type OnResultCallback func(output.Result)
 
 // OnSkipURLCallback (string)
 type OnSkipURLCallback func(string)
-
-// ActionCallback (page *rod.Page, action *types.Action)
-type ActionCallback func(page *rod.Page, action *types.Action)
 
 type Options struct {
 	// URLs contains a list of URLs for crawling
@@ -221,12 +216,6 @@ type Options struct {
 	AuthCredentials string
 	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
 	MaxDomainPages int
-	// BeforeAction is called before each action is performed in headless mode
-	BeforeAction ActionCallback
-	// AfterAction is called after each action is successfully performed in headless mode
-	AfterAction ActionCallback
-	// BeforeNavigateBack is called before each browser-history NavigateBack during state restoration
-	BeforeNavigateBack func(*rod.Page)
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
