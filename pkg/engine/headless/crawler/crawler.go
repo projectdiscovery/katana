@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/adrianbrad/queue"
-	"github.com/happyhackingspace/dit"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
+	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
@@ -75,9 +75,13 @@ type Options struct {
 	CaptchaHandler  *captcha.Handler
 	UserArguments   map[string]string
 
-	AuthUsername   string
-	AuthPassword   string
+	AuthUsername  string
+	AuthPassword  string
 	DitClassifier *dit.Classifier
+
+	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
+	// The zero value disables all callbacks.
+	Hooks Hooks
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -480,6 +484,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
+	return runWithActionHooks(c.options.Hooks, page, action, func() error {
+		return c.dispatchCrawlAction(action, page)
+	})
+}
+
+func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.BrowserPage) error {
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
@@ -540,6 +550,7 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	default:
 		return fmt.Errorf("unknown action type: %v", action.Type)
 	}
+
 	return nil
 }
 

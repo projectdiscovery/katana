@@ -203,7 +203,7 @@ type Options struct {
 	// MaxOnclickLinks is the maximum number of onclick links to process per page (default: 10)
 	MaxOnclickLinks int
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
-	PageLoadStrategy      string
+	PageLoadStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
 	DOMWaitTime           int
 	CaptchaSolverProvider string
