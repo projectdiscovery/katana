@@ -7,9 +7,15 @@ import "github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
 // See crawler.Hooks for field-level documentation and semantics.
 type Hooks = crawler.Hooks
 
-// SetHooks installs lifecycle callbacks on the headless engine. The callbacks
-// are picked up by subsequent calls to Crawl. Passing nil clears any previously
-// installed hooks.
+// SetHooks installs lifecycle callbacks on the headless engine. The supplied
+// struct is copied, so mutating it after SetHooks returns has no effect on the
+// engine; call SetHooks again to change the installed hooks. Passing nil clears
+// any previously installed hooks. SetHooks is not safe to call concurrently
+// with Crawl on the same engine.
 func (h *Headless) SetHooks(hooks *Hooks) {
-	h.hooks = hooks
+	if hooks == nil {
+		h.hooks = Hooks{}
+		return
+	}
+	h.hooks = *hooks
 }
