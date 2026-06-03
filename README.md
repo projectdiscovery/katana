@@ -33,6 +33,7 @@
  - **JavaScript** parsing / crawling
  - Customizable **automatic form filling**
  - **Scope control** - Preconfigured field / Regex 
+ - **Knowledge base** - ML page-type / form classification (auto-downloaded model)
  - **Customizable output** - Preconfigured fields
  - INPUT - **STDIN**, **URL** and **LIST**
  - OUTPUT - **STDOUT**, **FILE** and **JSON**
@@ -40,7 +41,7 @@
 
 ## Installation
 
-katana requires Go 1.25+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.26+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -629,6 +630,62 @@ Option to limit the number of pages crawled per domain. Prevents any single doma
 
 ```
 katana -u https://tesla.com -mdp 100
+```
+
+## Knowledge Base Classification
+
+Katana can enrich crawl results with a **knowledge base** — machine-learning classification of each crawled page powered by [dit](https://github.com/HappyHackingSpace/dit). When enabled, every response is classified by **page type** (e.g. `login`, `error`, `captcha`, `parked`) and any forms on the page are identified, with the result attached to the `knowledgebase` field of the JSONL output. This works across **all engines** (standard and headless).
+
+> **Note**: The classification model is **downloaded automatically** on first use to `~/.dit/model.json` (from [Hugging Face](https://huggingface.co/datasets/happyhackingspace/dit)). This is a one-time, per-machine cost — subsequent runs reuse the cached model. No manual installation of `dit` is required.
+
+*`-knowledge-base`*
+----
+
+Enable knowledge base classification. Page-type and form classification is added to the `knowledgebase` field of each result.
+
+```console
+katana -u https://example.com -kb -jsonl
+```
+
+```json
+{
+  "timestamp": "...",
+  "request": { "...": "..." },
+  "response": {
+    "...": "...",
+    "knowledgebase": {
+      "PageType": "login",
+      "Forms": [{ "type": "login", "fields": { "username": "username or email", "password": "password" } }]
+    }
+  }
+}
+```
+
+*`-filter-page-type`*
+----
+
+Filter results to only the given page type(s). Enabling this implies `-kb` (the classifier is initialized automatically).
+
+```console
+katana -u https://example.com -fpt login,error
+```
+
+*`-kb-secrets`*
+----
+
+Enable the secrets extractor in the knowledge base, surfacing detected secrets (API keys, tokens, etc.) under the `secrets` key. Add `-kb-validate-secrets` to validate detected secrets against their provider — note this **sends live API calls**.
+
+```console
+katana -u https://example.com -kb-secrets
+```
+
+*`-kb-endpoints`*
+----
+
+Enable the endpoints extractor, which classifies requests as REST, GraphQL, SOAP, or XHR under the `endpoints` key.
+
+```console
+katana -u https://example.com -kb-endpoints
 ```
 
 ## Authenticated Crawling
