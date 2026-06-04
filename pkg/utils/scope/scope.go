@@ -138,7 +138,11 @@ func (m *Manager) validateDNS(hostname, rootHostname string) (bool, error) {
 	case dnDnsScopeField:
 		return strings.Contains(hostname, dn), nil
 	case rdnDnsScopeField:
-		return strings.HasSuffix(hostname, rdn), nil
+		// Match the registrable domain itself or any of its subdomains, but
+		// require a label boundary so look-alike domains that merely share the
+		// root as a string suffix (e.g. evilexample.com vs example.com) are not
+		// considered in scope.
+		return hostname == rdn || strings.HasSuffix(hostname, "."+rdn), nil
 	}
 	return false, nil
 }

@@ -43,6 +43,29 @@ func TestManagerValidate(t *testing.T) {
 			require.NoError(t, err, "could not validate host")
 			require.True(t, validated, "could not get correct in-scope validation")
 		})
+		t.Run("rdn-boundary", func(t *testing.T) {
+			manager, err := NewManager(nil, nil, "rdn", false)
+			require.NoError(t, err, "could not create scope manager")
+
+			// The root domain itself must be in scope.
+			parsed, _ := urlutil.Parse("https://example.com/index.php")
+			validated, err := manager.Validate(parsed.URL, "example.com")
+			require.NoError(t, err, "could not validate host")
+			require.True(t, validated, "root domain should be in scope")
+
+			// A look-alike domain that merely shares the root as a string suffix
+			// (without a label boundary) must NOT be treated as in scope. Otherwise
+			// an attacker-registered domain like evilexample.com would match example.com.
+			parsed, _ = urlutil.Parse("https://evilexample.com/index.php")
+			validated, err = manager.Validate(parsed.URL, "example.com")
+			require.NoError(t, err, "could not validate host")
+			require.False(t, validated, "look-alike domain (evilexample.com) must be out of scope for example.com")
+
+			parsed, _ = urlutil.Parse("https://notexample.com/index.php")
+			validated, err = manager.Validate(parsed.URL, "example.com")
+			require.NoError(t, err, "could not validate host")
+			require.False(t, validated, "look-alike domain (notexample.com) must be out of scope for example.com")
+		})
 		t.Run("localhost", func(t *testing.T) {
 			manager, err := NewManager(nil, nil, "rdn", false)
 			require.NoError(t, err, "could not create scope manager")
