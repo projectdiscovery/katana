@@ -141,8 +141,11 @@ func (m *Manager) validateDNS(hostname, rootHostname string) (bool, error) {
 		// Match the registrable domain itself or any of its subdomains, but
 		// require a label boundary so look-alike domains that merely share the
 		// root as a string suffix (e.g. evilexample.com vs example.com) are not
-		// considered in scope.
-		return hostname == rdn || strings.HasSuffix(hostname, "."+rdn), nil
+		// considered in scope. DNS is case-insensitive, so normalize both sides
+		// (the fqdn path above already uses strings.EqualFold).
+		lowerHostname := strings.ToLower(hostname)
+		lowerRDN := strings.ToLower(rdn)
+		return lowerHostname == lowerRDN || strings.HasSuffix(lowerHostname, "."+lowerRDN), nil
 	}
 	return false, nil
 }

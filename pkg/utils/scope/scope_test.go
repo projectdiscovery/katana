@@ -65,6 +65,18 @@ func TestManagerValidate(t *testing.T) {
 			validated, err = manager.Validate(parsed.URL, "example.com")
 			require.NoError(t, err, "could not validate host")
 			require.False(t, validated, "look-alike domain (notexample.com) must be out of scope for example.com")
+
+			// DNS is case-insensitive, so a host that differs from the root only
+			// by case must still be in scope (the FQDN path already uses EqualFold).
+			parsed, _ = urlutil.Parse("https://EXAMPLE.com/index.php")
+			validated, err = manager.Validate(parsed.URL, "example.com")
+			require.NoError(t, err, "could not validate host")
+			require.True(t, validated, "mixed-case root domain (EXAMPLE.com) must be in scope for example.com")
+
+			parsed, _ = urlutil.Parse("https://Sub.Example.COM/index.php")
+			validated, err = manager.Validate(parsed.URL, "example.com")
+			require.NoError(t, err, "could not validate host")
+			require.True(t, validated, "mixed-case subdomain (Sub.Example.COM) must be in scope for example.com")
 		})
 		t.Run("localhost", func(t *testing.T) {
 			manager, err := NewManager(nil, nil, "rdn", false)
