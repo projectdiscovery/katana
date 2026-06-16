@@ -1,4 +1,4 @@
-FROM golang:1.26.3-alpine AS build-env
+FROM golang:1.26.4-alpine AS build-env
 RUN apk add --no-cache git gcc musl-dev
 WORKDIR /app
 COPY . /app
