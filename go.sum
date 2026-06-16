@@ -397,8 +397,8 @@ github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k
 github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.8.18 h1:2o0FoSJMDLGKXHEeFWwrunvDKzFlLdL1F36Mg4QiI08=
 github.com/projectdiscovery/dsl v0.8.18/go.mod h1:M3IFrupPJ3xj6qauHvzGd1qKF+Bd3tnHI59EQ9ACoIw=
-github.com/projectdiscovery/fastdialer v0.5.8 h1:3FSmpG5afBl1UrN8NGi0n4H6kORhocXM2QfRK4N2Mto=
-github.com/projectdiscovery/fastdialer v0.5.8/go.mod h1:aArTey18sjeqMwDhCWxBCiIT7OwFmtzkkq4Y3WA0Uog=
+github.com/projectdiscovery/fastdialer v0.5.9 h1:olh3wtqdj8/GeJPFYqOMhzBUyesXYH06bjMVH8G+mYE=
+github.com/projectdiscovery/fastdialer v0.5.9/go.mod h1:BWFj9X2aCuZEYLpoo+GA+FvjGSI6nGwINL4sayGiZZU=
 github.com/projectdiscovery/goflags v0.1.74 h1:n85uTRj5qMosm0PFBfsvOL24I7TdWRcWq/1GynhXS7c=
 github.com/projectdiscovery/goflags v0.1.74/go.mod h1:UMc9/7dFz2oln+10tv6cy+7WZKTHf9UGhaNkF95emh4=
 github.com/projectdiscovery/gologger v1.1.68 h1:KfdIO/3X7BtHssWZuqhxPZ+A946epCCx2cz+3NnRAnU=
@@ -407,8 +407,8 @@ github.com/projectdiscovery/gostruct v0.0.2 h1:s8gP8ApugGM4go1pA+sVlPDXaWqNP5BBD
 github.com/projectdiscovery/gostruct v0.0.2/go.mod h1:H86peL4HKwMXcQQtEa6lmC8FuD9XFt6gkNR0B/Mu5PE=
 github.com/projectdiscovery/govaluate v0.0.0-20260504230327-80320480bb6e h1:o+ulEIaC2+9V2Ezr6mI5xEhKWsf0V/+FUQIS723Aj6U=
 github.com/projectdiscovery/govaluate v0.0.0-20260504230327-80320480bb6e/go.mod h1:xH7bPwHxUlz1yx9UlVeTF+UVCUaKhTnZgaxHb5z362E=
-github.com/projectdiscovery/hmap v0.0.100 h1:DBZ3Req9lWf4P1YC9PRa4eiMvLY0Uxud43NRBcocPfs=
-github.com/projectdiscovery/hmap v0.0.100/go.mod h1:2O06pR8pHOP9wSmxAoxuM45U7E+UqOqOdlSIeddM0bA=
+github.com/projectdiscovery/hmap v0.0.101 h1:zXM6YtLmsn8Q0CUUw8QavhqWmiQYwaw+/U679Rr00pc=
+github.com/projectdiscovery/hmap v0.0.101/go.mod h1:w6N9/a5H8kvyx53AhtPDUWe5Qq3D6NBDPA23glHpa/Q=
 github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582 h1:eR+0HE//Ciyfwy3HC7fjRyKShSJHYoX2Pv7pPshjK/Q=
 github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582/go.mod h1:3G3BRKui7nMuDFAZKR/M2hiOLtaOmyukT20g88qRQjI=
 github.com/projectdiscovery/mapcidr v1.1.97 h1:7FkxNNVXp+m1rIu5Nv/2SrF9k4+LwP8QuWs2puwy+2w=
