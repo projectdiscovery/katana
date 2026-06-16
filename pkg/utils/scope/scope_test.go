@@ -33,6 +33,12 @@ func TestManagerValidate(t *testing.T) {
 			validated, err := manager.Validate(parsed.URL, "test.com")
 			require.NoError(t, err, "could not validate host")
 			require.True(t, validated, "could not get correct in-scope validation")
+
+			// dn is a keyword scope, so matching must be case-insensitive.
+			parsed, _ = urlutil.Parse("https://TESTANOTHER.com/index.php")
+			validated, err = manager.Validate(parsed.URL, "test.com")
+			require.NoError(t, err, "could not validate host")
+			require.True(t, validated, "dn keyword match should be case-insensitive")
 		})
 		t.Run("rdn", func(t *testing.T) {
 			manager, err := NewManager(nil, nil, "rdn", false)
@@ -53,30 +59,24 @@ func TestManagerValidate(t *testing.T) {
 			require.NoError(t, err, "could not validate host")
 			require.True(t, validated, "root domain should be in scope")
 
-			// A look-alike domain that merely shares the root as a string suffix
-			// (without a label boundary) must NOT be treated as in scope. Otherwise
+			// Look-alike domains that merely share the root as a string suffix
+			// (without a label boundary) must NOT be treated as in scope, otherwise
 			// an attacker-registered domain like evilexample.com would match example.com.
-			parsed, _ = urlutil.Parse("https://evilexample.com/index.php")
-			validated, err = manager.Validate(parsed.URL, "example.com")
-			require.NoError(t, err, "could not validate host")
-			require.False(t, validated, "look-alike domain (evilexample.com) must be out of scope for example.com")
+			for _, lookalike := range []string{"https://evilexample.com/index.php", "https://notexample.com/index.php"} {
+				parsed, _ = urlutil.Parse(lookalike)
+				validated, err = manager.Validate(parsed.URL, "example.com")
+				require.NoError(t, err, "could not validate host")
+				require.False(t, validated, "look-alike domain must be out of scope for example.com: %s", lookalike)
+			}
 
-			parsed, _ = urlutil.Parse("https://notexample.com/index.php")
-			validated, err = manager.Validate(parsed.URL, "example.com")
-			require.NoError(t, err, "could not validate host")
-			require.False(t, validated, "look-alike domain (notexample.com) must be out of scope for example.com")
-
-			// DNS is case-insensitive, so a host that differs from the root only
-			// by case must still be in scope (the FQDN path already uses EqualFold).
-			parsed, _ = urlutil.Parse("https://EXAMPLE.com/index.php")
-			validated, err = manager.Validate(parsed.URL, "example.com")
-			require.NoError(t, err, "could not validate host")
-			require.True(t, validated, "mixed-case root domain (EXAMPLE.com) must be in scope for example.com")
-
-			parsed, _ = urlutil.Parse("https://Sub.Example.COM/index.php")
-			validated, err = manager.Validate(parsed.URL, "example.com")
-			require.NoError(t, err, "could not validate host")
-			require.True(t, validated, "mixed-case subdomain (Sub.Example.COM) must be in scope for example.com")
+			// DNS is case-insensitive, so hosts differing from the root only by case
+			// must still be in scope (the fqdn path already uses EqualFold).
+			for _, inScope := range []string{"https://EXAMPLE.com/index.php", "https://Sub.Example.COM/index.php"} {
+				parsed, _ = urlutil.Parse(inScope)
+				validated, err = manager.Validate(parsed.URL, "example.com")
+				require.NoError(t, err, "could not validate host")
+				require.True(t, validated, "mixed-case host must be in scope for example.com: %s", inScope)
+			}
 		})
 		t.Run("localhost", func(t *testing.T) {
 			manager, err := NewManager(nil, nil, "rdn", false)
