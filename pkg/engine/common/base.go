@@ -352,7 +352,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		s.Enqueue(queue, navigationRequests...)
 	}
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize)))
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		var technologyKeys []string
 		if s.Options.Wappalyzer != nil {
