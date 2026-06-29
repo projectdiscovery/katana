@@ -15,6 +15,7 @@ import (
 
 // CustomFieldsMap is the global custom field data instance
 // it is used for parsing the header and body of request
+// CustomFieldsMap may be used concurrently, hence the need for an RWMutex
 var (
 	CustomFieldsMap      = make(map[string]CustomFieldConfig)
 	CustomFieldsMapMutex sync.RWMutex

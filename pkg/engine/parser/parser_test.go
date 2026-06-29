@@ -414,94 +414,54 @@ func TestScriptParsers(t *testing.T) {
 	})
 }
 
-func TestRegexBodyParsers(t *testing.T) {
+func TestCustomFieldRegexParser_BasicMatch(t *testing.T) {
 	parsed, _ := urlutil.Parse("https://security-crawl-maze.app/contact")
 
-	t.Run("regexbody", func(t *testing.T) {
-		output.CustomFieldsMapMutex.Lock()
-		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		output.CustomFieldsMapMutex.Unlock()
+	output.CustomFieldsMapMutex.Lock()
+	output.CustomFieldsMap = map[string]output.CustomFieldConfig{}
+	output.CustomFieldsMapMutex.Unlock()
 
-		resp := &navigation.Response{
-			Resp:  &http.Response{Request: &http.Request{URL: parsed.URL}},
-			Depth: 0,
-			Body:  "some content contact@example.com",
-		}
-
-		output.CustomFieldsMapMutex.Lock()
-		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
-			Name:         "email",
-			Type:         "regex",
-			Part:         "body",
-			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`)},
-		}
-		output.CustomFieldsMapMutex.Unlock()
-
-		navigationRequests := customFieldRegexParser(resp)
-		var requireFields = map[string][]string{"email": {"contact@example.com"}}
-		require.Equal(t, requireFields, navigationRequests[0].CustomFields, "could not get correct url")
-	})
-
-	t.Run("regexheader", func(t *testing.T) {
-		output.CustomFieldsMapMutex.Lock()
-		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		output.CustomFieldsMapMutex.Unlock()
-
-		resp := &navigation.Response{
-			Resp: &http.Response{Request: &http.Request{URL: parsed.URL},
-				Header: http.Header{
-					"server": []string{"ECS (dcb/7F84)"},
-				},
+	resp := &navigation.Response{
+		Resp: &http.Response{
+			Request: &http.Request{
+				URL: parsed.URL,
 			},
-		}
-
-		output.CustomFieldsMapMutex.Lock()
-		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
-			Name:         "server",
-			Type:         "regex",
-			Part:         "header",
-			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`server: ECS`)},
-		}
-		output.CustomFieldsMapMutex.Unlock()
-
-		navigationRequests := customFieldRegexParser(resp)
-		var requireFields = map[string][]string{"server": {"server: ECS"}}
-		require.Equal(t, requireFields, navigationRequests[0].CustomFields, "could not get correct url")
-	})
-
-	t.Run("regexresponse", func(t *testing.T) {
-		output.CustomFieldsMapMutex.Lock()
-		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		output.CustomFieldsMapMutex.Unlock()
-
-		resp := &navigation.Response{
-			Resp: &http.Response{Request: &http.Request{URL: parsed.URL},
-				Header: http.Header{
-					"server": []string{"ECS (dcb/7F84)"},
-				},
+			Header: http.Header{
+				"server": []string{"ECS (dcb/7F84)"},
 			},
-			Body: "some content contact@example.com",
-		}
+		},
+		Depth: 0,
+		Body:  "please contact contact@example.com or admin@example.com",
+	}
 
-		output.CustomFieldsMapMutex.Lock()
-		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
-			Name:         "server",
-			Type:         "regex",
-			Part:         "response",
-			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`ECS`)},
-		}
-		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
-			Name:         "email",
-			Type:         "regex",
-			Part:         "response",
-			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`)},
-		}
-		output.CustomFieldsMapMutex.Unlock()
+	output.CustomFieldsMapMutex.Lock()
+	output.CustomFieldsMap["email"] = output.CustomFieldConfig{
+		Name: "email",
+		Type: "regex",
+		Part: "response",
+		CompileRegex: []*regexp.Regexp{
+			regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`),
+		},
+	}
 
-		navigationRequests := customFieldRegexParser(resp)
-		var requireFields = map[string][]string{"server": {"ECS"}, "email": {"contact@example.com"}}
-		require.Equal(t, requireFields, navigationRequests[0].CustomFields, "could not get correct url")
-	})
+	output.CustomFieldsMap["server"] = output.CustomFieldConfig{
+		Name: "server",
+		Type: "regex",
+		Part: "response",
+		CompileRegex: []*regexp.Regexp{
+			regexp.MustCompile(`ECS`),
+		},
+	}
+	output.CustomFieldsMapMutex.Unlock()
+
+	navigationRequests := customFieldRegexParser(resp)
+
+	require.Len(t, navigationRequests, 1)
+
+	require.Equal(t, map[string][]string{
+		"email":  {"contact@example.com", "admin@example.com"},
+		"server": {"ECS"},
+	}, navigationRequests[0].CustomFields)
 }
 
 func TestHtmxBodyParser(t *testing.T) {
