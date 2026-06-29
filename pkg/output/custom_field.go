@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/utils/errkit"
@@ -14,7 +15,10 @@ import (
 
 // CustomFieldsMap is the global custom field data instance
 // it is used for parsing the header and body of request
-var CustomFieldsMap = make(map[string]CustomFieldConfig)
+var (
+	CustomFieldsMap      = make(map[string]CustomFieldConfig)
+	CustomFieldsMapMutex sync.RWMutex
+)
 
 type Part string
 
@@ -86,6 +90,9 @@ func parseCustomFieldName(filePath string) error {
 }
 
 func loadCustomFields(filePath string, fields string) error {
+	CustomFieldsMapMutex.Lock()
+	defer CustomFieldsMapMutex.Unlock()
+
 	var err error
 
 	file, err := os.Open(filePath)

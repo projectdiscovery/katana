@@ -717,6 +717,10 @@ func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []
 // customFieldRegexParser parses custom regex from HTML body and header
 func customFieldRegexParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	var customField = make(map[string][]string)
+
+	CustomFieldsMapMutex.Lock()
+	defer CustomFieldsMapMutex.Unlock()
+
 	for _, v := range output.CustomFieldsMap {
 		results := []string{}
 		for _, re := range v.CompileRegex {
