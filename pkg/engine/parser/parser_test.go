@@ -418,9 +418,9 @@ func TestRegexBodyParsers(t *testing.T) {
 	parsed, _ := urlutil.Parse("https://security-crawl-maze.app/contact")
 
 	t.Run("regexbody", func(t *testing.T) {
-		output.customFieldsMu.Lock()
+		output.CustomFieldsMapMutex.Lock()
 		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		output.customFieldsMu.Unlock()
+		output.CustomFieldsMapMutex.Unlock()
 
 		resp := &navigation.Response{
 			Resp:  &http.Response{Request: &http.Request{URL: parsed.URL}},
@@ -428,14 +428,14 @@ func TestRegexBodyParsers(t *testing.T) {
 			Body:  "some content contact@example.com",
 		}
 
-		output.customFieldsMu.Lock()
+		output.CustomFieldsMapMutex.Lock()
 		output.CustomFieldsMap["email"] = output.CustomFieldConfig{
 			Name:         "email",
 			Type:         "regex",
 			Part:         "body",
 			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`)},
 		}
-		output.customFieldsMu.Unlock()
+		output.CustomFieldsMapMutex.Unlock()
 
 		navigationRequests := customFieldRegexParser(resp)
 		var requireFields = map[string][]string{"email": {"contact@example.com"}}
@@ -443,9 +443,9 @@ func TestRegexBodyParsers(t *testing.T) {
 	})
 
 	t.Run("regexheader", func(t *testing.T) {
-		output.customFieldsMu.Lock()
+		output.CustomFieldsMapMutex.Lock()
 		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		output.customFieldsMu.Unlock()
+		output.CustomFieldsMapMutex.Unlock()
 
 		resp := &navigation.Response{
 			Resp: &http.Response{Request: &http.Request{URL: parsed.URL},
@@ -455,14 +455,14 @@ func TestRegexBodyParsers(t *testing.T) {
 			},
 		}
 
-		output.customFieldsMu.Lock()
+		output.CustomFieldsMapMutex.Lock()
 		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
 			Name:         "server",
 			Type:         "regex",
 			Part:         "header",
 			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`server: ECS`)},
 		}
-		output.customFieldsMu.Unlock()
+		output.CustomFieldsMapMutex.Unlock()
 
 		navigationRequests := customFieldRegexParser(resp)
 		var requireFields = map[string][]string{"server": {"server: ECS"}}
@@ -470,9 +470,9 @@ func TestRegexBodyParsers(t *testing.T) {
 	})
 
 	t.Run("regexresponse", func(t *testing.T) {
-		output.customFieldsMu.Lock()
+		output.CustomFieldsMapMutex.Lock()
 		output.CustomFieldsMap = make(map[string]output.CustomFieldConfig)
-		output.customFieldsMu.Unlock()
+		output.CustomFieldsMapMutex.Unlock()
 
 		resp := &navigation.Response{
 			Resp: &http.Response{Request: &http.Request{URL: parsed.URL},
@@ -483,7 +483,7 @@ func TestRegexBodyParsers(t *testing.T) {
 			Body: "some content contact@example.com",
 		}
 
-		output.customFieldsMu.Lock()
+		output.CustomFieldsMapMutex.Lock()
 		output.CustomFieldsMap["server"] = output.CustomFieldConfig{
 			Name:         "server",
 			Type:         "regex",
@@ -496,7 +496,7 @@ func TestRegexBodyParsers(t *testing.T) {
 			Part:         "response",
 			CompileRegex: []*regexp.Regexp{regexp.MustCompile(`([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)`)},
 		}
-		output.customFieldsMu.Unlock()
+		output.CustomFieldsMapMutex.Unlock()
 
 		navigationRequests := customFieldRegexParser(resp)
 		var requireFields = map[string][]string{"server": {"ECS"}, "email": {"contact@example.com"}}

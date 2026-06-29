@@ -718,8 +718,8 @@ func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []
 func customFieldRegexParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	var customField = make(map[string][]string)
 
-	CustomFieldsMapMutex.Lock()
-	defer CustomFieldsMapMutex.Unlock()
+	output.CustomFieldsMapMutex.Lock()
+	defer output.CustomFieldsMapMutex.Unlock()
 
 	for _, v := range output.CustomFieldsMap {
 		results := []string{}
