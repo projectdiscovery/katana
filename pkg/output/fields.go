@@ -47,7 +47,7 @@ func validateFieldNames(names string) error {
 	for _, field := range FieldNames {
 		uniqueFields[field] = struct{}{}
 	}
-	for _, field := range CustomFieldsMap {
+	for _, field := range CustomFieldsSnapshot() {
 		uniqueFields[field.Name] = struct{}{}
 	}
 	for _, part := range parts {
@@ -74,7 +74,7 @@ func storeFields(output *Result, storeFields []string) {
 		if result := getValueForField(output, parsed.URL, hostname, etld, rootURL, field); result != "" {
 			appendToFileField(parsed.URL, field, result)
 		}
-		if _, ok := CustomFieldsMap[field]; ok {
+		if hasCustomField(field) {
 			results := getValueForCustomField(output)
 			for _, result := range results {
 				appendToFileField(parsed.URL, result.field, result.value)
