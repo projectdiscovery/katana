@@ -19,13 +19,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/praetorian-inc/titus v1.2.0
 	github.com/projectdiscovery/dsl v0.8.19
-	github.com/projectdiscovery/fastdialer v0.5.9
+	github.com/projectdiscovery/fastdialer v0.5.10
 	github.com/projectdiscovery/goflags v0.1.74
 	github.com/projectdiscovery/gologger v1.1.71
 	github.com/projectdiscovery/hmap v0.0.101
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.88
-	github.com/projectdiscovery/retryablehttp-go v1.3.11
+	github.com/projectdiscovery/retryablehttp-go v1.3.16
 	github.com/projectdiscovery/utils v0.11.1
 	github.com/projectdiscovery/wappalyzergo v0.2.81
 	github.com/remeh/sizedwaitgroup v1.0.0
