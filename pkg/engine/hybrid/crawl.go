@@ -339,17 +339,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
 	}
 
-	response.Body = body
+		// 1. Initialize the reader first (this parses the response.Body)
+	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
+	if err != nil {
+		return nil, errkit.Wrap(err, "hybrid: could not parse html")
+	}
+
+	// 2. Now it is safe to use response.Reader for FormExtraction
 	if response.Reader != nil {
 		response.Reader.Url, _ = url.Parse(request.URL)
 		if c.Options.Options.FormExtraction {
 			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
 		}
-	
-
-	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
 	response.XhrRequests = xhrRequests
