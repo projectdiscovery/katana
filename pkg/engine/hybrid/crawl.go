@@ -341,7 +341,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if strings.Contains(domErr.Error(), "deadline exceeded") {
 			gologger.Warning().Msgf("DOM timeout: skipping rendering but continuing crawl")
 		}	
-	}
+	
 
 	if response == nil || response.Resp == nil {
 		// err is guaranteed to be nil, due to previous checks.
