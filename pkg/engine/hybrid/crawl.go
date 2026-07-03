@@ -49,7 +49,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	defer timeoutCancel()
 	page = sessionPage.Context(timeoutCtx)
 
-	defer func() {
+	defer func() 
 		if err := cleanupPage.Close(); err != nil {
 			gologger.Error().Msgf("Error closing page: %v\n", err)
 		}
@@ -334,18 +334,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				}
 			
 
-				if domErr != nil {
-		// Log the timeout or error as a warning
-		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
-	}
+						// ... (your existing navigation/timeout code above)
+	} // This closes the 'if navErr' block
 
-		// 1. Initialize the reader first (this parses the response.Body)
+	// Now you are back in the main function scope.
+	// 1. Handle DOM error (if you still need this logic)
+	// 2. Parse the body first
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
-	// 2. Now it is safe to use response.Reader for FormExtraction
+	// 3. Extract forms
 	if response.Reader != nil {
 		response.Reader.Url, _ = url.Parse(request.URL)
 		if c.Options.Options.FormExtraction {
@@ -354,7 +354,6 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	response.XhrRequests = xhrRequests
-
 	// enqueue JS-triggered navigation URLs that were detected
 	navigatedURLs.Each(func(i int, navURL string) error {
 		if navURL != request.URL {
@@ -376,7 +375,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	return response, nil
 }
 
-func (c *Crawler) addHeadersToPage(page *rod.Page) {
+func (c *Crawler) addHeadersToPage(page *rod.Page) 
 	if len(c.Headers) == 0 {
 		return
 	}
