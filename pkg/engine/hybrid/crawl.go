@@ -336,18 +336,20 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
+	// Replace lines 339-350 with this corrected version:
+
 	// Attempt to get the full DOM tree for shadow DOM traversal.
-	// Use basePage (pre-timeout) with a fresh timeout so that DOM inspection
+	// Use sessionPage with a fresh timeout so that DOM inspection
 	// does not share the navigation timeout budget. If it fails (e.g. timeout
 	// on complex SPAs), we still proceed with regular page HTML.
 	var domResult *proto.DOMGetDocumentResult
 	domPage := sessionPage.Timeout(timeout)
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
- 
-	result, err := getDocument.Call(page)
-	if domErr != nil {
-		// if err != nil {
+	domResult, err = getDocument.Call(domPage)  // Changed: domErr -> err, proper scope
+	if err != nil {
+		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, err)
+	}
 		//   This is the fix: it's a timeout, just log
 		//   a warning and keep going
 		if strings.Contains(domErr.Error(), "deadline exceeded") {
