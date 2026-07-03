@@ -332,9 +332,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 					return nil, timeoutCtx.Err()
 				case <-time.After(500 * time.Millisecond):
 				}
-			}
-		}
-	}
+			
 
 			if domErr != nil {
 		// if err != nil {
