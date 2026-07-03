@@ -346,18 +346,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
  
 	result, err := getDocument.Call(page)
-if err != nil {
-    // This is the fix: if it's a timeout, just log a warning and keep going
-    if strings.Contains(err.Error(), "deadline exceeded") {
-        gologger.Warning().Msgf("DOM timeout: skipping rendering but continuing crawl")
-        return nil, nil
-    }
-    return nil, errkit.Wrap(err, "hybrid: could not get dom")
-}
+	if domErr != nil {
+		// if err != nil {
+		//   This is the fix: it's a timeout, just log
+		//   a warning and keep going
+		if strings.Contains(domErr.Error(), "deadline exceeded") {
+			gologger.Warning().Msgf("DOM timeout: skipping rendering but continuing crawl")
+		}
+	}
 
 
 	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder
+	traverseDOMNode(result.Root, &builder)
 	domResult, domErr := getDocument.Call(domPage)
 	if domErr != nil {
 		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
