@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
+	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
@@ -36,14 +38,17 @@ type Crawler struct {
 	simhashOracle *simhash.Oracle
 	uniqueActions map[string]struct{}
 	diagnostics   diagnostics.Writer
+	loggedIn      bool
 }
 
 type Options struct {
+	Context             context.Context
 	ChromiumPath        string
 	MaxBrowsers         int
 	MaxDepth            int
 	PageMaxTimeout      time.Duration
 	NoSandbox           bool
+	NoIncognito         bool
 	ShowBrowser         bool
 	SlowMotion          bool
 	MaxCrawlDuration    time.Duration
@@ -51,6 +56,10 @@ type Options struct {
 	Trace               bool
 	CookieConsentBypass bool
 	AutomaticFormFill   bool
+	PageLoadStrategy    string
+	ChromeWSUrl         string
+	DOMWaitTime         int
+	UserDataDir         string
 
 	// EnableDiagnostics enables the diagnostics mode
 	// which writes diagnostic information to a directory
@@ -64,6 +73,15 @@ type Options struct {
 	RequestCallback func(*output.Result)
 	ChromeUser      *user.User
 	CaptchaHandler  *captcha.Handler
+	UserArguments   map[string]string
+
+	AuthUsername  string
+	AuthPassword  string
+	DitClassifier *dit.Classifier
+
+	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
+	// The zero value disables all callbacks.
+	Hooks Hooks
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -101,7 +119,13 @@ func New(opts Options) (*Crawler, error) {
 		Trace:               opts.Trace,
 		CookieConsentBypass: opts.CookieConsentBypass,
 		NoSandbox:           opts.NoSandbox,
+		NoIncognito:         opts.NoIncognito,
+		PageLoadStrategy:    opts.PageLoadStrategy,
+		ChromeWSUrl:         opts.ChromeWSUrl,
+		DOMWaitTime:         opts.DOMWaitTime,
+		UserDataDir:         opts.UserDataDir,
 		Proxy:               opts.Proxy,
+		UserArguments:       opts.UserArguments,
 	})
 	if err != nil {
 		return nil, err
@@ -184,31 +208,35 @@ func (c *Crawler) Crawl(URL string) error {
 
 	// Create a master context that will automatically cancel all page operations
 	// once the per-URL crawl deadline is reached.
+	parentCtx := c.options.Context
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
 	var (
-		ctx    context.Context
-		cancel context.CancelFunc
+		ctx           context.Context
+		cancel        context.CancelFunc
+		localDeadline bool
 	)
 	if c.options.MaxCrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), c.options.MaxCrawlDuration)
+		ctx, cancel = context.WithTimeout(parentCtx, c.options.MaxCrawlDuration)
+		localDeadline = true
 	} else {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
-
-	// Retain the legacy time.After guard as a secondary fail-safe but the
-	// context cancellation is what actually stops in-flight rod calls.
-	var crawlTimeout <-chan time.Time
-	if c.options.MaxCrawlDuration > 0 {
-		crawlTimeout = time.After(c.options.MaxCrawlDuration)
-	}
 
 	consecutiveFailures := 0
 
 	for {
 		select {
-		case <-crawlTimeout:
-			c.logger.Debug("Max crawl duration reached, stopping crawl")
-			return nil
+		case <-ctx.Done():
+			// Distinguish internal max-duration from external parent cancellation
+			if localDeadline && parentCtx.Err() == nil {
+				c.logger.Debug("Max crawl duration reached, stopping crawl")
+				return nil
+			}
+			c.logger.Debug("Context cancelled, stopping headless crawl")
+			return ctx.Err()
 		default:
 			// Check for too many failures
 			if c.options.MaxFailureCount > 0 && consecutiveFailures >= c.options.MaxFailureCount {
@@ -361,6 +389,16 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 
+	if !c.loggedIn && c.options.AuthUsername != "" && c.options.DitClassifier != nil {
+		if info, err := page.Info(); err == nil && (c.options.ScopeValidator == nil || c.options.ScopeValidator(info.URL)) {
+			if html, htmlErr := page.HTML(); htmlErr == nil {
+				if c.tryAutoLogin(page, html) {
+					_ = page.WaitPageLoadHeurisitics()
+				}
+			}
+		}
+	}
+
 	pageState, err := newPageState(page, action)
 	if err != nil {
 		return err
@@ -446,6 +484,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
+	return runWithActionHooks(c.options.Hooks, page, action, func() error {
+		return c.dispatchCrawlAction(action, page)
+	})
+}
+
+func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.BrowserPage) error {
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
@@ -460,6 +504,9 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 		}
 	case types.ActionTypeFillForm:
 		if err := c.processForm(page, action.Form); err != nil {
+			return err
+		}
+		if err = page.WaitPageLoadHeurisitics(); err != nil {
 			return err
 		}
 	case types.ActionTypeLeftClick, types.ActionTypeLeftClickDown:
@@ -503,7 +550,80 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	default:
 		return fmt.Errorf("unknown action type: %v", action.Type)
 	}
+
 	return nil
+}
+
+func (c *Crawler) tryAutoLogin(page *browser.BrowserPage, html string) bool {
+	pageResult, err := c.options.DitClassifier.ExtractPageType(html)
+	if err != nil || pageResult == nil {
+		return false
+	}
+
+	for _, form := range pageResult.Forms {
+		if form.Type != "login" {
+			continue
+		}
+
+		pageURL := ""
+		if info, err := page.Info(); err == nil {
+			pageURL = info.URL
+		}
+		c.logger.Info("Login form detected, attempting auto-login",
+			slog.String("url", pageURL),
+		)
+
+		filled := false
+		for fieldName, fieldType := range form.Fields {
+			var value string
+			switch fieldType {
+			case "password":
+				value = c.options.AuthPassword
+			default:
+				value = c.options.AuthUsername
+			}
+
+			escapedName := strings.ReplaceAll(fieldName, `\`, `\\`)
+			escapedName = strings.ReplaceAll(escapedName, `'`, `\'`)
+			el, err := page.Element("input[name='" + escapedName + "']")
+			if err != nil {
+				c.logger.Debug("Could not find login field", slog.String("field", fieldName))
+				continue
+			}
+			if err := el.Input(value); err != nil {
+				c.logger.Debug("Could not fill login field", slog.String("field", fieldName))
+				continue
+			}
+			filled = true
+		}
+
+		if !filled {
+			continue
+		}
+
+		if submitted := c.submitLoginForm(page); submitted {
+			c.loggedIn = true
+			c.logger.Info("Auto-login submitted successfully")
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Crawler) submitLoginForm(page *browser.BrowserPage) bool {
+	selectors := []string{
+		"form button[type='submit']",
+		"form input[type='submit']",
+		"form button:not([type])",
+	}
+	for _, sel := range selectors {
+		if el, err := page.Element(sel); err == nil {
+			if err := el.Click(proto.InputMouseButtonLeft, 1); err == nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var logoutPattern = regexp.MustCompile(`(?i)(log[\s-]?out|sign[\s-]?out|signout|deconnexion|cerrar[\s-]?sesion|sair|abmelden|uitloggen|ausloggen|exit|disconnect|terminate|end[\s-]?session|salir|desconectar|afmelden|wyloguj|logout|sign[\s-]?off)`)

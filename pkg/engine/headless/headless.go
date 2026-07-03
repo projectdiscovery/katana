@@ -2,8 +2,10 @@ package headless
 
 import (
 	"log/slog"
+	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/lmittmann/tint"
@@ -16,17 +18,17 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 type Headless struct {
 	logger  *slog.Logger
 	options *types.CrawlerOptions
 
-	deduplicator *mapsutil.SyncLockMap[string, struct{}]
-	pathTrie     *utils.PathTrie
+	pathTrie *utils.PathTrie
 
 	debugger *CrawlDebugger
+
+	hooks Hooks
 }
 
 // New returns a new headless crawler instance
@@ -36,8 +38,6 @@ func New(options *types.CrawlerOptions) (*Headless, error) {
 	headless := &Headless{
 		logger:  logger,
 		options: options,
-
-		deduplicator: mapsutil.NewSyncLockMap[string, struct{}](),
 	}
 	if options.Options.FilterSimilar {
 		headless.pathTrie = utils.NewPathTrie(options.Options.FilterSimilarThreshold)
@@ -109,17 +109,23 @@ func (h *Headless) Crawl(URL string) error {
 	scopeValidator := validateScopeFunc(h, URL)
 
 	crawlOpts := crawler.Options{
+		Context:           h.options.Options.Context,
 		ChromiumPath:      h.options.Options.SystemChromePath,
 		MaxDepth:          h.options.Options.MaxDepth,
 		ShowBrowser:       h.options.Options.ShowBrowser,
 		MaxCrawlDuration:  h.options.Options.CrawlDuration,
 		MaxFailureCount:   h.options.Options.MaxFailureCount,
 		NoSandbox:         h.options.Options.HeadlessNoSandbox,
+		NoIncognito:       h.options.Options.HeadlessNoIncognito,
+		UserDataDir:       h.options.Options.ChromeDataDir,
 		Proxy:             h.options.Options.Proxy,
 		MaxBrowsers:       1,
 		PageMaxTimeout:    30 * time.Second,
 		ScopeValidator:    scopeValidator,
 		AutomaticFormFill: h.options.Options.AutomaticFormFill,
+		PageLoadStrategy:  h.options.Options.PageLoadStrategy,
+		ChromeWSUrl:       h.options.Options.ChromeWSUrl,
+		DOMWaitTime:       h.options.Options.DOMWaitTime,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
@@ -127,6 +133,16 @@ func (h *Headless) Crawl(URL string) error {
 			if scopeValidator != nil && !scopeValidator(rr.Request.URL) {
 				return
 			}
+
+			// Register the real (intercepted) request URL before parsing the
+			// response body for additional discoveries. This ensures that real
+			// results with full response data always take priority over
+			// synthetic Request-only entries produced by performAdditionalAnalysis.
+			isUnique := h.isUniqueURL(rr.Request.URL)
+
+			// Always run additional analysis regardless of uniqueness so we
+			// don't miss URL discoveries embedded in a response body that the
+			// browser happened to fetch more than once.
 			navigationRequests := h.performAdditionalAnalysis(rr)
 			for _, req := range navigationRequests {
 				if err := h.options.OutputWriter.Write(req); err != nil {
@@ -142,10 +158,22 @@ func (h *Headless) Crawl(URL string) error {
 				}
 			}
 
+			if !isUnique {
+				return
+			}
+
 			if rr.Response != nil {
-				rr.Response.KnowledgeBase = h.options.ClassifyPage(rr.Response.Body)
-				rr.Response.Raw = ""
-				rr.Response.Body = ""
+				var req *http.Request
+				if rr.Response.Resp != nil {
+					req = rr.Response.Resp.Request
+				}
+				rr.Response.KnowledgeBase = h.options.BuildKnowledgeBase(rr.Response.Body, req, rr.Response.Resp)
+				if h.options.Options.OmitRaw {
+					rr.Response.Raw = ""
+				}
+				if h.options.Options.OmitBody {
+					rr.Response.Body = ""
+				}
 			}
 			if err := h.options.OutputWriter.Write(rr); err != nil {
 				h.logger.Debug("failed to write result",
@@ -158,6 +186,17 @@ func (h *Headless) Crawl(URL string) error {
 		EnableDiagnostics:   h.options.Options.EnableDiagnostics,
 		Trace:               h.options.Options.EnableDiagnostics,
 		CookieConsentBypass: true,
+		UserArguments:       h.options.Options.ParseHeadlessOptionalArguments(),
+		DitClassifier:       h.options.DitClassifier,
+		Hooks:               h.hooks,
+	}
+
+	if creds := h.options.Options.AuthCredentials; creds != "" {
+		parts := strings.SplitN(creds, ":", 2)
+		crawlOpts.AuthUsername = parts[0]
+		if len(parts) > 1 {
+			crawlOpts.AuthPassword = parts[1]
+		}
 	}
 
 	if provider := h.options.Options.CaptchaSolverProvider; provider != "" {
@@ -191,27 +230,26 @@ func (h *Headless) Close() error {
 	return nil
 }
 
+func (h *Headless) isUniqueURL(rawURL string) bool {
+	dedupKey := rawURL
+	if h.options.Options.IgnoreQueryParams {
+		dedupKey = utils.ReplaceAllQueryParam(dedupKey, "")
+	}
+	if h.options.Options.FilterSimilar {
+		dedupKey = utils.FingerprintURL(dedupKey, h.pathTrie)
+	}
+	return h.options.UniqueFilter.UniqueURL(dedupKey)
+}
+
 func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
 	responseParser := parser.NewResponseParser()
 	newNavigations := responseParser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
 	for _, resp := range newNavigations {
-		dedupKey := resp.URL
-		if h.options.Options.FilterSimilar {
-			dedupKey = utils.FingerprintURL(dedupKey, h.pathTrie)
-		}
-		if _, ok := h.deduplicator.Get(dedupKey); ok {
+		if !h.isUniqueURL(resp.URL) {
 			continue
 		}
-		if err := h.deduplicator.Set(dedupKey, struct{}{}); err != nil {
-			h.logger.Debug("deduplicator set failed",
-				slog.String("url", resp.URL),
-				slog.String("error", err.Error()),
-			)
-			continue
-		}
-
 		navigationRequests = append(navigationRequests, &output.Result{
 			Request: resp,
 		})

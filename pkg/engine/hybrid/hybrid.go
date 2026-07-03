@@ -22,7 +22,8 @@ import (
 type Crawler struct {
 	*common.Shared
 
-	browser *rod.Browser
+	browser        *rod.Browser
+	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
 	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
 	// This change will be made if there are no complaints about zombie Chrome processes.
 	// References:
@@ -68,6 +69,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	browser := rod.New().ControlURL(launcherURL)
 	if browserErr := browser.Connect(); browserErr != nil {
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
@@ -75,6 +79,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if !options.Options.HeadlessNoIncognito {
 		incognito, err := browser.Incognito()
 		if err != nil {
+			_ = browser.Close()
 			if chromeLauncher != nil {
 				chromeLauncher.Kill()
 			}
@@ -85,12 +90,17 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	shared, err := common.NewShared(options)
 	if err != nil {
+		_ = browser.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
 		return nil, errkit.Wrap(err, "hybrid")
 	}
 
 	crawler := &Crawler{
-		Shared:  shared,
-		browser: browser,
+		Shared:         shared,
+		browser:        browser,
+		chromeLauncher: chromeLauncher,
 		// previousPIDs: previousPIDs,
 		tempDir: dataStore,
 	}
@@ -100,6 +110,12 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
+	if c.browser != nil {
+		_ = c.browser.Close()
+	}
+	if c.chromeLauncher != nil {
+		c.chromeLauncher.Kill()
+	}
 	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
@@ -132,7 +148,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 // on the same browser instance. Multiple concurrent page operations cause
 // race conditions, navigation conflicts, and network interception issues.
 func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
-	for item := range crawlSession.Queue.Pop() {
+	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
@@ -165,13 +181,59 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			continue
 		}
 
-		c.Options.RateLimit.Take()
+		// Race Take() against the session context so the loop doesn't
+		// block on a limiter tick when the crawl has been cancelled.
+		//
+		// Note: when the session is cancelled mid-Take, this inner
+		// goroutine outlives the loop iteration and stays blocked on
+		// the limiter until the next tick or until RateLimit.Stop() is
+		// called by CrawlerOptions.Close(). The leak is bounded by
+		// Close() and acceptable.
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+		takeDone := make(chan struct{})
+		go func() {
+			if c.Options.HostRateLimit != nil {
+				_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
+			} else if c.Options.RateLimit != nil {
+				c.Options.RateLimit.Take()
+			}
+			close(takeDone)
+		}()
+		select {
+		case <-crawlSession.Ctx.Done():
+			continue
+		case <-takeDone:
+		}
+		c.ApplyBackoff(crawlSession.Hostname)
+
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
 
 		if c.Options.Options.Delay > 0 {
-			time.Sleep(time.Duration(c.Options.Options.Delay) * time.Second)
+			select {
+			case <-crawlSession.Ctx.Done():
+				continue
+			case <-time.After(time.Duration(c.Options.Options.Delay) * time.Second):
+			}
+		}
+
+		if c.Options.Options.MaxDomainPages > 0 {
+			counter := c.DomainCounter(crawlSession.Hostname)
+			if counter.Add(1) > int64(c.Options.Options.MaxDomainPages) {
+				continue
+			}
 		}
 
 		resp, err := doRequest(crawlSession, req)
+
+		if resp != nil && common.IsThrottled(resp.StatusCode) {
+			c.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+		} else if resp != nil {
+			c.RecordSuccess(crawlSession.Hostname)
+		}
 
 		if inScope {
 			c.Output(req, resp, err)

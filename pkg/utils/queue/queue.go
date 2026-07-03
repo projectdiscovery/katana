@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -69,14 +70,29 @@ func (q *Queue) Push(x interface{}, priority int) {
 	}
 }
 
-// Pop pops an element from the queue. Result can be nil if no more
-// elements are present in the queue.
+// Pop pops elements from the queue (backward-compatible, no context).
 func (q *Queue) Pop() chan interface{} {
+	return q.PopWithContext(context.Background())
+}
+
+// PopWithContext pops elements from the queue, respecting context cancellation.
+// If ctx is nil, context.Background() is used.
+func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	items := make(chan interface{})
 
 	go func() {
+		defer close(items)
 		start := time.Now()
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			var item interface{}
 			q.Lock()
 			switch q.Strategy {
@@ -89,13 +105,23 @@ func (q *Queue) Pop() chan interface{} {
 
 			if item == nil {
 				if !start.Add(q.Timeout).Before(time.Now()) {
-					time.Sleep(1 * time.Second)
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(1 * time.Second):
+					}
 					continue
 				}
-				close(items)
 				return
 			} else {
-				items <- item
+				// NOTE: if ctx is cancelled during this send, the popped item is
+				// discarded. This is acceptable because cancellation means the crawl
+				// is shutting down and no consumer will process it.
+				select {
+				case <-ctx.Done():
+					return
+				case items <- item:
+				}
 				start = time.Now()
 			}
 		}

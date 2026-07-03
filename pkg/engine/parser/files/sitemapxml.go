@@ -1,6 +1,7 @@
 package files
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -19,10 +20,10 @@ type sitemapXmlCrawler struct {
 }
 
 // Visit visits the provided URL with file crawlers
-func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []*navigation.Request, err error) {
+func (r *sitemapXmlCrawler) Visit(ctx context.Context, URL string) (navigationRequests []*navigation.Request, err error) {
 	URL = strings.TrimSuffix(URL, "/")
 	requestURL := fmt.Sprintf("%s/sitemap.xml", URL)
-	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, errkit.Wrap(err, "sitemapcrawler: could not create request")
 	}

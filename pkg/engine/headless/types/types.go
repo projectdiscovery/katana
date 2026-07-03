@@ -249,6 +249,7 @@ func getStableAttributes(attrs map[string]string) []string {
 		"action":      {},
 		"method":      {},
 		"placeholder": {},
+		"onclick":     {},
 	}
 
 	var stableAttrs []string

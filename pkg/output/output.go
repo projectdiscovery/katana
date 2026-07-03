@@ -140,10 +140,16 @@ func New(options Options) (Writer, error) {
 			removeDirsWithSuffix(writer.storeResponseDir)
 			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
 		}
-		// todo: the index file seems never used?
-		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
+		// Pre-create (truncate) the index file. updateIndex() reopens it with
+		// O_APPEND|O_WRONLY per write and closes its own handle, so we must not
+		// retain a long-lived descriptor here.
+		indexPath := filepath.Join(writer.storeResponseDir, indexFile)
+		f, err := os.Create(indexPath)
 		if err != nil {
 			return nil, errkit.Wrap(err, "output: could not create index file")
+		}
+		if cerr := f.Close(); cerr != nil {
+			return nil, errkit.Wrap(cerr, "output: could not close index file")
 		}
 	}
 	if options.ErrorLogFile != "" {

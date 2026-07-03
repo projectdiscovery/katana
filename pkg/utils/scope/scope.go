@@ -136,11 +136,28 @@ func (m *Manager) validateDNS(hostname, rootHostname string) (bool, error) {
 	}
 	switch m.fieldScope {
 	case dnDnsScopeField:
-		return strings.Contains(hostname, dn), nil
+		// dn is a domain-name keyword scope (see the -field-scope docs): any host
+		// whose name contains the keyword is in scope. DNS is case-insensitive, so
+		// compare without regard to case (the fqdn path above already uses EqualFold).
+		return strings.Contains(strings.ToLower(hostname), strings.ToLower(dn)), nil
 	case rdnDnsScopeField:
-		return strings.HasSuffix(hostname, rdn), nil
+		// Match the registrable domain itself or any of its subdomains. A label
+		// boundary is required so look-alike domains that merely share the root as
+		// a string suffix (e.g. evilexample.com vs example.com) are not in scope.
+		return matchesDomainOrSubdomain(hostname, rdn), nil
 	}
 	return false, nil
+}
+
+// matchesDomainOrSubdomain reports whether host equals domain or is one of its
+// subdomains (i.e. host ends with "."+domain). Matching is case-insensitive
+// because DNS labels are case-insensitive. Requiring the leading dot enforces a
+// label boundary, so look-alike hosts that only share domain as a raw string
+// suffix (e.g. evilexample.com vs example.com) are not considered in scope.
+func matchesDomainOrSubdomain(host, domain string) bool {
+	host = strings.ToLower(host)
+	domain = strings.ToLower(domain)
+	return host == domain || strings.HasSuffix(host, "."+domain)
 }
 
 // getDomainRDNandRDN extracts and returns the root domain name (RDN) and the

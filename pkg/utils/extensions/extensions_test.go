@@ -24,3 +24,38 @@ func TestValidatorValidate(t *testing.T) {
 	validator = NewValidator(nil, []string{"png"}, true)
 	require.False(t, validator.ValidatePath("main.png"), "could not validate correct data with no default extension filter and custom filter")
 }
+
+func TestValidatorExtensionMatchNone(t *testing.T) {
+	t.Run("em without none rejects extensionless URLs", func(t *testing.T) {
+		validator := NewValidator([]string{"css", "js"}, nil, false)
+		require.True(t, validator.ValidatePath("https://example.com/style.css"))
+		require.True(t, validator.ValidatePath("https://example.com/app.js"))
+		require.False(t, validator.ValidatePath("https://example.com/page"))
+		require.False(t, validator.ValidatePath("https://example.com/"))
+	})
+
+	t.Run("em with none accepts extensionless URLs", func(t *testing.T) {
+		validator := NewValidator([]string{"css", "js", "none"}, nil, false)
+		require.True(t, validator.ValidatePath("https://example.com/style.css"))
+		require.True(t, validator.ValidatePath("https://example.com/app.js"))
+		require.True(t, validator.ValidatePath("https://example.com/page"))
+		require.True(t, validator.ValidatePath("https://example.com/"))
+		require.False(t, validator.ValidatePath("https://example.com/image.png"))
+	})
+
+	t.Run("em with only none accepts only extensionless URLs", func(t *testing.T) {
+		validator := NewValidator([]string{"none"}, nil, false)
+		require.True(t, validator.ValidatePath("https://example.com/page"))
+		require.True(t, validator.ValidatePath("https://example.com/"))
+		require.False(t, validator.ValidatePath("https://example.com/style.css"))
+		require.False(t, validator.ValidatePath("https://example.com/app.js"))
+	})
+
+	t.Run("none is case insensitive", func(t *testing.T) {
+		validator := NewValidator([]string{"None"}, nil, false)
+		require.True(t, validator.ValidatePath("https://example.com/page"))
+
+		validator = NewValidator([]string{"NONE"}, nil, false)
+		require.True(t, validator.ValidatePath("https://example.com/page"))
+	})
+}

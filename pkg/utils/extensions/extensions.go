@@ -52,7 +52,8 @@ func (e *Validator) ValidatePath(item string) bool {
 		extension = strings.ToLower(path.Ext(item))
 	}
 	if extension == "" && len(e.extensionsMatch) > 0 {
-		return false
+		_, ok := e.extensionsMatch[""]
+		return ok
 	}
 	if len(e.extensionsMatch) > 0 {
 		if _, ok := e.extensionsMatch[extension]; ok {
@@ -69,6 +70,9 @@ func (e *Validator) ValidatePath(item string) bool {
 
 func normalizeExtension(extension string) string {
 	extension = strings.ToLower(extension)
+	if extension == "none" {
+		return ""
+	}
 	if strings.HasPrefix(extension, ".") {
 		return extension
 	}
