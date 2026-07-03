@@ -336,24 +336,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}
 
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
-	domResult, domErr := getDocument.Call(domPage)
-	if domErr != nil {
-		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
-	}
- 
-
-	// Use basePage with a fresh timeout for HTML retrieval so it succeeds
-	// even if the navigation or DOM timeout was exhausted.
-	body, err := sessionPage.Timeout(timeout).HTML()
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: could not get html")
-	}
-
-	parsed, err := urlutil.Parse(request.URL)
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
+			if domErr != nil {
+		// if err != nil {
+		//   This is the fix: it's a timeout, just log
+		//   a warning and keep going
+		if strings.Contains(domErr.Error(), "deadline exceeded") {
+			gologger.Warning().Msgf("DOM timeout: skipping rendering but continuing crawl")
+		}	
 	}
 
 	if response == nil || response.Resp == nil {
@@ -383,7 +372,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.FormExtraction {
 			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
 		}
-	}
+	
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
@@ -408,6 +397,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		return nil
 	})
+	
 
 	return response, nil
 }
