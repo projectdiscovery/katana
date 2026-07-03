@@ -334,34 +334,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 				}
 			
 
-			if domErr != nil {
-		// if err != nil {
-		//   This is the fix: it's a timeout, just log
-		//   a warning and keep going
-		if strings.Contains(domErr.Error(), "deadline exceeded") {
-			gologger.Warning().Msgf("DOM timeout: skipping rendering but continuing crawl")
-		}	
-	
-
-	if response == nil || response.Resp == nil {
-		// err is guaranteed to be nil, due to previous checks.
-		return nil, errors.New("hybrid: response is nil")
-	}
-	response.Resp.Request.URL = parsed.URL
-
-	// Create a copy of interpolated shadow DOM elements and parse them separately
-	if domResult != nil && domResult.Root != nil {
-		var builder strings.Builder
-		traverseDOMNode(domResult.Root, &builder)
-
-		responseCopy := *response
-		responseCopy.Body = builder.String()
-
-		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-		if responseCopy.Reader != nil {
-			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-			c.Enqueue(s.Queue, navigationRequests...)
-		}
+				if domErr != nil {
+		// Log the timeout or error as a warning
+		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
 	}
 
 	response.Body = body
