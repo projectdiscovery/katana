@@ -25,7 +25,7 @@ require (
 	github.com/projectdiscovery/hmap v0.0.101
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.88
-	github.com/projectdiscovery/retryablehttp-go v1.3.16
+	github.com/projectdiscovery/retryablehttp-go v1.3.17
 	github.com/projectdiscovery/utils v0.11.1
 	github.com/projectdiscovery/wappalyzergo v0.2.87
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -34,7 +34,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasttemplate v1.2.2
 	go.uber.org/multierr v1.11.0
-	golang.org/x/net v0.54.0
+	golang.org/x/net v0.55.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -164,7 +164,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/projectdiscovery/networkpolicy v0.1.40
+	github.com/projectdiscovery/networkpolicy v0.1.41
 	github.com/projectdiscovery/retryabledns v1.0.115 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
@@ -181,7 +181,7 @@ require (
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
