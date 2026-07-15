@@ -131,7 +131,7 @@ func TestE2E_Crawl_WithoutAuth_CannotReachSecret(t *testing.T) {
 
 	// Start from the public home — without a recorded flow the crawler should
 	// never successfully fetch the gated secret page content.
-	_ = c.Crawl(lab.URL + "/")
+	require.NoError(t, c.Crawl(lab.URL+"/"))
 	require.Equal(t, int64(0), lab.SecretHits.Load(), "unauthenticated crawl must not hit /app/secret")
 	require.False(t, containsURL(collector.list(), "/app/secret"))
 }

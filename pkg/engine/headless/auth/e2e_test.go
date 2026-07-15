@@ -17,11 +17,9 @@ import (
 
 func skipIfNoBrowser(t *testing.T) {
 	t.Helper()
-	path, found := launcher.LookPath()
-	if !found {
+	if path, found := launcher.LookPath(); !found || path == "" {
 		t.Skip("chrome/chromium not found, skipping recorded-flow e2e")
 	}
-	_ = path
 }
 
 func launchPage(t *testing.T) (*rod.Browser, *rod.Page) {
@@ -153,7 +151,7 @@ func TestE2E_RecordedFlow_WrongPasswordDoesNotUnlockSecret(t *testing.T) {
 	_ = auth.RunLoginSteps(ctx, page, steps, authlab.Username, "wrong-password", 5*time.Second)
 
 	require.NoError(t, page.Navigate(lab.URL+"/app/secret"))
-	_ = page.WaitLoad()
+	require.NoError(t, page.WaitLoad())
 	html, err := page.HTML()
 	require.NoError(t, err)
 	require.NotContains(t, html, authlab.SecretMarker)

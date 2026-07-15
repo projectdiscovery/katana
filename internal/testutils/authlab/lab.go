@@ -64,7 +64,8 @@ func Start() (*Lab, error) {
 // Close shuts the lab down.
 func (l *Lab) Close() error {
 	if l.server != nil {
-		_ = l.server.Close()
+		// Server.Close also closes the underlying listener.
+		return l.server.Close()
 	}
 	if l.listener != nil {
 		return l.listener.Close()

@@ -91,7 +91,17 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 				return errkit.Wrapf(err, "recorded-flow step %d (press): failed", i)
 			}
 		case "submit":
-			if err := submitForm(page, findVisible(page, `input[type="password"]`), settle); err != nil {
+			fallback := findVisible(page, `input[type="password"]`)
+			if step.Selector != "" {
+				if el := findVisible(page, byName(step.Selector), step.Selector); el != nil {
+					fallback = el
+					_ = el.ScrollIntoView()
+					if err := el.Click(proto.InputMouseButtonLeft, 1); err == nil {
+						break
+					}
+				}
+			}
+			if err := submitForm(page, fallback, settle); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (submit)", i)
 			}
 		default:
