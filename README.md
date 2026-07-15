@@ -356,6 +356,8 @@ HEADLESS:
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
+   -al, -auto-login string           automatic login with username:password (headless only)
+   -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
 ```
 
 *`-no-sandbox`*
@@ -690,9 +692,13 @@ katana -u https://example.com -kb-endpoints
 
 ## Authenticated Crawling
 
-Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perform authenticated crawling.
+Katana supports authenticated crawling in several ways: static headers/cookies, attaching to an already-logged-in Chrome session, automatic form login (`-auto-login`), and **recorded browser flows** (`-recorded-flow`) for multi-step / SPA / SSO-style logins.
 
-> **Note**: User needs to be manually perform the authentication and export the session cookie / header to file to use with katana.
+### Headers / cookies
+
+Authenticated crawling can include custom headers or cookies in HTTP requests to access protected resources. You can specify headers directly on the command line or provide them as a file.
+
+> **Note**: For the header/cookie approach, perform authentication manually once and export the session cookie / header to use with katana.
 
 *`-headers`*
 ----
@@ -719,6 +725,59 @@ TOKEN=XX
 katana -u https://tesla.com -H cookie.txt
 ```
 
+### Automatic login (`-auto-login`)
+
+In pure headless mode, katana can detect a login form and submit credentials automatically:
+
+```console
+katana -hl -u https://app.example.com -al 'user:password'
+```
+
+This is best for simple username/password forms. For multi-step, SPA, or SSO logins prefer a recorded flow.
+
+### Recorded flow (`-recorded-flow`)
+
+Recorded flows let you export a real browser login from **Chrome DevTools → Recorder** and replay it once **before the crawl starts**. Session cookies stay in the headless browser context for the rest of the crawl.
+
+**1. Record the login in Chrome**
+
+1. Open Chrome DevTools → **Recorder**
+2. Start a new recording and perform the login (navigate, type, click Next, type password, submit, …)
+3. Export the recording as JSON
+
+**2. Replay it with katana**
+
+```console
+katana -hl -u https://app.example.com/dashboard \
+  -rf login.json \
+  -al 'user:password'
+```
+
+Credential literals in the recording are replaced with `{{username}}` / `{{password}}` placeholders and filled from `-al`. If the recording (or an explicit step list) still needs those placeholders, `-al` is required.
+
+Katana also accepts a hand-authored explicit step file:
+
+```json
+{
+  "steps": [
+    {"action": "navigate", "value": "https://app.example.com/login"},
+    {"action": "fill", "selector": "#email", "value": "{{username}}"},
+    {"action": "fill", "selector": "#password", "value": "{{password}}"},
+    {"action": "click", "selector": "#submit"}
+  ]
+}
+```
+
+Supported step actions: `navigate`, `fill`, `click`, `waitvisible`, `wait`, `press`, `submit`.
+
+**How it runs**
+
+1. Katana launches headless Chrome
+2. Replays the recorded flow once (pre-auth)
+3. Starts crawling `-u` with the established session
+4. Skips logout URLs while authenticated
+
+> Recorded flows require **pure headless** (`-hl`). Hybrid (`-hh`) is disabled automatically when `-rf` is set.
 
 There are more options to configure when needed, here is all the config related CLI options - 
 

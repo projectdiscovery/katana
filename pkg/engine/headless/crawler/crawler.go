@@ -19,6 +19,7 @@ import (
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
@@ -78,6 +79,9 @@ type Options struct {
 	AuthUsername  string
 	AuthPassword  string
 	DitClassifier *dit.Classifier
+	// AuthSteps, when non-empty, are replayed once against the browser context
+	// before the crawl queue starts (recorded / multi-step login).
+	AuthSteps []auth.LoginStep
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -224,6 +228,16 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
+
+	// Replay a recorded / explicit auth flow once up-front so the shared browser
+	// context holds session cookies for the rest of the crawl. Opportunistic
+	// -auto-login (tryAutoLogin) remains available as a fallback when no steps
+	// are configured.
+	if len(c.options.AuthSteps) > 0 {
+		if err := c.runRecordedAuthFlow(ctx); err != nil {
+			return err
+		}
+	}
 
 	consecutiveFailures := 0
 
@@ -551,6 +565,34 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 		return fmt.Errorf("unknown action type: %v", action.Type)
 	}
 
+	return nil
+}
+
+func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
+	page, err := c.launcher.GetPageFromPool()
+	if err != nil {
+		return err
+	}
+	defer c.launcher.PutBrowserToPool(page)
+
+	page.Page = page.Context(ctx)
+
+	loginURL := auth.FirstNavigateURL(c.options.AuthSteps)
+	c.logger.Info("Replaying recorded auth flow",
+		slog.Int("steps", len(c.options.AuthSteps)),
+		slog.String("url", loginURL),
+	)
+
+	settle := c.options.PageMaxTimeout
+	if settle <= 0 {
+		settle = 30 * time.Second
+	}
+	if err := auth.RunLoginSteps(ctx, page.Page, c.options.AuthSteps, c.options.AuthUsername, c.options.AuthPassword, settle); err != nil {
+		return errors.Wrap(err, "recorded auth flow failed")
+	}
+
+	c.loggedIn = true
+	c.logger.Info("Recorded auth flow completed")
 	return nil
 }
 

@@ -223,6 +223,9 @@ type Options struct {
 	FilterPageType goflags.StringSlice
 	// AuthCredentials holds username:password for automatic login
 	AuthCredentials string
+	// RecordedFlow is the path to a Chrome DevTools Recorder JSON (or an explicit
+	// LoginStep list) replayed once in headless mode before crawling starts.
+	RecordedFlow string
 	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
 	MaxDomainPages int
 }
