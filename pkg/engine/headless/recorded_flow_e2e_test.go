@@ -113,18 +113,21 @@ func TestE2E_Crawl_WithoutAuth_CannotReachSecret(t *testing.T) {
 	t.Cleanup(func() { _ = lab.Close() })
 
 	collector := &resultCollector{}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Bound the crawl with MaxCrawlDuration so CI (cold Chrome cache / slow
+	// runners) exits cleanly instead of relying on the parent context deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	c, err := crawler.New(crawler.Options{
-		Context:         ctx,
-		MaxBrowsers:     1,
-		MaxDepth:        2,
-		PageMaxTimeout:  30 * time.Second,
-		NoSandbox:       true,
-		RequestCallback: collector.callback,
-		Logger:          slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
-		ScopeValidator:  func(u string) bool { return strings.HasPrefix(u, lab.URL) },
+		Context:          ctx,
+		MaxBrowsers:      1,
+		MaxDepth:         1,
+		MaxCrawlDuration: 30 * time.Second,
+		PageMaxTimeout:   15 * time.Second,
+		NoSandbox:        true,
+		RequestCallback:  collector.callback,
+		Logger:           slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
+		ScopeValidator:   func(u string) bool { return strings.HasPrefix(u, lab.URL) },
 	})
 	require.NoError(t, err)
 	t.Cleanup(c.Close)
@@ -132,8 +135,10 @@ func TestE2E_Crawl_WithoutAuth_CannotReachSecret(t *testing.T) {
 	// Start from the public home — without a recorded flow the crawler should
 	// never successfully fetch the gated secret page content.
 	require.NoError(t, c.Crawl(lab.URL+"/"))
+	urls := collector.list()
+	require.NotEmpty(t, urls, "crawl must produce some public-page traffic")
 	require.Equal(t, int64(0), lab.SecretHits.Load(), "unauthenticated crawl must not hit /app/secret")
-	require.False(t, containsURL(collector.list(), "/app/secret"))
+	require.False(t, containsURL(urls, "/app/secret"))
 }
 
 func TestE2E_Crawl_UsernameFirstRecordedFlow(t *testing.T) {
