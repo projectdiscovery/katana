@@ -70,16 +70,6 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		body, _ := FetchGetResponseBody(page, e)
 
-		// Skip unique content filtering if disabled
-		if !c.Options.Options.DisableUniqueFilter {
-			if !c.Options.UniqueFilter.UniqueContent(body) {
-				return FetchContinueRequest(page, e) // Skip this response, continue request
-			}
-		}
-		if c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(body) {
-			return FetchContinueRequest(page, e)
-		}
-
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
 			headers[h.Name] = []string{h.Value}
@@ -186,14 +176,27 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// trim trailing /
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
+
+		// Content uniqueness / page-similarity gates apply only to the main
+		// document. Rejected main docs still record response metadata so the
+		// crawl does not end with "hybrid: response is nil"; only parse/enqueue
+		// is suppressed. Scripts and XHR keep flowing for extraction.
+		skipParse := false
 		if matchOriginalURL {
+			if !c.Options.Options.DisableUniqueFilter && !c.Options.UniqueFilter.UniqueContent(body) {
+				skipParse = true
+			}
+			if !skipParse && c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(body) {
+				skipParse = true
+			}
 			request.Raw = string(rawBytesRequest)
 			response = resp
 		}
 
-		// process the raw response
-		navigationRequests := c.Options.Parser.ParseResponse(resp)
-		c.Enqueue(s.Queue, navigationRequests...)
+		if !skipParse {
+			navigationRequests := c.Options.Parser.ParseResponse(resp)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 
 		// do not continue following the request if it's a redirect and redirects are disabled
 		if c.Options.Options.DisableRedirects && resp.IsRedirect() {

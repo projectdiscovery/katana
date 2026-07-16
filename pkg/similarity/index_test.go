@@ -2,6 +2,7 @@ package similarity
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -148,11 +149,73 @@ func TestIndex_SharedChromeDoesNotCollapseDistinctMains(t *testing.T) {
 
 func TestLexicalCorpus_EvictRepairsDocFreq(t *testing.T) {
 	c := newLexicalCorpus()
-	c.Add([]string{"alpha", "beta", "gamma", "delta", "epsilon"})
-	c.Add([]string{"alpha", "zeta", "eta", "theta", "iota"})
+	id0 := c.Add([]string{"alpha", "beta", "gamma", "delta", "epsilon"})
+	id1 := c.Add([]string{"alpha", "zeta", "eta", "theta", "iota"})
+	require.Equal(t, uint64(0), id0)
+	require.Equal(t, uint64(1), id1)
 	require.Equal(t, 2, c.docFreq["alpha"])
-	c.EvictOldest()
+	evicted, ok := c.EvictOldest()
+	require.True(t, ok)
+	require.Equal(t, id0, evicted)
 	require.Equal(t, 1, c.docFreq["alpha"])
 	require.Equal(t, 0, c.docFreq["beta"])
 	require.Equal(t, 1, c.Len())
+	// Remaining doc keeps its stable ID.
+	score, matchedID, ok := c.MaxCosine([]string{"alpha", "zeta", "eta", "theta", "iota"})
+	require.True(t, ok)
+	require.Equal(t, id1, matchedID)
+	require.Greater(t, score, 0.9)
+}
+
+func TestIndex_StableClusterIDsSurviveEviction(t *testing.T) {
+	for _, mode := range []Mode{ModeSimHash, ModeTFIDF, ModeBM25} {
+		t.Run(string(mode), func(t *testing.T) {
+			idx := newTestIndex(t, Config{
+				Mode:            mode,
+				HammingDistance: 3,
+				ScoreThreshold:  0.85,
+				Budget:          1,
+				MaxDocuments:    2,
+			})
+
+			pages := [][]byte{
+				blogHTML("Topic Alpha One", "alpha content about networking switches routers firewalls packet capture tooling"),
+				blogHTML("Topic Beta Two", "beta content about photography lenses apertures shutters composition lighting"),
+				blogHTML("Topic Gamma Three", "gamma content about baking sourdough hydration fermentation oven spring crumb"),
+			}
+			require.True(t, idx.Accept(pages[0]))
+			require.True(t, idx.Accept(pages[1]))
+			// Evicts the oldest representative (page 0).
+			require.True(t, idx.Accept(pages[2]))
+
+			// Near-copy of the evicted page must be treated as a new cluster again,
+			// not reuse a shifted slice index / stale budget counter.
+			nearEvicted := blogHTML("Topic Alpha One", "alpha content about networking switches routers firewalls packet capture tooling notes")
+			require.True(t, idx.Accept(nearEvicted), "evicted cluster should not keep a stale budget")
+
+			// Exact repeat of a still-resident representative must still be filtered.
+			require.False(t, idx.Accept(pages[2]), "resident cluster budget must still apply")
+		})
+	}
+}
+
+func TestNormalize_MultiArticleWithoutMainUsesAllArticles(t *testing.T) {
+	pageA := []byte(`<!doctype html><html><body>
+<article>Shared lead story about space telescopes and deep sky surveys with nebulae catalogs</article>
+<article>Unique page one second story about urban cycling cargo bikes commuting safety</article>
+</body></html>`)
+	pageB := []byte(`<!doctype html><html><body>
+<article>Shared lead story about space telescopes and deep sky surveys with nebulae catalogs</article>
+<article>Unique page two second story about sourdough baking hydration fermentation crumb</article>
+</body></html>`)
+
+	a, ok := Normalize(pageA)
+	require.True(t, ok)
+	b, ok := Normalize(pageB)
+	require.True(t, ok)
+	joinedA := strings.Join(a.Tokens, " ")
+	joinedB := strings.Join(b.Tokens, " ")
+	require.Contains(t, joinedA, "cycling")
+	require.Contains(t, joinedB, "sourdough")
+	require.NotEqual(t, joinedA, joinedB)
 }

@@ -41,14 +41,20 @@ type Stats struct {
 	Filtered  int64
 }
 
+type simRep struct {
+	id uint64
+	fp uint64
+}
+
 // Index applies optional page-content similarity with a per-cluster parse budget.
 type Index struct {
 	cfg Config
 
 	mu       sync.Mutex
 	corpus   *lexicalCorpus
-	sigs     []uint64
-	clusters map[string]int // clusterID -> accepted count
+	sigs     []simRep
+	nextID   uint64
+	clusters map[string]int // stable clusterID -> accepted count
 	stats    Stats
 }
 
@@ -95,6 +101,10 @@ func New(cfg Config) (*Index, error) {
 	}, nil
 }
 
+func clusterKey(mode Mode, id uint64) string {
+	return fmt.Sprintf("%s:%d", mode, id)
+}
+
 // Accept reports whether the page should be fully processed (parsed/enqueued).
 // true = accept; false = skip as similar beyond cluster budget.
 // Pages with too little signal are always accepted.
@@ -121,15 +131,13 @@ func (i *Index) Accept(body []byte) bool {
 			gologger.Debug().Msgf("[similarity:%s] filtered cluster=%s budget=%d", i.cfg.Mode, clusterID, i.cfg.Budget)
 			return false
 		}
-		// Count toward budget without adding another corpus representative.
 		i.clusters[clusterID]++
 		i.stats.Accepted++
 		return true
 	}
 
-	clusterID = i.newClusterLocked(doc)
+	clusterID = i.rememberLocked(doc)
 	i.clusters[clusterID] = 1
-	i.rememberLocked(doc)
 	i.stats.Accepted++
 	return true
 }
@@ -139,28 +147,30 @@ func (i *Index) matchLocked(doc Document) (clusterID string, matched bool) {
 	case ModeSimHash:
 		fp := SimHash64(doc.Shingles)
 		bestDist := 64
-		bestIdx := -1
-		for idx, existing := range i.sigs {
-			d := HammingDistance(fp, existing)
-			if d < bestDist {
+		var bestID uint64
+		found := false
+		for _, existing := range i.sigs {
+			d := HammingDistance(fp, existing.fp)
+			if !found || d < bestDist {
 				bestDist = d
-				bestIdx = idx
+				bestID = existing.id
+				found = true
 			}
 		}
-		if bestIdx >= 0 && bestDist <= i.cfg.HammingDistance {
-			return fmt.Sprintf("sim:%d", bestIdx), true
+		if found && bestDist <= i.cfg.HammingDistance {
+			return clusterKey(ModeSimHash, bestID), true
 		}
 		return "", false
 	case ModeTFIDF:
-		score, id := i.corpus.MaxCosine(doc.Tokens)
-		if id >= 0 && score >= i.cfg.ScoreThreshold {
-			return fmt.Sprintf("tfidf:%d", id), true
+		score, id, ok := i.corpus.MaxCosine(doc.Tokens)
+		if ok && score >= i.cfg.ScoreThreshold {
+			return clusterKey(ModeTFIDF, id), true
 		}
 		return "", false
 	case ModeBM25:
-		score, id := i.corpus.MaxBM25(doc.Tokens)
-		if id >= 0 && score >= i.cfg.ScoreThreshold {
-			return fmt.Sprintf("bm25:%d", id), true
+		score, id, ok := i.corpus.MaxBM25(doc.Tokens)
+		if ok && score >= i.cfg.ScoreThreshold {
+			return clusterKey(ModeBM25, id), true
 		}
 		return "", false
 	default:
@@ -168,31 +178,29 @@ func (i *Index) matchLocked(doc Document) (clusterID string, matched bool) {
 	}
 }
 
-func (i *Index) newClusterLocked(doc Document) string {
+// rememberLocked stores a new representative and returns its stable cluster ID.
+func (i *Index) rememberLocked(doc Document) string {
 	switch i.cfg.Mode {
 	case ModeSimHash:
-		return fmt.Sprintf("sim:%d", len(i.sigs))
-	case ModeTFIDF:
-		return fmt.Sprintf("tfidf:%d", i.corpus.Len())
-	case ModeBM25:
-		return fmt.Sprintf("bm25:%d", i.corpus.Len())
-	default:
-		return "unknown"
-	}
-}
-
-func (i *Index) rememberLocked(doc Document) {
-	switch i.cfg.Mode {
-	case ModeSimHash:
-		i.sigs = append(i.sigs, SimHash64(doc.Shingles))
-		for len(i.sigs) > i.cfg.MaxDocuments {
+		for len(i.sigs) >= i.cfg.MaxDocuments {
+			old := i.sigs[0]
+			delete(i.clusters, clusterKey(ModeSimHash, old.id))
 			i.sigs = i.sigs[1:]
 		}
+		id := i.nextID
+		i.nextID++
+		i.sigs = append(i.sigs, simRep{id: id, fp: SimHash64(doc.Shingles)})
+		return clusterKey(ModeSimHash, id)
 	case ModeTFIDF, ModeBM25:
 		for i.corpus.Len() >= i.cfg.MaxDocuments {
-			i.corpus.EvictOldest()
+			if id, ok := i.corpus.EvictOldest(); ok {
+				delete(i.clusters, clusterKey(i.cfg.Mode, id))
+			}
 		}
-		i.corpus.Add(doc.Tokens)
+		id := i.corpus.Add(doc.Tokens)
+		return clusterKey(i.cfg.Mode, id)
+	default:
+		return "unknown"
 	}
 }
 
@@ -224,4 +232,5 @@ func (i *Index) Close() {
 	i.sigs = nil
 	i.corpus = newLexicalCorpus()
 	i.clusters = make(map[string]int)
+	i.nextID = 0
 }

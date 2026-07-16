@@ -13,12 +13,18 @@ func countTerms(tokens []string) termCounts {
 	return counts
 }
 
+type lexicalDoc struct {
+	id     uint64
+	counts termCounts
+	length int
+}
+
 type lexicalCorpus struct {
-	docs      []termCounts
+	docs      []lexicalDoc
 	docFreq   map[string]int
-	docLen    []int
 	avgDocLen float64
 	totalLen  int
+	nextID    uint64
 }
 
 func newLexicalCorpus() *lexicalCorpus {
@@ -31,15 +37,16 @@ func (c *lexicalCorpus) Len() int {
 	return len(c.docs)
 }
 
-func (c *lexicalCorpus) Add(tokens []string) int {
+// Add stores a document and returns its stable ID.
+func (c *lexicalCorpus) Add(tokens []string) uint64 {
 	counts := countTerms(tokens)
 	length := 0
 	for _, n := range counts {
 		length += n
 	}
-	id := len(c.docs)
-	c.docs = append(c.docs, counts)
-	c.docLen = append(c.docLen, length)
+	id := c.nextID
+	c.nextID++
+	c.docs = append(c.docs, lexicalDoc{id: id, counts: counts, length: length})
 	c.totalLen += length
 	for term := range counts {
 		c.docFreq[term]++
@@ -50,17 +57,15 @@ func (c *lexicalCorpus) Add(tokens []string) int {
 	return id
 }
 
-// EvictOldest removes the oldest document and repairs docFreq.
-func (c *lexicalCorpus) EvictOldest() {
+// EvictOldest removes the oldest document, repairs docFreq, and returns its stable ID.
+func (c *lexicalCorpus) EvictOldest() (id uint64, ok bool) {
 	if len(c.docs) == 0 {
-		return
+		return 0, false
 	}
 	old := c.docs[0]
-	oldLen := c.docLen[0]
 	c.docs = c.docs[1:]
-	c.docLen = c.docLen[1:]
-	c.totalLen -= oldLen
-	for term := range old {
+	c.totalLen -= old.length
+	for term := range old.counts {
 		c.docFreq[term]--
 		if c.docFreq[term] <= 0 {
 			delete(c.docFreq, term)
@@ -71,6 +76,7 @@ func (c *lexicalCorpus) EvictOldest() {
 	} else {
 		c.avgDocLen = 0
 	}
+	return old.id, true
 }
 
 func (c *lexicalCorpus) idf(term string) float64 {
@@ -79,9 +85,11 @@ func (c *lexicalCorpus) idf(term string) float64 {
 	return math.Log((n)/(1+float64(df))) + 1
 }
 
-func (c *lexicalCorpus) MaxCosine(tokens []string) (float64, int) {
+// MaxCosine returns the best cosine score and the matched document's stable ID.
+// ok is false when the corpus is empty or there is no usable query.
+func (c *lexicalCorpus) MaxCosine(tokens []string) (score float64, id uint64, ok bool) {
 	if len(c.docs) == 0 || len(tokens) == 0 {
-		return 0, -1
+		return 0, 0, false
 	}
 	query := countTerms(tokens)
 	queryLen := 0
@@ -89,19 +97,21 @@ func (c *lexicalCorpus) MaxCosine(tokens []string) (float64, int) {
 		queryLen += n
 	}
 	if queryLen == 0 {
-		return 0, -1
+		return 0, 0, false
 	}
 
 	best := 0.0
-	bestID := -1
-	for id, doc := range c.docs {
-		score := cosineTFIDF(query, queryLen, doc, c.docLen[id], c)
-		if score > best {
-			best = score
-			bestID = id
+	var bestID uint64
+	found := false
+	for _, doc := range c.docs {
+		s := cosineTFIDF(query, queryLen, doc.counts, doc.length, c)
+		if !found || s > best {
+			best = s
+			bestID = doc.id
+			found = true
 		}
 	}
-	return best, bestID
+	return best, bestID, found
 }
 
 func cosineTFIDF(a termCounts, aLen int, b termCounts, bLen int, c *lexicalCorpus) float64 {
@@ -135,9 +145,10 @@ const (
 	bm25B  = 0.75
 )
 
-func (c *lexicalCorpus) MaxBM25(tokens []string) (float64, int) {
+// MaxBM25 returns the best normalized BM25 score and the matched document's stable ID.
+func (c *lexicalCorpus) MaxBM25(tokens []string) (score float64, id uint64, ok bool) {
 	if len(c.docs) == 0 || len(tokens) == 0 {
-		return 0, -1
+		return 0, 0, false
 	}
 	query := countTerms(tokens)
 	queryLen := 0
@@ -145,28 +156,29 @@ func (c *lexicalCorpus) MaxBM25(tokens []string) (float64, int) {
 		queryLen += n
 	}
 	if queryLen == 0 {
-		return 0, -1
+		return 0, 0, false
 	}
-	// Normalize by the query's self-score so unrelated docs stay low.
 	self := bm25Score(query, query, queryLen, c)
 	if self <= 0 {
-		return 0, -1
+		return 0, 0, false
 	}
 
 	best := 0.0
-	bestID := -1
-	for id, doc := range c.docs {
-		raw := bm25Score(query, doc, c.docLen[id], c)
+	var bestID uint64
+	found := false
+	for _, doc := range c.docs {
+		raw := bm25Score(query, doc.counts, doc.length, c)
 		norm := raw / self
 		if norm > 1 {
 			norm = 1
 		}
-		if norm > best {
+		if !found || norm > best {
 			best = norm
-			bestID = id
+			bestID = doc.id
+			found = true
 		}
 	}
-	return best, bestID
+	return best, bestID, found
 }
 
 func bm25Score(query, doc termCounts, docLen int, c *lexicalCorpus) float64 {

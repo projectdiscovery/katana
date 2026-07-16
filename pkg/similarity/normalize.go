@@ -57,7 +57,12 @@ func extractText(body []byte) string {
 
 	doc.Find("script, style, noscript, svg, template").Remove()
 
-	root := doc.Find("main, article, [role=main]").First()
+	root := doc.Find("main, [role=main]").First()
+	if root.Length() == 0 {
+		// Fall back to all articles when no main landmark exists so multi-article
+		// index/pagination pages are compared on their full content.
+		root = doc.Find("article")
+	}
 	if root.Length() == 0 {
 		root = doc.Find("body")
 	}
@@ -69,7 +74,7 @@ func extractText(body []byte) string {
 }
 
 func tokenize(text string) []string {
-	fields := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+	fields := strings.FieldsFunc(text, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 	out := make([]string, 0, len(fields))
@@ -77,7 +82,8 @@ func tokenize(text string) []string {
 		if len(f) < 2 {
 			continue
 		}
-		out = append(out, f)
+		// Lowercase and clone so corpus retention does not pin the full page buffer.
+		out = append(out, strings.Clone(strings.ToLower(f)))
 	}
 	return out
 }
