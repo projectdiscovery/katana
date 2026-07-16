@@ -7,13 +7,14 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine"
+	"github.com/projectdiscovery/katana/pkg/engine/headless"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/mapcidr"
 	"github.com/projectdiscovery/mapcidr/asn"
 	"github.com/projectdiscovery/networkpolicy"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	iputil "github.com/projectdiscovery/utils/ip"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -74,10 +75,10 @@ func New(options *types.Options) (*Runner, error) {
 	}
 
 	if err := initExampleFormFillConfig(); err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not init default config")
+		return nil, errkit.Wrap(err, "could not init default config")
 	}
 	if err := validateOptions(options); err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not validate options")
+		return nil, errkit.Wrap(err, "could not validate options")
 	}
 	if options.FormConfig != "" {
 		if err := readCustomFormConfig(options.FormConfig); err != nil {
@@ -86,19 +87,25 @@ func New(options *types.Options) (*Runner, error) {
 	}
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create crawler options")
+		return nil, errkit.Wrap(err, "could not create crawler options")
 	}
 
 	var crawler engine.Engine
 
 	switch {
+case options.ChromeWSUrl != "":
+		// When connecting to existing browser via WebSocket URL,
+		// use pure headless engine with advanced crawling features
+		crawler, err = headless.New(crawlerOptions)
 	case options.Headless:
+		crawler, err = headless.New(crawlerOptions)
+	case options.HeadlessHybrid:
 		crawler, err = hybrid.New(crawlerOptions)
 	default:
 		crawler, err = standard.New(crawlerOptions)
 	}
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create standard crawler")
+		return nil, errkit.Wrap(err, "could not create standard crawler")
 	}
 
 	var npOptions networkpolicy.Options

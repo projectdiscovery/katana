@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,6 +40,8 @@ type Options struct {
 	ExtensionsMatch goflags.StringSlice
 	// ExtensionFilter contains additional items for filter list
 	ExtensionFilter goflags.StringSlice
+	// NoDefaultExtFilter removes the default extensions from the filter list
+	NoDefaultExtFilter bool
 	// OutputMatchCondition is the condition to match output
 	OutputMatchCondition string
 	// OutputFilterCondition is the condition to filter output
@@ -53,6 +56,8 @@ type Options struct {
 	TimeStable int
 	// CrawlDuration is the duration in seconds to crawl target from
 	CrawlDuration time.Duration
+	// MaxFailureCount is the maximum number of consecutive failures before stopping
+	MaxFailureCount int
 	// Delay is the delay between each crawl requests in seconds
 	Delay int
 	// RateLimit is the maximum number of requests to send per second
@@ -61,6 +66,10 @@ type Options struct {
 	Retries int
 	// RateLimitMinute is the maximum number of requests to send per minute
 	RateLimitMinute int
+	// HostRateLimit is the maximum number of requests to send per second per host
+	HostRateLimit int
+	// HostRateLimitMinute is the maximum number of requests to send per minute per host
+	HostRateLimitMinute int
 	// Concurrency is the number of concurrent crawling goroutines
 	Concurrency int
 	// Parallelism is the number of urls processing goroutines
@@ -87,12 +96,18 @@ type Options struct {
 	NoColors bool
 	// JSON enables writing output in JSON format
 	JSON bool
+	// ExcludeOutputFields is the list of fields to exclude from the output
+	ExcludeOutputFields goflags.StringSlice
+	// ListOutputFields is the list of fields
+	ListOutputFields bool
 	// Silent shows only output
 	Silent bool
 	// Verbose specifies showing verbose output
 	Verbose bool
 	// TechDetect enables technology detection
 	TechDetect bool
+	// EnableDiagnostics enables diagnostics
+	EnableDiagnostics bool
 	// Version enables showing of crawler version
 	Version bool
 	// ScrapeJSResponses enables scraping of relative endpoints from javascript
@@ -103,6 +118,8 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// HeadlessHybrid enables headless hybrid scraping
+	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
 	// FormExtraction enables extraction of form, input, textarea & select elements
@@ -123,6 +140,11 @@ type Options struct {
 	OnResult OnResultCallback
 	// OnSkipURL allows callback function on a skipped url
 	OnSkipURL OnSkipURLCallback
+	// Context is an optional parent context for the crawl lifecycle.
+	// When set, cancelling this context stops the rate limiter, crawl session,
+	// queue, known-files requests, and headless browser.
+	// Defaults to context.Background() if nil.
+	Context context.Context `json:"-" yaml:"-"`
 	// StoreResponse specifies if katana should store http requests/responses
 	StoreResponse bool
 	// StoreResponseDir specifies if katana should use a custom directory to store http requests/responses
@@ -163,20 +185,59 @@ type Options struct {
 	DisableUpdateCheck bool
 	//IgnoreQueryParams ignore crawling same path with different query-param values
 	IgnoreQueryParams bool
+	// FilterSimilar filters crawling of similar looking URLs
+	// by normalizing variable path segments (IDs, UUIDs, hashes, dates)
+	FilterSimilar bool
+	// FilterSimilarThreshold is the number of distinct values at a path position
+	// before it is treated as a parameter (default 10, lower = more aggressive)
+	FilterSimilarThreshold int
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
 	TlsImpersonate bool
 	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
-	// SimilarityDeduplication enables content similarity detection using TF-IDF to avoid crawling similar pages
+	// PageContentSimilar enables optional Layer-2 content similarity filtering
+	PageContentSimilar bool
+	// SimilarityDeduplication is a deprecated alias for PageContentSimilar (-sdd)
 	SimilarityDeduplication bool
-	// SimilarityThresholdStr is the string representation of similarity threshold
-	SimilarityThresholdStr string
+	// PageContentSimilarMode is simhash, tfidf, or bm25 (default simhash)
+	PageContentSimilarMode string
+	// PageContentSimilarDistance is the max SimHash Hamming distance (default 3)
+	PageContentSimilarDistance int
+	// PageContentSimilarThresholdStr is the min TF-IDF/BM25 score string (default 0.85)
+	PageContentSimilarThresholdStr string
+	// PageContentSimilarBudget is how many pages per similarity cluster to fully process (default 1)
+	PageContentSimilarBudget int
 	// PathClimb enables path expansion (auto crawl discovered paths)
 	PathClimb bool
 	// DisableUniqueFilter disables duplicate content filtering
 	DisableUniqueFilter bool
+	// MaxOnclickLinks is the maximum number of onclick links to process per page (default: 10)
+	MaxOnclickLinks int
+	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
+	PageLoadStrategy string
+	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
+	DOMWaitTime           int
+	CaptchaSolverProvider string
+	CaptchaSolverAPIKey   string
+	// KnowledgeBase enables knowledge base classification using dit
+	KnowledgeBase bool
+	// Secrets enables the knowledgebase secrets extractor (Titus-backed)
+	Secrets bool
+	// ValidateSecrets enables live API validation of detected secrets.
+	// Validation sends a real request to the credential's provider, which logs
+	// against the credential owner, so it is opt-in.
+	ValidateSecrets bool
+	// Endpoints enables the knowledgebase endpoints extractor (classifies REST,
+	// GraphQL, SOAP, AJAX/XHR requests).
+	Endpoints bool
+	// FilterPageType filters results by page type
+	FilterPageType goflags.StringSlice
+	// AuthCredentials holds username:password for automatic login
+	AuthCredentials string
+	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
+	MaxDomainPages int
 }
 
 func (options *Options) ParseCustomHeaders() map[string]string {
@@ -233,17 +294,22 @@ func (options *Options) ConfigureOutput() {
 	logutil.DisableDefaultLogger()
 }
 
-// GetSimilarityThreshold parses and returns the similarity threshold value
-func (options *Options) GetSimilarityThreshold() float64 {
-	if options.SimilarityThresholdStr == "" {
-		return 0.1 // Default threshold
-	}
-
-	threshold, err := strconv.ParseFloat(options.SimilarityThresholdStr, 64)
-	if err != nil || threshold < 0 || threshold > 1 {
-		gologger.Warning().Msgf("Invalid similarity threshold '%s', using default 0.1", options.SimilarityThresholdStr)
-		return 0.1
-	}
-
-	return threshold
+// ContentSimilarityEnabled reports whether Layer-2 page content similarity is on.
+func (options *Options) ContentSimilarityEnabled() bool {
+	return options.PageContentSimilar || options.SimilarityDeduplication
 }
+
+// PageContentSimilarThreshold parses the TF-IDF/BM25 score threshold.
+func (options *Options) PageContentSimilarThreshold() float64 {
+	if options.PageContentSimilarThresholdStr == "" {
+		return similarityDefaultScore
+	}
+	v, err := strconv.ParseFloat(options.PageContentSimilarThresholdStr, 64)
+	if err != nil || v <= 0 || v > 1 {
+		gologger.Warning().Msgf("Invalid page-content-similar-threshold %q, using %.2f", options.PageContentSimilarThresholdStr, similarityDefaultScore)
+		return similarityDefaultScore
+	}
+	return v
+}
+
+const similarityDefaultScore = 0.85

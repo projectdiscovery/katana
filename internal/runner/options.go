@@ -5,13 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"gopkg.in/yaml.v3"
 )
@@ -19,25 +20,64 @@ import (
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
 	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
-		return errorutil.New("either max-depth or crawl-duration must be specified")
+		return errkit.New("either max-depth or crawl-duration must be specified")
 	}
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
-		return errorutil.New("no inputs specified for crawler")
+		return errkit.New("no inputs specified for crawler")
+	}
+
+	// Validate page load strategy
+	if options.PageLoadStrategy != "" {
+		validStrategies := []string{"heuristic", "load", "domcontentloaded", "networkidle", "none"}
+		if !slices.Contains(validStrategies, options.PageLoadStrategy) {
+			return errkit.New("invalid page-load-strategy: must be one of (heuristic, load, domcontentloaded, networkidle, none)")
+		}
+	} else {
+		// Default to heuristic
+		options.PageLoadStrategy = "heuristic"
 	}
 
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
 	// Form filling should be handled via headless actions within the page context
-	if options.Headless && options.AutomaticFormFill {
+	if options.HeadlessHybrid && options.AutomaticFormFill {
 		options.AutomaticFormFill = false
 		gologger.Info().Msgf("Automatic form fill (-aff) has been disabled for headless navigation.")
 	}
 
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") && !options.Headless {
-		return errorutil.New("headless mode (-hl) is required if -ho, -nos or -scp are set")
+	// Disallow ambiguous engine selection
+	if options.Headless && options.HeadlessHybrid {
+		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
+	}
+	
+	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
+	// The ChromeWSUrl takes precedence and pure headless engine will be used
+	if options.Headless && options.ChromeWSUrl != "" {
+		gologger.Warning().Msgf("Using -cwu with existing browser session. The -headless flag is redundant.")
+		gologger.Info().Msgf("Connecting to Chrome at: %s", options.ChromeWSUrl)
+	} else if options.HeadlessHybrid && options.ChromeWSUrl != "" {
+		gologger.Warning().Msgf("Using -cwu forces pure headless engine. The -hh (hybrid) flag will be ignored.")
+		gologger.Info().Msgf("Connecting to Chrome at: %s (using pure headless engine)", options.ChromeWSUrl)
+	} else if options.ChromeWSUrl != "" {
+		gologger.Info().Msgf("Connecting to Chrome at: %s (using pure headless engine)", options.ChromeWSUrl)
+	}
+
+	if options.AuthCredentials != "" {
+		if !strings.Contains(options.AuthCredentials, ":") {
+			return errkit.New("auth credentials must be in username:password format")
+		}
+		if !options.Headless && !options.HeadlessHybrid {
+			options.Headless = true
+			gologger.Info().Msgf("Headless mode enabled automatically for authenticated crawling.")
+		}
+	}
+
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
+		!options.Headless && !options.HeadlessHybrid {
+		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {
-			return errorutil.New("specified system chrome binary does not exist")
+			return errkit.New("specified system chrome binary does not exist")
 		}
 	}
 	if options.StoreResponseDir != "" && !options.StoreResponse {
@@ -47,14 +87,14 @@ func validateOptions(options *types.Options) error {
 	for _, mr := range options.OutputMatchRegex {
 		cr, err := regexp.Compile(mr)
 		if err != nil {
-			return errorutil.NewWithErr(err).Msgf("Invalid value for match regex option")
+			return errkit.Wrap(err, "Invalid value for match regex option")
 		}
 		options.MatchRegex = append(options.MatchRegex, cr)
 	}
 	for _, fr := range options.OutputFilterRegex {
 		cr, err := regexp.Compile(fr)
 		if err != nil {
-			return errorutil.NewWithErr(err).Msgf("Invalid value for filter regex option")
+			return errkit.Wrap(err, "Invalid value for filter regex option")
 		}
 		options.FilterRegex = append(options.FilterRegex, cr)
 	}
@@ -70,7 +110,7 @@ func validateOptions(options *types.Options) error {
 func readCustomFormConfig(formConfig string) error {
 	file, err := os.Open(formConfig)
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not read form config")
+		return errkit.Wrap(err, "could not read form config")
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
@@ -80,8 +120,9 @@ func readCustomFormConfig(formConfig string) error {
 
 	var data utils.FormFillData
 	if err := yaml.NewDecoder(file).Decode(&data); err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not decode form config")
+		return errkit.Wrap(err, "could not decode form config")
 	}
+	data.Resolve()
 	utils.FormData = data
 	return nil
 }
@@ -121,7 +162,7 @@ func normalizeInput(value string) string {
 func initExampleFormFillConfig() error {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not get home directory")
+		return errkit.Wrap(err, "could not get home directory")
 	}
 	defaultConfig := filepath.Join(homedir, ".config", "katana", "form-config.yaml")
 
@@ -133,7 +174,7 @@ func initExampleFormFillConfig() error {
 	}
 	exampleConfig, err := os.Create(defaultConfig)
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("could not get home directory")
+		return errkit.Wrap(err, "could not get home directory")
 	}
 	defer func() {
 		if err := exampleConfig.Close(); err != nil {

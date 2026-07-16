@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check Discussion vs Issue Activity
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const oneWeekAgo = new Date();
@@ -60,45 +60,35 @@ jobs:
               d => new Date(d.createdAt) >= oneWeekAgo
             );
             
-            // Generate report
-            const report = `
-## 📊 Discussion-First Workflow Report
-
-**Period:** ${oneWeekAgo.toDateString()} - ${new Date().toDateString()}
-
-### 📈 Activity Summary:
-- **Discussions Created:** ${recentDiscussions.length}
-- **Issues Created:** ${issues.data.length}
-- **Conversion Ratio:** ${issues.data.length}/${recentDiscussions.length} (${((issues.data.length / Math.max(recentDiscussions.length, 1)) * 100).toFixed(1)}%)
-
-### 📋 Discussion Breakdown:
-${recentDiscussions.map(d => 
-  `- **${d.category.name}:** ${d.title} (${d.comments.totalCount} comments)`
-).join('\n') || 'No discussions this week'}
-
-### 🎯 Issue Creation:
-${issues.data.map(i => 
-  `- **${i.title}** (Created: ${new Date(i.created_at).toDateString()})`
-).join('\n') || 'No direct issues created ✅'}
-
-### 🔍 Health Indicators:
-- **Discussion Activity:** ${recentDiscussions.length > 0 ? '✅ Active' : '⚠️ Low activity'}
-- **Direct Issue Creation:** ${issues.data.length === 0 ? '✅ Properly blocked' : '⚠️ ' + issues.data.length + ' direct issues created'}
-- **Community Engagement:** ${recentDiscussions.filter(d => d.comments.totalCount > 0).length}/${recentDiscussions.length} discussions have responses
-
-${issues.data.length > 0 ? `
-### ⚠️ Action Required:
-Direct issues were created this week. Check if:
-- Issue templates are properly disabled
-- Discussions redirects are working
-- Users are bypassing the workflow
-` : ''}
-
----
-*This report is generated automatically to help monitor the discussion-first workflow effectiveness.*
-            `;
+            // Generate and log simple report
+            console.log("=== Discussion-First Workflow Report ===");
+            console.log(`Period: ${oneWeekAgo.toDateString()} - ${new Date().toDateString()}`);
+            console.log(`Discussions Created: ${recentDiscussions.length}`);
+            console.log(`Issues Created: ${issues.data.length}`);
+            console.log(`Conversion Ratio: ${issues.data.length}/${recentDiscussions.length}`);
             
-            console.log(report);
+            if (recentDiscussions.length > 0) {
+              console.log("\nDiscussion Categories:");
+              recentDiscussions.forEach(d => {
+                console.log(`- ${d.category.name}: ${d.title} (${d.comments.totalCount} comments)`);
+              });
+            } else {
+              console.log("No discussions this week");
+            }
+            
+            if (issues.data.length > 0) {
+              console.log("\nDirect Issues Created:");
+              issues.data.forEach(i => {
+                console.log(`- ${i.title} (${new Date(i.created_at).toDateString()})`);
+              });
+              console.log("\nWARNING: Direct issues were created - check workflow configuration");
+            } else {
+              console.log("\nNo direct issues created - workflow working correctly");
+            }
+            
+            const responseRate = recentDiscussions.length > 0 ? 
+              (recentDiscussions.filter(d => d.comments.totalCount > 0).length / recentDiscussions.length * 100).toFixed(1) : 0;
+            console.log(`Community Response Rate: ${responseRate}%`);
             
             // You could also create an issue or discussion with this report
             // For now, just log it to Actions output

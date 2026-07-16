@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/utils/filters"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
 )
@@ -15,11 +14,11 @@ import (
 // ExecuteCrawling executes the crawling main loop
 func (r *Runner) ExecuteCrawling() error {
 	if r.crawler == nil {
-		return errorutil.New("crawler is not initialized")
+		return errkit.New("crawler is not initialized")
 	}
 	inputs := r.parseInputs()
 	if len(inputs) == 0 {
-		return errorutil.New("no input provided for crawling")
+		return errkit.New("no input provided for crawling")
 	}
 
 	for _, input := range inputs {
@@ -89,15 +88,13 @@ func (r *Runner) showCompletionStats(startTime time.Time) {
 	// Format elapsed time in human-readable format
 	timeStr := formatDuration(elapsed)
 
-	// Show similarity stats first if enabled
-	if r.options.SimilarityDeduplication {
-		if similarityFilter, ok := r.crawlerOptions.UniqueFilter.(*filters.SimilarityFilter); ok {
-			totalProcessed, uniqueDocuments, similarFiltered := similarityFilter.GetStats()
-			if totalProcessed > 0 {
-				filterRate := float64(similarFiltered) / float64(totalProcessed) * 100
-				gologger.Info().Msgf("Similarity detection: %d processed, %d unique, %d filtered - %.1f%% filter rate",
-					totalProcessed, uniqueDocuments, similarFiltered, filterRate)
-			}
+	// Show content similarity stats first if enabled
+	if r.crawlerOptions.ContentSimilarity != nil {
+		st := r.crawlerOptions.ContentSimilarity.Stats()
+		if st.Processed > 0 {
+			filterRate := float64(st.Filtered) / float64(st.Processed) * 100
+			gologger.Info().Msgf("Content similarity (%s): %d processed, %d accepted, %d filtered - %.1f%% filter rate",
+				r.crawlerOptions.ContentSimilarity.Mode(), st.Processed, st.Accepted, st.Filtered, filterRate)
 		}
 	}
 

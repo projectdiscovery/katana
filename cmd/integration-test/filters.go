@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -91,9 +90,7 @@ func (h *uniqueFilterIntegrationTest) Execute() error {
 		return fmt.Errorf("could not create runner: %v", err)
 	}
 	defer func() {
-		if err := katanaRunner.Close(); err != nil {
-			log.Printf("Failed to close katana runner: %v", err)
-		}
+		_ = katanaRunner.Close()
 	}()
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {

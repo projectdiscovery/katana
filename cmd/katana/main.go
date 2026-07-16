@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -12,12 +13,15 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/internal/runner"
+	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	folderutil "github.com/projectdiscovery/utils/folder"
 	pprofutils "github.com/projectdiscovery/utils/pprof"
+	sliceutil "github.com/projectdiscovery/utils/slice"
+	"github.com/projectdiscovery/utils/structs"
 	"github.com/rs/xid"
 )
 
@@ -30,6 +34,26 @@ func main() {
 	flagSet, err := readFlags()
 	handleError("Could not read flags", err)
 
+	if options.ListOutputFields {
+		gologger.Info().Msgf("Available fields for JSON output:")
+
+		fields := []string{}
+		topFields, _ := structs.GetStructFields(output.Result{})
+		fields = append(fields, topFields...)
+		reqFields, _ := structs.GetStructFields(navigation.Request{})
+		fields = append(fields, reqFields...)
+		respFields, _ := structs.GetStructFields(navigation.Response{})
+		fields = append(fields, respFields...)
+
+		sort.Strings(fields)
+		fields = sliceutil.PruneEmptyStrings(sliceutil.Dedupe(fields))
+
+		for _, field := range fields {
+			fmt.Println(field)
+		}
+		os.Exit(0)
+	}
+
 	if options.HealthCheck {
 		gologger.Print().Msgf("%s\n", runner.DoHealthCheck(options, flagSet))
 		os.Exit(0)
@@ -40,7 +64,8 @@ func main() {
 		if options.Version {
 			return
 		}
-		gologger.Fatal().Msgf("could not create runner: %s\n", err)
+		gologger.Error().Msgf("could not create runner: %s\n", err)
+		os.Exit(0)
 	}
 	defer func() {
 		if err := katanaRunner.Close(); err != nil {
@@ -48,6 +73,7 @@ func main() {
 		}
 	}()
 
+	// close handler
 	resumeFilename := defaultResumeFilename()
 	setupCloseHandler(katanaRunner, resumeFilename)
 
@@ -56,9 +82,11 @@ func main() {
 		pprofServer = pprofutils.NewPprofServer()
 		pprofServer.Start()
 	}
-	if pprofServer != nil {
-		defer pprofServer.Stop()
-	}
+	defer func() {
+		if pprofServer != nil {
+			defer pprofServer.Stop()
+		}
+	}()
 
 	if err := katanaRunner.ExecuteCrawling(); err != nil {
 		gologger.Fatal().Msgf("could not execute crawling: %s", err)
@@ -96,7 +124,12 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.ScrapeJSResponses, "js-crawl", "jc", false, "enable endpoint parsing / crawling in javascript file"),
 		flagSet.BoolVarP(&options.ScrapeJSLuiceResponses, "jsluice", "jsl", false, "enable jsluice parsing in javascript file (memory intensive)"),
 		flagSet.DurationVarP(&options.CrawlDuration, "crawl-duration", "ct", 0, "maximum duration to crawl the target for (s, m, h, d) (default s)"),
-		flagSet.StringVarP(&options.KnownFiles, "known-files", "kf", "", "enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled."),
+		flagSet.EnumVarP(&options.KnownFiles, "known-files", "kf", goflags.EnumVariable(0), "enable crawling of known files (all,robotstxt,sitemapxml), a minimum depth of 3 is required to ensure all known files are properly crawled.", goflags.AllowdTypes{
+			"":           goflags.EnumVariable(0),
+			"all":        goflags.EnumVariable(1),
+			"robotstxt":  goflags.EnumVariable(2),
+			"sitemapxml": goflags.EnumVariable(3),
+		}),
 		flagSet.IntVarP(&options.BodyReadSize, "max-response-size", "mrs", defaultBodyReadSize, "maximum response size to read"),
 		flagSet.IntVar(&options.Timeout, "timeout", 10, "time to wait for request in seconds"),
 		flagSet.IntVar(&options.TimeStable, "time-stable", 1, "time to wait until the page is stable in seconds"),
@@ -111,11 +144,16 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
 		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first)"),
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
+		flagSet.BoolVarP(&options.FilterSimilar, "filter-similar", "fsu", false, "filter crawling of similar looking URLs (e.g., /users/123 and /users/456)"),
+		flagSet.IntVarP(&options.FilterSimilarThreshold, "filter-similar-threshold", "fst", 10, "number of distinct values before a path position is treated as parameter (default 10)"),
 		flagSet.BoolVarP(&options.TlsImpersonate, "tls-impersonate", "tlsi", false, "enable experimental client hello (ja3) tls randomization"),
 		flagSet.BoolVarP(&options.DisableRedirects, "disable-redirects", "dr", false, "disable following redirects (default false)"),
-		flagSet.BoolVarP(&options.SimilarityDeduplication, "similarity-deduplication", "sdd", false, "enable content similarity detection to avoid crawling similar pages"),
-		flagSet.StringVarP(&options.SimilarityThresholdStr, "similarity-threshold", "st", "0.1", "similarity threshold for content deduplication (0.0-1.0, default 0.1)"),
 		flagSet.BoolVarP(&options.PathClimb, "path-climb", "pc", false, "enable path climb (auto crawl parent paths)"),
+		flagSet.BoolVarP(&options.KnowledgeBase, "knowledge-base", "kb", false, "enable knowledge base classification"),
+		flagSet.BoolVar(&options.Secrets, "kb-secrets", false, "enable secrets extractor in the knowledge base"),
+		flagSet.BoolVar(&options.ValidateSecrets, "kb-validate-secrets", false, "validate detected secrets against their provider (sends live API calls)"),
+		flagSet.BoolVar(&options.Endpoints, "kb-endpoints", false, "enable endpoints extractor (classifies REST/GraphQL/SOAP/XHR requests)"),
+		flagSet.IntVarP(&options.MaxDomainPages, "max-domain-pages", "mdp", 0, "maximum number of pages to crawl per domain (default unlimited)"),
 	)
 
 	// Debug group
@@ -127,7 +165,8 @@ func readFlags() (*goflags.FlagSet, error) {
 
 	// Headless group
 	flagSet.CreateGroup("headless", "Headless",
-		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless hybrid crawling (experimental)"),
+		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless crawling (experimental)"),
+		flagSet.BoolVarP(&options.HeadlessHybrid, "hybrid", "hh", false, "enable headless hybrid crawling (experimental)"),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "use local installed chrome browser instead of katana installed"),
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),
@@ -137,6 +176,13 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.HeadlessNoIncognito, "no-incognito", "noi", false, "start headless chrome without incognito mode"),
 		flagSet.StringVarP(&options.ChromeWSUrl, "chrome-ws-url", "cwu", "", "use chrome browser instance launched elsewhere with the debugger listening at this URL"),
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
+		flagSet.IntVarP(&options.MaxFailureCount, "max-failure-count", "mfc", 10, "maximum number of consecutive action failures before stopping"),
+		flagSet.BoolVarP(&options.EnableDiagnostics, "enable-diagnostics", "ed", false, "enable diagnostics"),
+		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "heuristic", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
+		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
+		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
+		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
+		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
 	)
 
 	// Scope group
@@ -154,11 +200,19 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringSliceVarP(&options.OutputFilterRegex, "filter-regex", "fr", nil, "regex or list of regex to filter on output url (cli, file)", goflags.FileStringSliceOptions),
 		flagSet.StringVarP(&options.Fields, "field", "f", "", fmt.Sprintf("field to display in output (%s) (Deprecated: use -output-template instead)", availableFields)),
 		flagSet.StringVarP(&options.StoreFields, "store-field", "sf", "", fmt.Sprintf("field to store in per-host output (%s)", availableFields)),
-		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.ExtensionsMatch, "extension-match", "em", nil, "match output for given extension (eg, -em php,html,js,none)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExtensionFilter, "extension-filter", "ef", nil, "filter output for given extension (eg, -ef png,css)", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.BoolVarP(&options.NoDefaultExtFilter, "no-default-ext-filter", "ndef", false, "remove default extensions from the filter list"),
 		flagSet.StringVarP(&options.OutputMatchCondition, "match-condition", "mdc", "", "match response with dsl based condition"),
 		flagSet.StringVarP(&options.OutputFilterCondition, "filter-condition", "fdc", "", "filter response with dsl based condition"),
 		flagSet.BoolVarP(&options.DisableUniqueFilter, "disable-unique-filter", "duf", false, "disable duplicate content filtering"),
+		flagSet.BoolVarP(&options.PageContentSimilar, "page-content-similar", "pcs", false, "enable page content similarity filtering (after exact content dedup)"),
+		flagSet.BoolVarP(&options.SimilarityDeduplication, "similarity-deduplication", "sdd", false, "alias for -pcs (page content similarity)"),
+		flagSet.StringVarP(&options.PageContentSimilarMode, "page-content-similar-mode", "pcsm", "simhash", "similarity mode: simhash, tfidf, or bm25"),
+		flagSet.IntVarP(&options.PageContentSimilarDistance, "page-content-similar-distance", "pcsd", 3, "simhash max hamming distance (default 3)"),
+		flagSet.StringVarP(&options.PageContentSimilarThresholdStr, "page-content-similar-threshold", "pcst", "0.85", "tfidf/bm25 min score 0-1 (default 0.85)"),
+		flagSet.IntVarP(&options.PageContentSimilarBudget, "page-content-similar-budget", "pcsn", 1, "pages to fully process per similarity cluster (default 1)"),
+		flagSet.StringSliceVarP(&options.FilterPageType, "filter-page-type", "fpt", nil, "filter response with page type (e.g. error,captcha,parked)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
 	// Rate-Limit group
@@ -168,6 +222,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
 		flagSet.IntVarP(&options.RateLimit, "rate-limit", "rl", 150, "maximum requests to send per second"),
 		flagSet.IntVarP(&options.RateLimitMinute, "rate-limit-minute", "rlm", 0, "maximum number of requests to send per minute"),
+		flagSet.IntVarP(&options.HostRateLimit, "host-rate-limit", "hrl", 0, "maximum requests to send per second per host"),
+		flagSet.IntVarP(&options.HostRateLimitMinute, "host-rate-limit-minute", "hrlm", 0, "maximum number of requests to send per minute per host"),
 	)
 
 	// Update group
@@ -186,6 +242,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarP(&options.StoreFieldDir, "store-field-dir", "sfd", "", "store per-host field to custom directory"),
 		flagSet.BoolVarP(&options.OmitRaw, "omit-raw", "or", false, "omit raw requests/responses from jsonl output"),
 		flagSet.BoolVarP(&options.OmitBody, "omit-body", "ob", false, "omit response body from jsonl output"),
+		flagSet.BoolVarP(&options.ListOutputFields, "list-output-fields", "lof", false, "list of fields to output in jsonl format"),
+		flagSet.StringSliceVarP(&options.ExcludeOutputFields, "exclude-output-fields", "eof", nil, "exclude fields from jsonl output", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.JSON, "jsonl", "j", false, "write output in jsonl format"),
 		flagSet.BoolVarP(&options.NoColors, "no-color", "nc", false, "disable output content coloring (ANSI escape codes)"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display output only"),
@@ -195,12 +253,12 @@ func readFlags() (*goflags.FlagSet, error) {
 	)
 
 	if err := flagSet.Parse(); err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not parse flags")
+		return nil, errkit.Wrap(err, "could not parse flags")
 	}
 
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not read config file")
+			return nil, errkit.Wrap(err, "could not read config file")
 		}
 	}
 
@@ -211,7 +269,7 @@ func readFlags() (*goflags.FlagSet, error) {
 func init() {
 	// show detailed stacktrace in debug mode
 	if os.Getenv("DEBUG") == "true" {
-		errorutil.ShowStackTrace = true
+		errkit.EnableTrace = true
 	}
 }
 

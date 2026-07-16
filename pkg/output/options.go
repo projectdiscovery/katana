@@ -28,4 +28,6 @@ type Options struct {
 	OutputTemplate        string
 	OutputMatchCondition  string
 	OutputFilterCondition string
+	ExcludeOutputFields   []string
+	FilterPageType        []string
 }

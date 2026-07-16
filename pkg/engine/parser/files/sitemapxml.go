@@ -1,6 +1,7 @@
 package files
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -11,7 +12,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 )
 
 type sitemapXmlCrawler struct {
@@ -19,18 +20,18 @@ type sitemapXmlCrawler struct {
 }
 
 // Visit visits the provided URL with file crawlers
-func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []*navigation.Request, err error) {
+func (r *sitemapXmlCrawler) Visit(ctx context.Context, URL string) (navigationRequests []*navigation.Request, err error) {
 	URL = strings.TrimSuffix(URL, "/")
 	requestURL := fmt.Sprintf("%s/sitemap.xml", URL)
-	req, err := retryablehttp.NewRequest(http.MethodGet, requestURL, nil)
+	req, err := retryablehttp.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not create request").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not create request")
 	}
 	req.Header.Set("User-Agent", utils.WebUserAgent())
 
 	resp, err := r.httpclient.Do(req)
 	if err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not do request").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not do request")
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -40,7 +41,7 @@ func (r *sitemapXmlCrawler) Visit(URL string) (navigationRequests []*navigation.
 
 	navigationRequests, err = r.parseReader(resp.Body, resp)
 	if err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not parse sitemap").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not parse sitemap")
 	}
 	return
 }
@@ -57,7 +58,7 @@ type parsedURL struct {
 func (r *sitemapXmlCrawler) parseReader(reader io.Reader, resp *http.Response) (navigationRequests []*navigation.Request, err error) {
 	sitemap := sitemapStruct{}
 	if err := xml.NewDecoder(reader).Decode(&sitemap); err != nil {
-		return nil, errorutil.NewWithTag("sitemapcrawler", "could not decode xml").Wrap(err)
+		return nil, errkit.Wrap(err, "sitemapcrawler: could not decode xml")
 	}
 	for _, url := range sitemap.URLs {
 		navResp := &navigation.Response{

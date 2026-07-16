@@ -7,77 +7,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-mac:
-    runs-on: macos-latest
-    steps:
-      - name: "Check out code"
-        uses: actions/checkout@v5
-        with: 
-          fetch-depth: 0
-      
-      - name: "Set up Go"
-        uses: actions/setup-go@v4
-        with: 
-          go-version: 1.24.x
-          cache: true
-      
-      - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
-        with: 
-          args: "release -f .goreleaser/mac.yml --clean"
-          version: latest
-          workdir: .
-        env: 
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-  build-windows:
-    runs-on: windows-latest-8-cores
-    steps:
-      - name: "Check out code"
-        uses: actions/checkout@v5
-        with: 
-          fetch-depth: 0
-      
-      - name: "Set up Go"
-        uses: actions/setup-go@v4
-        with: 
-          go-version: 1.24.x
-          cache: true
-      
-      - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
-        with: 
-          args: "release -f .goreleaser/windows.yml --clean"
-          version: latest
-          workdir: .
-        env: 
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-  build-linux:
+  release:
     runs-on: ubuntu-latest-16-cores
     steps:
       - name: "Check out code"
-        uses: actions/checkout@v5
-        with: 
+        uses: actions/checkout@v7
+        with:
           fetch-depth: 0
-      
-      - name: "Set up Go"
-        uses: actions/setup-go@v4
-        with: 
-          go-version: 1.24.x
-          cache: true
 
-      # todo: musl compatible?
-      - name: Install Dependences
-        run: sudo apt install gcc-aarch64-linux-gnu
+      - name: "Set up Go"
+        uses: projectdiscovery/actions/setup/go@v1
 
       - name: "Create release on GitHub"
-        uses: goreleaser/goreleaser-action@v4
-        with: 
-          args: "release -f .goreleaser/linux.yml --clean"
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          args: "release --clean"
           version: latest
           workdir: .
-        env: 
+        env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           SLACK_WEBHOOK: "${{ secrets.RELEASE_SLACK_WEBHOOK }}"
           DISCORD_WEBHOOK_ID: "${{ secrets.DISCORD_WEBHOOK_ID }}"

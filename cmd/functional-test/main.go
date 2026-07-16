@@ -31,7 +31,20 @@ func main() {
 }
 
 func runFunctionalTests() error {
+	server, err := testutils.NewTestServer()
+	if err != nil {
+		return fmt.Errorf("could not start test server: %w", err)
+	}
+	defer func() {
+		_ = server.Close()
+	}()
+
+	fmt.Printf("Test server started at %s\n", server.URL)
+
 	for _, testcase := range testutils.TestCases {
+		if testcase.Target == "" {
+			testcase.Target = server.URL
+		}
 		if err := runIndividualTestCase(testcase); err != nil {
 			errored = true
 			fmt.Fprintf(os.Stderr, "%s Test \"%s\" failed: %s\n", failed, testcase.Name, err)

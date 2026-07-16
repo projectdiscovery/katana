@@ -33,6 +33,7 @@
  - **JavaScript** parsing / crawling
  - Customizable **automatic form filling**
  - **Scope control** - Preconfigured field / Regex 
+ - **Knowledge base** - ML page-type / form classification (auto-downloaded model)
  - **Customizable output** - Preconfigured fields
  - INPUT - **STDIN**, **URL** and **LIST**
  - OUTPUT - **STDOUT**, **FILE** and **JSON**
@@ -40,7 +41,7 @@
 
 ## Installation
 
-katana requires Go 1.24+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.26+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -79,12 +80,19 @@ docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -h
 
 ```sh
 sudo apt update
+sudo apt install zip curl wget git snapd
 sudo snap refresh
-sudo apt install zip curl wget git
 sudo snap install golang --classic
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - 
-sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-sudo apt update 
+
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] \
+  http://dl.google.com/linux/chrome/deb/ stable main" \
+  | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+
+sudo apt update
 sudo apt install google-chrome-stable
 ```
 
@@ -138,10 +146,21 @@ CONFIGURATION:
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
+   -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
+   -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
    -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
    -dr, -disable-redirects       disable following redirects (default false)
-   -sdd, -similarity-deduplication enable content similarity detection to avoid crawling similar pages
-   -st, -similarity-threshold string similarity threshold for content deduplication (0.0-1.0, default 0.1) (default "0.1")
+   -pcs, -page-content-similar   enable page content similarity filtering (simhash|tfidf|bm25)
+   -pcsm, -page-content-similar-mode string  similarity mode: simhash, tfidf, or bm25 (default simhash)
+   -pcsd, -page-content-similar-distance int  simhash max hamming distance (default 3)
+   -pcst, -page-content-similar-threshold float  tfidf/bm25 min score 0-1 (default 0.85)
+   -pcsn, -page-content-similar-budget int  pages to fully process per similarity cluster (default 1)
+   -sdd, -similarity-deduplication  alias for -pcs
+   -kb, -knowledge-base          enable knowledge base classification
+   -kb-secrets                   enable secrets extractor in the knowledge base
+   -kb-validate-secrets          validate detected secrets against their provider (sends live API calls)
+   -kb-endpoints                 enable endpoints extractor (classifies REST/GraphQL/SOAP/XHR requests)
+   -mdp, -max-domain-pages int   maximum number of pages to crawl per domain (default unlimited)
 
 DEBUG:
    -health-check, -hc        run diagnostic check up
@@ -159,6 +178,10 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
+   -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
+   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
+   -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
+   -csk, -captcha-solver-key string       captcha solver provider api key
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -168,15 +191,17 @@ SCOPE:
    -do, -display-out-scope          display external endpoint from scoped crawling
 
 FILTER:
-   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
-   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir) (Deprecated: use -output-template instead)
-   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
-   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
-   -mdc, -match-condition string    match response with dsl based condition
-   -fdc, -filter-condition string   filter response with dsl based condition
-   -duf, -disable-unique-filter     disable duplicate content filtering
+   -mr, -match-regex string[]             regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]            regex or list of regex to filter on output url (cli, file)
+   -f, -field string                      field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir) (Deprecated: use -output-template instead)
+   -sf, -store-field string               field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js,none)
+   -ef, -extension-filter string[]        filter output for given extension (eg, -ef png,css)
+   -ndef, -no-default-ext-filter bool     remove default extensions from the filter list
+   -mdc, -match-condition string          match response with dsl based condition
+   -fdc, -filter-condition string         filter response with dsl based condition
+   -duf, -disable-unique-filter           disable duplicate content filtering
+   -filter-page-type string[]      filter response with page type (e.g. error,captcha,parked)
 
 RATE-LIMIT:
    -c, -concurrency int          number of concurrent fetchers to use (default 10)
@@ -184,6 +209,8 @@ RATE-LIMIT:
    -rd, -delay int               request delay between each request in seconds
    -rl, -rate-limit int          maximum requests to send per second (default 150)
    -rlm, -rate-limit-minute int  maximum number of requests to send per minute
+   -hrl, -host-rate-limit int    maximum requests to send per second per host
+   -hrlm, -host-rate-limit-minute int  maximum number of requests to send per minute per host
 
 UPDATE:
    -up, -update                 update katana to latest version
@@ -191,13 +218,15 @@ UPDATE:
 
 OUTPUT:
    -o, -output string                file to write output to
-   -ot, -output-template string      custom output template
+   -output-template string      custom output template
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
    -ncb, -no-clobber                 do not overwrite output file
    -sfd, -store-field-dir string     store per-host field to custom directory
    -or, -omit-raw                    omit raw requests/responses from jsonl output
    -ob, -omit-body                   omit response body from jsonl output
+   -lof, -list-output-fields         list available fields for jsonl output format
+   -eof, -exclude-output-fields      exclude fields from jsonl output
    -j, -jsonl                        write output in jsonl format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
@@ -248,30 +277,33 @@ echo https://tesla.com | katana
 cat domains | httpx | katana
 ```
 
-### Similarity Detection (Content Deduplication)
+### Page Content Similarity
 
-Use similarity detection to avoid crawling pages with similar content, ideal for sites with template-based pages or repeated content:
+Optional Layer-2 filtering after exact MD5 content dedup. Shared HTML normalization strips chrome (`nav`/`header`/`footer`/scripts), then one of three modes decides whether a page is similar enough to skip further parse/enqueue (cluster budget). URL-shape dedup (`-fsu`) remains independent.
+
+| Mode | Flag | Best for |
+|------|------|----------|
+| `simhash` (default) | `-pcsm simhash` | Near-duplicate / template clones (Hamming via `-pcsd`) |
+| `tfidf` | `-pcsm tfidf` | Topical cosine similarity (`-pcst`) |
+| `bm25` | `-pcsm bm25` | Topical similarity with length normalization (`-pcst`) |
 
 ```sh
-# Enable similarity detection with default threshold (0.1)
-katana -u https://example.com -sdd
+# Near-duplicate detection (default mode)
+katana -u https://example.com -pcs
 
-# Use aggressive similarity filtering for template-heavy sites
-katana -u https://shop.example.com -sdd -st 0.05
+# TF-IDF topical filtering with higher budget
+katana -u https://shop.example.com -pcs -pcsm tfidf -pcst 0.85 -pcsn 2
 
-# Use permissive similarity filtering for diverse content
-katana -u https://blog.example.com -sdd -st 0.3
+# BM25 mode
+katana -u https://example.com -pcs -pcsm bm25
 
-# Combine with headless mode
-katana -u https://example.com -sdd -hl -st 0.1
-
-# See detailed similarity analysis in debug mode
-katana -u https://example.com -sdd --debug
+# Alias from older flag name
+katana -u https://example.com -sdd -pcsm simhash
 ```
 
-Example output:
+Example completion stats:
 ```console
-[INF] Similarity detection: 103 processed, 30 unique, 73 filtered - 70.9% filter rate  
+[INF] Content similarity (simhash): 103 processed, 30 accepted, 73 filtered - 70.9% filter rate
 [INF] Crawl completed in 14s. 21 endpoints found.
 ```
 
@@ -356,6 +388,10 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr requests
+   -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
+   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
+   -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
+   -csk, -captcha-solver-key string       captcha solver provider api key
 ```
 
 *`-no-sandbox`*
@@ -376,6 +412,12 @@ Runs headless chrome browser without incognito mode, useful when using the local
 katana -u https://tesla.com -headless -no-incognito
 ```
 
+To preserve cookies and other browser session data across runs, combine `-no-incognito` with `-chrome-data-dir` so Katana reuses your chosen Chrome profile directory instead of an isolated temporary one.
+
+```console
+katana -u https://tesla.com -headless -no-incognito -chrome-data-dir /tmp/katana-profile
+```
+
 *`-headless-options`*
 ----
 
@@ -386,6 +428,62 @@ When crawling in headless mode, additional chrome options can be specified using
 katana -u https://tesla.com -headless -system-chrome -headless-options --disable-gpu,proxy-server=http://127.0.0.1:8080
 ```
 
+*`-page-load-strategy`*
+----
+
+Controls how katana waits for pages to load in headless mode. Different strategies are useful for different types of web applications:
+
+| Strategy | Description |
+|----------|-------------|
+| `heuristic` | (default) Smart waiting that adapts to page behavior - waits for load event, network idle, and DOM stability |
+| `load` | Waits only for the browser's load event |
+| `domcontentloaded` | Waits for DOMContentLoaded event plus additional time (configurable via `-dwt`) for JavaScript rendering |
+| `networkidle` | Waits for network activity to stop |
+| `none` | No waiting - returns immediately after navigation starts |
+
+```console
+katana -u https://tesla.com -headless -pls domcontentloaded
+```
+
+The `domcontentloaded` strategy is particularly useful for Single Page Applications (SPAs) that never fully complete loading due to continuous background requests (websockets, polling, etc.).
+
+*`-dom-wait-time`*
+----
+
+When using the `domcontentloaded` page load strategy, this option specifies how many seconds to wait after the DOMContentLoaded event fires. This allows time for JavaScript to render interactive elements. Default is 5 seconds.
+
+```console
+katana -u https://tesla.com -headless -pls domcontentloaded -dwt 10
+```
+
+
+### Captcha Solving
+
+Katana supports automatic captcha detection and solving during headless crawling. When a captcha page is encountered, katana identifies the captcha provider, solves it via an external service, and continues crawling.
+
+Supported captcha types: **reCAPTCHA v2**, **reCAPTCHA v3**, **reCAPTCHA Enterprise**, **Cloudflare Turnstile**, **hCaptcha**
+
+*`-captcha-solver-provider`*
+----
+
+Option to specify the captcha solver provider. Currently supported: `capsolver`.
+
+*`-captcha-solver-key`*
+----
+
+API key for the captcha solver provider.
+
+```console
+katana -u https://example.com -headless -csp capsolver -csk YOUR_API_KEY
+```
+
+The provider and key can also be set via environment variables:
+
+```console
+export CAPTCHA_SOLVER_PROVIDER=capsolver
+export CAPTCHA_SOLVER_KEY=YOUR_API_KEY
+katana -u https://example.com -headless
+```
 
 ## Scope Control
 
@@ -535,6 +633,97 @@ Automatic form filling is experimental feature.
 katana -u https://tesla.com -aff
 ```
 
+Form config values support DSL helper functions for dynamic data generation. All `rand_*` functions from the [projectdiscovery/dsl](https://github.com/projectdiscovery/dsl) library are available:
+
+```yaml
+# $HOME/.config/katana/form-config.yaml
+email: "rand_email()"
+phone: "rand_phone()"
+placeholder: "rand_first_name()"
+password: 'rand_base(16, "")'
+color: "#e66465"
+```
+
+*`-filter-similar`*
+----
+
+Option to filter crawling of similar looking URLs by normalizing variable path segments. This detects IDs, UUIDs, hashes, dates, and other dynamic values, and also learns repeating patterns at runtime. For example, `/users/123` and `/users/456` are treated as the same endpoint.
+
+```
+katana -u https://tesla.com -fsu
+```
+
+The promotion threshold (how many distinct values at a path position before it's treated as a parameter) can be tuned with `-fst`. Lower values are more aggressive (fewer URLs crawled), higher values are more permissive. Default is `10`.
+
+```
+katana -u https://tesla.com -fsu -fst 5
+```
+
+*`-max-domain-pages`*
+----
+
+Option to limit the number of pages crawled per domain. Prevents any single domain from consuming the entire crawl budget, useful for large sites or crawler trap protection.
+
+```
+katana -u https://tesla.com -mdp 100
+```
+
+## Knowledge Base Classification
+
+Katana can enrich crawl results with a **knowledge base** — machine-learning classification of each crawled page powered by [dit](https://github.com/HappyHackingSpace/dit). When enabled, every response is classified by **page type** (e.g. `login`, `error`, `captcha`, `parked`) and any forms on the page are identified, with the result attached to the `knowledgebase` field of the JSONL output. This works across **all engines** (standard and headless).
+
+> **Note**: The classification model is **downloaded automatically** on first use to `~/.dit/model.json` (from [Hugging Face](https://huggingface.co/datasets/happyhackingspace/dit)). This is a one-time, per-machine cost — subsequent runs reuse the cached model. No manual installation of `dit` is required.
+
+*`-knowledge-base`*
+----
+
+Enable knowledge base classification. Page-type and form classification is added to the `knowledgebase` field of each result.
+
+```console
+katana -u https://example.com -kb -jsonl
+```
+
+```json
+{
+  "timestamp": "...",
+  "request": { "...": "..." },
+  "response": {
+    "...": "...",
+    "knowledgebase": {
+      "PageType": "login",
+      "Forms": [{ "type": "login", "fields": { "username": "username or email", "password": "password" } }]
+    }
+  }
+}
+```
+
+*`-filter-page-type`*
+----
+
+Filter results to only the given page type(s). Enabling this implies `-kb` (the classifier is initialized automatically).
+
+```console
+katana -u https://example.com -fpt login,error
+```
+
+*`-kb-secrets`*
+----
+
+Enable the secrets extractor in the knowledge base, surfacing detected secrets (API keys, tokens, etc.) under the `secrets` key. Add `-kb-validate-secrets` to validate detected secrets against their provider — note this **sends live API calls**.
+
+```console
+katana -u https://example.com -kb-secrets
+```
+
+*`-kb-endpoints`*
+----
+
+Enable the endpoints extractor, which classifies requests as REST, GraphQL, SOAP, or XHR under the `endpoints` key.
+
+```console
+katana -u https://example.com -kb-endpoints
+```
+
 ## Authenticated Crawling
 
 Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perform authenticated crawling.
@@ -590,6 +779,10 @@ CONFIGURATION:
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
    -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
+   -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
+   -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
+   -mdp, -max-domain-pages int   maximum number of pages to crawl per domain (default unlimited)
 ```
 
 ### Connecting to Active Browser Session
@@ -753,6 +946,12 @@ Crawl output can be easily matched for specific extension using `-em` option to 
 katana -u https://tesla.com -silent -em js,jsp,json
 ```
 
+Use the special value `none` to also include URLs without a file extension in the output:
+
+```
+katana -u https://tesla.com -silent -em js,jsp,json,none
+```
+
 *`-extension-filter`*
 ---
 
@@ -760,6 +959,15 @@ Crawl output can be easily filtered for specific extension using `-ef` option wh
 
 ```
 katana -u https://tesla.com -silent -ef css,txt,md
+
+```
+*`-no-default-ext-filter`*
+---
+
+Katana filters several extensions by default. This can be disabled with the `-ndef` option.
+
+```
+katana -u https://tesla.com -silent -ndef
 ```
 
 *`-match-regex`*
@@ -806,15 +1014,16 @@ katana -h filter
 
 Flags:
 FILTER:
-   -mr, -match-regex string[]       regex or list of regex to match on output url (cli, file)
-   -fr, -filter-regex string[]      regex or list of regex to filter on output url (cli, file)
-   -f, -field string                field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -sf, -store-field string         field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
-   -em, -extension-match string[]   match output for given extension (eg, -em php,html,js)
-   -ef, -extension-filter string[]  filter output for given extension (eg, -ef png,css)
-   -mdc, -match-condition string    match response with dsl based condition
-   -fdc, -filter-condition string   filter response with dsl based condition
-   -duf, -disable-unique-filter     disable duplicate content filtering
+   -mr, -match-regex string[]             regex or list of regex to match on output url (cli, file)
+   -fr, -filter-regex string[]            regex or list of regex to filter on output url (cli, file)
+   -f, -field string                      field to display in output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -sf, -store-field string               field to store in per-host output (url,path,fqdn,rdn,rurl,qurl,qpath,file,ufile,key,value,kv,dir,udir)
+   -em, -extension-match string[]         match output for given extension (eg, -em php,html,js,none)
+   -ef, -extension-filter string[]        filter output for given extension (eg, -ef png,css)
+   -ndef, -no-default-ext-filter bool     remove default extensions from the filter list
+   -mdc, -match-condition string          match response with dsl based condition
+   -fdc, -filter-condition string         filter response with dsl based condition
+   -duf, -disable-unique-filter           disable duplicate content filtering
 ```
 
 
@@ -850,7 +1059,7 @@ katana -u https://tesla.com -p 20
 
 *`-rate-limit`*
 -----
-option to use to define max number of request can go out per second.
+Maximum requests per second, applied globally across all hosts.
 
 ```
 katana -u https://tesla.com -rl 100
@@ -858,10 +1067,26 @@ katana -u https://tesla.com -rl 100
 
 *`-rate-limit-minute`*
 -----
-option to use to define max number of request can go out per minute.
+Maximum requests per minute, applied globally across all hosts.
 
 ```
 katana -u https://tesla.com -rlm 500
+```
+
+*`-host-rate-limit`*
+-----
+Maximum requests per second per host. Each host gets its own rate limit bucket, so a slow host won't throttle fast ones. Replaces the global rate limit when set. Katana also backs off automatically with exponential delay and jitter when a host returns 429 or 503.
+
+```console
+katana -u https://tesla.com -hrl 50
+```
+
+*`-host-rate-limit-minute`*
+-----
+Maximum requests per minute per host.
+
+```console
+katana -u https://tesla.com -hrlm 200
 ```
 
 Here is all long / short CLI options for rate limit control -
@@ -876,6 +1101,8 @@ RATE-LIMIT:
    -rd, -delay int               request delay between each request in seconds
    -rl, -rate-limit int          maximum requests to send per second (default 150)
    -rlm, -rate-limit-minute int  maximum number of requests to send per minute
+   -hrl, -host-rate-limit int    maximum requests to send per second per host
+   -hrlm, -host-rate-limit-minute int  maximum number of requests to send per minute per host
 ```
 
 ## Output
@@ -973,6 +1200,24 @@ katana_response/www.iana.org/bfc096e6dd93b993ca8918bf4c08fdc707a70723.txt http:/
 
 *`-store-response` option is not supported in `-headless` mode.*
 
+*`-list-output-fields`*
+----
+
+The `-list-output-fields` or `-lof` flag displays all available fields that can be used in JSONL output format. This is useful for understanding what data is available when using custom output templates or when excluding specific fields.
+
+```console
+katana -lof
+```
+
+*`-exclude-output-fields`*
+----
+
+The `-exclude-output-fields` or `-eof` flag allows you to exclude specific fields from the JSONL output. This is useful for reducing output size or focusing on specific data by removing unwanted fields.
+
+```console
+katana -u https://example.com -jsonl -eof raw,body
+```
+
 Here are additional CLI options related to output -
 
 ```console
@@ -982,7 +1227,9 @@ OUTPUT:
    -o, -output string                file to write output to
    -sr, -store-response              store http requests/responses
    -srd, -store-response-dir string  store http requests/responses to custom directory
-   -j, -json                         write output in JSONL(ines) format
+   -lof, -list-output-fields         list available fields for jsonl output format
+   -eof, -exclude-output-fields      exclude fields from jsonl output
+   -j, -json                         write output in JSON Lines format
    -nc, -no-color                    disable output content coloring (ANSI escape codes)
    -silent                           display output only
    -v, -verbose                      display verbose output
@@ -1038,15 +1285,15 @@ func main() {
 }
 ```
 
-## 🐛 Reporting Issues & 💡 Feature Requests
+## Reporting Issues & Feature Requests
 
 To maintain issue tracking and improve triage efficiency:
 
-**📋 All reports start as [GitHub Discussions](https://github.com/projectdiscovery/katana/discussions)**
+**All reports start as [GitHub Discussions](https://github.com/projectdiscovery/katana/discussions)**
 
-- 🐛 **Bug Reports** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
-- 💡 **Feature Requests** → [Start an Ideas Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=ideas)  
-- ❓ **Questions** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
+- **Bug Reports** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
+- **Feature Requests** → [Start an Ideas Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=ideas)  
+- **Questions** → [Start a Q&A Discussion](https://github.com/projectdiscovery/katana/discussions/new?category=q-a)
 
 **Why Discussions First?**
 - **Community can help** with quick questions and troubleshooting

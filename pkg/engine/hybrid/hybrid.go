@@ -3,14 +3,18 @@ package hybrid
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
+	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -18,7 +22,8 @@ import (
 type Crawler struct {
 	*common.Shared
 
-	browser *rod.Browser
+	browser        *rod.Browser
+	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
 	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
 	// This change will be made if there are no complaints about zombie Chrome processes.
 	// References:
@@ -37,7 +42,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	} else {
 		dataStore, err = os.MkdirTemp("", "katana-*")
 		if err != nil {
-			return nil, errorutil.NewWithTag("hybrid", "could not create temporary directory").Wrap(err)
+			return nil, errkit.Wrap(err, "hybrid: could not create temporary directory")
 		}
 	}
 
@@ -64,29 +69,38 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	browser := rod.New().ControlURL(launcherURL)
 	if browserErr := browser.Connect(); browserErr != nil {
-		return nil, errorutil.NewWithErr(browserErr).Msgf("failed to connect to chrome instance at %s", launcherURL)
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
 	// create a new browser instance (default to incognito mode)
 	if !options.Options.HeadlessNoIncognito {
 		incognito, err := browser.Incognito()
 		if err != nil {
+			_ = browser.Close()
 			if chromeLauncher != nil {
 				chromeLauncher.Kill()
 			}
-			return nil, errorutil.NewWithErr(err).Msgf("failed to create incognito browser")
+			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
 		browser = incognito
 	}
 
 	shared, err := common.NewShared(options)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).WithTag("hybrid")
+		_ = browser.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+		return nil, errkit.Wrap(err, "hybrid")
 	}
 
 	crawler := &Crawler{
-		Shared:  shared,
-		browser: browser,
+		Shared:         shared,
+		browser:        browser,
+		chromeLauncher: chromeLauncher,
 		// previousPIDs: previousPIDs,
 		tempDir: dataStore,
 	}
@@ -96,6 +110,12 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
+	if c.browser != nil {
+		_ = c.browser.Close()
+	}
+	if c.chromeLauncher != nil {
+		c.chromeLauncher.Kill()
+	}
 	if c.Options.Options.ChromeDataDir == "" {
 		if err := os.RemoveAll(c.tempDir); err != nil {
 			return err
@@ -109,7 +129,7 @@ func (c *Crawler) Close() error {
 func (c *Crawler) Crawl(rootURL string) error {
 	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
 	if err != nil {
-		return errorutil.NewWithErr(err).WithTag("hybrid")
+		return errkit.Wrap(err, "hybrid")
 	}
 	crawlSession.Browser = c.browser
 
@@ -117,7 +137,128 @@ func (c *Crawler) Crawl(rootURL string) error {
 
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
-		return errorutil.NewWithErr(err).WithTag("standard")
+		return errkit.Wrap(err, "hybrid")
+	}
+	return nil
+}
+
+// Do executes the crawling loop with browser-safe concurrency.
+// Unlike the base implementation, this uses sequential processing (concurrency=1)
+// because Chrome DevTools Protocol operations cannot safely run concurrently
+// on the same browser instance. Multiple concurrent page operations cause
+// race conditions, navigation conflicts, and network interception issues.
+func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
+	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
+		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		req, ok := item.(*navigation.Request)
+		if !ok {
+			continue
+		}
+
+		if !utils.IsURL(req.URL) {
+			if c.Options.Options.OnSkipURL != nil {
+				c.Options.Options.OnSkipURL(req.URL)
+			}
+			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
+			continue
+		}
+
+		if !c.Options.ValidatePath(req.URL) {
+			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
+			continue
+		}
+
+		inScope, scopeErr := c.Options.ValidateScope(req.URL, crawlSession.Hostname)
+		if scopeErr != nil {
+			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
+			continue
+		}
+		if !req.SkipValidation && !inScope {
+			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+			continue
+		}
+
+		// Race Take() against the session context so the loop doesn't
+		// block on a limiter tick when the crawl has been cancelled.
+		//
+		// Note: when the session is cancelled mid-Take, this inner
+		// goroutine outlives the loop iteration and stays blocked on
+		// the limiter until the next tick or until RateLimit.Stop() is
+		// called by CrawlerOptions.Close(). The leak is bounded by
+		// Close() and acceptable.
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+		takeDone := make(chan struct{})
+		go func() {
+			if c.Options.HostRateLimit != nil {
+				_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
+			} else if c.Options.RateLimit != nil {
+				c.Options.RateLimit.Take()
+			}
+			close(takeDone)
+		}()
+		select {
+		case <-crawlSession.Ctx.Done():
+			continue
+		case <-takeDone:
+		}
+		c.ApplyBackoff(crawlSession.Hostname)
+
+		if crawlSession.Ctx.Err() != nil {
+			continue
+		}
+
+		if c.Options.Options.Delay > 0 {
+			select {
+			case <-crawlSession.Ctx.Done():
+				continue
+			case <-time.After(time.Duration(c.Options.Options.Delay) * time.Second):
+			}
+		}
+
+		if c.Options.Options.MaxDomainPages > 0 {
+			counter := c.DomainCounter(crawlSession.Hostname)
+			if counter.Add(1) > int64(c.Options.Options.MaxDomainPages) {
+				continue
+			}
+		}
+
+		resp, err := doRequest(crawlSession, req)
+
+		if resp != nil && common.IsThrottled(resp.StatusCode) {
+			c.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+		} else if resp != nil {
+			c.RecordSuccess(crawlSession.Hostname)
+		}
+
+		if inScope {
+			c.Output(req, resp, err)
+		}
+
+		if err != nil {
+			gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
+			outputError := &output.Error{
+				Timestamp: time.Now(),
+				Endpoint:  req.RequestURL(),
+				Source:    req.Source,
+				Error:     err.Error(),
+			}
+			_ = c.Options.OutputWriter.WriteErr(outputError)
+			continue
+		}
+		if resp == nil || resp.Resp == nil || resp.Reader == nil {
+			continue
+		}
+		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
+			continue
+		}
+
+		navigationRequests := c.Options.Parser.ParseResponse(resp)
+		c.Enqueue(crawlSession.Queue, navigationRequests...)
 	}
 	return nil
 }
@@ -144,7 +285,7 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 			if chromePath, hasChrome := launcher.LookPath(); hasChrome {
 				chromeLauncher.Bin(chromePath)
 			} else {
-				return nil, errorutil.NewWithTag("hybrid", "the chrome browser is not installed").WithLevel(errorutil.Fatal)
+				return nil, errkit.New("hybrid: the chrome browser is not installed")
 			}
 		}
 	}

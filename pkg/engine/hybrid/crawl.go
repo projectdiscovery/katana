@@ -2,6 +2,8 @@ package hybrid
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -17,10 +19,10 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/retryablehttp-go"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	mapsutil "github.com/projectdiscovery/utils/maps"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -34,10 +36,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	page, err := s.Browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not create target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
+	// Keep the original page reference for cleanup — page.Context() returns a clone,
+	// so closing only the clone after timeout would leak the original tab.
+	cleanupPage := page
+	// sessionPage is bound to the crawl session context so that DOM/HTML
+	// operations with fresh timeouts still respect external cancellation.
+	sessionPage := page.Context(s.Ctx)
+	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
+	timeoutCtx, timeoutCancel := context.WithTimeout(s.Ctx, timeout)
+	defer timeoutCancel()
+	page = sessionPage.Context(timeoutCtx)
+
 	defer func() {
-		if err := page.Close(); err != nil {
+		if err := cleanupPage.Close(); err != nil {
 			gologger.Error().Msgf("Error closing page: %v\n", err)
 		}
 	}()
@@ -53,21 +66,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not parse URL").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
 		body, _ := FetchGetResponseBody(page, e)
 
 		// Skip unique content filtering if disabled
 		if !c.Options.Options.DisableUniqueFilter {
-			// Set URL context for similarity filter verbose logging
-			if similarityFilter, ok := c.Options.UniqueFilter.(*filters.SimilarityFilter); ok {
-				similarityFilter.SetCurrentURL(e.Request.URL)
-			}
-
-			// Apply similarity filtering (same as standard engine)
 			if !c.Options.UniqueFilter.UniqueContent(body) {
 				return FetchContinueRequest(page, e) // Skip this response, continue request
 			}
+		}
+		if c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(body) {
+			return FetchContinueRequest(page, e)
 		}
 
 		headers := make(map[string][]string)
@@ -88,7 +98,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		httpreq, err := http.NewRequest(e.Request.Method, URL.String(), strings.NewReader(e.Request.PostData))
 		if err != nil {
-			return errorutil.NewWithTag("hybrid", "could not new request").Wrap(err)
+			return errkit.Wrap(err, "hybrid: could not new request")
 		}
 		// Note: headers are originally sent using `c.addHeadersToPage` below changes are done so that
 		// headers are reflected in request dump
@@ -140,6 +150,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			Headers:       utils.FlattenHeaders(headers),
 			Raw:           string(rawBytesResponse),
 			ContentLength: httpresp.ContentLength,
+			KnowledgeBase: c.Options.BuildKnowledgeBase(string(body), httpreq, httpresp),
 		}
 		response.ContentLength = resp.ContentLength
 
@@ -196,81 +207,223 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}()
 
-	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
-	page = page.Timeout(timeout)
+	navigatedURLs := sliceutil.NewSyncSlice[string]()
+	navigatedURLs.Append(request.URL)
 
-	// wait the page to be fully loaded and becoming idle
-	waitNavigation := page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
+	pageCtx, cancelPageEvents := page.WithCancel()
+	defer cancelPageEvents()
+
+	waitFrameEvents := pageCtx.EachEvent(func(e *proto.PageFrameNavigated) {
+		if e.Frame.ParentID == "" {
+			frameURL := e.Frame.URL
+			if frameURL != "" && frameURL != request.URL {
+				navigatedURLs.Append(frameURL)
+			}
+		}
+	})
+	go waitFrameEvents()
+
+	// Arm the lifecycle listener before navigate so the event is not missed.
+	// Which event we wait for depends on the page-load strategy.
+	strategy := c.Options.Options.PageLoadStrategy
+
+	var waitNavigation func()
+	switch strategy {
+	case "none":
+		// no lifecycle wait
+	case "domcontentloaded":
+		waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+	case "load":
+		waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameLoad)
+	default:
+		waitNavigation = page.WaitNavigation(proto.PageLifecycleEventNameFirstMeaningfulPaint)
+	}
 
 	err = page.Navigate(request.URL)
 	if err != nil {
 		if c.Options.Options.DisableRedirects && response.IsRedirect() {
 			return response, nil
 		}
-		return nil, errorutil.NewWithTag("hybrid", "could not navigate target").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not navigate target")
 	}
 
-	waitNavigation()
-
-	// Wait the page to be stable a duration
-	timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
-
-	if timeout < timeStable {
-		gologger.Warning().Msgf("timeout is less than time stable, setting time stable to half of timeout to avoid timeout\n")
-		timeStable = timeout / 2
-		gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
+	if waitNavigation != nil {
+		waitNavigation()
 	}
 
-	if err := page.WaitStable(timeStable); err != nil {
-		gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+	// Post-navigation stability wait, strategy-specific
+	switch strategy {
+	case "none":
+		gologger.Debug().Msgf("page-load-strategy=none: skipping stability wait\n")
+
+	case "domcontentloaded":
+		waitTime := time.Duration(c.Options.Options.DOMWaitTime) * time.Second
+		gologger.Debug().Msgf("page-load-strategy=domcontentloaded: waiting %s for DOM\n", waitTime)
+		if waitTime > 0 {
+			time.Sleep(waitTime)
+		}
+
+	case "load":
+		gologger.Debug().Msgf("page-load-strategy=load: basic load wait only\n")
+		time.Sleep(500 * time.Millisecond)
+
+	default:
+		timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
+
+		if timeout < timeStable {
+			gologger.Warning().Msgf("timeout is less than time stable, setting time stable to half of timeout to avoid timeout\n")
+			timeStable = timeout / 2
+			gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
+		}
+
+		if err := page.WaitStable(timeStable); err != nil {
+			gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+		}
 	}
 
+	// simulate clicks on links with onclick handlers to discover JS redirects
+	select {
+	case <-timeoutCtx.Done():
+		return nil, timeoutCtx.Err()
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	clickableLinks, err := page.Elements("a[onclick]")
+	if err == nil && len(clickableLinks) > 0 {
+		maxLinks := c.Options.Options.MaxOnclickLinks
+		linksToProcess := len(clickableLinks)
+		if linksToProcess > maxLinks {
+			linksToProcess = maxLinks
+		}
+
+		gologger.Debug().Msgf("Found %d clickable links with onclick handlers, processing %d", len(clickableLinks), linksToProcess)
+
+		for idx := 0; idx < linksToProcess; idx++ {
+			link := clickableLinks[idx]
+			beforeURL, err := page.Info()
+			if err != nil {
+				gologger.Error().Msgf("Could not get page info: %v", err)
+				continue
+			}
+			beforeURLStr := ""
+			if beforeURL != nil {
+				beforeURLStr = beforeURL.URL
+			}
+
+			// try to click the link using rod's Click method
+			clickErr := link.Click(proto.InputMouseButtonLeft, 1)
+			if clickErr != nil {
+				gologger.Debug().Msgf("Could not click link %d: %v", idx, clickErr)
+				continue
+			}
+
+			gologger.Debug().Msgf("Clicked onclick link [%d] at URL: %s", idx, beforeURLStr)
+
+			select {
+			case <-timeoutCtx.Done():
+				return nil, timeoutCtx.Err()
+			case <-time.After(1 * time.Second):
+			}
+
+			// check if URL changed (indicates redirect occurred)
+			currentURL, _ := page.Info()
+			if currentURL != nil && currentURL.URL != beforeURLStr {
+				gologger.Debug().Msgf("detected navigation to: %s", currentURL.URL)
+				navigatedURLs.Append(currentURL.URL)
+
+				if navErr := page.Navigate(request.URL); navErr != nil {
+					gologger.Warning().Msgf("Failed to navigate back to %s after onclick redirect: %v", request.URL, navErr)
+					if reloadErr := page.Reload(); reloadErr != nil {
+						gologger.Error().Msgf("Failed to reload page after navigation error: %v", reloadErr)
+						break
+					}
+				}
+				select {
+				case <-timeoutCtx.Done():
+					return nil, timeoutCtx.Err()
+				case <-time.After(500 * time.Millisecond):
+				}
+			}
+		}
+	}
+
+	// Attempt to get the full DOM tree for shadow DOM traversal.
+	// Use basePage (pre-timeout) with a fresh timeout so that DOM inspection
+	// does not share the navigation timeout budget. If it fails (e.g. timeout
+	// on complex SPAs), we still proceed with regular page HTML.
+	var domResult *proto.DOMGetDocumentResult
+	domPage := sessionPage.Timeout(timeout)
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
-	result, err := getDocument.Call(page)
-	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get dom").Wrap(err)
+	domResult, domErr := getDocument.Call(domPage)
+	if domErr != nil {
+		gologger.Warning().Msgf("could not get dom for %s: %s (continuing with page HTML)", request.URL, domErr)
 	}
-	var builder strings.Builder
-	traverseDOMNode(result.Root, &builder)
 
-	body, err := page.HTML()
+	// Use basePage with a fresh timeout for HTML retrieval so it succeeds
+	// even if the navigation or DOM timeout was exhausted.
+	body, err := sessionPage.Timeout(timeout).HTML()
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not get html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}
 
 	parsed, err := urlutil.Parse(request.URL)
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "url could not be parsed").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
-	if response.Resp == nil {
-		return nil, errorutil.NewWithTag("hybrid", "response is nil").Wrap(err)
+	if response == nil || response.Resp == nil {
+		// err is guaranteed to be nil, due to previous checks.
+		return nil, errors.New("hybrid: response is nil")
 	}
 	response.Resp.Request.URL = parsed.URL
 
-	// Create a copy of intrapolated shadow DOM elements and parse them separately
-	responseCopy := *response
-	responseCopy.Body = builder.String()
+	// Create a copy of interpolated shadow DOM elements and parse them separately
+	if domResult != nil && domResult.Root != nil {
+		var builder strings.Builder
+		traverseDOMNode(domResult.Root, &builder)
 
-	responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-	if responseCopy.Reader != nil {
-		navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-		c.Enqueue(s.Queue, navigationRequests...)
+		responseCopy := *response
+		responseCopy.Body = builder.String()
+
+		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
+		if responseCopy.Reader != nil {
+			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 	}
 
 	response.Body = body
-	response.Reader.Url, _ = url.Parse(request.URL)
-	if c.Options.Options.FormExtraction {
-		response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+	if response.Reader != nil {
+		response.Reader.Url, _ = url.Parse(request.URL)
+		if c.Options.Options.FormExtraction {
+			response.Forms = append(response.Forms, utils.ParseFormFields(response.Reader)...)
+		}
 	}
 
 	response.Reader, err = goquery.NewDocumentFromReader(strings.NewReader(response.Body))
 	if err != nil {
-		return nil, errorutil.NewWithTag("hybrid", "could not parse html").Wrap(err)
+		return nil, errkit.Wrap(err, "hybrid: could not parse html")
 	}
 
 	response.XhrRequests = xhrRequests
+
+	// enqueue JS-triggered navigation URLs that were detected
+	navigatedURLs.Each(func(i int, navURL string) error {
+		if navURL != request.URL {
+			parsed, err := urlutil.Parse(navURL)
+			if err == nil {
+				navReq := &navigation.Request{
+					URL:          parsed.String(),
+					Depth:        depth,
+					RootHostname: s.Hostname,
+				}
+				c.Enqueue(s.Queue, navReq)
+				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
+			}
+		}
+		return nil
+	})
 
 	return response, nil
 }

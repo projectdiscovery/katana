@@ -4,7 +4,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/types"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 )
 
 // Crawler is a standard crawler instance
@@ -16,7 +16,7 @@ type Crawler struct {
 func New(options *types.CrawlerOptions) (*Crawler, error) {
 	shared, err := common.NewShared(options)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).WithTag("standard")
+		return nil, errkit.Wrap(err, "standard")
 	}
 	return &Crawler{Shared: shared}, nil
 }
@@ -30,12 +30,12 @@ func (c *Crawler) Close() error {
 func (c *Crawler) Crawl(rootURL string) error {
 	crawlSession, err := c.NewCrawlSessionWithURL(rootURL)
 	if err != nil {
-		return errorutil.NewWithErr(err).WithTag("standard")
+		return errkit.Wrap(err, "standard")
 	}
 	defer crawlSession.CancelFunc()
 	gologger.Info().Msgf("Started standard crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.makeRequest); err != nil {
-		return errorutil.NewWithErr(err).WithTag("standard")
+		return errkit.Wrap(err, "standard")
 	}
 	return nil
 }

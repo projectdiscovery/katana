@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	stringsutil "github.com/projectdiscovery/utils/strings"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"golang.org/x/net/publicsuffix"
@@ -41,18 +41,18 @@ type fieldOutput struct {
 func validateFieldNames(names string) error {
 	parts := strings.Split(names, ",")
 	if len(parts) == 0 {
-		return errorutil.NewWithTag("customfield", "no field names provided: %s", names)
+		return errkit.Newf("customfield: no field names provided: %s", names)
 	}
 	uniqueFields := make(map[string]struct{})
 	for _, field := range FieldNames {
 		uniqueFields[field] = struct{}{}
 	}
-	for _, field := range CustomFieldsMap {
+	for _, field := range CustomFieldsSnapshot() {
 		uniqueFields[field.Name] = struct{}{}
 	}
 	for _, part := range parts {
 		if _, ok := uniqueFields[part]; !ok {
-			return errorutil.NewWithTag("customfield", "invalid field %s specified: %s", part, names)
+			return errkit.Newf("customfield: invalid field %s specified: %s", part, names)
 		}
 	}
 	return nil
@@ -74,7 +74,7 @@ func storeFields(output *Result, storeFields []string) {
 		if result := getValueForField(output, parsed.URL, hostname, etld, rootURL, field); result != "" {
 			appendToFileField(parsed.URL, field, result)
 		}
-		if _, ok := CustomFieldsMap[field]; ok {
+		if hasCustomField(field) {
 			results := getValueForCustomField(output)
 			for _, result := range results {
 				appendToFileField(parsed.URL, result.field, result.value)

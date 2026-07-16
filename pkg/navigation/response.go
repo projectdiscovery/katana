@@ -41,6 +41,7 @@ type Response struct {
 	Forms              []Form            `json:"forms,omitempty"`
 	XhrRequests        []Request         `json:"xhr_requests,omitempty"`
 	StoredResponsePath string            `json:"stored_response_path,omitempty"`
+	KnowledgeBase      map[string]any    `json:"knowledgebase,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {

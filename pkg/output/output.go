@@ -18,7 +18,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	"github.com/stoewer/go-strcase"
 	"github.com/valyala/fasttemplate"
@@ -66,6 +66,8 @@ type StandardWriter struct {
 	outputTemplate        *fasttemplate.Template
 	outputMatchCondition  string
 	outputFilterCondition string
+	excludeOutputFields   []string
+	filterPageType        []string
 	// Result counting for completion stats
 	resultCount int64
 }
@@ -88,6 +90,8 @@ func New(options Options) (Writer, error) {
 		extensionValidator:    options.ExtensionValidator,
 		outputMatchCondition:  options.OutputMatchCondition,
 		outputFilterCondition: options.OutputFilterCondition,
+		excludeOutputFields:   options.ExcludeOutputFields,
+		filterPageType:        options.FilterPageType,
 	}
 
 	if options.StoreFieldDir != "" {
@@ -112,20 +116,20 @@ func New(options Options) (Writer, error) {
 	// Perform validations for fields and store-fields
 	if options.Fields != "" {
 		if err := validateFieldNames(options.Fields); err != nil {
-			return nil, errorutil.NewWithTag("output", "could not validate fields").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not validate fields")
 		}
 	}
 	if options.StoreFields != "" {
 		_ = os.MkdirAll(storeFieldDir, os.ModePerm)
 		if err := validateFieldNames(options.StoreFields); err != nil {
-			return nil, errorutil.NewWithTag("output", "could not validate store fields").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not validate store fields")
 		}
 		writer.storeFields = append(writer.storeFields, strings.Split(options.StoreFields, ",")...)
 	}
 	if options.OutputFile != "" {
 		output, err := newFileOutputWriter(options.OutputFile)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create output file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create output file")
 		}
 		writer.outputFile = output
 	}
@@ -141,16 +145,22 @@ func New(options Options) (Writer, error) {
 			removeDirsWithSuffix(writer.storeResponseDir)
 			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
 		}
-		// todo: the index file seems never used?
-		_, err := newFileOutputWriter(filepath.Join(writer.storeResponseDir, indexFile))
+		// Pre-create (truncate) the index file. updateIndex() reopens it with
+		// O_APPEND|O_WRONLY per write and closes its own handle, so we must not
+		// retain a long-lived descriptor here.
+		indexPath := filepath.Join(writer.storeResponseDir, indexFile)
+		f, err := os.Create(indexPath)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create index file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create index file")
+		}
+		if cerr := f.Close(); cerr != nil {
+			return nil, errkit.Wrap(cerr, "output: could not close index file")
 		}
 	}
 	if options.ErrorLogFile != "" {
 		errorFile, err := newFileOutputWriter(options.ErrorLogFile)
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create error file").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create error file")
 		}
 
 		writer.errorFile = errorFile
@@ -158,7 +168,7 @@ func New(options Options) (Writer, error) {
 	if options.OutputTemplate != "" {
 		writer.outputTemplate, err = fasttemplate.NewTemplate(options.OutputTemplate, "{{", "}}")
 		if err != nil {
-			return nil, errorutil.NewWithTag("output", "could not create output format template").Wrap(err)
+			return nil, errkit.Wrap(err, "output: could not create output format template")
 		}
 	}
 	return writer, nil
@@ -189,7 +199,15 @@ func (w *StandardWriter) Write(result *Result) error {
 	if w.filterOutput(result) {
 		return errors.New("result is filtered out")
 	}
-
+	if len(w.filterPageType) > 0 && result.Response != nil && result.Response.KnowledgeBase != nil {
+		if pageType, ok := result.Response.KnowledgeBase["PageType"].(string); ok {
+			for _, ft := range w.filterPageType {
+				if strings.EqualFold(pageType, ft) {
+					return errors.New("result filtered by page type")
+				}
+			}
+		}
+	}
 	var data []byte
 	var err error
 
@@ -201,13 +219,13 @@ func (w *StandardWriter) Write(result *Result) error {
 			result.Response.StoredResponsePath = fileName
 			data, err := w.formatResult(result)
 			if err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			if err := updateIndex(w.storeResponseDir, result); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			if err := fileWriter.Write(data); err != nil {
-				return errorutil.NewWithTag("output", "could not store response").Wrap(err)
+				return errkit.Wrap(err, "output: could not store response")
 			}
 			_ = fileWriter.Close()
 		}
@@ -238,7 +256,7 @@ func (w *StandardWriter) Write(result *Result) error {
 	}
 
 	if err != nil {
-		return errorutil.NewWithTag("output", "could not format %s output", outputKind).Wrap(err)
+		return errkit.Wrap(err, fmt.Sprintf("output: could not format %s output", outputKind))
 	}
 
 	if len(data) == 0 {
@@ -257,7 +275,7 @@ func (w *StandardWriter) Write(result *Result) error {
 			data = decolorizerRegex.ReplaceAll(data, []byte(""))
 		}
 		if err := w.outputFile.Write(data); err != nil {
-			return errorutil.NewWithTag("output", "could not write to output").Wrap(err)
+			return errkit.Wrap(err, "output: could not write to output")
 		}
 	}
 
@@ -267,7 +285,7 @@ func (w *StandardWriter) Write(result *Result) error {
 func (w *StandardWriter) WriteErr(errMessage *Error) error {
 	data, err := jsoniter.Marshal(errMessage)
 	if err != nil {
-		return errorutil.NewWithTag("output", "marshal").Wrap(err)
+		return errkit.Wrap(err, "output: marshal")
 	}
 	if len(data) == 0 {
 		return nil
@@ -277,7 +295,7 @@ func (w *StandardWriter) WriteErr(errMessage *Error) error {
 
 	if w.errorFile != nil {
 		if err := w.errorFile.Write(data); err != nil {
-			return errorutil.NewWithTag("output", "write to error file").Wrap(err)
+			return errkit.Wrap(err, "output: write to error file")
 		}
 	}
 	return nil
