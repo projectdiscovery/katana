@@ -150,6 +150,12 @@ CONFIGURATION:
    -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
    -tlsi, -tls-impersonate       enable experimental client hello (ja3) tls randomization
    -dr, -disable-redirects       disable following redirects (default false)
+   -pcs, -page-content-similar   enable page content similarity filtering (simhash|tfidf|bm25)
+   -pcsm, -page-content-similar-mode string  similarity mode: simhash, tfidf, or bm25 (default simhash)
+   -pcsd, -page-content-similar-distance int  simhash max hamming distance (default 3)
+   -pcst, -page-content-similar-threshold float  tfidf/bm25 min score 0-1 (default 0.85)
+   -pcsn, -page-content-similar-budget int  pages to fully process per similarity cluster (default 1)
+   -sdd, -similarity-deduplication  alias for -pcs
    -kb, -knowledge-base          enable knowledge base classification
    -kb-secrets                   enable secrets extractor in the knowledge base
    -kb-validate-secrets          validate detected secrets against their provider (sends live API calls)
@@ -269,6 +275,36 @@ echo https://tesla.com | katana
 
 ```sh
 cat domains | httpx | katana
+```
+
+### Page Content Similarity
+
+Optional Layer-2 filtering after exact MD5 content dedup. Shared HTML normalization strips chrome (`nav`/`header`/`footer`/scripts), then one of three modes decides whether a page is similar enough to skip further parse/enqueue (cluster budget). URL-shape dedup (`-fsu`) remains independent.
+
+| Mode | Flag | Best for |
+|------|------|----------|
+| `simhash` (default) | `-pcsm simhash` | Near-duplicate / template clones (Hamming via `-pcsd`) |
+| `tfidf` | `-pcsm tfidf` | Topical cosine similarity (`-pcst`) |
+| `bm25` | `-pcsm bm25` | Topical similarity with length normalization (`-pcst`) |
+
+```sh
+# Near-duplicate detection (default mode)
+katana -u https://example.com -pcs
+
+# TF-IDF topical filtering with higher budget
+katana -u https://shop.example.com -pcs -pcsm tfidf -pcst 0.85 -pcsn 2
+
+# BM25 mode
+katana -u https://example.com -pcs -pcsm bm25
+
+# Alias from older flag name
+katana -u https://example.com -sdd -pcsm simhash
+```
+
+Example completion stats:
+```console
+[INF] Content similarity (simhash): 103 processed, 30 accepted, 73 filtered - 70.9% filter rate
+[INF] Crawl completed in 14s. 21 endpoints found.
 ```
 
 Example running katana -

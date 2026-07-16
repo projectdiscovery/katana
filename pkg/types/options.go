@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -196,6 +197,18 @@ type Options struct {
 	TlsImpersonate bool
 	// DisableRedirects disables the following of redirects
 	DisableRedirects bool
+	// PageContentSimilar enables optional Layer-2 content similarity filtering
+	PageContentSimilar bool
+	// SimilarityDeduplication is a deprecated alias for PageContentSimilar (-sdd)
+	SimilarityDeduplication bool
+	// PageContentSimilarMode is simhash, tfidf, or bm25 (default simhash)
+	PageContentSimilarMode string
+	// PageContentSimilarDistance is the max SimHash Hamming distance (default 3)
+	PageContentSimilarDistance int
+	// PageContentSimilarThresholdStr is the min TF-IDF/BM25 score string (default 0.85)
+	PageContentSimilarThresholdStr string
+	// PageContentSimilarBudget is how many pages per similarity cluster to fully process (default 1)
+	PageContentSimilarBudget int
 	// PathClimb enables path expansion (auto crawl discovered paths)
 	PathClimb bool
 	// DisableUniqueFilter disables duplicate content filtering
@@ -280,3 +293,23 @@ func (options *Options) ConfigureOutput() {
 
 	logutil.DisableDefaultLogger()
 }
+
+// ContentSimilarityEnabled reports whether Layer-2 page content similarity is on.
+func (options *Options) ContentSimilarityEnabled() bool {
+	return options.PageContentSimilar || options.SimilarityDeduplication
+}
+
+// PageContentSimilarThreshold parses the TF-IDF/BM25 score threshold.
+func (options *Options) PageContentSimilarThreshold() float64 {
+	if options.PageContentSimilarThresholdStr == "" {
+		return similarityDefaultScore
+	}
+	v, err := strconv.ParseFloat(options.PageContentSimilarThresholdStr, 64)
+	if err != nil || v <= 0 || v > 1 {
+		gologger.Warning().Msgf("Invalid page-content-similar-threshold %q, using %.2f", options.PageContentSimilarThresholdStr, similarityDefaultScore)
+		return similarityDefaultScore
+	}
+	return v
+}
+
+const similarityDefaultScore = 0.85

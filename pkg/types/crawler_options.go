@@ -14,6 +14,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/endpoints"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/similarity"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -40,6 +41,8 @@ type CrawlerOptions struct {
 	ExtensionsValidator *extensions.Validator
 	// UniqueFilter is a filter for deduplication of unique items
 	UniqueFilter filters.Filter
+	// ContentSimilarity is an optional Layer-2 page content similarity index
+	ContentSimilarity *similarity.Index
 	// ScopeManager is a manager for validating crawling scope
 	ScopeManager *scope.Manager
 	// Dialer is instance of the dialer for global crawler
@@ -92,6 +95,23 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		return nil, errkit.Wrap(err, "could not create filter")
 	}
 
+	var contentSimilarity *similarity.Index
+	if options.ContentSimilarityEnabled() {
+		mode := options.PageContentSimilarMode
+		if mode == "" {
+			mode = string(similarity.DefaultMode)
+		}
+		contentSimilarity, err = similarity.New(similarity.Config{
+			Mode:            similarity.Mode(mode),
+			HammingDistance: options.PageContentSimilarDistance,
+			ScoreThreshold:  options.PageContentSimilarThreshold(),
+			Budget:          options.PageContentSimilarBudget,
+		})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not create content similarity index")
+		}
+	}
+
 	outputOptions := output.Options{
 		Colors:                !options.NoColors,
 		JSON:                  options.JSON,
@@ -142,6 +162,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		Parser:              responseParser,
 		ScopeManager:        scopeManager,
 		UniqueFilter:        itemFilter,
+		ContentSimilarity:   contentSimilarity,
 		Options:             options,
 		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
@@ -216,6 +237,9 @@ func (c *CrawlerOptions) Close() error {
 		}
 	}
 	c.UniqueFilter.Close()
+	if c.ContentSimilarity != nil {
+		c.ContentSimilarity.Close()
+	}
 	return c.OutputWriter.Close()
 }
 

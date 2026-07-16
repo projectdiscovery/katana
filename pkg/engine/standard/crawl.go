@@ -97,11 +97,15 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	if err != nil {
 		return response, err
 	}
+
 	// Skip unique content filtering if disabled
 	if !c.Options.Options.DisableUniqueFilter {
 		if !c.Options.UniqueFilter.UniqueContent(data) {
 			return &navigation.Response{}, nil
 		}
+	}
+	if c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(data) {
+		return &navigation.Response{}, nil
 	}
 
 	if c.Options.Wappalyzer != nil {

@@ -428,7 +428,7 @@ func bodyVideoTagParser(resp *navigation.Response) (navigationRequests []*naviga
 	return
 }
 
-// bodyBlockquoteCiteTagParser parses blockquote cite tag from response
+// bodyBlockquoteCiteTagParser parses blockquote cite tags from the response
 func bodyBlockquoteCiteTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	resp.Reader.Find("blockquote[cite]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("cite")
