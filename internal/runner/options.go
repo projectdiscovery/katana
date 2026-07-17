@@ -19,6 +19,9 @@ import (
 
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
+	if err := types.ApplyCrawlStrategy(options); err != nil {
+		return err
+	}
 	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
 		return errkit.New("either max-depth or crawl-duration must be specified")
 	}
