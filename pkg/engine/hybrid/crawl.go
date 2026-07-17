@@ -57,15 +57,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
-	pageRouter.SetPattern(&proto.FetchRequestPattern{
-		URLPattern:   "*",
-		RequestStage: proto.FetchRequestStageResponse,
-	})
+	pageRouter.SetPatterns(fetchRequestPatterns(c.Options.Options))
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
-		// Continue non-interesting resources immediately. FetchGetResponseBody
-		// + goquery/wappalyzer/parse on every image/font/media stalls page load.
+		// Defense in depth: continue anything that slipped past pattern filters.
 		if !shouldInspectFetchResource(e.ResourceType, c.Options.Options) {
 			return FetchContinueRequest(page, e)
 		}

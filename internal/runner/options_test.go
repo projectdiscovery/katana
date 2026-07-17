@@ -25,12 +25,12 @@ func TestValidatePageLoadStrategy(t *testing.T) {
 		}
 	})
 
-	t.Run("empty strategy defaults to heuristic", func(t *testing.T) {
+	t.Run("empty strategy defaults to domcontentloaded", func(t *testing.T) {
 		opts := newTestOptions()
 		opts.PageLoadStrategy = ""
 		err := validateOptions(opts)
 		require.NoError(t, err)
-		require.Equal(t, "heuristic", opts.PageLoadStrategy)
+		require.Equal(t, "domcontentloaded", opts.PageLoadStrategy)
 	})
 
 	t.Run("invalid strategy is rejected", func(t *testing.T) {
