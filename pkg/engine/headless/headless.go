@@ -150,6 +150,8 @@ func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
 		DOMWaitTime:        h.options.Options.DOMWaitTime,
 		RewalkSample:       h.options.Options.RewalkSample,
 		LinkIdentityBudget: h.options.Options.LinkIdentityBudget,
+		ExplosionBudget:    h.options.Options.ExplosionBudget,
+		ExplosionHamming:   h.options.Options.ExplosionHamming,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
