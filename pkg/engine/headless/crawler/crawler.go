@@ -173,11 +173,19 @@ func (c *Crawler) GetCrawlGraph() *graph.CrawlGraph {
 	return c.crawlGraph
 }
 
+// Paths returns replayable paths from the entrypoint to every discovered location.
+func (c *Crawler) Paths() ([]*types.Path, error) {
+	if c == nil || c.crawlGraph == nil {
+		return nil, nil
+	}
+	return c.crawlGraph.AllPathsFromRoot()
+}
+
 func (c *Crawler) writePathsExport() error {
 	if c.crawlGraph == nil || c.options.DiagnosticsDir == "" {
 		return nil
 	}
-	paths, err := c.crawlGraph.AllPathsFromRoot()
+	paths, err := c.Paths()
 	if err != nil {
 		return err
 	}
