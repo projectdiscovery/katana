@@ -64,6 +64,12 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
+		// Continue non-interesting resources immediately. FetchGetResponseBody
+		// + goquery/wappalyzer/parse on every image/font/media stalls page load.
+		if !shouldInspectFetchResource(e.ResourceType, c.Options.Options) {
+			return FetchContinueRequest(page, e)
+		}
+
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
