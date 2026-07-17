@@ -80,6 +80,9 @@ type Options struct {
 	AuthPassword  string
 	DitClassifier *dit.Classifier
 
+	// RewalkSample is how many discovered paths to clean-session rewalk after the crawl (0 = off).
+	RewalkSample int
+
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
 	Hooks Hooks
@@ -254,6 +257,7 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
+	defer c.maybeRewalk(context.WithoutCancel(ctx))
 
 	consecutiveFailures := 0
 
