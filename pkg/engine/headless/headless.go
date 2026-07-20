@@ -107,16 +107,26 @@ func (h *Headless) Crawl(URL string) error {
 	}()
 
 	pool := buildAgentPool(h.options.Options)
+	// A remote browser (-cwu) ignores user-data-dir, so per-agent temp jars are
+	// pointless there; only isolate data dirs for locally launched browsers.
+	remoteBrowser := h.options.Options.ChromeWSUrl != ""
 	var firstErr error
 	for _, agent := range pool.All() {
-		cleanup, err := ensureAgentDataDir(agent)
-		if err != nil {
-			return err
+		cleanup := func() {}
+		if !remoteBrowser {
+			c, err := ensureAgentDataDir(agent)
+			if err != nil {
+				return err
+			}
+			cleanup = c
 		}
-		err = h.crawlWithAgent(URL, agent)
+		err := h.crawlWithAgent(URL, agent)
 		cleanup()
-		if err != nil && firstErr == nil {
-			firstErr = err
+		if err != nil {
+			gologger.Warning().Msgf("headless agent %s failed to crawl %s: %s", agent.ID, URL, err)
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 	return firstErr

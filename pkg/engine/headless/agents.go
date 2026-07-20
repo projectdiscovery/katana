@@ -38,8 +38,11 @@ func buildAgentPool(opts *types.Options) *cartography.AgentPool {
 		agents = append(agents, a)
 	}
 	pool := cartography.NewAgentPool(agents...)
-	if cartography.DetectSingleLoginConflict(pool.All()) {
-		gologger.Warning().Msg("headless agents share credentials; prefer distinct accounts")
+	// A single -auto-login credential authenticates only the first agent; the
+	// rest crawl anonymously. Warn so the user knows N-1 identities are anon and
+	// can supply distinct accounts if they wanted multiple authenticated crawls.
+	if opts.AuthCredentials != "" && n > 1 {
+		gologger.Warning().Msgf("only 1 of %d headless agents is authenticated; the rest crawl anonymously (provide distinct accounts for multiple authenticated identities)", n)
 	}
 	return pool
 }
