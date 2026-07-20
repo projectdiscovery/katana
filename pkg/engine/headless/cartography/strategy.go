@@ -1,6 +1,9 @@
 package cartography
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Strategy is a named crawl intensity preset.
 type Strategy string
@@ -13,18 +16,20 @@ const (
 
 // StrategyConfig is the knob set a preset expands into.
 type StrategyConfig struct {
-	PageLoadStrategy   string
-	DOMWaitTime        int
-	MaxDepth           int
-	ExplosionBudget    int
-	ExplosionHamming   int
-	RewalkSample       int // how many paths to rewalk per contested location (0 = off)
-	AgentCount         int
-	FilterSimilarURLs  bool
+	PageLoadStrategy  string
+	DOMWaitTime       int
+	MaxDepth          int
+	ExplosionBudget   int
+	ExplosionHamming  int
+	RewalkSample      int // how many discovered paths to clean-session rewalk after the crawl (0 = off)
+	AgentCount        int
+	FilterSimilarURLs bool
 }
 
-// ParseStrategy validates a strategy name.
+// ParseStrategy validates a strategy name, tolerating surrounding whitespace
+// and any letter case.
 func ParseStrategy(s string) (Strategy, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
 	switch Strategy(s) {
 	case StrategyFast, StrategyBalanced, StrategyThorough:
 		return Strategy(s), nil
