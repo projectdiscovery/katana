@@ -94,32 +94,48 @@ func (l *LinkIdentity) Visits() int {
 }
 
 // Matches reports whether f agrees with remaining core features.
-// Empty fields on f are ignored so partial observations can still match.
+// Empty fields on f are ignored so partial observations can still match, but a
+// match requires positive agreement on at least one discriminating feature:
+// otherwise a fully churned (empty-core) identity would match every candidate
+// and silently swallow the rest of the crawl.
 func (l *LinkIdentity) Matches(f LinkFeatures) bool {
 	core := l.Core()
 	f = normalizeFeatures(f)
-	if core.Tag != "" && f.Tag != "" && core.Tag != f.Tag {
+
+	agreed := false
+	// strong compares a discriminating feature: a contradiction fails the match
+	// and positive agreement satisfies the "at least one real signal" rule.
+	strong := func(a, b string) bool {
+		if a == "" || b == "" {
+			return true
+		}
+		if a != b {
+			return false
+		}
+		agreed = true
+		return true
+	}
+	// weak features (tag, action type) are shared by whole classes of elements
+	// (every <a>, every form). They can only reject a match, never confirm one.
+	weak := func(a, b string) bool {
+		return a == "" || b == "" || a == b
+	}
+	if !strong(core.ID, f.ID) ||
+		!strong(core.CSSPath, f.CSSPath) ||
+		!strong(core.Text, f.Text) ||
+		!strong(core.PathOnly, f.PathOnly) {
 		return false
 	}
-	if core.ID != "" && f.ID != "" && core.ID != f.ID {
+	if len(core.QueryKeys) > 0 && len(f.QueryKeys) > 0 {
+		if !sameStringSet(core.QueryKeys, f.QueryKeys) {
+			return false
+		}
+		agreed = true
+	}
+	if !weak(core.Tag, f.Tag) || !weak(string(core.ActionType), string(f.ActionType)) {
 		return false
 	}
-	if core.CSSPath != "" && f.CSSPath != "" && core.CSSPath != f.CSSPath {
-		return false
-	}
-	if core.Text != "" && f.Text != "" && core.Text != f.Text {
-		return false
-	}
-	if core.PathOnly != "" && f.PathOnly != "" && core.PathOnly != f.PathOnly {
-		return false
-	}
-	if len(core.QueryKeys) > 0 && len(f.QueryKeys) > 0 && !sameStringSet(core.QueryKeys, f.QueryKeys) {
-		return false
-	}
-	if core.ActionType != "" && f.ActionType != "" && core.ActionType != f.ActionType {
-		return false
-	}
-	return true
+	return agreed
 }
 
 // FeaturesFromAction extracts link features from a crawl action.
@@ -146,7 +162,9 @@ func FeaturesFromAction(a *types.Action) LinkFeatures {
 func splitURLFeatures(raw string) (pathOnly string, queryKeys []string) {
 	u, err := url.Parse(raw)
 	if err != nil || u == nil {
-		return raw, nil
+		// A malformed href has no meaningful path; returning the raw string
+		// would plant a bogus PathOnly feature that never matches anything.
+		return "", nil
 	}
 	pathOnly = u.Path
 	for k := range u.Query() {
