@@ -257,7 +257,10 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
-	defer c.maybeRewalk(context.WithoutCancel(ctx))
+	// Rewalk on the parent context (not the crawl's child ctx): the crawl's own
+	// MaxCrawlDuration deadline only cancels ctx, so post-crawl rewalk still runs,
+	// while a genuine caller abort (parentCtx) correctly interrupts it.
+	defer c.maybeRewalk(parentCtx)
 
 	consecutiveFailures := 0
 

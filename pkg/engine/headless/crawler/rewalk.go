@@ -10,6 +10,11 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 )
 
+// rewalkRepeats is how many clean-session replays are performed per sampled
+// path so the classifier can distinguish a consistent app change from a
+// non-deterministic (flaky) location.
+const rewalkRepeats = 2
+
 type pageSession struct {
 	bp *browser.BrowserPage
 }
@@ -39,9 +44,14 @@ func (o *pathObserver) Rewalk(ctx context.Context, path *types.Path) (cartograph
 			return cartography.LocationFingerprint{}, err
 		}
 	}
-	_, state, err := getPageHash(o.page)
+	hash, state, err := getPageHash(o.page)
 	if err != nil {
 		return cartography.LocationFingerprint{}, err
+	}
+	// An empty/about:blank landing yields a nil state with a sentinel hash;
+	// surface it as an empty-location fingerprint instead of dereferencing nil.
+	if state == nil {
+		return cartography.LocationFingerprint{UniqueID: hash}, nil
 	}
 	return cartography.LocationFingerprint{
 		UniqueID: state.UniqueID,
@@ -101,7 +111,14 @@ func (c *Crawler) maybeRewalk(ctx context.Context) {
 			URL:      ps.URL,
 			SimHash:  ps.SimHash,
 		}
-		outcome, _, err := runner.Run(rewalkCtx, expected, []*types.Path{p})
+		// Replay the same path more than once so the classifier sees multiple
+		// observations; a single one can only ever yield match/app_change and
+		// never surfaces a non-deterministic (flaky) location.
+		observations := make([]*types.Path, rewalkRepeats)
+		for i := range observations {
+			observations[i] = p
+		}
+		outcome, _, err := runner.Run(rewalkCtx, expected, observations)
 		if err != nil {
 			c.logger.Debug("rewalk failed",
 				slog.String("target", p.TargetURL),
