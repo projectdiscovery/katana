@@ -8,7 +8,7 @@ import (
 
 // ExplosionBudget limits how many near-duplicate locations are fully explored.
 type ExplosionBudget struct {
-	mu         sync.Mutex
+	mu            sync.Mutex
 	maxPerCluster int
 	maxHamming    int
 	clusters      []clusterRep
@@ -24,7 +24,10 @@ func NewExplosionBudget(maxPerCluster, maxHamming int) *ExplosionBudget {
 	if maxPerCluster <= 0 {
 		maxPerCluster = 1
 	}
-	if maxHamming < 0 {
+	// A zero maxHamming would only cluster byte-identical simhashes, defeating
+	// near-duplicate detection; treat the unset zero value as the default 3
+	// (mirrors the maxPerCluster <= 0 handling above).
+	if maxHamming <= 0 {
 		maxHamming = DefaultMaxHamming
 	}
 	return &ExplosionBudget{
