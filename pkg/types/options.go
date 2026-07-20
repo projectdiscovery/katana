@@ -195,6 +195,8 @@ type Options struct {
 	RewalkSample int
 	// LinkIdentityBudget is how many near-duplicate doors to enqueue (-1 disables, default 1)
 	LinkIdentityBudget int
+	// HeadlessAgents is how many isolated browser identities to run (default 1; forced to 1 with -cdd/-cwu)
+	HeadlessAgents int
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler

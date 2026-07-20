@@ -183,6 +183,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
 		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
+		flagSet.IntVarP(&options.HeadlessAgents, "headless-agents", "ha", 1, "number of isolated headless browser identities to run (forced to 1 with -cdd/-cwu)"),
 	)
 
 	// Scope group
