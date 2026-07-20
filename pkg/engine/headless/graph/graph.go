@@ -163,6 +163,12 @@ func (g *CrawlGraph) PathFromRoot(targetID string) (*types.Path, error) {
 	if err != nil {
 		return nil, err
 	}
+	return g.pathFromRoot(entryID, targetID)
+}
+
+// pathFromRoot builds a Path from a pre-resolved entrypoint to targetID,
+// avoiding a RootID() recomputation per call.
+func (g *CrawlGraph) pathFromRoot(entryID, targetID string) (*types.Path, error) {
 	target, err := g.GetPageState(targetID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get target page state")
@@ -205,7 +211,7 @@ func (g *CrawlGraph) AllPathsFromRoot() ([]*types.Path, error) {
 		if ps.URL == "about:blank" {
 			continue
 		}
-		p, err := g.PathFromRoot(id)
+		p, err := g.pathFromRoot(entryID, id)
 		if err != nil {
 			continue
 		}

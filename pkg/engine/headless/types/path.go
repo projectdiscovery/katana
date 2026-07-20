@@ -38,21 +38,22 @@ func (p *Path) Clone() *Path {
 	return out
 }
 
-// MarshalJSON ensures nil Steps serialize as [] not null.
+// MarshalJSON ensures nil Steps serialize as [] not null. Using an alias of
+// Path keeps every field automatically in sync so new fields are never dropped.
 func (p *Path) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return []byte("null"), nil
+	}
+	type pathAlias Path
 	steps := p.Steps
 	if steps == nil {
 		steps = []*Action{}
 	}
 	return json.Marshal(struct {
-		EntryID   string    `json:"entry_id"`
-		TargetID  string    `json:"target_id"`
-		TargetURL string    `json:"target_url,omitempty"`
-		Steps     []*Action `json:"steps"`
+		pathAlias
+		Steps []*Action `json:"steps"`
 	}{
-		EntryID:   p.EntryID,
-		TargetID:  p.TargetID,
-		TargetURL: p.TargetURL,
+		pathAlias: pathAlias(*p),
 		Steps:     steps,
 	})
 }
