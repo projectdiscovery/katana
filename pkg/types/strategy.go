@@ -4,7 +4,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 )
 
-// ApplyCrawlStrategy overlays a named strategy preset onto options.
+// ApplyCrawlStrategy overlays a named -crawl-strategy preset onto options.
 // Empty CrawlStrategy is a no-op.
 func ApplyCrawlStrategy(options *Options) error {
 	if options == nil || options.CrawlStrategy == "" {

@@ -201,7 +201,7 @@ type Options struct {
 	ExplosionBudget int
 	// ExplosionHamming is simhash distance for explosion clustering (default 3)
 	ExplosionHamming int
-	// CrawlStrategy is fast|balanced|thorough; when set it overlays headless cartography knobs
+	// CrawlStrategy is fast|balanced|thorough (-crawl-strategy / -cstr); when set it overlays headless cartography knobs
 	CrawlStrategy string
 	// Debug
 	Debug bool

@@ -31,7 +31,7 @@ func ParseStrategy(s string) (Strategy, error) {
 	case "":
 		return StrategyBalanced, nil
 	default:
-		return "", fmt.Errorf("unknown crawl strategy %q (want fast, balanced, thorough)", s)
+		return "", fmt.Errorf("unknown crawl-strategy %q (want fast, balanced, thorough)", s)
 	}
 }
 

@@ -179,6 +179,7 @@ HEADLESS:
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
+   -cstr, -crawl-strategy string     crawl intensity preset (fast, balanced, thorough)
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
@@ -389,6 +390,7 @@ HEADLESS:
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr requests
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
+   -cstr, -crawl-strategy string     crawl intensity preset (fast, balanced, thorough)
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
@@ -446,6 +448,21 @@ katana -u https://tesla.com -headless -pls domcontentloaded
 ```
 
 The `domcontentloaded` strategy is particularly useful for Single Page Applications (SPAs) that never fully complete loading due to continuous background requests (websockets, polling, etc.).
+
+*`-crawl-strategy`*
+----
+
+Named intensity preset for headless cartography. When set, it overlays depth, page-load wait, rewalk sample, agent count, similar-URL filtering, and explosion budget. Distinct from `-strategy` (visit order: depth-first / breadth-first).
+
+| Preset | Description |
+|--------|-------------|
+| `fast` | Shallow crawl, quick page-load wait, no rewalk |
+| `balanced` | Default-intensity middle ground |
+| `thorough` | Deeper crawl, slower page-load wait, rewalk sample |
+
+```console
+katana -u https://tesla.com -headless -crawl-strategy thorough
+```
 
 *`-dom-wait-time`*
 ----
