@@ -125,8 +125,9 @@ func (h *Headless) Crawl(URL string) error {
 		AutomaticFormFill: h.options.Options.AutomaticFormFill,
 		PageLoadStrategy:  h.options.Options.PageLoadStrategy,
 		ChromeWSUrl:       h.options.Options.ChromeWSUrl,
-		DOMWaitTime:       h.options.Options.DOMWaitTime,
-		RewalkSample:      h.options.Options.RewalkSample,
+		DOMWaitTime:        h.options.Options.DOMWaitTime,
+		RewalkSample:       h.options.Options.RewalkSample,
+		LinkIdentityBudget: h.options.Options.LinkIdentityBudget,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
