@@ -197,6 +197,10 @@ type Options struct {
 	LinkIdentityBudget int
 	// HeadlessAgents is how many isolated browser identities to run (default 1; forced to 1 with -cdd/-cwu)
 	HeadlessAgents int
+	// ExplosionBudget is near-duplicate page explore budget for headless (-1 off, default 1)
+	ExplosionBudget int
+	// ExplosionHamming is simhash distance for explosion clustering (default 3)
+	ExplosionHamming int
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
