@@ -201,10 +201,20 @@ func parameterizeValue(value, selector, username, password string) string {
 
 func looksLikePasswordSelector(selector string) bool {
 	s := strings.ToLower(selector)
-	return strings.Contains(s, "password") ||
-		strings.Contains(s, "passwd") ||
-		strings.Contains(s, "type=\"password\"") ||
-		strings.Contains(s, "type=password")
+	for _, marker := range []string{
+		"password",
+		"passwd",
+		"pwd",
+		"type=\"password\"",
+		"type=password",
+		"current-password",
+		"new-password",
+	} {
+		if strings.Contains(s, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // pickSelector prefers native CSS, then XPath, then aria-label CSS, then text XPath.
