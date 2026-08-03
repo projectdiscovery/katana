@@ -54,7 +54,7 @@ func (r *Runner) ExecuteCrawling() error {
 	wg.Wait()
 
 	// Show completion message with stats
-	r.showCompletionStats(startTime)
+	r.showCompletionStats(startTime, len(inputs))
 
 	return nil
 }
@@ -78,7 +78,7 @@ func addSchemeIfNotExists(inputURL string) string {
 }
 
 // showCompletionStats shows the final crawl completion message with timing and stats
-func (r *Runner) showCompletionStats(startTime time.Time) {
+func (r *Runner) showCompletionStats(startTime time.Time, targetCount int) {
 	// Calculate elapsed time
 	elapsed := time.Since(startTime)
 
@@ -99,7 +99,20 @@ func (r *Runner) showCompletionStats(startTime time.Time) {
 	}
 
 	// Show clean completion message
-	gologger.Info().Msgf("Crawl completed in %s. %d endpoints found.", timeStr, endpointCount)
+	gologger.Info().Msg(formatCompletionStats(timeStr, targetCount, endpointCount))
+}
+
+func formatCompletionStats(elapsed string, targetCount int, endpointCount int64) string {
+	targetLabel := "targets"
+	if targetCount == 1 {
+		targetLabel = "target"
+	}
+	endpointLabel := "endpoints"
+	if endpointCount == 1 {
+		endpointLabel = "endpoint"
+	}
+
+	return fmt.Sprintf("Crawl completed in %s for %d %s. %d %s found.", elapsed, targetCount, targetLabel, endpointCount, endpointLabel)
 }
 
 // formatDuration formats a duration in human-readable format

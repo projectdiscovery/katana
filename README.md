@@ -1287,6 +1287,8 @@ func main() {
 
 ## Reporting Issues & Feature Requests
 
+Interested in improving Katana? Read the [contribution guide](CONTRIBUTING.md) for the development workflow, code standards, testing expectations, and pull request checklist.
+
 To maintain issue tracking and improve triage efficiency:
 
 **All reports start as [GitHub Discussions](https://github.com/projectdiscovery/katana/discussions)**
