@@ -19,7 +19,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/praetorian-inc/titus v1.2.0
 	github.com/projectdiscovery/dsl v0.8.20
-	github.com/projectdiscovery/fastdialer v0.5.13
+	github.com/projectdiscovery/fastdialer v0.5.14
 	github.com/projectdiscovery/goflags v0.1.75
 	github.com/projectdiscovery/gologger v1.1.71
 	github.com/projectdiscovery/hmap v0.0.101
