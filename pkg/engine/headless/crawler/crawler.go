@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/adrianbrad/queue"
-	"github.com/happyhackingspace/dit"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/rod/lib/utils"
+	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
@@ -42,6 +42,7 @@ type Crawler struct {
 }
 
 type Options struct {
+	Context             context.Context
 	ChromiumPath        string
 	MaxBrowsers         int
 	MaxDepth            int
@@ -74,9 +75,13 @@ type Options struct {
 	CaptchaHandler  *captcha.Handler
 	UserArguments   map[string]string
 
-	AuthUsername   string
-	AuthPassword   string
+	AuthUsername  string
+	AuthPassword  string
 	DitClassifier *dit.Classifier
+
+	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
+	// The zero value disables all callbacks.
+	Hooks Hooks
 }
 
 var domNormalizer *normalizer.Normalizer
@@ -203,31 +208,35 @@ func (c *Crawler) Crawl(URL string) error {
 
 	// Create a master context that will automatically cancel all page operations
 	// once the per-URL crawl deadline is reached.
+	parentCtx := c.options.Context
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
 	var (
-		ctx    context.Context
-		cancel context.CancelFunc
+		ctx           context.Context
+		cancel        context.CancelFunc
+		localDeadline bool
 	)
 	if c.options.MaxCrawlDuration > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), c.options.MaxCrawlDuration)
+		ctx, cancel = context.WithTimeout(parentCtx, c.options.MaxCrawlDuration)
+		localDeadline = true
 	} else {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
-
-	// Retain the legacy time.After guard as a secondary fail-safe but the
-	// context cancellation is what actually stops in-flight rod calls.
-	var crawlTimeout <-chan time.Time
-	if c.options.MaxCrawlDuration > 0 {
-		crawlTimeout = time.After(c.options.MaxCrawlDuration)
-	}
 
 	consecutiveFailures := 0
 
 	for {
 		select {
-		case <-crawlTimeout:
-			c.logger.Debug("Max crawl duration reached, stopping crawl")
-			return nil
+		case <-ctx.Done():
+			// Distinguish internal max-duration from external parent cancellation
+			if localDeadline && parentCtx.Err() == nil {
+				c.logger.Debug("Max crawl duration reached, stopping crawl")
+				return nil
+			}
+			c.logger.Debug("Context cancelled, stopping headless crawl")
+			return ctx.Err()
 		default:
 			// Check for too many failures
 			if c.options.MaxFailureCount > 0 && consecutiveFailures >= c.options.MaxFailureCount {
@@ -475,6 +484,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
+	return runWithActionHooks(c.options.Hooks, page, action, func() error {
+		return c.dispatchCrawlAction(action, page)
+	})
+}
+
+func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.BrowserPage) error {
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
@@ -535,6 +550,7 @@ func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.Br
 	default:
 		return fmt.Errorf("unknown action type: %v", action.Type)
 	}
+
 	return nil
 }
 

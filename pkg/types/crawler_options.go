@@ -3,13 +3,18 @@ package types
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os/user"
 	"regexp"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/endpoints"
+	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/similarity"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -36,6 +41,8 @@ type CrawlerOptions struct {
 	ExtensionsValidator *extensions.Validator
 	// UniqueFilter is a filter for deduplication of unique items
 	UniqueFilter filters.Filter
+	// ContentSimilarity is an optional Layer-2 page content similarity index
+	ContentSimilarity *similarity.Index
 	// ScopeManager is a manager for validating crawling scope
 	ScopeManager *scope.Manager
 	// Dialer is instance of the dialer for global crawler
@@ -44,6 +51,9 @@ type CrawlerOptions struct {
 	Wappalyzer *wappalyzer.Wappalyze
 	// DitClassifier instance for knowledge base classification
 	DitClassifier *dit.Classifier
+	// Extractors is the chain of knowledgebase.Extractor implementations whose
+	// outputs are merged into the response KnowledgeBase map by BuildKnowledgeBase.
+	Extractors []knowledgebase.Extractor
 
 	// Optional structured logger for headless crawler
 	Logger *slog.Logger
@@ -83,6 +93,23 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	itemFilter, err := filters.NewSimple()
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not create filter")
+	}
+
+	var contentSimilarity *similarity.Index
+	if options.ContentSimilarityEnabled() {
+		mode := options.PageContentSimilarMode
+		if mode == "" {
+			mode = string(similarity.DefaultMode)
+		}
+		contentSimilarity, err = similarity.New(similarity.Config{
+			Mode:            similarity.Mode(mode),
+			HammingDistance: options.PageContentSimilarDistance,
+			ScoreThreshold:  options.PageContentSimilarThreshold(),
+			Budget:          options.PageContentSimilarBudget,
+		})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not create content similarity index")
+		}
 	}
 
 	outputOptions := output.Options{
@@ -135,19 +162,24 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		Parser:              responseParser,
 		ScopeManager:        scopeManager,
 		UniqueFilter:        itemFilter,
+		ContentSimilarity:   contentSimilarity,
 		Options:             options,
 		Dialer:              fastdialerInstance,
 		OutputWriter:        outputWriter,
 	}
 
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if options.HostRateLimit > 0 {
-		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(context.Background(), ratelimit.WithMaxCount(uint(options.HostRateLimit)), ratelimit.WithDuration(time.Second))
+		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(uint(options.HostRateLimit)), ratelimit.WithDuration(time.Second))
 	} else if options.HostRateLimitMinute > 0 {
-		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(context.Background(), ratelimit.WithMaxCount(uint(options.HostRateLimitMinute)), ratelimit.WithDuration(time.Minute))
+		crawlerOptions.HostRateLimit = ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(uint(options.HostRateLimitMinute)), ratelimit.WithDuration(time.Minute))
 	} else if options.RateLimit > 0 {
-		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimit), time.Second)
+		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimit), time.Second)
 	} else if options.RateLimitMinute > 0 {
-		crawlerOptions.RateLimit = ratelimit.New(context.Background(), uint(options.RateLimitMinute), time.Minute)
+		crawlerOptions.RateLimit = ratelimit.New(ctx, uint(options.RateLimitMinute), time.Minute)
 	}
 
 	if options.TechDetect {
@@ -169,6 +201,18 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.DitClassifier = classifier
 	}
 
+	if options.Secrets {
+		secretsExtractor, err := secrets.New(secrets.Config{Validate: options.ValidateSecrets})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not init secrets extractor")
+		}
+		crawlerOptions.Extractors = append(crawlerOptions.Extractors, secretsExtractor)
+	}
+
+	if options.Endpoints {
+		crawlerOptions.Extractors = append(crawlerOptions.Extractors, endpoints.New())
+	}
+
 	if options.MaxOnclickLinks <= 0 {
 		options.MaxOnclickLinks = 10
 	}
@@ -187,7 +231,15 @@ func (c *CrawlerOptions) Close() error {
 	if c.Dialer != nil {
 		c.Dialer.Close()
 	}
+	for _, e := range c.Extractors {
+		if closer, ok := e.(interface{ Close() error }); ok {
+			_ = closer.Close()
+		}
+	}
 	c.UniqueFilter.Close()
+	if c.ContentSimilarity != nil {
+		c.ContentSimilarity.Close()
+	}
 	return c.OutputWriter.Close()
 }
 
@@ -198,20 +250,34 @@ func (c *CrawlerOptions) ValidatePath(path string) bool {
 	return true
 }
 
-// ClassifyPage classifies a page using the dit classifier and returns the knowledge base map.
-func (c *CrawlerOptions) ClassifyPage(body string) map[string]any {
-	if c.DitClassifier == nil {
+// BuildKnowledgeBase assembles the response KnowledgeBase map by merging
+// output from the dit page-type classifier (when enabled) with each registered
+// Extractor. Returns nil when no producer is configured or none produced output.
+//
+// body is the fully drained response body (resp.Body has already been
+// consumed by the caller). req and resp are forwarded to extractors that
+// classify by request shape (endpoints, headers_audit, etc.); body-only
+// extractors ignore them. Extractors MUST treat req/resp as read-only.
+func (c *CrawlerOptions) BuildKnowledgeBase(body string, req *http.Request, resp *http.Response) map[string]any {
+	if c.DitClassifier == nil && len(c.Extractors) == 0 {
 		return nil
 	}
-	result, err := c.DitClassifier.ExtractPageType(body)
-	if err != nil {
+	kb := map[string]any{}
+	if c.DitClassifier != nil {
+		if result, err := c.DitClassifier.ExtractPageType(body); err == nil {
+			kb["PageType"] = result.Type
+			if len(result.Forms) > 0 {
+				kb["Forms"] = result.Forms
+			}
+		}
+	}
+	for _, e := range c.Extractors {
+		if out := e.Extract(body, req, resp); out != nil {
+			kb[e.Name()] = out
+		}
+	}
+	if len(kb) == 0 {
 		return nil
-	}
-	kb := map[string]any{
-		"PageType": result.Type,
-	}
-	if len(result.Forms) > 0 {
-		kb["Forms"] = result.Forms
 	}
 	return kb
 }

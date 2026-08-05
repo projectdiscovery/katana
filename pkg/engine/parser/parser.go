@@ -428,7 +428,7 @@ func bodyVideoTagParser(resp *navigation.Response) (navigationRequests []*naviga
 	return
 }
 
-// bodyBlockquoteCiteTagParser parses blockquote cite tag from response
+// bodyBlockquoteCiteTagParser parses blockquote cite tags from the response
 func bodyBlockquoteCiteTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	resp.Reader.Find("blockquote[cite]").Each(func(i int, item *goquery.Selection) {
 		src, ok := item.Attr("cite")
@@ -717,7 +717,7 @@ func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []
 // customFieldRegexParser parses custom regex from HTML body and header
 func customFieldRegexParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
 	var customField = make(map[string][]string)
-	for _, v := range output.CustomFieldsMap {
+	for _, v := range output.CustomFieldsSnapshot() {
 		results := []string{}
 		for _, re := range v.CompileRegex {
 			matches := [][]string{}

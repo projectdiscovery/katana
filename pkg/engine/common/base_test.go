@@ -47,6 +47,11 @@ func (w *mockWriter) Write(r *output.Result) error {
 	return nil
 }
 func (w *mockWriter) WriteErr(_ *output.Error) error { return nil }
+func (w *mockWriter) GetResultCount() int64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return int64(len(w.results))
+}
 
 func newTestShared(maxDepth int, opts ...func(*types.Options)) (*Shared, *mockWriter) {
 	writer := &mockWriter{}

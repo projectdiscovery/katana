@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest-16-cores
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get Github tag
         id: meta

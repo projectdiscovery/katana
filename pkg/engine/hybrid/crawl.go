@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -37,8 +38,19 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
+	// Keep the original page reference for cleanup — page.Context() returns a clone,
+	// so closing only the clone after timeout would leak the original tab.
+	cleanupPage := page
+	// sessionPage is bound to the crawl session context so that DOM/HTML
+	// operations with fresh timeouts still respect external cancellation.
+	sessionPage := page.Context(s.Ctx)
+	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
+	timeoutCtx, timeoutCancel := context.WithTimeout(s.Ctx, timeout)
+	defer timeoutCancel()
+	page = sessionPage.Context(timeoutCtx)
+
 	defer func() {
-		if err := page.Close(); err != nil {
+		if err := cleanupPage.Close(); err != nil {
 			gologger.Error().Msgf("Error closing page: %v\n", err)
 		}
 	}()
@@ -57,6 +69,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
 		body, _ := FetchGetResponseBody(page, e)
+
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
 			headers[h.Name] = []string{h.Value}
@@ -127,7 +140,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			Headers:       utils.FlattenHeaders(headers),
 			Raw:           string(rawBytesResponse),
 			ContentLength: httpresp.ContentLength,
-			KnowledgeBase: c.Options.ClassifyPage(string(body)),
+			KnowledgeBase: c.Options.BuildKnowledgeBase(string(body), httpreq, httpresp),
 		}
 		response.ContentLength = resp.ContentLength
 
@@ -163,14 +176,27 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// trim trailing /
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
+
+		// Content uniqueness / page-similarity gates apply only to the main
+		// document. Rejected main docs still record response metadata so the
+		// crawl does not end with "hybrid: response is nil"; only parse/enqueue
+		// is suppressed. Scripts and XHR keep flowing for extraction.
+		skipParse := false
 		if matchOriginalURL {
+			if !c.Options.Options.DisableUniqueFilter && !c.Options.UniqueFilter.UniqueContent(body) {
+				skipParse = true
+			}
+			if !skipParse && c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(body) {
+				skipParse = true
+			}
 			request.Raw = string(rawBytesRequest)
 			response = resp
 		}
 
-		// process the raw response
-		navigationRequests := c.Options.Parser.ParseResponse(resp)
-		c.Enqueue(s.Queue, navigationRequests...)
+		if !skipParse {
+			navigationRequests := c.Options.Parser.ParseResponse(resp)
+			c.Enqueue(s.Queue, navigationRequests...)
+		}
 
 		// do not continue following the request if it's a redirect and redirects are disabled
 		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
@@ -183,10 +209,6 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			gologger.Warning().Msgf("%s\n", err)
 		}
 	}()
-
-	timeout := time.Duration(c.Options.Options.Timeout) * time.Second
-	basePage := page
-	page = page.Timeout(timeout)
 
 	navigatedURLs := sliceutil.NewSyncSlice[string]()
 	navigatedURLs.Append(request.URL)
@@ -263,7 +285,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	// simulate clicks on links with onclick handlers to discover JS redirects
-	time.Sleep(200 * time.Millisecond)
+	select {
+	case <-timeoutCtx.Done():
+		return nil, timeoutCtx.Err()
+	case <-time.After(200 * time.Millisecond):
+	}
 
 	clickableLinks, err := page.Elements("a[onclick]")
 	if err == nil && len(clickableLinks) > 0 {
@@ -296,7 +322,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 			gologger.Debug().Msgf("Clicked onclick link [%d] at URL: %s", idx, beforeURLStr)
 
-			time.Sleep(1 * time.Second)
+			select {
+			case <-timeoutCtx.Done():
+				return nil, timeoutCtx.Err()
+			case <-time.After(1 * time.Second):
+			}
 
 			// check if URL changed (indicates redirect occurred)
 			currentURL, _ := page.Info()
@@ -311,7 +341,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 						break
 					}
 				}
-				time.Sleep(500 * time.Millisecond)
+				select {
+				case <-timeoutCtx.Done():
+					return nil, timeoutCtx.Err()
+				case <-time.After(500 * time.Millisecond):
+				}
 			}
 		}
 	}
@@ -321,7 +355,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	// does not share the navigation timeout budget. If it fails (e.g. timeout
 	// on complex SPAs), we still proceed with regular page HTML.
 	var domResult *proto.DOMGetDocumentResult
-	domPage := basePage.Timeout(timeout)
+	domPage := sessionPage.Timeout(timeout)
 	var getDocumentDepth = int(-1)
 	getDocument := &proto.DOMGetDocument{Depth: &getDocumentDepth, Pierce: true}
 	domResult, domErr := getDocument.Call(domPage)
@@ -331,7 +365,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 	// Use basePage with a fresh timeout for HTML retrieval so it succeeds
 	// even if the navigation or DOM timeout was exhausted.
-	body, err := basePage.Timeout(timeout).HTML()
+	body, err := sessionPage.Timeout(timeout).HTML()
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not get html")
 	}

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/utils/errkit"
@@ -13,8 +14,40 @@ import (
 )
 
 // CustomFieldsMap is the global custom field data instance
-// it is used for parsing the header and body of request
-var CustomFieldsMap = make(map[string]CustomFieldConfig)
+// it is used for parsing the header and body of request.
+// Access it through the exported helpers so it stays safe under concurrent
+// crawler/output initialization (see issue #1698).
+var (
+	CustomFieldsMap = make(map[string]CustomFieldConfig)
+	customFieldsMu  sync.RWMutex
+)
+
+// setCustomField registers or overwrites a custom field entry.
+func setCustomField(cfg CustomFieldConfig) {
+	customFieldsMu.Lock()
+	defer customFieldsMu.Unlock()
+	CustomFieldsMap[cfg.Name] = cfg
+}
+
+// hasCustomField reports whether a custom field with the given name is registered.
+func hasCustomField(name string) bool {
+	customFieldsMu.RLock()
+	defer customFieldsMu.RUnlock()
+	_, ok := CustomFieldsMap[name]
+	return ok
+}
+
+// CustomFieldsSnapshot returns a copy of the registered custom fields, safe to
+// range over while other goroutines register new fields.
+func CustomFieldsSnapshot() []CustomFieldConfig {
+	customFieldsMu.RLock()
+	defer customFieldsMu.RUnlock()
+	fields := make([]CustomFieldConfig, 0, len(CustomFieldsMap))
+	for _, cfg := range CustomFieldsMap {
+		fields = append(fields, cfg)
+	}
+	return fields
+}
 
 type Part string
 
@@ -114,7 +147,7 @@ func loadCustomFields(filePath string, fields string) error {
 		if item.Part == "" {
 			item.Part = Response.ToString()
 		}
-		CustomFieldsMap[item.Name] = item
+		setCustomField(item)
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package headless
 
 import (
 	"log/slog"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -26,6 +27,8 @@ type Headless struct {
 	pathTrie *utils.PathTrie
 
 	debugger *CrawlDebugger
+
+	hooks Hooks
 }
 
 // New returns a new headless crawler instance
@@ -106,6 +109,7 @@ func (h *Headless) Crawl(URL string) error {
 	scopeValidator := validateScopeFunc(h, URL)
 
 	crawlOpts := crawler.Options{
+		Context:           h.options.Options.Context,
 		ChromiumPath:      h.options.Options.SystemChromePath,
 		MaxDepth:          h.options.Options.MaxDepth,
 		ShowBrowser:       h.options.Options.ShowBrowser,
@@ -159,7 +163,11 @@ func (h *Headless) Crawl(URL string) error {
 			}
 
 			if rr.Response != nil {
-				rr.Response.KnowledgeBase = h.options.ClassifyPage(rr.Response.Body)
+				var req *http.Request
+				if rr.Response.Resp != nil {
+					req = rr.Response.Resp.Request
+				}
+				rr.Response.KnowledgeBase = h.options.BuildKnowledgeBase(rr.Response.Body, req, rr.Response.Resp)
 				if h.options.Options.OmitRaw {
 					rr.Response.Raw = ""
 				}
@@ -179,7 +187,8 @@ func (h *Headless) Crawl(URL string) error {
 		Trace:               h.options.Options.EnableDiagnostics,
 		CookieConsentBypass: true,
 		UserArguments:       h.options.Options.ParseHeadlessOptionalArguments(),
-		DitClassifier:      h.options.DitClassifier,
+		DitClassifier:       h.options.DitClassifier,
+		Hooks:               h.hooks,
 	}
 
 	if creds := h.options.Options.AuthCredentials; creds != "" {

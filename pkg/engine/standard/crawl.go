@@ -97,11 +97,15 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	if err != nil {
 		return response, err
 	}
+
 	// Skip unique content filtering if disabled
 	if !c.Options.Options.DisableUniqueFilter {
 		if !c.Options.UniqueFilter.UniqueContent(data) {
 			return &navigation.Response{}, nil
 		}
+	}
+	if c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(data) {
+		return &navigation.Response{}, nil
 	}
 
 	if c.Options.Wappalyzer != nil {
@@ -109,7 +113,7 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		response.Technologies = mapsutil.GetKeys(technologies)
 	}
 
-	response.KnowledgeBase = c.Options.ClassifyPage(string(data))
+	response.KnowledgeBase = c.Options.BuildKnowledgeBase(string(data), resp.Request, resp)
 
 	// Restore the read data to resp.Body for further use.
 	resp.Body = io.NopCloser(strings.NewReader(string(data)))

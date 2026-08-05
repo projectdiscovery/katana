@@ -247,7 +247,8 @@ func (c *Crawler) tryBrowserHistoryNavigation(page *browser.BrowserPage, originP
 
 	var navigatedSuccessfully bool
 	for i := 0; i < stepsBack; i++ {
-		if err := page.NavigateBack(); err != nil {
+		err := runWithNavigateBackHook(c.options.Hooks, page, page.NavigateBack)
+		if err != nil {
 			return "", err
 		}
 		navigatedSuccessfully = true

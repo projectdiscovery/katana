@@ -316,14 +316,18 @@ type CrawlSession struct {
 //
 // Returns the initialized CrawlSession or an error if initialization fails.
 func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
+	parentCtx := s.Options.Options.Context
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
 	if s.Options.Options.CrawlDuration.Seconds() > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), s.Options.Options.CrawlDuration)
+		ctx, cancel = context.WithTimeout(parentCtx, s.Options.Options.CrawlDuration)
 	} else {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx, cancel = context.WithCancel(parentCtx)
 	}
 
 	parsed, err := urlutil.Parse(URL)
@@ -341,14 +345,14 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	queue.Push(&navigation.Request{Method: http.MethodGet, URL: URL, Depth: 0, SkipValidation: true}, 0)
 
 	if s.KnownFiles != nil {
-		navigationRequests, err := s.KnownFiles.Request(URL)
+		navigationRequests, err := s.KnownFiles.RequestWithContext(ctx, URL)
 		if err != nil {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", URL, err)
 		}
 		s.Enqueue(queue, navigationRequests...)
 	}
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize)))
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		var technologyKeys []string
 		if s.Options.Wappalyzer != nil {
@@ -364,7 +368,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 			Technologies:  technologyKeys,
 			StatusCode:    resp.StatusCode,
 			Headers:       utils.FlattenHeaders(resp.Header),
-			KnowledgeBase: s.Options.ClassifyPage(string(body)),
+			KnowledgeBase: s.Options.BuildKnowledgeBase(string(body), resp.Request, resp),
 		}
 		navigationRequests := s.Options.Parser.ParseResponse(navigationResponse)
 		s.Enqueue(queue, navigationRequests...)
@@ -400,9 +404,9 @@ type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*n
 // (due to timeout or manual cancellation). Returns an error if the context is cancelled.
 func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 	wg := sizedwaitgroup.New(s.Options.Options.Concurrency)
-	for item := range crawlSession.Queue.Pop() {
-		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
-			return ctxErr
+	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
+		if crawlSession.Ctx.Err() != nil {
+			break
 		}
 
 		req, ok := item.(*navigation.Request)
@@ -438,16 +442,42 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		go func() {
 			defer wg.Done()
 
-			if s.Options.HostRateLimit != nil {
-				_ = s.Options.HostRateLimit.Take(crawlSession.Hostname)
-			} else if s.Options.RateLimit != nil {
-				s.Options.RateLimit.Take()
+			// Race Take() against the session context so that workers
+			// don't block shutdown waiting for the next limiter tick
+			// (the limiter is bound to options.Context, not the session).
+			//
+			// Note: when the session is cancelled mid-Take, this inner
+			// goroutine outlives the worker and stays blocked on the
+			// limiter until the next tick or until RateLimit.Stop() is
+			// called by CrawlerOptions.Close(). The leak is therefore
+			// bounded by Close() and acceptable.
+			takeDone := make(chan struct{})
+			go func() {
+				if s.Options.HostRateLimit != nil {
+					_ = s.Options.HostRateLimit.Take(crawlSession.Hostname)
+				} else if s.Options.RateLimit != nil {
+					s.Options.RateLimit.Take()
+				}
+				close(takeDone)
+			}()
+			select {
+			case <-crawlSession.Ctx.Done():
+				return
+			case <-takeDone:
 			}
 			s.ApplyBackoff(crawlSession.Hostname)
 
-			// Delay if the user has asked for it
+			if crawlSession.Ctx.Err() != nil {
+				return
+			}
+
+			// Context-aware delay
 			if s.Options.Options.Delay > 0 {
-				time.Sleep(time.Duration(s.Options.Options.Delay) * time.Second)
+				select {
+				case <-crawlSession.Ctx.Done():
+					return
+				case <-time.After(time.Duration(s.Options.Options.Delay) * time.Second):
+				}
 			}
 
 			if s.Options.Options.MaxDomainPages > 0 {
@@ -492,5 +522,5 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}()
 	}
 	wg.Wait()
-	return nil
+	return crawlSession.Ctx.Err()
 }
