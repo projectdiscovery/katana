@@ -47,6 +47,8 @@ katana requires Go 1.26+ to install successfully. If you encounter any installat
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
 ```
 
+If you install via Go on Windows, ensure `%USERPROFILE%\go\bin` (or `$env:GOBIN`) is on `PATH` and reopen your terminal before invoking `katana`.
+
 **More options to install / run katana-**
 
 <details>
