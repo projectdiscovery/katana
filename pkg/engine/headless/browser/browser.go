@@ -67,13 +67,14 @@ type ScopeValidator func(string) bool
 
 // NewLauncher returns a new launcher instance
 func NewLauncher(opts LauncherOptions) (*Launcher, error) {
-	// Default to "heuristic" if not specified
+	// Default to "domcontentloaded" if not specified — heuristic WaitStable
+	// hangs on SPAs with continuous network activity.
 	if opts.PageLoadStrategy == "" {
-		opts.PageLoadStrategy = "heuristic"
+		opts.PageLoadStrategy = "domcontentloaded"
 	}
-	
+
 	if opts.DOMWaitTime <= 0 {
-		opts.DOMWaitTime = 5
+		opts.DOMWaitTime = 1
 	}
 	
 	l := &Launcher{

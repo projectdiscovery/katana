@@ -33,8 +33,9 @@ func validateOptions(options *types.Options) error {
 			return errkit.New("invalid page-load-strategy: must be one of (heuristic, load, domcontentloaded, networkidle, none)")
 		}
 	} else {
-		// Default to heuristic
-		options.PageLoadStrategy = "heuristic"
+		// Default to domcontentloaded — WaitStable (heuristic) hangs on SPAs
+		// with continuous network activity.
+		options.PageLoadStrategy = "domcontentloaded"
 	}
 
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.

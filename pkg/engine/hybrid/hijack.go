@@ -28,8 +28,13 @@ type Hijack struct {
 
 // SetPattern set pattern directly
 func (h *Hijack) SetPattern(pattern *proto.FetchRequestPattern) {
+	h.SetPatterns([]*proto.FetchRequestPattern{pattern})
+}
+
+// SetPatterns configures one or more Fetch interception patterns.
+func (h *Hijack) SetPatterns(patterns []*proto.FetchRequestPattern) {
 	h.enable = &proto.FetchEnable{
-		Patterns: []*proto.FetchRequestPattern{pattern},
+		Patterns: patterns,
 	}
 }
 
