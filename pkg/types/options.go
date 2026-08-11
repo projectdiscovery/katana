@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/projectdiscovery/goflags"
@@ -280,7 +281,31 @@ func (options *Options) ShouldResume() bool {
 }
 
 // ConfigureOutput configures the output logging levels to be displayed on the screen
+// configureOutputOnce guards the process-global logger mutation in
+// ConfigureOutput.
+//
+// gologger.DefaultLogger.SetMaxLevel writes a global that gologger READS on
+// every log call, without synchronisation. ConfigureOutput is called once per
+// CrawlerOptions (see NewCrawlerOptions), so a program running concurrent
+// crawls writes that global while other crawls are logging through it --
+// reproducible under -race.
+//
+// katana cannot make gologger's reads safe, but it can stop writing repeatedly:
+// applying the level once per process removes every write after the first, so
+// concurrent crawls need no external lock. The trade-off is that the FIRST
+// caller's verbosity wins process-wide. For the CLI that is the runner's call
+// in internal/runner, which is what one would want anyway; for a library
+// embedding katana it means a second crawler with different verbosity does not
+// re-level a logger it shares with the rest of the program.
+var configureOutputOnce sync.Once
+
+// ConfigureOutput applies the verbosity options to the global logger, once per
+// process. See configureOutputOnce.
 func (options *Options) ConfigureOutput() {
+	configureOutputOnce.Do(func() { options.configureOutput() })
+}
+
+func (options *Options) configureOutput() {
 	if options.Silent {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
 	} else if options.Verbose {
