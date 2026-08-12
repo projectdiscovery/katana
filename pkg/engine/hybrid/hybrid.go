@@ -8,6 +8,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -77,7 +78,11 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	// create a new browser instance (default to incognito mode)
 	if !options.Options.HeadlessNoIncognito {
-		incognito, err := browser.Incognito()
+		// Create the browser context directly rather than via browser.Incognito():
+		// rod's helper takes no proxy argument, and Options.Proxy otherwise never
+		// reaches a browser attached through ChromeWSUrl, because the chrome
+		// launcher -- its only proxy path -- does not run in that case.
+		res, err := proto.TargetCreateBrowserContext{ProxyServer: options.Options.Proxy}.Call(browser)
 		if err != nil {
 			_ = browser.Close()
 			if chromeLauncher != nil {
@@ -85,7 +90,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 			}
 			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
-		browser = incognito
+		incognito := *browser
+		incognito.BrowserContextID = res.BrowserContextID
+		browser = &incognito
 	}
 
 	shared, err := common.NewShared(options)
