@@ -26,8 +26,8 @@ type Crawler struct {
 	*common.Shared
 
 	browser        *rod.Browser
-	chromeLauncher *launcher.Launcher
-	cdpWS          *cdp.WebSocket // held so Close can end the CDP read loop // nil when attached via ChromeWSUrl
+	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
+	cdpWS          *cdp.WebSocket
 	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
 	// This change will be made if there are no complaints about zombie Chrome processes.
 	// References:
@@ -95,6 +95,18 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
+	owned := false
+	defer func() {
+		if owned {
+			return
+		}
+		_ = browser.Close()
+		_ = cdpWS.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+	}()
+
 	// create a new browser instance (default to incognito mode)
 	if !options.Options.HeadlessNoIncognito {
 		// Create the browser context directly rather than via browser.Incognito():
@@ -103,10 +115,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		// launcher -- its only proxy path -- does not run in that case.
 		res, err := proto.TargetCreateBrowserContext{ProxyServer: options.Options.Proxy}.Call(browser)
 		if err != nil {
-			_ = browser.Close()
-			if chromeLauncher != nil {
-				chromeLauncher.Kill()
-			}
 			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
 		incognito := *browser
@@ -116,10 +124,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	shared, err := common.NewShared(options)
 	if err != nil {
-		_ = browser.Close()
-		if chromeLauncher != nil {
-			chromeLauncher.Kill()
-		}
 		return nil, errkit.Wrap(err, "hybrid")
 	}
 
@@ -131,6 +135,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		// previousPIDs: previousPIDs,
 		tempDir: dataStore,
 	}
+	owned = true
 
 	return crawler, nil
 }
