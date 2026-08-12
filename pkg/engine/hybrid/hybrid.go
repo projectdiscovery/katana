@@ -1,11 +1,13 @@
 package hybrid
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/cdp"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/rod/lib/proto"
@@ -25,6 +27,7 @@ type Crawler struct {
 
 	browser        *rod.Browser
 	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
+	cdpWS          *cdp.WebSocket
 	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
 	// This change will be made if there are no complaints about zombie Chrome processes.
 	// References:
@@ -68,13 +71,41 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		}
 	}
 
-	browser := rod.New().ControlURL(launcherURL)
+	// Construct the CDP client here rather than using rod.New().ControlURL(...)
+	// so the websocket handle survives into Close(). rod hides it in an
+	// unexported field, and without it the connection can never be closed --
+	// see Close() for why that leaks. StartWithURL, which Connect calls, is
+	// exactly this.
+	dialCtx, dialCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cdpWS := &cdp.WebSocket{}
+	wsErr := cdpWS.Connect(dialCtx, launcherURL, nil)
+	dialCancel()
+	if wsErr != nil {
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+		return nil, errkit.Wrap(wsErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
+	}
+	browser := rod.New().Client(cdp.New().Start(cdpWS))
 	if browserErr := browser.Connect(); browserErr != nil {
+		_ = cdpWS.Close()
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
 		}
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
+
+	owned := false
+	defer func() {
+		if owned {
+			return
+		}
+		_ = browser.Close()
+		_ = cdpWS.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+	}()
 
 	// create a new browser instance (default to incognito mode)
 	if !options.Options.HeadlessNoIncognito {
@@ -84,10 +115,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		// launcher -- its only proxy path -- does not run in that case.
 		res, err := proto.TargetCreateBrowserContext{ProxyServer: options.Options.Proxy}.Call(browser)
 		if err != nil {
-			_ = browser.Close()
-			if chromeLauncher != nil {
-				chromeLauncher.Kill()
-			}
 			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
 		incognito := *browser
@@ -97,10 +124,6 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 	shared, err := common.NewShared(options)
 	if err != nil {
-		_ = browser.Close()
-		if chromeLauncher != nil {
-			chromeLauncher.Kill()
-		}
 		return nil, errkit.Wrap(err, "hybrid")
 	}
 
@@ -108,9 +131,11 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		Shared:         shared,
 		browser:        browser,
 		chromeLauncher: chromeLauncher,
+		cdpWS:          cdpWS,
 		// previousPIDs: previousPIDs,
 		tempDir: dataStore,
 	}
+	owned = true
 
 	return crawler, nil
 }
@@ -119,6 +144,19 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 func (c *Crawler) Close() error {
 	if c.browser != nil {
 		_ = c.browser.Close()
+	}
+	if c.cdpWS != nil {
+		// Close AFTER browser.Close, which dispatches
+		// Target.disposeBrowserContext over this same socket.
+		//
+		// rod's initEvents goroutine blocks on `for e := range client.Event()`,
+		// and that channel closes only when cdp's read loop errors -- which
+		// happens only when the CONNECTION closes, not on context cancellation
+		// (the websocket Read is a blocking socket read). Disposing the browser
+		// context does not close the connection, so against a browser attached
+		// via ChromeWSUrl -- where there is no launcher to kill -- every crawl
+		// left the socket and its goroutines behind for the browser's lifetime.
+		_ = c.cdpWS.Close()
 	}
 	if c.chromeLauncher != nil {
 		c.chromeLauncher.Kill()
