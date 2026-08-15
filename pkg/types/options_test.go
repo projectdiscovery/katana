@@ -2,11 +2,40 @@ package types
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/gologger"
 	"github.com/stretchr/testify/require"
 )
+
+// TestConfigureOutputConcurrent guards against a data race in the process-wide
+// gologger instance: SetMaxLevel writes its level field without synchronization,
+// so calling ConfigureOutput from multiple crawls at once (as a library consumer
+// might) used to race against the level reads gologger performs on every log call.
+// Run with -race to verify.
+func TestConfigureOutputConcurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			options := &Options{}
+			switch n % 4 {
+			case 0:
+				options.Silent = true
+			case 1:
+				options.Verbose = true
+			case 2:
+				options.Debug = true
+			}
+			options.ConfigureOutput()
+			gologger.Info().Msg("concurrent configure output test")
+		}(i)
+	}
+	wg.Wait()
+}
 
 func TestParseCustomHeaders(t *testing.T) {
 	tests := []struct {

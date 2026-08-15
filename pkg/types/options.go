@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/projectdiscovery/goflags"
@@ -279,19 +280,30 @@ func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
 }
 
-// ConfigureOutput configures the output logging levels to be displayed on the screen
-func (options *Options) ConfigureOutput() {
-	if options.Silent {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
-	} else if options.Verbose {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
-	} else if options.Debug {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
-	} else {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
-	}
+// configureOutputOnce ensures the process-wide gologger instance is only
+// configured once. gologger.DefaultLogger has no internal synchronization,
+// so calling SetMaxLevel from concurrently running crawls (e.g. when katana
+// is embedded as a library) races with the level reads that happen on every
+// log call.
+var configureOutputOnce sync.Once
 
-	logutil.DisableDefaultLogger()
+// ConfigureOutput configures the output logging levels to be displayed on the screen.
+// Only the first call takes effect per process; later calls are no-ops so that
+// concurrently running crawlers never race on the shared gologger instance.
+func (options *Options) ConfigureOutput() {
+	configureOutputOnce.Do(func() {
+		if options.Silent {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
+		} else if options.Verbose {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
+		} else if options.Debug {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
+		} else {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
+		}
+
+		logutil.DisableDefaultLogger()
+	})
 }
 
 // ContentSimilarityEnabled reports whether Layer-2 page content similarity is on.
