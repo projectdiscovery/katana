@@ -317,8 +317,8 @@ github.com/praetorian-inc/titus v1.2.0 h1:cEiScUeE5CWl179FDagc7dr5ypvGmgNa0xmD+H
 github.com/praetorian-inc/titus v1.2.0/go.mod h1:Hrjwlww3Ces8WHejO3OOZJP/7ZVMo3CAZAsoniNl30g=
 github.com/projectdiscovery/asnmap v1.1.1 h1:ImJiKIaACOT7HPx4Pabb5dksolzaFYsD1kID2iwsDqI=
 github.com/projectdiscovery/asnmap v1.1.1/go.mod h1:QT7jt9nQanj+Ucjr9BqGr1Q2veCCKSAVyUzLXfEcQ60=
-github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k0VbGJyft6LQ=
-github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
+github.com/projectdiscovery/blackrock v0.0.2 h1:mxXdu0uM8P2L2Qi210COlU8QiICPFW/Rxk5QUhlPO2k=
+github.com/projectdiscovery/blackrock v0.0.2/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.8.21 h1:LXz0T5AjWyIyTbmsjdjutnucaRPMein1gVdoxwtJxZY=
 github.com/projectdiscovery/dsl v0.8.21/go.mod h1:AX4IYLANTX7vFyBm7szaFwtdLr3awAlGpSp3cYIYBPM=
 github.com/projectdiscovery/fastdialer v0.5.14 h1:83hkWNnbWq8IxDM65h1CCmHf/GoVj1fpwbR+wACiBhA=
