@@ -317,12 +317,12 @@ github.com/praetorian-inc/titus v1.2.0 h1:cEiScUeE5CWl179FDagc7dr5ypvGmgNa0xmD+H
 github.com/praetorian-inc/titus v1.2.0/go.mod h1:Hrjwlww3Ces8WHejO3OOZJP/7ZVMo3CAZAsoniNl30g=
 github.com/projectdiscovery/asnmap v1.1.1 h1:ImJiKIaACOT7HPx4Pabb5dksolzaFYsD1kID2iwsDqI=
 github.com/projectdiscovery/asnmap v1.1.1/go.mod h1:QT7jt9nQanj+Ucjr9BqGr1Q2veCCKSAVyUzLXfEcQ60=
-github.com/projectdiscovery/blackrock v0.0.1 h1:lHQqhaaEFjgf5WkuItbpeCZv2DUIE45k0VbGJyft6LQ=
-github.com/projectdiscovery/blackrock v0.0.1/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
+github.com/projectdiscovery/blackrock v0.0.2 h1:mxXdu0uM8P2L2Qi210COlU8QiICPFW/Rxk5QUhlPO2k=
+github.com/projectdiscovery/blackrock v0.0.2/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.8.21 h1:LXz0T5AjWyIyTbmsjdjutnucaRPMein1gVdoxwtJxZY=
 github.com/projectdiscovery/dsl v0.8.21/go.mod h1:AX4IYLANTX7vFyBm7szaFwtdLr3awAlGpSp3cYIYBPM=
-github.com/projectdiscovery/fastdialer v0.5.14 h1:83hkWNnbWq8IxDM65h1CCmHf/GoVj1fpwbR+wACiBhA=
-github.com/projectdiscovery/fastdialer v0.5.14/go.mod h1:+QaDuVAsvPk4VPSk9aVQCdZzHVbtI9+2BeeFhQUyebo=
+github.com/projectdiscovery/fastdialer v0.5.16 h1:cds7enBT8YFDjGuBVJu7K0J2H0KVnPIrwFf3gJCSkLY=
+github.com/projectdiscovery/fastdialer v0.5.16/go.mod h1:+eYcmH0Fp6IhHtnr/FeFyjg1jT7efcFT/O8WcvTMsX4=
 github.com/projectdiscovery/goflags v0.1.75 h1:njEBnyueQaFa2ptWxbyl9zX0OClNdlN2AzZveNHiBOs=
 github.com/projectdiscovery/goflags v0.1.75/go.mod h1:7nAP1r2Dqgn/rwmOE3EWbZWUCEJKNIhVSBGpuzJAIns=
 github.com/projectdiscovery/gologger v1.1.71 h1:IYU4mw9viKdSzMTIGVpYuw1Gtg7QIHIStqAQgeNXcBQ=
@@ -337,8 +337,8 @@ github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582 h1:eR+0
 github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582/go.mod h1:3G3BRKui7nMuDFAZKR/M2hiOLtaOmyukT20g88qRQjI=
 github.com/projectdiscovery/mapcidr v1.1.97 h1:7FkxNNVXp+m1rIu5Nv/2SrF9k4+LwP8QuWs2puwy+2w=
 github.com/projectdiscovery/mapcidr v1.1.97/go.mod h1:9dgTJh1SP02gYZdpzMjm6vtYFkEHQHoTyaVNvaeJ7lA=
-github.com/projectdiscovery/networkpolicy v0.1.44 h1:+fnpYNQVH9mYZY7VrsTqdL4YJGVZSA8XLAlRHBMl5QE=
-github.com/projectdiscovery/networkpolicy v0.1.44/go.mod h1:q1KeQiHchXdElScEMWc5mShWNRNoJXI5koRnVaX6Qh8=
+github.com/projectdiscovery/networkpolicy v0.1.45 h1:Hg3j9XiMC2MAJs1r5ydIJzGVfPxGS++FAM6VdRPPOR0=
+github.com/projectdiscovery/networkpolicy v0.1.45/go.mod h1:q1KeQiHchXdElScEMWc5mShWNRNoJXI5koRnVaX6Qh8=
 github.com/projectdiscovery/ratelimit v0.0.88 h1:AcurW9aLRzlEyPe9kSjnOpr3XzLMWTpiWAlW/w73ALU=
 github.com/projectdiscovery/ratelimit v0.0.88/go.mod h1:CU1s+68UUG2mctSl2wi32/DHLJA6TMg+4rxgP59LfVk=
 github.com/projectdiscovery/retryabledns v1.0.115 h1:RKV63FNIznFHUoawg/1hs53pVH3wqPtFhwstCuxVSoA=
