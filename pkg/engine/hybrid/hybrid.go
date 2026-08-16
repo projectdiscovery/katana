@@ -17,6 +17,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -333,9 +334,14 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 				return nil, errkit.New("hybrid: the chrome browser is not installed")
 			}
 		}
-	}
-	if options.Options.SystemChromePath != "" {
+	} else if options.Options.SystemChromePath != "" {
 		chromeLauncher.Bin(options.Options.SystemChromePath)
+	} else if !options.Options.ShowBrowser && chromeshell.Supported() {
+		// Prefer chrome-headless-shell on linux/amd64 for headless crawls; skip
+		// when headed since the shell binary cannot show a UI.
+		if shellPath, err := chromeshell.Ensure(); err == nil {
+			chromeLauncher.Bin(shellPath)
+		}
 	}
 
 	if options.Options.ShowBrowser {
