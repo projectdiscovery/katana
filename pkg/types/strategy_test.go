@@ -8,19 +8,25 @@ import (
 
 func TestApplyCrawlStrategy(t *testing.T) {
 	t.Parallel()
-	opts := &Options{CrawlStrategy: "fast", MaxDepth: 99}
+	opts := &Options{CrawlStrategy: "fast", Headless: true, MaxDepth: 99}
 	require.NoError(t, ApplyCrawlStrategy(opts))
 	require.Equal(t, 2, opts.MaxDepth)
 	require.Equal(t, "domcontentloaded", opts.PageLoadStrategy)
+	require.Equal(t, 0, opts.DOMWaitTime)
 	require.True(t, opts.FilterSimilar)
 	require.Equal(t, 0, opts.RewalkSample)
 
-	opts = &Options{CrawlStrategy: "thorough"}
+	opts = &Options{CrawlStrategy: "thorough", HeadlessHybrid: true}
 	require.NoError(t, ApplyCrawlStrategy(opts))
 	require.Equal(t, 5, opts.MaxDepth)
 	require.Equal(t, "heuristic", opts.PageLoadStrategy)
 	require.Equal(t, 3, opts.RewalkSample)
 
+	opts = &Options{CrawlStrategy: "balanced", ChromeWSUrl: "ws://localhost:9222"}
+	require.NoError(t, ApplyCrawlStrategy(opts))
+	require.Equal(t, 3, opts.MaxDepth)
+
 	require.NoError(t, ApplyCrawlStrategy(&Options{}))
-	require.Error(t, ApplyCrawlStrategy(&Options{CrawlStrategy: "nope"}))
+	require.Error(t, ApplyCrawlStrategy(&Options{CrawlStrategy: "nope", Headless: true}))
+	require.Error(t, ApplyCrawlStrategy(&Options{CrawlStrategy: "fast"}))
 }

@@ -57,7 +57,7 @@ func ConfigFor(s Strategy) StrategyConfig {
 	case StrategyThorough:
 		return StrategyConfig{
 			PageLoadStrategy:  "heuristic",
-			DOMWaitTime:       2,
+			DOMWaitTime:       0, // unused with heuristic page-load
 			MaxDepth:          5,
 			ExplosionBudget:   3,
 			ExplosionHamming:  2,
