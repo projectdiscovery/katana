@@ -27,12 +27,13 @@ func TestNewLauncherDefaults(t *testing.T) {
 		}
 	})
 
-	t.Run("zero DOMWaitTime defaults to 5", func(t *testing.T) {
+	t.Run("zero DOMWaitTime is preserved", func(t *testing.T) {
 		l, err := NewLauncher(LauncherOptions{
 			MaxBrowsers: 1,
+			DOMWaitTime: 0,
 		})
 		require.NoError(t, err)
-		require.Equal(t, 5, l.opts.DOMWaitTime)
+		require.Equal(t, 0, l.opts.DOMWaitTime)
 	})
 
 	t.Run("negative DOMWaitTime defaults to 5", func(t *testing.T) {

@@ -26,17 +26,6 @@ func validateOptions(options *types.Options) error {
 		return errkit.New("no inputs specified for crawler")
 	}
 
-	// Validate page load strategy
-	if options.PageLoadStrategy != "" {
-		validStrategies := []string{"heuristic", "load", "domcontentloaded", "networkidle", "none"}
-		if !slices.Contains(validStrategies, options.PageLoadStrategy) {
-			return errkit.New("invalid page-load-strategy: must be one of (heuristic, load, domcontentloaded, networkidle, none)")
-		}
-	} else {
-		// Default to heuristic
-		options.PageLoadStrategy = "heuristic"
-	}
-
 	// Disabling automatic form fill (-aff) for headless navigation due to incorrect implementation.
 	// Form filling should be handled via headless actions within the page context
 	if options.HeadlessHybrid && options.AutomaticFormFill {
@@ -48,7 +37,7 @@ func validateOptions(options *types.Options) error {
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
-	
+
 	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
 	// The ChromeWSUrl takes precedence and pure headless engine will be used
 	if options.Headless && options.ChromeWSUrl != "" {
@@ -69,6 +58,22 @@ func validateOptions(options *types.Options) error {
 			options.Headless = true
 			gologger.Info().Msgf("Headless mode enabled automatically for authenticated crawling.")
 		}
+	}
+
+	// Overlay -crawl-strategy after headless mode is resolved (-auth may enable it).
+	if err := types.ApplyCrawlStrategy(options); err != nil {
+		return err
+	}
+
+	// Validate page load strategy (after crawl-strategy may have set it)
+	if options.PageLoadStrategy != "" {
+		validStrategies := []string{"heuristic", "load", "domcontentloaded", "networkidle", "none"}
+		if !slices.Contains(validStrategies, options.PageLoadStrategy) {
+			return errkit.New("invalid page-load-strategy: must be one of (heuristic, load, domcontentloaded, networkidle, none)")
+		}
+	} else {
+		// Default to heuristic
+		options.PageLoadStrategy = "heuristic"
 	}
 
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
