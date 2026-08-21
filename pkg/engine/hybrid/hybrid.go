@@ -101,7 +101,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		if owned {
 			return
 		}
-		_ = browser.Close()
+		if options.Options.ChromeWSUrl == "" || browser.BrowserContextID != "" {
+			_ = browser.Close()
+		}
 		_ = cdpWS.Close()
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
@@ -144,7 +146,14 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 // Close closes the crawler process
 func (c *Crawler) Close() error {
 	if c.browser != nil {
-		_ = c.browser.Close()
+		// Only close the root browser instance if Katana owns its lifecycle.
+		// If attached to an external browser via ChromeWSUrl in non-incognito mode (BrowserContextID == ""),
+		// closing c.browser would issue Browser.close and terminate the entire external browser process.
+		// If running in incognito mode (BrowserContextID != ""), c.browser.Close() sends Target.disposeBrowserContext,
+		// which safely closes only Katana's incognito session without terminating the external browser.
+		if c.Options.Options.ChromeWSUrl == "" || c.browser.BrowserContextID != "" {
+			_ = c.browser.Close()
+		}
 	}
 	if c.cdpWS != nil {
 		// Close AFTER browser.Close, which dispatches

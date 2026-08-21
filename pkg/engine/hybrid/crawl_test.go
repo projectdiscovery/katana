@@ -7,6 +7,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,3 +92,50 @@ func TestDOMGetDocumentTimeoutDoesNotBlockHTML(t *testing.T) {
 	require.NoError(t, err, "HTML retrieval should succeed with fresh timeout from basePage")
 	require.NotEmpty(t, body, "HTML body should not be empty")
 }
+
+// TestCrawlerCloseWithChromeWSUrl verifies that Katana does not terminate an external
+// browser instance when connected via ChromeWSUrl with HeadlessNoIncognito (Issue #1757).
+func TestCrawlerCloseWithChromeWSUrl(t *testing.T) {
+	path, _ := launcher.LookPath()
+	if path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	u, err := launcher.New().Leakless(true).Launch()
+	if err != nil {
+		t.Skipf("could not launch browser: %v", err)
+	}
+
+	externalBrowser := rod.New().ControlURL(u).MustConnect()
+	t.Cleanup(func() {
+		_ = externalBrowser.Close()
+	})
+
+	crawlerOpts := &types.CrawlerOptions{
+		Options: &types.Options{
+			ChromeWSUrl:         u,
+			HeadlessNoIncognito: true,
+		},
+	}
+
+	crawler, err := New(crawlerOpts)
+	require.NoError(t, err)
+	require.NotNil(t, crawler)
+
+	// Closing Katana crawler must not close the external browser
+	err = crawler.Close()
+	require.NoError(t, err)
+
+	// Verify the external browser is still alive and operational
+	var version *proto.BrowserGetVersionResult
+	version, err = proto.BrowserGetVersion{}.Call(externalBrowser)
+	require.NoError(t, err, "external browser should remain responsive after crawler.Close()")
+	require.NotNil(t, version)
+	require.NotEmpty(t, version.Product)
+
+	// Verify we can still create pages on the external browser
+	page, err := externalBrowser.Page(proto.TargetCreateTarget{})
+	require.NoError(t, err, "external browser should still be able to create new pages")
+	defer func() { _ = page.Close() }()
+}
+
