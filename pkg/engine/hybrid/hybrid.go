@@ -38,6 +38,21 @@ type Crawler struct {
 	tempDir string
 }
 
+// proxyBypassList returns the Chrome proxy bypass list to use for proxy.
+//
+// Chrome bypasses the proxy for localhost, 127.0.0.0/8, [::1] and link-local
+// addresses by default, even when one is configured. "<-loopback>" is the
+// documented way to SUBTRACT that implicit rule, so a configured proxy is
+// honoured for local targets too -- the case where an intercepting proxy is
+// most often used. Empty when no proxy is set, since there is nothing to
+// bypass.
+func proxyBypassList(proxy string) string {
+	if proxy == "" {
+		return ""
+	}
+	return "<-loopback>"
+}
+
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
 	var dataStore string
@@ -114,7 +129,21 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		// rod's helper takes no proxy argument, and Options.Proxy otherwise never
 		// reaches a browser attached through ChromeWSUrl, because the chrome
 		// launcher -- its only proxy path -- does not run in that case.
-		res, err := proto.TargetCreateBrowserContext{ProxyServer: options.Options.Proxy}.Call(browser)
+		res, err := proto.TargetCreateBrowserContext{
+			ProxyServer: options.Options.Proxy,
+			// "<-loopback>" SUBTRACTS Chrome's implicit proxy bypass.
+			//
+			// Chrome always bypasses the proxy for localhost, 127.0.0.0/8,
+			// [::1] and link-local, even when one is configured; the only way
+			// to disable that built-in rule is to subtract it here. Without
+			// this, `-proxy` is silently ignored for exactly the local targets
+			// people most often put behind an intercepting proxy, and the
+			// crawl still succeeds -- so the traffic simply never appears.
+			//
+			// Only applied when a proxy was actually requested: with no proxy
+			// there is nothing to bypass, and the token would be meaningless.
+			ProxyBypassList: proxyBypassList(options.Options.Proxy),
+		}.Call(browser)
 		if err != nil {
 			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
@@ -360,6 +389,9 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 			return nil, err
 		}
 		chromeLauncher.Set("proxy-server", proxyURL.String())
+		// Same implicit-bypass problem as the browser-context path above: without
+		// this, a launched Chrome ignores the proxy for loopback targets.
+		chromeLauncher.Set("proxy-bypass-list", proxyBypassList(options.Options.Proxy))
 	}
 
 	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
