@@ -565,3 +565,63 @@ func TestDataURIFiltering(t *testing.T) {
 		require.Equal(t, 0, len(navigationRequests), "Expected all invalid URIs to be filtered out")
 	})
 }
+
+// A PNG's pixel bytes contain byte sequences that pageBodyRegex matches -- most
+// commonly "./6" -- and the mined string then resolves against the image's own
+// URL, so the crawler requests a sibling resource the site never served
+// (e.g. /images/products/10.png -> /images/products/6, 404).
+//
+// katana's extension denylist cannot prevent this: it rejects the ".png" the
+// noise came FROM, while the mined path is extensionless and passes.
+func TestBodyScrapeEndpointsParser_ContentTypeGate(t *testing.T) {
+	parsed, _ := urlutil.Parse("https://example.com/images/products/10.png")
+
+	// Minimal PNG header plus a chunk of bytes containing the "./6" sequence
+	// that a real image yields; the regex only needs the literal to be present
+	// in the body.
+	binaryBody := "\x89PNG\r\n\x1a\n\x00\x10\xff\xfe\"./6\"\x00\x01\x02\x03"
+
+	t.Run("binary body is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{"image/png"}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a binary response body must not be mined for endpoints")
+	})
+
+	// A body with no declared type is the case with the least evidence that it
+	// is text, so it must not be mined either.
+	t.Run("missing content-type is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{Request: &http.Request{URL: parsed.URL}},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "an undeclared response body must not be mined for endpoints")
+	})
+
+	// The parser must keep working for everything it is actually for.
+	for _, contentType := range []string{
+		"text/html; charset=utf-8",
+		"text/plain",
+		"application/javascript",
+		"application/json",
+		"application/xhtml+xml",
+	} {
+		t.Run(contentType+" is scraped", func(t *testing.T) {
+			htmlParsed, _ := urlutil.Parse("https://example.com/index.html")
+			resp := &navigation.Response{
+				Resp: &http.Response{
+					Request: &http.Request{URL: htmlParsed.URL},
+					Header:  http.Header{"Content-Type": []string{contentType}},
+				},
+				Body: `window.location = "./test/endpoint.php";`,
+			}
+			navigationRequests := bodyScrapeEndpointsParser(resp)
+			require.NotEmpty(t, navigationRequests, "a textual body must still be scraped")
+			require.Equal(t, "https://example.com/test/endpoint.php", navigationRequests[0].URL, "could not get correct url")
+		})
+	}
+}

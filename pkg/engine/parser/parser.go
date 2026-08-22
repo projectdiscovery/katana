@@ -705,8 +705,52 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	return
 }
 
+// textualContentTypes are the response types worth regex-scraping for
+// endpoints. Anything else is binary as far as this parser is concerned.
+var textualContentTypes = []string{
+	"text/",
+	"application/javascript",
+	"application/x-javascript",
+	"application/ecmascript",
+	"application/json",
+	"application/xml",
+	"application/xhtml+xml",
+	"+json",
+	"+xml",
+}
+
+// isTextualResponse reports whether resp's body should be regex-scraped for
+// endpoints.
+//
+// A MISSING Content-Type returns false. An undeclared body is exactly the case
+// that must not be mined: there is no evidence it is text, and the cost of
+// guessing wrong is requests for resources that never existed.
+func isTextualResponse(resp *navigation.Response) bool {
+	if resp == nil || resp.Resp == nil {
+		return false
+	}
+	contentType := strings.ToLower(resp.Resp.Header.Get("Content-Type"))
+	if contentType == "" {
+		return false
+	}
+	return stringsutil.ContainsAny(contentType, textualContentTypes...)
+}
+
 // bodyScrapeEndpointsParser parses scraped URLs from HTML body
 func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	// Only scrape TEXTUAL bodies. pageBodyRegex matches `./x` and `../x`,
+	// which occur by chance in binary data: a 260KB PNG yields "./6" from its
+	// pixel bytes, that resolves against the image's own URL, and the crawler
+	// then requests a sibling path the site never served.
+	//
+	// The extension denylist cannot catch this. It rejects the ".png" the
+	// noise came FROM, while the mined string is extensionless and passes --
+	// so scraping a binary body launders denied-extension content into
+	// allowed-extension requests.
+	if !isTextualResponse(resp) {
+		return
+	}
+
 	endpoints := utils.ExtractBodyEndpoints(string(resp.Body))
 	for _, item := range endpoints {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "html", "regex", resp))
