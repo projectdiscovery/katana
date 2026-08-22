@@ -31,6 +31,7 @@ func TestConcurrentNewCrawlerOptions(t *testing.T) {
 	const goroutines = 50
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
+	errChan := make(chan error, goroutines)
 
 	for i := 0; i < goroutines; i++ {
 		go func(idx int) {
@@ -43,10 +44,18 @@ func TestConcurrentNewCrawlerOptions(t *testing.T) {
 				Debug:        idx%3 == 2,
 			}
 			co, err := NewCrawlerOptions(opts)
-			require.NoError(t, err)
+			if err != nil {
+				errChan <- err
+				return
+			}
 			_ = co.Close()
 		}(i)
 	}
 
 	wg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		require.NoError(t, err)
+	}
 }
