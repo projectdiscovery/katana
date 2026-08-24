@@ -707,6 +707,10 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 
 // textualContentTypes are the response types worth regex-scraping for
 // endpoints. Anything else is binary as far as this parser is concerned.
+//
+// "+xml" covers image/svg+xml deliberately: an SVG is XML text carrying
+// href/xlink:href and possibly a <script>, so it is a real endpoint source
+// despite the image/ prefix.
 var textualContentTypes = []string{
 	"text/",
 	"application/javascript",
@@ -722,19 +726,34 @@ var textualContentTypes = []string{
 // isTextualResponse reports whether resp's body should be regex-scraped for
 // endpoints.
 //
-// A MISSING Content-Type returns false. An undeclared body is exactly the case
-// that must not be mined: there is no evidence it is text, and the cost of
-// guessing wrong is requests for resources that never existed.
+// The declared Content-Type decides it when there is one. When the server sent
+// NONE -- or the generic application/octet-stream, which means the same thing
+// in practice -- the body is sniffed rather than skipped: an untyped response
+// is common on embedded servers and appliance interfaces, and refusing to scrape
+// those would trade one silent coverage gap for another. http.DetectContentType
+// identifies binary formats from their magic bytes, which is what this gate
+// actually needs to exclude.
 func isTextualResponse(resp *navigation.Response) bool {
 	if resp == nil || resp.Resp == nil {
 		return false
 	}
 	contentType := strings.ToLower(resp.Resp.Header.Get("Content-Type"))
-	if contentType == "" {
-		return false
+	if contentType == "" || strings.Contains(contentType, "application/octet-stream") {
+		if resp.Body == "" {
+			return false
+		}
+		body := resp.Body
+		if len(body) > sniffLen {
+			body = body[:sniffLen]
+		}
+		contentType = strings.ToLower(http.DetectContentType([]byte(body)))
 	}
 	return stringsutil.ContainsAny(contentType, textualContentTypes...)
 }
+
+// sniffLen is the prefix http.DetectContentType examines; anything beyond it is
+// ignored by the algorithm, so there is no reason to copy more.
+const sniffLen = 512
 
 // bodyScrapeEndpointsParser parses scraped URLs from HTML body
 func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
@@ -747,6 +766,9 @@ func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []
 	// noise came FROM, while the mined string is extensionless and passes --
 	// so scraping a binary body launders denied-extension content into
 	// allowed-extension requests.
+	//
+	// A response with no declared type is sniffed, not skipped -- see
+	// isTextualResponse.
 	if !isTextualResponse(resp) {
 		return
 	}
