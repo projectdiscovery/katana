@@ -321,8 +321,8 @@ github.com/projectdiscovery/fastdialer v0.5.16 h1:cds7enBT8YFDjGuBVJu7K0J2H0KVnP
 github.com/projectdiscovery/fastdialer v0.5.16/go.mod h1:+eYcmH0Fp6IhHtnr/FeFyjg1jT7efcFT/O8WcvTMsX4=
 github.com/projectdiscovery/goflags v0.1.75 h1:njEBnyueQaFa2ptWxbyl9zX0OClNdlN2AzZveNHiBOs=
 github.com/projectdiscovery/goflags v0.1.75/go.mod h1:7nAP1r2Dqgn/rwmOE3EWbZWUCEJKNIhVSBGpuzJAIns=
-github.com/projectdiscovery/gologger v1.1.71 h1:IYU4mw9viKdSzMTIGVpYuw1Gtg7QIHIStqAQgeNXcBQ=
-github.com/projectdiscovery/gologger v1.1.71/go.mod h1:mJwODZcFDg70ihINpOvZevmBtgvpP8H9/l8Y+OPhZPY=
+github.com/projectdiscovery/gologger v1.1.72 h1:PKk+aSx3jYOCBPi+FD+nTnhe+Vxx9u3K7Ega0GVlMCI=
+github.com/projectdiscovery/gologger v1.1.72/go.mod h1:mJwODZcFDg70ihINpOvZevmBtgvpP8H9/l8Y+OPhZPY=
 github.com/projectdiscovery/gostruct v0.0.2 h1:s8gP8ApugGM4go1pA+sVlPDXaWqNP5BBDDSv7VEdG1M=
 github.com/projectdiscovery/gostruct v0.0.2/go.mod h1:H86peL4HKwMXcQQtEa6lmC8FuD9XFt6gkNR0B/Mu5PE=
 github.com/projectdiscovery/govaluate v0.0.0-20260504230327-80320480bb6e h1:o+ulEIaC2+9V2Ezr6mI5xEhKWsf0V/+FUQIS723Aj6U=
@@ -339,8 +339,8 @@ github.com/projectdiscovery/ratelimit v0.0.88 h1:AcurW9aLRzlEyPe9kSjnOpr3XzLMWTp
 github.com/projectdiscovery/ratelimit v0.0.88/go.mod h1:CU1s+68UUG2mctSl2wi32/DHLJA6TMg+4rxgP59LfVk=
 github.com/projectdiscovery/retryabledns v1.0.115 h1:RKV63FNIznFHUoawg/1hs53pVH3wqPtFhwstCuxVSoA=
 github.com/projectdiscovery/retryabledns v1.0.115/go.mod h1:+fEMWoPigw+M0lGNKY7AZ+g8FIgj+4sONjsinMmeL3k=
-github.com/projectdiscovery/retryablehttp-go v1.3.21 h1:HytR9e8AfhIF/4xUo6szqg213a7pOq5tE3kpNZCyYwI=
-github.com/projectdiscovery/retryablehttp-go v1.3.21/go.mod h1:0SCELxSKpkqHTy9pcZDZ2ry+5djp4geKpEURJ1uSB24=
+github.com/projectdiscovery/retryablehttp-go v1.3.23 h1:s5gsGP7sWJvss1Xeb06Y5TRux8pXvA/xXPCWdPBHOQ8=
+github.com/projectdiscovery/retryablehttp-go v1.3.23/go.mod h1:dnzMyBzMmaTHYp5caYCd8mge23qhTGcBjIJ9SagdQ4Q=
 github.com/projectdiscovery/utils v0.11.2-0.20260815171005-eb8925425716 h1:zoDnj6xAqCvIQuP/bV5COuje2kjZV7THKTuDRdvyXgI=
 github.com/projectdiscovery/utils v0.11.2-0.20260815171005-eb8925425716/go.mod h1:RtBO9urHlfN3aAEzhZz5m1/ZeJDq6U1Ka34lGWleuS8=
 github.com/projectdiscovery/wappalyzergo v0.2.93 h1:QCjfBiU+6uVor8mhq4chmBexgiGFQlEvptMmJyXPLLw=
