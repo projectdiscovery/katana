@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -705,8 +706,78 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	return
 }
 
+// isTextualMediaType reports whether a parsed MIME type is worth regex-scraping
+// for endpoints. Anything else is binary as far as this parser is concerned.
+//
+// Suffixes "+xml" / "+json" cover types such as image/svg+xml deliberately: an
+// SVG is XML text carrying href/xlink:href and possibly a <script>, so it is a
+// real endpoint source despite the image/ prefix.
+func isTextualMediaType(mediaType string) bool {
+	mediaType = strings.ToLower(mediaType)
+	if strings.HasPrefix(mediaType, "text/") {
+		return true
+	}
+	switch mediaType {
+	case "application/javascript", "application/x-javascript", "application/ecmascript",
+		"application/json", "application/xml", "application/xhtml+xml":
+		return true
+	}
+	return strings.HasSuffix(mediaType, "+json") || strings.HasSuffix(mediaType, "+xml")
+}
+
+// isTextualResponse reports whether resp's body should be regex-scraped for
+// endpoints.
+//
+// The declared Content-Type decides it when there is one. When the server sent
+// NONE -- or the generic application/octet-stream, which means the same thing
+// in practice -- the body is sniffed rather than skipped: an untyped response
+// is common on embedded servers and appliance interfaces, and refusing to scrape
+// those would trade one silent coverage gap for another. http.DetectContentType
+// identifies binary formats from their magic bytes, which is what this gate
+// actually needs to exclude.
+func isTextualResponse(resp *navigation.Response) bool {
+	if resp == nil || resp.Resp == nil {
+		return false
+	}
+	mediaType, _, err := mime.ParseMediaType(resp.Resp.Header.Get("Content-Type"))
+	if err != nil || mediaType == "" || strings.EqualFold(mediaType, "application/octet-stream") {
+		if resp.Body == "" {
+			return false
+		}
+		body := resp.Body
+		if len(body) > sniffLen {
+			body = body[:sniffLen]
+		}
+		mediaType, _, err = mime.ParseMediaType(http.DetectContentType([]byte(body)))
+		if err != nil {
+			return false
+		}
+	}
+	return isTextualMediaType(mediaType)
+}
+
+// sniffLen is the prefix http.DetectContentType examines; anything beyond it is
+// ignored by the algorithm, so there is no reason to copy more.
+const sniffLen = 512
+
 // bodyScrapeEndpointsParser parses scraped URLs from HTML body
 func bodyScrapeEndpointsParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	// Only scrape TEXTUAL bodies. pageBodyRegex matches `./x` and `../x`,
+	// which occur by chance in binary data: a 260KB PNG yields "./6" from its
+	// pixel bytes, that resolves against the image's own URL, and the crawler
+	// then requests a sibling path the site never served.
+	//
+	// The extension denylist cannot catch this. It rejects the ".png" the
+	// noise came FROM, while the mined string is extensionless and passes --
+	// so scraping a binary body launders denied-extension content into
+	// allowed-extension requests.
+	//
+	// A response with no declared type is sniffed, not skipped -- see
+	// isTextualResponse.
+	if !isTextualResponse(resp) {
+		return
+	}
+
 	endpoints := utils.ExtractBodyEndpoints(string(resp.Body))
 	for _, item := range endpoints {
 		navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(item, resp.Resp.Request.URL.String(), "html", "regex", resp))
