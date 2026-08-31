@@ -684,4 +684,26 @@ func TestBodyScrapeEndpointsParser_ContentTypeGate(t *testing.T) {
 			require.Equal(t, "https://example.com/test/endpoint.php", navigationRequests[0].URL, "could not get correct url")
 		})
 	}
+
+	t.Run("application/jsonfoo is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{"application/jsonfoo"}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a type that only contains application/json as a prefix must not be mined")
+	})
+
+	t.Run("octet-stream with +json profile is sniffed", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{`application/octet-stream; profile="+json"`}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a +json parameter on octet-stream must not force scraping")
+	})
 }

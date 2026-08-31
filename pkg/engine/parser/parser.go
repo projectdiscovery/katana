@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -705,22 +706,23 @@ func scriptJSFileRegexParser(resp *navigation.Response) (navigationRequests []*n
 	return
 }
 
-// textualContentTypes are the response types worth regex-scraping for
-// endpoints. Anything else is binary as far as this parser is concerned.
+// isTextualMediaType reports whether a parsed MIME type is worth regex-scraping
+// for endpoints. Anything else is binary as far as this parser is concerned.
 //
-// "+xml" covers image/svg+xml deliberately: an SVG is XML text carrying
-// href/xlink:href and possibly a <script>, so it is a real endpoint source
-// despite the image/ prefix.
-var textualContentTypes = []string{
-	"text/",
-	"application/javascript",
-	"application/x-javascript",
-	"application/ecmascript",
-	"application/json",
-	"application/xml",
-	"application/xhtml+xml",
-	"+json",
-	"+xml",
+// Suffixes "+xml" / "+json" cover types such as image/svg+xml deliberately: an
+// SVG is XML text carrying href/xlink:href and possibly a <script>, so it is a
+// real endpoint source despite the image/ prefix.
+func isTextualMediaType(mediaType string) bool {
+	mediaType = strings.ToLower(mediaType)
+	if strings.HasPrefix(mediaType, "text/") {
+		return true
+	}
+	switch mediaType {
+	case "application/javascript", "application/x-javascript", "application/ecmascript",
+		"application/json", "application/xml", "application/xhtml+xml":
+		return true
+	}
+	return strings.HasSuffix(mediaType, "+json") || strings.HasSuffix(mediaType, "+xml")
 }
 
 // isTextualResponse reports whether resp's body should be regex-scraped for
@@ -737,8 +739,8 @@ func isTextualResponse(resp *navigation.Response) bool {
 	if resp == nil || resp.Resp == nil {
 		return false
 	}
-	contentType := strings.ToLower(resp.Resp.Header.Get("Content-Type"))
-	if contentType == "" || strings.Contains(contentType, "application/octet-stream") {
+	mediaType, _, err := mime.ParseMediaType(resp.Resp.Header.Get("Content-Type"))
+	if err != nil || mediaType == "" || strings.EqualFold(mediaType, "application/octet-stream") {
 		if resp.Body == "" {
 			return false
 		}
@@ -746,9 +748,12 @@ func isTextualResponse(resp *navigation.Response) bool {
 		if len(body) > sniffLen {
 			body = body[:sniffLen]
 		}
-		contentType = strings.ToLower(http.DetectContentType([]byte(body)))
+		mediaType, _, err = mime.ParseMediaType(http.DetectContentType([]byte(body)))
+		if err != nil {
+			return false
+		}
 	}
-	return stringsutil.ContainsAny(contentType, textualContentTypes...)
+	return isTextualMediaType(mediaType)
 }
 
 // sniffLen is the prefix http.DetectContentType examines; anything beyond it is
