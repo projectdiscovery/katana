@@ -10,6 +10,7 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/utils/errkit"
@@ -68,6 +69,37 @@ func validateOptions(options *types.Options) error {
 		if !options.Headless && !options.HeadlessHybrid {
 			options.Headless = true
 			gologger.Info().Msgf("Headless mode enabled automatically for authenticated crawling.")
+		}
+	}
+
+	if options.RecordedFlow != "" {
+		if !fileutil.FileExists(options.RecordedFlow) {
+			return errkit.New("recorded flow file does not exist")
+		}
+		// Recorded flows replay against the pure headless engine only.
+		if options.HeadlessHybrid {
+			options.HeadlessHybrid = false
+			gologger.Warning().Msgf("Recorded flow (-rf) requires pure headless mode; disabling -hh.")
+		}
+		if !options.Headless {
+			options.Headless = true
+			gologger.Info().Msgf("Headless mode enabled automatically for recorded flow.")
+		}
+
+		username, password := "", ""
+		if options.AuthCredentials != "" {
+			parts := strings.SplitN(options.AuthCredentials, ":", 2)
+			username = parts[0]
+			if len(parts) > 1 {
+				password = parts[1]
+			}
+		}
+		steps, err := auth.StepsFromFile(options.RecordedFlow, username, password)
+		if err != nil {
+			return errkit.Wrap(err, "invalid recorded flow")
+		}
+		if auth.NeedsCredentials(steps) && options.AuthCredentials == "" {
+			return errkit.New("recorded flow requires -auto-login username:password for credential placeholders")
 		}
 	}
 
