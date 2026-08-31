@@ -20,6 +20,9 @@ Disallow: /test/misc/known-files/robots.txt.found
 User-agent: *
 Disallow: /test/includes/
 
+User-agent: *
+Allow: /test/public/api
+
 # User-agent: Googlebot
 # Allow: /random/
 
@@ -35,5 +38,7 @@ Sitemap: https://example.com/sitemap.xml`
 	require.ElementsMatch(t, requests, []string{
 		"http://localhost/test/includes/",
 		"http://localhost/test/misc/known-files/robots.txt.found",
+		"http://localhost/test/public/api",
 	}, "could not get correct elements")
 }
+

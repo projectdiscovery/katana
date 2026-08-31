@@ -291,9 +291,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	case <-time.After(200 * time.Millisecond):
 	}
 
+	maxLinks := c.Options.Options.MaxOnclickLinks
 	clickableLinks, err := page.Elements("a[onclick]")
-	if err == nil && len(clickableLinks) > 0 {
-		maxLinks := c.Options.Options.MaxOnclickLinks
+	if maxLinks > 0 && err == nil && len(clickableLinks) > 0 {
 		linksToProcess := len(clickableLinks)
 		if linksToProcess > maxLinks {
 			linksToProcess = maxLinks
