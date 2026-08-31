@@ -383,7 +383,7 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		chromeLauncher.Set("no-sandbox", "true")
 	}
 
-	if options.Options.Proxy != "" && options.Options.Headless {
+	if options.Options.Proxy != "" {
 		proxyURL, err := urlutil.Parse(options.Options.Proxy)
 		if err != nil {
 			return nil, err
@@ -391,6 +391,8 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		chromeLauncher.Set("proxy-server", proxyURL.String())
 		// Same implicit-bypass problem as the browser-context path above: without
 		// this, a launched Chrome ignores the proxy for loopback targets.
+		// Applied whenever a proxy is set, including -hh (Headless is mutually
+		// exclusive with HeadlessHybrid, so the previous Headless guard never ran).
 		chromeLauncher.Set("proxy-bypass-list", proxyBypassList(options.Options.Proxy))
 	}
 
