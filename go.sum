@@ -339,8 +339,8 @@ github.com/projectdiscovery/ratelimit v0.0.88 h1:AcurW9aLRzlEyPe9kSjnOpr3XzLMWTp
 github.com/projectdiscovery/ratelimit v0.0.88/go.mod h1:CU1s+68UUG2mctSl2wi32/DHLJA6TMg+4rxgP59LfVk=
 github.com/projectdiscovery/retryabledns v1.0.115 h1:RKV63FNIznFHUoawg/1hs53pVH3wqPtFhwstCuxVSoA=
 github.com/projectdiscovery/retryabledns v1.0.115/go.mod h1:+fEMWoPigw+M0lGNKY7AZ+g8FIgj+4sONjsinMmeL3k=
-github.com/projectdiscovery/retryablehttp-go v1.3.23 h1:s5gsGP7sWJvss1Xeb06Y5TRux8pXvA/xXPCWdPBHOQ8=
-github.com/projectdiscovery/retryablehttp-go v1.3.23/go.mod h1:dnzMyBzMmaTHYp5caYCd8mge23qhTGcBjIJ9SagdQ4Q=
+github.com/projectdiscovery/retryablehttp-go v1.3.24 h1:bODdeUEka/U5SS9wfnhoAjBRg1wq/AJdwb9CUNIOR88=
+github.com/projectdiscovery/retryablehttp-go v1.3.24/go.mod h1:OL5zZEBd59GXEMaDjEHW/bfGlFsV441ADz64hWajgxc=
 github.com/projectdiscovery/utils v0.11.2-0.20260815171005-eb8925425716 h1:zoDnj6xAqCvIQuP/bV5COuje2kjZV7THKTuDRdvyXgI=
 github.com/projectdiscovery/utils v0.11.2-0.20260815171005-eb8925425716/go.mod h1:RtBO9urHlfN3aAEzhZz5m1/ZeJDq6U1Ka34lGWleuS8=
 github.com/projectdiscovery/wappalyzergo v0.2.95 h1:XHjbQVrrxusezFq7ciWmtznPKWhpr/srWp7Yk2noxqg=
