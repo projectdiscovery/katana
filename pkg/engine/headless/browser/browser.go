@@ -151,6 +151,9 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 
 		if l.opts.Proxy != "" {
 			chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
+			// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
+			// unless that implicit rule is subtracted. Same token as hybrid.
+			chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
 		}
 
 		if l.opts.NoSandbox {
