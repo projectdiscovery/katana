@@ -67,4 +67,21 @@ func TestValidateHeadlessFlags(t *testing.T) {
 		err := validateOptions(opts)
 		require.NoError(t, err)
 	})
+
+	t.Run("no-sandbox with hybrid mode succeeds", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.HeadlessHybrid = true
+		opts.HeadlessNoSandbox = true
+		err := validateOptions(opts)
+		require.NoError(t, err)
+	})
+
+	t.Run("auth credentials automatically enables headless mode when none set", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AuthCredentials = "admin:password123"
+		err := validateOptions(opts)
+		require.NoError(t, err)
+		require.True(t, opts.Headless)
+	})
 }
+
