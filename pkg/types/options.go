@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/projectdiscovery/goflags"
@@ -279,19 +280,23 @@ func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
 }
 
+var configureOutputOnce sync.Once
+
 // ConfigureOutput configures the output logging levels to be displayed on the screen
 func (options *Options) ConfigureOutput() {
-	if options.Silent {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
-	} else if options.Verbose {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
-	} else if options.Debug {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
-	} else {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
-	}
+	configureOutputOnce.Do(func() {
+		if options.Silent {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
+		} else if options.Verbose {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
+		} else if options.Debug {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelDebug)
+		} else {
+			gologger.DefaultLogger.SetMaxLevel(levels.LevelInfo)
+		}
 
-	logutil.DisableDefaultLogger()
+		logutil.DisableDefaultLogger()
+	})
 }
 
 // ContentSimilarityEnabled reports whether Layer-2 page content similarity is on.
