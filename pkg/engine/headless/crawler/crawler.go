@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -172,6 +173,32 @@ func (c *Crawler) GetCrawlGraph() *graph.CrawlGraph {
 	return c.crawlGraph
 }
 
+// Paths returns replayable paths from the entrypoint to every discovered location.
+func (c *Crawler) Paths() ([]*types.Path, error) {
+	if c == nil || c.crawlGraph == nil {
+		return nil, nil
+	}
+	return c.crawlGraph.AllPathsFromRoot()
+}
+
+func (c *Crawler) writePathsExport() error {
+	if c.crawlGraph == nil || c.options.DiagnosticsDir == "" {
+		return nil
+	}
+	paths, err := c.Paths()
+	if err != nil {
+		return err
+	}
+	if paths == nil {
+		paths = []*types.Path{}
+	}
+	data, err := json.MarshalIndent(paths, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(c.options.DiagnosticsDir, "paths.json"), data, 0644)
+}
+
 func (c *Crawler) Crawl(URL string) error {
 	defer func() {
 		if c.diagnostics == nil {
@@ -180,6 +207,9 @@ func (c *Crawler) Crawl(URL string) error {
 		err := c.crawlGraph.DrawGraph(filepath.Join(c.options.DiagnosticsDir, "crawl-graph.dot"))
 		if err != nil {
 			c.logger.Error("Failed to draw crawl graph", slog.String("error", err.Error()))
+		}
+		if err := c.writePathsExport(); err != nil {
+			c.logger.Error("Failed to write paths export", slog.String("error", err.Error()))
 		}
 	}()
 
