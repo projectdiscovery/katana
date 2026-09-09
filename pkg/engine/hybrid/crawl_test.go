@@ -7,6 +7,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,4 +91,52 @@ func TestDOMGetDocumentTimeoutDoesNotBlockHTML(t *testing.T) {
 	body, err := basePage.Timeout(5 * time.Second).HTML()
 	require.NoError(t, err, "HTML retrieval should succeed with fresh timeout from basePage")
 	require.NotEmpty(t, body, "HTML body should not be empty")
+}
+
+func launchExternalBrowser(t *testing.T) (*rod.Browser, string) {
+	t.Helper()
+	path, _ := launcher.LookPath()
+	if path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	wsURL, err := launcher.New().Leakless(true).Launch()
+	if err != nil {
+		t.Skipf("could not launch browser: %v", err)
+	}
+	browser := rod.New().ControlURL(wsURL).MustConnect()
+	t.Cleanup(func() { _ = browser.Close() })
+
+	return browser, wsURL
+}
+
+func TestCloseLeavesAttachedBrowserRunning(t *testing.T) {
+	for _, noIncognito := range []bool{true, false} {
+		name := "incognito"
+		if noIncognito {
+			name = "no-incognito"
+		}
+		t.Run(name, func(t *testing.T) {
+			external, wsURL := launchExternalBrowser(t)
+
+			options, err := types.NewCrawlerOptions(&types.Options{
+				ChromeWSUrl:         wsURL,
+				HeadlessNoIncognito: noIncognito,
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = options.Close() })
+
+			crawler, err := New(options)
+			require.NoError(t, err)
+			require.NoError(t, crawler.Close())
+
+			version, err := proto.BrowserGetVersion{}.Call(external)
+			require.NoError(t, err, "attached browser should outlive crawler.Close")
+			require.NotEmpty(t, version.Product)
+
+			page, err := external.Page(proto.TargetCreateTarget{})
+			require.NoError(t, err, "attached browser should still serve new pages")
+			_ = page.Close()
+		})
+	}
 }
