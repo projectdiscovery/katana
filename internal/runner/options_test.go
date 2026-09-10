@@ -42,6 +42,28 @@ func TestValidatePageLoadStrategy(t *testing.T) {
 	})
 }
 
+func TestValidateCrawlStrategy(t *testing.T) {
+	t.Run("requires headless mode", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.CrawlStrategy = "fast"
+		err := validateOptions(opts)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "-crawl-strategy requires")
+	})
+
+	t.Run("applies preset when headless", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.Headless = true
+		opts.CrawlStrategy = "fast"
+		opts.MaxDepth = 99
+		err := validateOptions(opts)
+		require.NoError(t, err)
+		require.Equal(t, 2, opts.MaxDepth)
+		require.Equal(t, "domcontentloaded", opts.PageLoadStrategy)
+		require.Equal(t, 0, opts.DOMWaitTime)
+	})
+}
+
 func TestValidateHeadlessFlags(t *testing.T) {
 	t.Run("headless and hybrid are mutually exclusive", func(t *testing.T) {
 		opts := newTestOptions()
