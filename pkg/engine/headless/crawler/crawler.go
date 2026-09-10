@@ -39,9 +39,10 @@ type Crawler struct {
 	crawlGraph     *graph.CrawlGraph
 	simhashOracle  *simhash.Oracle
 	uniqueActions  map[string]struct{}
-	linkIdentities []*cartography.LinkIdentity
-	diagnostics    diagnostics.Writer
-	loggedIn       bool
+	linkIdentities  []*cartography.LinkIdentity
+	explosionBudget *cartography.ExplosionBudget
+	diagnostics     diagnostics.Writer
+	loggedIn        bool
 }
 
 type Options struct {
@@ -87,6 +88,11 @@ type Options struct {
 
 	// LinkIdentity enables volatile-door dedupe across revisits (default on when budget > 0).
 	LinkIdentityBudget int
+
+	// ExplosionBudget is how many near-duplicate page locations to fully explore (0 = default 1, -1 = off).
+	ExplosionBudget int
+	// ExplosionHamming is the max simhash distance for explosion clustering (default 3).
+	ExplosionHamming int
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -164,6 +170,13 @@ func New(opts Options) (*Crawler, error) {
 		uniqueActions: make(map[string]struct{}),
 		diagnostics:   diagnosticsWriter,
 		simhashOracle: simhash.NewOracle(),
+	}
+	if opts.ExplosionBudget >= 0 {
+		budget := opts.ExplosionBudget
+		if budget == 0 {
+			budget = 1
+		}
+		crawler.explosionBudget = cartography.NewExplosionBudget(budget, opts.ExplosionHamming)
 	}
 	return crawler, nil
 }
@@ -448,6 +461,17 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 	pageState.OriginID = currentPageHash
+
+	if c.explosionBudget != nil && !c.explosionBudget.Allow(pageState.SimHash) {
+		c.logger.Debug("Skipping page state - explosion budget exhausted",
+			slog.String("url", pageState.URL),
+			slog.Uint64("simhash", pageState.SimHash),
+		)
+		if c.crawlQueue.Size() == 0 {
+			return ErrNoCrawlingAction
+		}
+		return nil
+	}
 
 	if c.options.ScopeValidator != nil {
 		if !c.options.ScopeValidator(pageState.URL) {
