@@ -120,9 +120,10 @@ func TestCancelDuringElementInteraction(t *testing.T) {
 		Concurrency:  1,
 		Parallelism:  1,
 		RateLimit:    150,
-		Strategy:     "depth-first",
-		Headless:     true,
-		OnResult:     func(output.Result) {},
+		Strategy:          "depth-first",
+		Headless:          true,
+		HeadlessNoSandbox: true,
+		OnResult:          func(output.Result) {},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = options.Close() })
