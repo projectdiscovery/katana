@@ -565,3 +565,145 @@ func TestDataURIFiltering(t *testing.T) {
 		require.Equal(t, 0, len(navigationRequests), "Expected all invalid URIs to be filtered out")
 	})
 }
+
+// A PNG's pixel bytes contain byte sequences that pageBodyRegex matches -- most
+// commonly "./6" -- and the mined string then resolves against the image's own
+// URL, so the crawler requests a sibling resource the site never served
+// (e.g. /images/products/10.png -> /images/products/6, 404).
+//
+// katana's extension denylist cannot prevent this: it rejects the ".png" the
+// noise came FROM, while the mined path is extensionless and passes.
+func TestBodyScrapeEndpointsParser_ContentTypeGate(t *testing.T) {
+	parsed, _ := urlutil.Parse("https://example.com/images/products/10.png")
+
+	// Minimal PNG header plus a chunk of bytes containing the "./6" sequence
+	// that a real image yields; the regex only needs the literal to be present
+	// in the body.
+	binaryBody := "\x89PNG\r\n\x1a\n\x00\x10\xff\xfe\"./6\"\x00\x01\x02\x03"
+
+	t.Run("binary body is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{"image/png"}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a binary response body must not be mined for endpoints")
+	})
+
+	// No declared type: the BODY decides, not the absence of a header. Binary
+	// content is still refused, by its magic bytes.
+	t.Run("untyped binary body is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{Request: &http.Request{URL: parsed.URL}},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "an untyped binary body must not be mined for endpoints")
+	})
+
+	// ... and untyped TEXT is still scraped. Servers on embedded devices and
+	// appliance interfaces routinely omit Content-Type; skipping those would
+	// trade one silent coverage gap for another.
+	t.Run("untyped text body is scraped", func(t *testing.T) {
+		htmlParsed, _ := urlutil.Parse("https://example.com/index.html")
+		resp := &navigation.Response{
+			Resp: &http.Response{Request: &http.Request{URL: htmlParsed.URL}},
+			Body: `<html><body><a href="/x">y</a><script>var u = "./test/endpoint.php";</script></body></html>`,
+		}
+		navigationRequests := bodyScrapeEndpointsParser(resp)
+		require.NotEmpty(t, navigationRequests, "an untyped HTML body must still be scraped")
+		require.Equal(t, "https://example.com/test/endpoint.php", navigationRequests[0].URL, "could not get correct url")
+	})
+
+	// application/octet-stream is the generic "I do not know" default, so it
+	// gets the same treatment as no header at all: sniff the body.
+	t.Run("octet-stream text body is scraped", func(t *testing.T) {
+		htmlParsed, _ := urlutil.Parse("https://example.com/app.js")
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: htmlParsed.URL},
+				Header:  http.Header{"Content-Type": []string{"application/octet-stream"}},
+			},
+			Body: `window.location = "./test/endpoint.php";`,
+		}
+		require.NotEmpty(t, bodyScrapeEndpointsParser(resp), "a mislabelled text body must still be scraped")
+	})
+
+	t.Run("octet-stream binary body is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{"application/octet-stream"}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a mislabelled binary body must not be mined for endpoints")
+	})
+
+	// SVG is XML text carrying href/xlink:href and possibly a <script>, so it
+	// is scraped despite the image/ prefix. Not an accident of the "+xml"
+	// match -- pinned here on purpose.
+	t.Run("image/svg+xml is scraped", func(t *testing.T) {
+		svgParsed, _ := urlutil.Parse("https://example.com/logo.svg")
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: svgParsed.URL},
+				Header:  http.Header{"Content-Type": []string{"image/svg+xml"}},
+			},
+			Body: `<svg xmlns="http://www.w3.org/2000/svg"><a href="./test/endpoint.php"/></svg>`,
+		}
+		var got []string
+		for _, req := range bodyScrapeEndpointsParser(resp) {
+			got = append(got, req.URL)
+		}
+		// The xmlns declaration is mined too, so assert membership rather than
+		// position.
+		require.Contains(t, got, "https://example.com/test/endpoint.php", "an SVG is XML text and must still be scraped")
+	})
+
+	// The parser must keep working for everything it is actually for.
+	for _, contentType := range []string{
+		"text/html; charset=utf-8",
+		"text/plain",
+		"application/javascript",
+		"application/json",
+		"application/xhtml+xml",
+	} {
+		t.Run(contentType+" is scraped", func(t *testing.T) {
+			htmlParsed, _ := urlutil.Parse("https://example.com/index.html")
+			resp := &navigation.Response{
+				Resp: &http.Response{
+					Request: &http.Request{URL: htmlParsed.URL},
+					Header:  http.Header{"Content-Type": []string{contentType}},
+				},
+				Body: `window.location = "./test/endpoint.php";`,
+			}
+			navigationRequests := bodyScrapeEndpointsParser(resp)
+			require.NotEmpty(t, navigationRequests, "a textual body must still be scraped")
+			require.Equal(t, "https://example.com/test/endpoint.php", navigationRequests[0].URL, "could not get correct url")
+		})
+	}
+
+	t.Run("application/jsonfoo is not scraped", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{"application/jsonfoo"}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a type that only contains application/json as a prefix must not be mined")
+	})
+
+	t.Run("octet-stream with +json profile is sniffed", func(t *testing.T) {
+		resp := &navigation.Response{
+			Resp: &http.Response{
+				Request: &http.Request{URL: parsed.URL},
+				Header:  http.Header{"Content-Type": []string{`application/octet-stream; profile="+json"`}},
+			},
+			Body: binaryBody,
+		}
+		require.Empty(t, bodyScrapeEndpointsParser(resp), "a +json parameter on octet-stream must not force scraping")
+	})
+}

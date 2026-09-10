@@ -29,6 +29,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/rs/xid"
 )
 
@@ -53,10 +54,10 @@ type LauncherOptions struct {
 	Trace               bool
 	CookieConsentBypass bool
 	PageLoadStrategy    string
-	ChromeWSUrl         string // WebSocket URL to connect to existing Chrome
-	DOMWaitTime         int    // Time in seconds to wait for DOM (used with domcontentloaded strategy)
-	UserDataDir         string // User-provided chrome data directory to preserve sessions
-	ChromeUser          *user.User // optional chrome user to use
+	ChromeWSUrl         string            // WebSocket URL to connect to existing Chrome
+	DOMWaitTime         int               // Time in seconds to wait for DOM (used with domcontentloaded strategy)
+	UserDataDir         string            // User-provided chrome data directory to preserve sessions
+	ChromeUser          *user.User        // optional chrome user to use
 	UserArguments       map[string]string // user-supplied Chrome flags via -headless-options
 
 	ScopeValidator  ScopeValidator
@@ -76,7 +77,7 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	if opts.DOMWaitTime <= 0 {
 		opts.DOMWaitTime = 1
 	}
-	
+
 	l := &Launcher{
 		opts:        opts,
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
@@ -112,7 +113,7 @@ func (l *Launcher) shouldPreserveUserDataDir(tempDir string) bool {
 
 func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
 	var launcherURL string
-	
+
 	// If ChromeWSUrl is provided, connect to existing Chrome instead of launching new one
 	if l.opts.ChromeWSUrl != "" {
 		launcherURL = l.opts.ChromeWSUrl
@@ -151,6 +152,9 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 
 		if l.opts.Proxy != "" {
 			chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
+			// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
+			// unless that implicit rule is subtracted. Same token as hybrid.
+			chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
 		}
 
 		if l.opts.NoSandbox {
@@ -163,6 +167,12 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 
 		if l.opts.ChromiumPath != "" {
 			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+		} else if !l.opts.ShowBrowser && chromeshell.Supported() {
+			// Prefer chrome-headless-shell on linux/amd64 for headless crawls;
+			// skip when headed since the shell binary cannot show a UI.
+			if shellPath, err := chromeshell.Ensure(); err == nil {
+				chromeLauncher = chromeLauncher.Bin(shellPath)
+			}
 		}
 
 		if userDataDir != "" {
@@ -248,17 +258,17 @@ var defaultWaitOptions = WaitOptions{
 func (b *BrowserPage) WaitPageLoadHeurisitics() error {
 	// Respect the page load strategy from launcher options
 	strategy := b.launcher.opts.PageLoadStrategy
-	
+
 	switch strategy {
 	case "none":
 		// Don't wait at all, return immediately
 		return nil
-		
+
 	case "load":
 		// Just wait for the load event
 		chained := b.Timeout(15 * time.Second)
 		return chained.WaitLoad()
-		
+
 	case "domcontentloaded":
 		// WaitLoad checks document.readyState via JS, so it's safe to call
 		// after Navigate() has already started (no race with missed events).
@@ -268,14 +278,14 @@ func (b *BrowserPage) WaitPageLoadHeurisitics() error {
 			time.Sleep(time.Duration(b.launcher.opts.DOMWaitTime) * time.Second)
 		}
 		return nil
-		
+
 	case "networkidle":
 		// Wait for network activity to stop
 		chained := b.Timeout(15 * time.Second)
 		_ = chained.WaitLoad()
 		_ = chained.WaitIdle(2 * time.Second)
 		return nil
-		
+
 	case "heuristic":
 		fallthrough
 	default:
@@ -364,7 +374,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	// since we're connecting to an existing browser
 	var tempDir string
 	shouldCleanupTempDir := false
-	
+
 	if l.opts.ChromeWSUrl == "" {
 		if l.opts.UserDataDir != "" {
 			// Use user-provided data directory (preserve sessions/cookies)

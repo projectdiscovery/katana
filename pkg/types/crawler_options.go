@@ -213,7 +213,10 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 		crawlerOptions.Extractors = append(crawlerOptions.Extractors, endpoints.New())
 	}
 
-	if options.MaxOnclickLinks <= 0 {
+	// Only 0 means "unset, use the default"; a negative value explicitly
+	// DISABLES the onclick-click simulation. Treating <= 0 as unset left no way
+	// to turn the feature off, since 0 was indistinguishable from unset.
+	if options.MaxOnclickLinks == 0 {
 		options.MaxOnclickLinks = 10
 	}
 

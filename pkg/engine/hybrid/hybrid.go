@@ -1,19 +1,23 @@
 package hybrid
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/cdp"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"github.com/remeh/sizedwaitgroup"
@@ -23,6 +27,7 @@ import (
 type browserAgent struct {
 	browser        *rod.Browser
 	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
+	cdpWS          *cdp.WebSocket
 	tempDir        string
 	ownsTempDir    bool
 }
@@ -34,6 +39,18 @@ type Crawler struct {
 	agents []*browserAgent
 	// browser is the first agent, kept for callers/tests that expect a primary handle.
 	browser *rod.Browser
+}
+
+// proxyBypassList returns the Chrome proxy bypass list to use for proxy.
+func proxyBypassList(proxy string) string {
+	if proxy == "" {
+		return ""
+	}
+	return "<-loopback>"
+}
+
+func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
+	return chromeLauncher != nil || browser.BrowserContextID != ""
 }
 
 // New returns a new standard crawler instance
@@ -110,8 +127,22 @@ func launchBrowserAgent(options *types.CrawlerOptions, index int) (*browserAgent
 		}
 	}
 
-	browser := rod.New().ControlURL(launcherURL)
+	dialCtx, dialCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cdpWS := &cdp.WebSocket{}
+	wsErr := cdpWS.Connect(dialCtx, launcherURL, nil)
+	dialCancel()
+	if wsErr != nil {
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+		if ownsTempDir {
+			_ = os.RemoveAll(dataStore)
+		}
+		return nil, errkit.Wrap(wsErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
+	}
+	browser := rod.New().Client(cdp.New().Start(cdpWS))
 	if browserErr := browser.Connect(); browserErr != nil {
+		_ = cdpWS.Close()
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
 		}
@@ -121,24 +152,38 @@ func launchBrowserAgent(options *types.CrawlerOptions, index int) (*browserAgent
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
-	if !options.Options.HeadlessNoIncognito {
-		incognito, err := browser.Incognito()
-		if err != nil {
+	owned := false
+	defer func() {
+		if owned {
+			return
+		}
+		if ownsBrowser(browser, chromeLauncher) {
 			_ = browser.Close()
-			if chromeLauncher != nil {
-				chromeLauncher.Kill()
-			}
-			if ownsTempDir {
-				_ = os.RemoveAll(dataStore)
-			}
+		}
+		_ = cdpWS.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+	}()
+
+	if !options.Options.HeadlessNoIncognito {
+		res, err := proto.TargetCreateBrowserContext{
+			ProxyServer:     options.Options.Proxy,
+			ProxyBypassList: proxyBypassList(options.Options.Proxy),
+		}.Call(browser)
+		if err != nil {
 			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
-		browser = incognito
+		incognito := *browser
+		incognito.BrowserContextID = res.BrowserContextID
+		browser = &incognito
 	}
 
+	owned = true
 	return &browserAgent{
 		browser:        browser,
 		chromeLauncher: chromeLauncher,
+		cdpWS:          cdpWS,
 		tempDir:        dataStore,
 		ownsTempDir:    ownsTempDir,
 	}, nil
@@ -148,8 +193,11 @@ func (a *browserAgent) close() error {
 	if a == nil {
 		return nil
 	}
-	if a.browser != nil {
+	if a.browser != nil && ownsBrowser(a.browser, a.chromeLauncher) {
 		_ = a.browser.Close()
+	}
+	if a.cdpWS != nil {
+		_ = a.cdpWS.Close()
 	}
 	if a.chromeLauncher != nil {
 		a.chromeLauncher.Kill()
@@ -354,9 +402,12 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 				return nil, errkit.New("hybrid: the chrome browser is not installed")
 			}
 		}
-	}
-	if options.Options.SystemChromePath != "" {
+	} else if options.Options.SystemChromePath != "" {
 		chromeLauncher.Bin(options.Options.SystemChromePath)
+	} else if !options.Options.ShowBrowser && chromeshell.Supported() {
+		if shellPath, err := chromeshell.Ensure(); err == nil {
+			chromeLauncher.Bin(shellPath)
+		}
 	}
 
 	if options.Options.ShowBrowser {
@@ -369,12 +420,13 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		chromeLauncher.Set("no-sandbox", "true")
 	}
 
-	if options.Options.Proxy != "" && options.Options.Headless {
+	if options.Options.Proxy != "" {
 		proxyURL, err := urlutil.Parse(options.Options.Proxy)
 		if err != nil {
 			return nil, err
 		}
 		chromeLauncher.Set("proxy-server", proxyURL.String())
+		chromeLauncher.Set("proxy-bypass-list", proxyBypassList(options.Options.Proxy))
 	}
 
 	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
