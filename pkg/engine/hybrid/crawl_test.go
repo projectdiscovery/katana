@@ -1,12 +1,17 @@
 package hybrid
 
 import (
+	"math"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,4 +95,37 @@ func TestDOMGetDocumentTimeoutDoesNotBlockHTML(t *testing.T) {
 	body, err := basePage.Timeout(5 * time.Second).HTML()
 	require.NoError(t, err, "HTML retrieval should succeed with fresh timeout from basePage")
 	require.NotEmpty(t, body, "HTML body should not be empty")
+}
+
+func TestZeroTimeStableDoesNotPanic(t *testing.T) {
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><a href="/a">a</a></body></html>`))
+	}))
+	defer srv.Close()
+
+	options, err := types.NewCrawlerOptions(&types.Options{
+		MaxDepth:     1,
+		FieldScope:   "rdn",
+		BodyReadSize: math.MaxInt,
+		Timeout:      10,
+		Concurrency:  1,
+		Parallelism:  1,
+		RateLimit:    150,
+		Strategy:     "depth-first",
+		Headless:     true,
+		OnResult:     func(output.Result) {},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = options.Close() })
+
+	crawler, err := New(options)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = crawler.Close() })
+
+	require.NoError(t, crawler.Crawl(srv.URL))
 }

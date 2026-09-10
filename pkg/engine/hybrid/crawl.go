@@ -279,8 +279,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
 		}
 
-		if err := page.WaitStable(timeStable); err != nil {
-			gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+		if timeStable > 0 {
+			if err := page.WaitStable(timeStable); err != nil {
+				gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+			}
 		}
 	}
 
