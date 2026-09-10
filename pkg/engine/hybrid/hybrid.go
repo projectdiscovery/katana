@@ -116,7 +116,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		if owned {
 			return
 		}
-		_ = browser.Close()
+		if ownsBrowser(browser, chromeLauncher) {
+			_ = browser.Close()
+		}
 		_ = cdpWS.Close()
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
@@ -170,9 +172,13 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	return crawler, nil
 }
 
+func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
+	return chromeLauncher != nil || browser.BrowserContextID != ""
+}
+
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	if c.browser != nil {
+	if c.browser != nil && ownsBrowser(c.browser, c.chromeLauncher) {
 		_ = c.browser.Close()
 	}
 	if c.cdpWS != nil {

@@ -111,15 +111,15 @@ func TestCancelDuringElementInteraction(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	options, err := types.NewCrawlerOptions(&types.Options{
-		Context:      ctx,
-		MaxDepth:     2,
-		FieldScope:   "rdn",
-		BodyReadSize: math.MaxInt,
-		Timeout:      600,
-		TimeStable:   1,
-		Concurrency:  1,
-		Parallelism:  1,
-		RateLimit:    150,
+		Context:           ctx,
+		MaxDepth:          2,
+		FieldScope:        "rdn",
+		BodyReadSize:      math.MaxInt,
+		Timeout:           600,
+		TimeStable:        1,
+		Concurrency:       1,
+		Parallelism:       1,
+		RateLimit:         150,
 		Strategy:          "depth-first",
 		Headless:          true,
 		HeadlessNoSandbox: true,
@@ -142,5 +142,53 @@ func TestCancelDuringElementInteraction(t *testing.T) {
 	case <-done:
 	case <-time.After(30 * time.Second):
 		t.Fatal("Crawl did not return after context cancellation")
+	}
+}
+
+func launchExternalBrowser(t *testing.T) (*rod.Browser, string) {
+	t.Helper()
+	path, _ := launcher.LookPath()
+	if path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	wsURL, err := launcher.New().Leakless(true).Launch()
+	if err != nil {
+		t.Skipf("could not launch browser: %v", err)
+	}
+	browser := rod.New().ControlURL(wsURL).MustConnect()
+	t.Cleanup(func() { _ = browser.Close() })
+
+	return browser, wsURL
+}
+
+func TestCloseLeavesAttachedBrowserRunning(t *testing.T) {
+	for _, noIncognito := range []bool{true, false} {
+		name := "incognito"
+		if noIncognito {
+			name = "no-incognito"
+		}
+		t.Run(name, func(t *testing.T) {
+			external, wsURL := launchExternalBrowser(t)
+
+			options, err := types.NewCrawlerOptions(&types.Options{
+				ChromeWSUrl:         wsURL,
+				HeadlessNoIncognito: noIncognito,
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = options.Close() })
+
+			crawler, err := New(options)
+			require.NoError(t, err)
+			require.NoError(t, crawler.Close())
+
+			version, err := proto.BrowserGetVersion{}.Call(external)
+			require.NoError(t, err, "attached browser should outlive crawler.Close")
+			require.NotEmpty(t, version.Product)
+
+			page, err := external.Page(proto.TargetCreateTarget{})
+			require.NoError(t, err, "attached browser should still serve new pages")
+			_ = page.Close()
+		})
 	}
 }
