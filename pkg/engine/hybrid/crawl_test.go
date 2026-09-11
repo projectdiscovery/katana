@@ -192,3 +192,38 @@ func TestCloseLeavesAttachedBrowserRunning(t *testing.T) {
 		})
 	}
 }
+
+func TestZeroTimeStableDoesNotPanic(t *testing.T) {
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><a href="/a">a</a></body></html>`))
+	}))
+	defer srv.Close()
+
+	options, err := types.NewCrawlerOptions(&types.Options{
+		MaxDepth:          1,
+		FieldScope:        "rdn",
+		BodyReadSize:      math.MaxInt,
+		Timeout:           10,
+		TimeStable:        0,
+		Concurrency:       1,
+		Parallelism:       1,
+		RateLimit:         150,
+		Strategy:          "depth-first",
+		Headless:          true,
+		HeadlessNoSandbox: true,
+		OnResult:          func(output.Result) {},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = options.Close() })
+
+	crawler, err := New(options)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = crawler.Close() })
+
+	require.NoError(t, crawler.Crawl(srv.URL))
+}
