@@ -10,6 +10,7 @@ import (
 
 	"github.com/lmittmann/tint"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	_ "github.com/projectdiscovery/katana/pkg/engine/headless/captcha/capsolver"
@@ -197,6 +198,14 @@ func (h *Headless) Crawl(URL string) error {
 		if len(parts) > 1 {
 			crawlOpts.AuthPassword = parts[1]
 		}
+	}
+
+	if path := h.options.Options.RecordedFlow; path != "" {
+		steps, err := auth.StepsFromFile(path, crawlOpts.AuthUsername, crawlOpts.AuthPassword)
+		if err != nil {
+			return err
+		}
+		crawlOpts.AuthSteps = steps
 	}
 
 	if provider := h.options.Options.CaptchaSolverProvider; provider != "" {

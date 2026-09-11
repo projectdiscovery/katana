@@ -121,7 +121,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			reqUrl = utils.FingerprintURL(reqUrl, s.PathTrie)
 		}
 
-		if s.Options.Options.AuthCredentials != "" && isLogoutURL(nr.URL) {
+		if (s.Options.Options.AuthCredentials != "" || s.Options.Options.RecordedFlow != "") && isLogoutURL(nr.URL) {
 			continue
 		}
 
