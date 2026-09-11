@@ -209,6 +209,7 @@ func TestZeroTimeStableDoesNotPanic(t *testing.T) {
 		FieldScope:        "rdn",
 		BodyReadSize:      math.MaxInt,
 		Timeout:           10,
+		TimeStable:        0,
 		Concurrency:       1,
 		Parallelism:       1,
 		RateLimit:         150,
