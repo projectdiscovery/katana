@@ -4,33 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
-// shellQuote quotes s for bash so Windows paths with backslashes and values
-// containing @/: don't get mangled by bash -c.
-func shellQuote(s string) string {
-	s = filepath.ToSlash(s)
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
 func RunKatanaBinaryAndGetResults(target string, katanaBinary string, debug bool, args []string) ([]string, error) {
-	quotedArgs := make([]string, 0, len(args))
-	for _, a := range args {
-		quotedArgs = append(quotedArgs, shellQuote(a))
-	}
-
-	cmdLine := fmt.Sprintf(`echo %s | %s %s`,
-		shellQuote(target),
-		shellQuote(katanaBinary),
-		strings.Join(quotedArgs, " "),
-	)
 	if debug {
-		fmt.Printf("cmd: %s\n", cmdLine)
+		fmt.Printf("cmd: echo %s | %s %s\n", target, katanaBinary, strings.Join(args, " "))
 	}
 
-	cmd := exec.Command("bash", "-c", cmdLine)
+	cmd := exec.Command(katanaBinary, args...)
+	cmd.Stdin = strings.NewReader(target + "\n")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
