@@ -34,7 +34,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		RootHostname: s.Hostname,
 	}
 
-	page, err := s.Browser.Page(proto.TargetCreateTarget{})
+	page, err := s.Browser.Context(s.Ctx).Page(proto.TargetCreateTarget{})
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}

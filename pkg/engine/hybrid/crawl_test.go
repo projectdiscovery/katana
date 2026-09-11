@@ -1,6 +1,7 @@
 package hybrid
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -97,6 +98,101 @@ func TestDOMGetDocumentTimeoutDoesNotBlockHTML(t *testing.T) {
 	require.NotEmpty(t, body, "HTML body should not be empty")
 }
 
+func TestCancelDuringElementInteraction(t *testing.T) {
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><a href="#" onclick="while(true){}">x</a></body></html>`))
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	options, err := types.NewCrawlerOptions(&types.Options{
+		Context:           ctx,
+		MaxDepth:          2,
+		FieldScope:        "rdn",
+		BodyReadSize:      math.MaxInt,
+		Timeout:           600,
+		TimeStable:        1,
+		Concurrency:       1,
+		Parallelism:       1,
+		RateLimit:         150,
+		Strategy:          "depth-first",
+		Headless:          true,
+		HeadlessNoSandbox: true,
+		OnResult:          func(output.Result) {},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = options.Close() })
+
+	crawler, err := New(options)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = crawler.Close() })
+
+	done := make(chan error, 1)
+	go func() { done <- crawler.Crawl(srv.URL) }()
+
+	time.Sleep(5 * time.Second)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Crawl did not return after context cancellation")
+	}
+}
+
+func launchExternalBrowser(t *testing.T) (*rod.Browser, string) {
+	t.Helper()
+	path, _ := launcher.LookPath()
+	if path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	wsURL, err := launcher.New().Leakless(true).Launch()
+	if err != nil {
+		t.Skipf("could not launch browser: %v", err)
+	}
+	browser := rod.New().ControlURL(wsURL).MustConnect()
+	t.Cleanup(func() { _ = browser.Close() })
+
+	return browser, wsURL
+}
+
+func TestCloseLeavesAttachedBrowserRunning(t *testing.T) {
+	for _, noIncognito := range []bool{true, false} {
+		name := "incognito"
+		if noIncognito {
+			name = "no-incognito"
+		}
+		t.Run(name, func(t *testing.T) {
+			external, wsURL := launchExternalBrowser(t)
+
+			options, err := types.NewCrawlerOptions(&types.Options{
+				ChromeWSUrl:         wsURL,
+				HeadlessNoIncognito: noIncognito,
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = options.Close() })
+
+			crawler, err := New(options)
+			require.NoError(t, err)
+			require.NoError(t, crawler.Close())
+
+			version, err := proto.BrowserGetVersion{}.Call(external)
+			require.NoError(t, err, "attached browser should outlive crawler.Close")
+			require.NotEmpty(t, version.Product)
+
+			page, err := external.Page(proto.TargetCreateTarget{})
+			require.NoError(t, err, "attached browser should still serve new pages")
+			_ = page.Close()
+		})
+	}
+}
+
 func TestZeroTimeStableDoesNotPanic(t *testing.T) {
 	if path, _ := launcher.LookPath(); path == "" {
 		t.Skip("chrome/chromium not found, skipping browser test")
@@ -109,16 +205,17 @@ func TestZeroTimeStableDoesNotPanic(t *testing.T) {
 	defer srv.Close()
 
 	options, err := types.NewCrawlerOptions(&types.Options{
-		MaxDepth:     1,
-		FieldScope:   "rdn",
-		BodyReadSize: math.MaxInt,
-		Timeout:      10,
-		Concurrency:  1,
-		Parallelism:  1,
-		RateLimit:    150,
-		Strategy:     "depth-first",
-		Headless:     true,
-		OnResult:     func(output.Result) {},
+		MaxDepth:          1,
+		FieldScope:        "rdn",
+		BodyReadSize:      math.MaxInt,
+		Timeout:           10,
+		Concurrency:       1,
+		Parallelism:       1,
+		RateLimit:         150,
+		Strategy:          "depth-first",
+		Headless:          true,
+		HeadlessNoSandbox: true,
+		OnResult:          func(output.Result) {},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = options.Close() })
