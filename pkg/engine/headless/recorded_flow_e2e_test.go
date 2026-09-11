@@ -341,6 +341,8 @@ func TestE2E_Crawl_AuthDoesNotConsumeCrawlDuration(t *testing.T) {
 	t.Cleanup(c.Close)
 
 	require.NoError(t, c.Crawl(lab.URL+"/app/dashboard"))
-	require.GreaterOrEqual(t, lab.DashboardHits.Load(), int64(1),
+	// The login redirect accounts for the first hit, so a second one proves the
+	// crawl deadline started after the three-second auth flow.
+	require.GreaterOrEqual(t, lab.DashboardHits.Load(), int64(2),
 		"crawl duration must begin after the three-second auth flow")
 }

@@ -46,22 +46,29 @@ func TestCookieStateChanged(t *testing.T) {
 func TestSessionStateChanged(t *testing.T) {
 	t.Run("same-origin local storage supports token login", func(t *testing.T) {
 		require.True(t, SessionStateChanged(
-			SessionState{Origin: "https://app.example", LocalStorage: "[]"},
-			SessionState{Origin: "https://app.example", LocalStorage: `[["token","opaque"]]`},
+			SessionState{Origin: "https://app.example", LocalStorage: "[]", StorageCaptured: true},
+			SessionState{Origin: "https://app.example", LocalStorage: `[["token","opaque"]]`, StorageCaptured: true},
 		))
 	})
 
 	t.Run("same-origin session storage supports token login", func(t *testing.T) {
 		require.True(t, SessionStateChanged(
-			SessionState{Origin: "https://app.example", SessionStorage: "[]"},
-			SessionState{Origin: "https://app.example", SessionStorage: `[["token","opaque"]]`},
+			SessionState{Origin: "https://app.example", SessionStorage: "[]", StorageCaptured: true},
+			SessionState{Origin: "https://app.example", SessionStorage: `[["token","opaque"]]`, StorageCaptured: true},
 		))
 	})
 
 	t.Run("cross-origin storage is not proof", func(t *testing.T) {
 		require.False(t, SessionStateChanged(
-			SessionState{Origin: "https://idp.example", LocalStorage: "[]"},
-			SessionState{Origin: "https://app.example", LocalStorage: `[["theme","dark"]]`},
+			SessionState{Origin: "https://idp.example", LocalStorage: "[]", StorageCaptured: true},
+			SessionState{Origin: "https://app.example", LocalStorage: `[["theme","dark"]]`, StorageCaptured: true},
+		))
+	})
+
+	t.Run("failed storage read is not a storage change", func(t *testing.T) {
+		require.False(t, SessionStateChanged(
+			SessionState{Origin: "https://app.example", LocalStorage: "[]", StorageCaptured: true},
+			SessionState{Origin: "https://app.example"},
 		))
 	})
 

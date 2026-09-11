@@ -22,6 +22,9 @@ type SessionState struct {
 	Origin         string
 	LocalStorage   string
 	SessionStorage string
+	// StorageCaptured distinguishes empty storage from a failed read, so a
+	// failed read is never mistaken for storage having changed.
+	StorageCaptured bool
 }
 
 // CaptureCookieState snapshots cookie values without exposing them to logs.
@@ -81,6 +84,7 @@ func CaptureSessionState(page *rod.Page) (SessionState, error) {
 		if json.Unmarshal([]byte(raw), &storage) == nil {
 			state.LocalStorage = string(storage.Local)
 			state.SessionStorage = string(storage.Session)
+			state.StorageCaptured = true
 		}
 	}
 	return state, nil
@@ -93,5 +97,6 @@ func SessionStateChanged(before, after SessionState) bool {
 	}
 	return before.Origin != "" &&
 		before.Origin == after.Origin &&
+		before.StorageCaptured && after.StorageCaptured &&
 		(before.LocalStorage != after.LocalStorage || before.SessionStorage != after.SessionStorage)
 }

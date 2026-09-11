@@ -34,15 +34,22 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		stepPage := page.Context(ctx).Timeout(settle)
+		// Bind rod operations to ctx so cancellation is honored mid-step. The
+		// settle budget bounds waits only: element interaction on a loaded CI
+		// machine can take longer than a wait is allowed to.
+		stepPage := page.Context(ctx)
 		action := strings.ToLower(strings.TrimSpace(step.Action))
 		switch action {
 		case "navigate":
 			if err := stepPage.Navigate(step.Value); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (navigate): failed", i)
 			}
-			if err := stepPage.WaitLoad(); err != nil {
-				return errkit.Wrapf(err, "recorded-flow step %d (navigate): page did not load", i)
+			if err := stepPage.Timeout(settle).WaitLoad(); err != nil {
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return ctxErr
+				}
+				// A page that never fires load can still be interactable, so
+				// the following steps decide whether the flow really broke.
 			}
 		case "fill", "input", "type":
 			el := findVisible(stepPage, byName(step.Selector), step.Selector)
@@ -114,7 +121,7 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 		default:
 			return errkit.Newf("recorded-flow step %d: unknown action %q", i, step.Action)
 		}
-		_ = rod.Try(func() { stepPage.MustWaitStable() })
+		_ = rod.Try(func() { stepPage.Timeout(settle).MustWaitStable() })
 	}
 	return nil
 }

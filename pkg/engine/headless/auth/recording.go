@@ -209,8 +209,6 @@ func looksLikeUsernameSelector(selector string) bool {
 		"user-name",
 		"email",
 		"e-mail",
-		"login",
-		"account",
 		"autocomplete=\"username\"",
 		"autocomplete=username",
 	} {

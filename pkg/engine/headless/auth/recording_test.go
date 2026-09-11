@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,6 +56,22 @@ func TestStepsFromRecording_UsernameSelectorUsesConfiguredCredential(t *testing.
 	require.Equal(t, "{{username}}", steps[0].Value)
 	require.Equal(t, "new-user@example.com",
 		ExpandCredentials(steps[0].Value, "new-user@example.com", "new-password"))
+}
+
+func TestStepsFromRecording_GenericSelectorsKeepRecordedValue(t *testing.T) {
+	for name, selector := range map[string]string{
+		"account number": `input[name="account-number"]`,
+		"login code":     "#login-code",
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := `{"steps": [
+				{"type": "change", "value": "12345", "selectors": [[` + strconv.Quote(selector) + `]]}
+			]}`
+			steps, err := StepsFromRecording([]byte(rec), "user@example.com", "secret")
+			require.NoError(t, err)
+			require.Equal(t, "12345", steps[0].Value)
+		})
+	}
 }
 
 func TestStepsFromRecording_SelectorPriority(t *testing.T) {
