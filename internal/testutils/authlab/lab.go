@@ -28,6 +28,7 @@ const (
 
 	CookieName  = "katana_session"
 	CookieValue = "authenticated"
+	CSRFCookie  = "katana_csrf"
 
 	// SecretMarker appears only on the cookie-gated /app/secret page.
 	SecretMarker = "KATANA_AUTH_SECRET_OK"
@@ -42,6 +43,7 @@ type Lab struct {
 	LoginPosts    atomic.Int64
 	SecretHits    atomic.Int64
 	DashboardHits atomic.Int64
+	LogoutHits    atomic.Int64
 }
 
 // Start launches the lab on 127.0.0.1 with an ephemeral port.
@@ -140,6 +142,16 @@ func (l *Lab) handleAboutPublic(w http.ResponseWriter, r *http.Request) {
 func (l *Lab) handleLogin(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		// Real login pages commonly set an anonymous CSRF/consent cookie. This
+		// ensures recorded-flow verification compares against a post-navigation
+		// baseline instead of treating any cookie as proof of authentication.
+		http.SetCookie(w, &http.Cookie{
+			Name:     CSRFCookie,
+			Value:    "anonymous",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(w, `<!DOCTYPE html>
 <html><head><title>Login</title></head>
@@ -308,6 +320,7 @@ func (l *Lab) handleSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Lab) handleLogout(w http.ResponseWriter, r *http.Request) {
+	l.LogoutHits.Add(1)
 	l.clearSession(w)
 	http.Redirect(w, r, "/", http.StatusFound)
 }

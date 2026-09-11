@@ -23,8 +23,8 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 	if page == nil {
 		return errkit.New("recorded-flow: page is nil")
 	}
-	if len(steps) == 0 {
-		return errkit.New("recorded-flow: no steps to replay")
+	if err := ValidateSteps(steps); err != nil {
+		return err
 	}
 	if settle <= 0 {
 		settle = defaultSettle
@@ -34,32 +34,39 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		stepPage := page.Context(ctx).Timeout(settle)
 		action := strings.ToLower(strings.TrimSpace(step.Action))
 		switch action {
 		case "navigate":
-			if err := page.Navigate(step.Value); err != nil {
+			if err := stepPage.Navigate(step.Value); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (navigate): failed", i)
 			}
-			_ = page.WaitLoad()
+			if err := stepPage.WaitLoad(); err != nil {
+				return errkit.Wrapf(err, "recorded-flow step %d (navigate): page did not load", i)
+			}
 		case "fill", "input", "type":
-			el := findVisible(page, byName(step.Selector), step.Selector)
+			el := findVisible(stepPage, byName(step.Selector), step.Selector)
 			if el == nil {
 				return errkit.Newf("recorded-flow step %d (fill): element not found: %s", i, step.Selector)
 			}
 			if err := typeInto(el, ExpandCredentials(step.Value, username, password)); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (fill): failed", i)
 			}
-		case "click":
-			el := findVisible(page, step.Selector)
+		case "click", "doubleclick":
+			el := findVisible(stepPage, step.Selector)
 			if el == nil {
-				return errkit.Newf("recorded-flow step %d (click): element not found: %s", i, step.Selector)
+				return errkit.Newf("recorded-flow step %d (%s): element not found: %s", i, action, step.Selector)
 			}
 			_ = el.ScrollIntoView()
-			if err := el.Click(proto.InputMouseButtonLeft, 1); err != nil {
-				return errkit.Wrapf(err, "recorded-flow step %d (click): failed", i)
+			clickCount := 1
+			if action == "doubleclick" {
+				clickCount = 2
+			}
+			if err := el.Click(proto.InputMouseButtonLeft, clickCount); err != nil {
+				return errkit.Wrapf(err, "recorded-flow step %d (%s): failed", i, action)
 			}
 		case "waitvisible":
-			if err := waitVisible(ctx, page, step.Selector, settle); err != nil {
+			if err := waitVisible(ctx, stepPage, step.Selector, settle); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (waitvisible)", i)
 			}
 		case "wait":
@@ -80,20 +87,20 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 				return errkit.Wrapf(kerr, "recorded-flow step %d (press)", i)
 			}
 			if step.Selector != "" {
-				el := findVisible(page, byName(step.Selector), step.Selector)
+				el := findVisible(stepPage, byName(step.Selector), step.Selector)
 				if el == nil {
 					return errkit.Newf("recorded-flow step %d (press): element not found: %s", i, step.Selector)
 				}
 				if err := el.Type(key); err != nil {
 					return errkit.Wrapf(err, "recorded-flow step %d (press): failed", i)
 				}
-			} else if err := page.Keyboard.Type(key); err != nil {
+			} else if err := stepPage.Keyboard.Type(key); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (press): failed", i)
 			}
 		case "submit":
-			fallback := findVisible(page, `input[type="password"]`)
+			fallback := findVisible(stepPage, `input[type="password"]`)
 			if step.Selector != "" {
-				if el := findVisible(page, byName(step.Selector), step.Selector); el != nil {
+				if el := findVisible(stepPage, byName(step.Selector), step.Selector); el != nil {
 					fallback = el
 					_ = el.ScrollIntoView()
 					if err := el.Click(proto.InputMouseButtonLeft, 1); err == nil {
@@ -101,13 +108,13 @@ func RunLoginSteps(ctx context.Context, page *rod.Page, steps []LoginStep, usern
 					}
 				}
 			}
-			if err := submitForm(page, fallback, settle); err != nil {
+			if err := submitForm(stepPage, fallback, settle); err != nil {
 				return errkit.Wrapf(err, "recorded-flow step %d (submit)", i)
 			}
 		default:
 			return errkit.Newf("recorded-flow step %d: unknown action %q", i, step.Action)
 		}
-		_ = rod.Try(func() { page.Timeout(settle).MustWaitStable() })
+		_ = rod.Try(func() { stepPage.MustWaitStable() })
 	}
 	return nil
 }

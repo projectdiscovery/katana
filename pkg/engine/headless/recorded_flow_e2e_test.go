@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/happyhackingspace/dit"
 	"github.com/projectdiscovery/katana/internal/testutils/authlab"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
@@ -103,6 +104,7 @@ func TestE2E_Crawl_WithRecordedFlow_DiscoversGatedPages(t *testing.T) {
 		"recorded flow should unlock gated /app/secret during crawl, urls=%v secretHits=%d",
 		urls, lab.SecretHits.Load())
 	require.GreaterOrEqual(t, lab.LoginPosts.Load(), int64(1), "login must have been submitted")
+	require.Equal(t, int64(0), lab.LogoutHits.Load(), "authenticated crawl must skip logout links")
 }
 
 func TestE2E_Crawl_WithoutAuth_CannotReachSecret(t *testing.T) {
@@ -175,4 +177,170 @@ func TestE2E_Crawl_UsernameFirstRecordedFlow(t *testing.T) {
 	require.GreaterOrEqual(t, lab.LoginPosts.Load(), int64(1))
 	require.True(t, containsURL(collector.list(), "/app/secret") || lab.SecretHits.Load() > 0,
 		"username-first recorded flow should unlock secret pages")
+	require.Equal(t, int64(0), lab.LogoutHits.Load(), "authenticated crawl must skip logout links")
+}
+
+func TestE2E_Crawl_RecordedFlowWithoutSessionFails(t *testing.T) {
+	skipIfNoBrowser(t)
+
+	lab, err := authlab.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lab.Close() })
+
+	// Every step succeeds, but clicking a field is not a login. This is the
+	// stale-recording false positive that used to set loggedIn unconditionally.
+	steps := []auth.LoginStep{
+		{Action: "navigate", Value: lab.URL + "/login"},
+		{Action: "click", Selector: "#email"},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	c, err := crawler.New(crawler.Options{
+		Context:        ctx,
+		MaxBrowsers:    1,
+		MaxDepth:       1,
+		PageMaxTimeout: 15 * time.Second,
+		NoSandbox:      true,
+		AuthSteps:      steps,
+		Logger:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
+		ScopeValidator: func(u string) bool { return strings.HasPrefix(u, lab.URL) },
+	})
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+
+	err = c.Crawl(lab.URL + "/app/dashboard")
+	require.ErrorContains(t, err, "did not establish authenticated browser state")
+	require.Equal(t, int64(0), lab.DashboardHits.Load())
+}
+
+func TestE2E_Crawl_RecordedFlowRejectsWrongCredentials(t *testing.T) {
+	skipIfNoBrowser(t)
+
+	lab, err := authlab.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lab.Close() })
+	steps, err := auth.StepsFromData(
+		[]byte(authlab.ChromeRecordingSimple(lab.URL)),
+		authlab.Username,
+		authlab.Password,
+	)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	c, err := crawler.New(crawler.Options{
+		Context:        ctx,
+		MaxBrowsers:    1,
+		MaxDepth:       1,
+		PageMaxTimeout: 15 * time.Second,
+		NoSandbox:      true,
+		AuthUsername:   authlab.Username,
+		AuthPassword:   "wrong-password",
+		AuthSteps:      steps,
+		Logger:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
+		ScopeValidator: func(u string) bool { return strings.HasPrefix(u, lab.URL) },
+	})
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+
+	require.ErrorContains(t, c.Crawl(lab.URL+"/app/dashboard"), "did not establish authenticated browser state")
+	require.GreaterOrEqual(t, lab.LoginPosts.Load(), int64(1))
+	require.Equal(t, int64(0), lab.DashboardHits.Load())
+	require.Equal(t, int64(0), lab.SecretHits.Load())
+}
+
+func TestE2E_Crawl_StaleRecordedFlowFallsBackToAutoLogin(t *testing.T) {
+	skipIfNoBrowser(t)
+
+	lab, err := authlab.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lab.Close() })
+	classifier, err := dit.New()
+	require.NoError(t, err)
+
+	// The recording is stale but leaves the login form available. Correct
+	// configured credentials must still be tried by the auto-login fallback.
+	steps := []auth.LoginStep{
+		{Action: "navigate", Value: lab.URL + "/login"},
+		{Action: "click", Selector: "#email"},
+	}
+	collector := &resultCollector{}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	c, err := crawler.New(crawler.Options{
+		Context:         ctx,
+		MaxBrowsers:     1,
+		MaxDepth:        2,
+		PageMaxTimeout:  15 * time.Second,
+		NoSandbox:       true,
+		AuthUsername:    authlab.Username,
+		AuthPassword:    authlab.Password,
+		AuthSteps:       steps,
+		DitClassifier:   classifier,
+		RequestCallback: collector.callback,
+		Logger:          slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
+		ScopeValidator:  func(u string) bool { return strings.HasPrefix(u, lab.URL) },
+	})
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+
+	require.NoError(t, c.Crawl(lab.URL+"/app/dashboard"))
+	require.GreaterOrEqual(t, lab.LoginPosts.Load(), int64(1))
+	require.True(t, containsURL(collector.list(), "/app/secret") || lab.SecretHits.Load() > 0,
+		"auto-login fallback should unlock secret pages")
+}
+
+func TestE2E_Crawl_RecordedFlowRequiresNavigate(t *testing.T) {
+	skipIfNoBrowser(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := crawler.New(crawler.Options{
+		Context:     ctx,
+		MaxBrowsers: 1,
+		NoSandbox:   true,
+		AuthSteps:   []auth.LoginStep{{Action: "click", Selector: "#submit"}},
+	})
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+
+	require.ErrorContains(t, c.Crawl("https://example.com"), "must contain a navigate step")
+}
+
+func TestE2E_Crawl_AuthDoesNotConsumeCrawlDuration(t *testing.T) {
+	skipIfNoBrowser(t)
+
+	lab, err := authlab.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lab.Close() })
+	steps := []auth.LoginStep{
+		{Action: "navigate", Value: lab.URL + "/login"},
+		{Action: "wait", Value: "3s"},
+		{Action: "fill", Selector: "#email", Value: "{{username}}"},
+		{Action: "fill", Selector: "#password", Value: "{{password}}"},
+		{Action: "click", Selector: "#submit"},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := crawler.New(crawler.Options{
+		Context:          ctx,
+		MaxBrowsers:      1,
+		MaxDepth:         1,
+		MaxCrawlDuration: 2 * time.Second,
+		PageMaxTimeout:   10 * time.Second,
+		NoSandbox:        true,
+		AuthUsername:     authlab.Username,
+		AuthPassword:     authlab.Password,
+		AuthSteps:        steps,
+		Logger:           slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
+		ScopeValidator:   func(u string) bool { return strings.HasPrefix(u, lab.URL) },
+	})
+	require.NoError(t, err)
+	t.Cleanup(c.Close)
+
+	require.NoError(t, c.Crawl(lab.URL+"/app/dashboard"))
+	require.GreaterOrEqual(t, lab.DashboardHits.Load(), int64(1),
+		"crawl duration must begin after the three-second auth flow")
 }

@@ -101,10 +101,8 @@ func StepsFromExplicit(data []byte) ([]LoginStep, error) {
 	if len(file.Steps) == 0 {
 		return nil, errkit.New("recorded-flow: explicit steps list is empty")
 	}
-	for i, s := range file.Steps {
-		if strings.TrimSpace(s.Action) == "" {
-			return nil, errkit.Newf("recorded-flow: step %d missing action", i)
-		}
+	if err := ValidateSteps(file.Steps); err != nil {
+		return nil, err
 	}
 	return file.Steps, nil
 }
@@ -122,22 +120,24 @@ func StepsFromRecording(data []byte, username, password string) ([]LoginStep, er
 	}
 
 	var steps []LoginStep
-	for _, rs := range rec.Steps {
-		switch strings.ToLower(strings.TrimSpace(rs.Type)) {
+	for i, rs := range rec.Steps {
+		stepType := strings.ToLower(strings.TrimSpace(rs.Type))
+		switch stepType {
 		case "navigate":
-			if rs.URL != "" {
-				steps = append(steps, LoginStep{Action: "navigate", Value: rs.URL})
+			if strings.TrimSpace(rs.URL) == "" {
+				return nil, errkit.Newf("recorded-flow: recording step %d (navigate) missing URL", i)
 			}
+			steps = append(steps, LoginStep{Action: "navigate", Value: rs.URL})
 		case "click", "doubleclick":
 			sel := pickSelector(rs.Selectors)
 			if sel == "" {
-				continue
+				return nil, errkit.Newf("recorded-flow: recording step %d (%s) has no supported selector", i, stepType)
 			}
-			steps = append(steps, LoginStep{Action: "click", Selector: sel})
+			steps = append(steps, LoginStep{Action: stepType, Selector: sel})
 		case "change":
 			sel := pickSelector(rs.Selectors)
 			if sel == "" {
-				continue
+				return nil, errkit.Newf("recorded-flow: recording step %d (change) has no supported selector", i)
 			}
 			steps = append(steps, LoginStep{
 				Action:   "fill",
@@ -152,16 +152,16 @@ func StepsFromRecording(data []byte, username, password string) ([]LoginStep, er
 		case "waitforelement":
 			sel := pickSelector(rs.Selectors)
 			if sel == "" {
-				continue
+				return nil, errkit.Newf("recorded-flow: recording step %d (waitForElement) has no supported selector", i)
 			}
 			steps = append(steps, LoginStep{Action: "waitvisible", Selector: sel})
 		case "waitforexpression":
 			// Arbitrary expressions are not evaluated; settle instead.
 			steps = append(steps, LoginStep{Action: "wait"})
-		case "setviewport", "keyup", "scroll", "close", "emulatenetworkconditions", "hover", "":
+		case "setviewport", "keyup", "scroll", "close", "emulatenetworkconditions", "hover":
 			continue
 		default:
-			continue
+			return nil, errkit.Newf("recorded-flow: recording step %d has unsupported type %q", i, rs.Type)
 		}
 	}
 
@@ -196,7 +196,29 @@ func parameterizeValue(value, selector, username, password string) string {
 	if looksLikePasswordSelector(selector) {
 		return "{{password}}"
 	}
+	if looksLikeUsernameSelector(selector) {
+		return "{{username}}"
+	}
 	return value
+}
+
+func looksLikeUsernameSelector(selector string) bool {
+	s := strings.ToLower(selector)
+	for _, marker := range []string{
+		"username",
+		"user-name",
+		"email",
+		"e-mail",
+		"login",
+		"account",
+		"autocomplete=\"username\"",
+		"autocomplete=username",
+	} {
+		if strings.Contains(s, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func looksLikePasswordSelector(selector string) bool {

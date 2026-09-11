@@ -46,6 +46,17 @@ func TestStepsFromRecording_PasswordSelectorMaskedWithoutCredMatch(t *testing.T)
 	require.Equal(t, "{{password}}", steps[0].Value)
 }
 
+func TestStepsFromRecording_UsernameSelectorUsesConfiguredCredential(t *testing.T) {
+	rec := `{"steps": [
+		{"type": "change", "value": "recorded-old-user", "selectors": [["input[name=email]"]]}
+	]}`
+	steps, err := StepsFromRecording([]byte(rec), "new-user@example.com", "new-password")
+	require.NoError(t, err)
+	require.Equal(t, "{{username}}", steps[0].Value)
+	require.Equal(t, "new-user@example.com",
+		ExpandCredentials(steps[0].Value, "new-user@example.com", "new-password"))
+}
+
 func TestStepsFromRecording_SelectorPriority(t *testing.T) {
 	rec := `{"steps": [
 		{"type": "click", "selectors": [["aria/Save"], ["xpath///button[1]"], ["#real"]]},
@@ -68,16 +79,41 @@ func TestStepsFromRecording_Errors(t *testing.T) {
 
 	_, err = StepsFromRecording([]byte(`{"steps": [{"type":"setViewport"}]}`), "", "")
 	require.Error(t, err)
+
+	_, err = StepsFromRecording([]byte(`{"steps": [{"type":"click","selectors":[]}]}`), "", "")
+	require.ErrorContains(t, err, "no supported selector")
+
+	_, err = StepsFromRecording([]byte(`{"steps": [{"type":"evaluate","expression":"alert(1)"}]}`), "", "")
+	require.ErrorContains(t, err, "unsupported type")
+
+	_, err = StepsFromData([]byte(`{"steps": [
+		{"type":"navigate","url":"https://example.com"},
+		{"action":"click","selector":"#submit"}
+	]}`), "", "")
+	require.ErrorContains(t, err, "unsupported type")
+}
+
+func TestStepsFromRecording_PreservesDoubleClick(t *testing.T) {
+	steps, err := StepsFromRecording([]byte(`{"steps": [
+		{"type":"doubleClick","selectors":[["#continue"]]}
+	]}`), "", "")
+	require.NoError(t, err)
+	require.Equal(t, []LoginStep{{Action: "doubleclick", Selector: "#continue"}}, steps)
 }
 
 func TestFirstNavigateURL(t *testing.T) {
 	steps := []LoginStep{
+		{Action: "navigate", Value: "about:blank"},
 		{Action: "fill", Selector: "#x"},
 		{Action: "navigate", Value: "https://app.example.com/login"},
 		{Action: "navigate", Value: "https://second"},
 	}
 	require.Equal(t, "https://app.example.com/login", FirstNavigateURL(steps))
 	require.Equal(t, "", FirstNavigateURL([]LoginStep{{Action: "click"}}))
+
+	remaining, navigateURL := StepsAfterFirstNavigateURL(steps)
+	require.Equal(t, "https://app.example.com/login", navigateURL)
+	require.Equal(t, []LoginStep{{Action: "navigate", Value: "https://second"}}, remaining)
 }
 
 func TestStepsFromData_Explicit(t *testing.T) {
@@ -106,4 +142,46 @@ func TestStepsFromData_Chrome(t *testing.T) {
 func TestNeedsCredentials(t *testing.T) {
 	require.False(t, NeedsCredentials([]LoginStep{{Action: "click", Selector: "#x"}}))
 	require.True(t, NeedsCredentials([]LoginStep{{Action: "fill", Value: "{{password}}"}}))
+}
+
+func TestValidateSteps(t *testing.T) {
+	valid := []LoginStep{
+		{Action: "navigate", Value: "https://example.com/login"},
+		{Action: "fill", Selector: "#email", Value: "{{username}}"},
+		{Action: "press", Value: "enter"},
+		{Action: "wait", Value: "250ms"},
+		{Action: "submit"},
+	}
+	require.NoError(t, ValidateSteps(valid))
+
+	tests := []struct {
+		name string
+		step LoginStep
+		want string
+	}{
+		{name: "unknown action", step: LoginStep{Action: "eval"}, want: "unknown action"},
+		{name: "missing selector", step: LoginStep{Action: "fill"}, want: "missing selector"},
+		{name: "missing url", step: LoginStep{Action: "navigate"}, want: "missing URL"},
+		{name: "invalid key", step: LoginStep{Action: "press", Value: "delete"}, want: "unsupported key"},
+		{name: "invalid wait", step: LoginStep{Action: "wait", Value: "later"}, want: "invalid duration"},
+		{name: "negative wait", step: LoginStep{Action: "wait", Value: "-1s"}, want: "invalid duration"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.ErrorContains(t, ValidateSteps([]LoginStep{test.step}), test.want)
+		})
+	}
+	require.ErrorContains(t, ValidateSteps(nil), "no steps")
+}
+
+func TestHasTerminalVisibleAssertion(t *testing.T) {
+	require.True(t, HasTerminalVisibleAssertion([]LoginStep{
+		{Action: "click", Selector: "#submit"},
+		{Action: "waitvisible", Selector: "#dashboard"},
+	}))
+	require.False(t, HasTerminalVisibleAssertion([]LoginStep{
+		{Action: "waitvisible", Selector: "#password"},
+		{Action: "click", Selector: "#submit"},
+	}))
+	require.False(t, HasTerminalVisibleAssertion(nil))
 }

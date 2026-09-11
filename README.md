@@ -737,7 +737,7 @@ This is best for simple username/password forms. For multi-step, SPA, or SSO log
 
 ### Recorded flow (`-recorded-flow`)
 
-Recorded flows let you export a real browser login from **Chrome DevTools → Recorder** and replay it once **before the crawl starts**. Session cookies stay in the headless browser context for the rest of the crawl.
+Recorded flows let you export a real browser login from **Chrome DevTools → Recorder** and replay it once **before the crawl starts**. Session cookies and same-origin web storage stay in the headless browser context for the rest of the crawl.
 
 **1. Record the login in Chrome**
 
@@ -768,14 +768,20 @@ Katana also accepts a hand-authored explicit step file:
 }
 ```
 
-Supported step actions: `navigate`, `fill`, `click`, `waitvisible`, `wait`, `press`, `submit`.
+Supported step actions: `navigate`, `fill`, `click`, `doubleclick`, `waitvisible`, `wait`, `press`, `submit`.
 
 **How it runs**
 
 1. Katana launches headless Chrome
-2. Replays the recorded flow once (pre-auth)
-3. Starts crawling `-u` with the established session
-4. Skips logout URLs while authenticated
+2. Captures the anonymous browser state, then replays the recorded flow once
+3. Verifies that a cookie or same-origin web-storage value changed; if not, tries `-auto-login` as a fallback
+4. Starts crawling `-u` with the established session
+5. Skips logout URLs while authenticated
+
+For applications that keep authentication entirely server-side without changing
+cookies or web storage, end an explicit flow with `waitvisible` targeting an
+element that only exists after login. A successful terminal visibility check is
+treated as the flow's explicit authentication assertion.
 
 > Recorded flows require **pure headless** (`-hl`). Hybrid (`-hh`) is disabled automatically when `-rf` is set.
 

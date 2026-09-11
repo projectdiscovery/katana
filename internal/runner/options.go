@@ -49,7 +49,7 @@ func validateOptions(options *types.Options) error {
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
-	
+
 	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
 	// The ChromeWSUrl takes precedence and pure headless engine will be used
 	if options.Headless && options.ChromeWSUrl != "" {
@@ -100,6 +100,13 @@ func validateOptions(options *types.Options) error {
 		}
 		if auth.NeedsCredentials(steps) && options.AuthCredentials == "" {
 			return errkit.New("recorded flow requires -auto-login username:password for credential placeholders")
+		}
+		replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(steps)
+		if loginURL == "" {
+			return errkit.New("recorded flow requires an absolute http(s) navigate step")
+		}
+		if len(replaySteps) == 0 {
+			return errkit.New("recorded flow requires at least one action after its navigate step")
 		}
 	}
 

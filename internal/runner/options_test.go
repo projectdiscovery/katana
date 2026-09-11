@@ -118,7 +118,7 @@ func TestValidateRecordedFlow(t *testing.T) {
 	})
 
 	t.Run("disables hybrid when recorded flow is set", func(t *testing.T) {
-		flow := `{"steps":[{"action":"navigate","value":"https://example.com"}]}`
+		flow := `{"steps":[{"action":"navigate","value":"https://example.com"},{"action":"click","selector":"#submit"}]}`
 		opts := newTestOptions()
 		opts.HeadlessHybrid = true
 		opts.RecordedFlow = writeFlow(t, flow)
@@ -126,5 +126,26 @@ func TestValidateRecordedFlow(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, opts.HeadlessHybrid)
 		require.True(t, opts.Headless)
+	})
+
+	t.Run("requires absolute web navigation", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.RecordedFlow = writeFlow(t, `{"steps":[{"action":"navigate","value":"about:blank"},{"action":"click","selector":"#submit"}]}`)
+		err := validateOptions(opts)
+		require.ErrorContains(t, err, "absolute http(s) navigate step")
+	})
+
+	t.Run("rejects invalid explicit action before launching browser", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.RecordedFlow = writeFlow(t, `{"steps":[{"action":"navigate","value":"https://example.com"},{"action":"evaluate","value":"alert(1)"}]}`)
+		err := validateOptions(opts)
+		require.ErrorContains(t, err, "unknown action")
+	})
+
+	t.Run("requires an action after navigation", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.RecordedFlow = writeFlow(t, `{"steps":[{"action":"navigate","value":"https://example.com"}]}`)
+		err := validateOptions(opts)
+		require.ErrorContains(t, err, "at least one action")
 	})
 }
