@@ -178,8 +178,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 		flagSet.IntVarP(&options.MaxFailureCount, "max-failure-count", "mfc", 10, "maximum number of consecutive action failures before stopping"),
 		flagSet.BoolVarP(&options.EnableDiagnostics, "enable-diagnostics", "ed", false, "enable diagnostics"),
-		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "heuristic", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
-		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
+		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "domcontentloaded", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
+		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 1, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
 		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
@@ -217,7 +217,7 @@ func readFlags() (*goflags.FlagSet, error) {
 
 	// Rate-Limit group
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
-		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
+		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers (standard) / browser agents (hybrid, max 8)"),
 		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
 		flagSet.IntVarP(&options.RateLimit, "rate-limit", "rl", 150, "maximum requests to send per second"),

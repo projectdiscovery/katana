@@ -8,12 +8,12 @@ import (
 )
 
 func TestNewLauncherDefaults(t *testing.T) {
-	t.Run("empty strategy defaults to heuristic", func(t *testing.T) {
+	t.Run("empty strategy defaults to domcontentloaded", func(t *testing.T) {
 		l, err := NewLauncher(LauncherOptions{
 			MaxBrowsers: 1,
 		})
 		require.NoError(t, err)
-		require.Equal(t, "heuristic", l.opts.PageLoadStrategy)
+		require.Equal(t, "domcontentloaded", l.opts.PageLoadStrategy)
 	})
 
 	t.Run("explicit strategy is preserved", func(t *testing.T) {
@@ -27,21 +27,21 @@ func TestNewLauncherDefaults(t *testing.T) {
 		}
 	})
 
-	t.Run("zero DOMWaitTime defaults to 5", func(t *testing.T) {
+	t.Run("zero DOMWaitTime defaults to 1", func(t *testing.T) {
 		l, err := NewLauncher(LauncherOptions{
 			MaxBrowsers: 1,
 		})
 		require.NoError(t, err)
-		require.Equal(t, 5, l.opts.DOMWaitTime)
+		require.Equal(t, 1, l.opts.DOMWaitTime)
 	})
 
-	t.Run("negative DOMWaitTime defaults to 5", func(t *testing.T) {
+	t.Run("negative DOMWaitTime defaults to 1", func(t *testing.T) {
 		l, err := NewLauncher(LauncherOptions{
 			MaxBrowsers: 1,
 			DOMWaitTime: -1,
 		})
 		require.NoError(t, err)
-		require.Equal(t, 5, l.opts.DOMWaitTime)
+		require.Equal(t, 1, l.opts.DOMWaitTime)
 	})
 
 	t.Run("positive DOMWaitTime is preserved", func(t *testing.T) {

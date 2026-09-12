@@ -57,13 +57,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	c.addHeadersToPage(page)
 
 	pageRouter := NewHijack(page)
-	pageRouter.SetPattern(&proto.FetchRequestPattern{
-		URLPattern:   "*",
-		RequestStage: proto.FetchRequestStageResponse,
-	})
+	pageRouter.SetPatterns(fetchRequestPatterns(c.Options.Options))
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
+		// Defense in depth: continue anything that slipped past pattern filters.
+		if !shouldInspectFetchResource(e.ResourceType, c.Options.Options) {
+			return FetchContinueRequest(page, e)
+		}
+
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
