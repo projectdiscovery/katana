@@ -176,6 +176,17 @@ func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
 	return chromeLauncher != nil || browser.BrowserContextID != ""
 }
 
+// BrowserContextID returns the id of the browser context this crawler created
+// in New, or "" if it has no browser. It lets an embedding program dispose the
+// context out of band: when a crawl dies without running Close, the context
+// otherwise stays resident in a shared, long-lived browser.
+func (c *Crawler) BrowserContextID() string {
+	if c.browser == nil {
+		return ""
+	}
+	return string(c.browser.BrowserContextID)
+}
+
 // Close closes the crawler process
 func (c *Crawler) Close() error {
 	if c.browser != nil && ownsBrowser(c.browser, c.chromeLauncher) {
