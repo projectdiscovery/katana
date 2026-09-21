@@ -257,10 +257,6 @@ func readFlags() (*goflags.FlagSet, error) {
 		return nil, errkit.Wrap(err, "could not parse flags")
 	}
 
-	if err := ensureDisableResumeDefault(flagSet); err != nil {
-		gologger.Warning().Msgf("Could not ensure disable-resume default in config: %v", err)
-	}
-
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
 			return nil, errkit.Wrap(err, "could not read config file")
@@ -269,41 +265,6 @@ func readFlags() (*goflags.FlagSet, error) {
 
 	cleanupOldResumeFiles()
 	return flagSet, nil
-}
-
-// ensureDisableResumeDefault guarantees that the default config file contains
-// an active `disable-resume: false` entry so users can discover and toggle it.
-// goflags generates commented examples by default, so we append the active
-// entry (with an explanatory comment) when no active entry exists yet.
-func ensureDisableResumeDefault(flagSet *goflags.FlagSet) error {
-	cfgPath, err := flagSet.GetConfigFilePath()
-	if err != nil {
-		return err
-	}
-	data, err := os.ReadFile(cfgPath)
-	if err != nil {
-		return err
-	}
-	content := string(data)
-	// fix up a malformed entry with a leading dash if present
-	if strings.Contains(content, "\n-disable-resume:") {
-		content = strings.ReplaceAll(content, "\n-disable-resume:", "\ndisable-resume:")
-		return os.WriteFile(cfgPath, []byte(content), 0600)
-	}
-	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "disable-resume:") {
-			return nil
-		}
-	}
-	f, err := os.OpenFile(cfgPath, os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-	_, err = f.WriteString("\n# disable resume file creation on interruption, set to true to prevent resume.cfg files from being created\ndisable-resume: false\n")
-	return err
 }
 
 func init() {
