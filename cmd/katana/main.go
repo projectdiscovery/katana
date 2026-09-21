@@ -114,6 +114,7 @@ func readFlags() (*goflags.FlagSet, error) {
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
+		flagSet.BoolVar(&options.DisableResume, "disable-resume", false, "disable resume file creation on interruption, set to true to prevent resume.cfg files"),
 		flagSet.StringSliceVarP(&options.Exclude, "exclude", "e", nil, "exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
@@ -256,6 +257,10 @@ func readFlags() (*goflags.FlagSet, error) {
 		return nil, errkit.Wrap(err, "could not parse flags")
 	}
 
+	if err := ensureDisableResumeDefault(flagSet); err != nil {
+		gologger.Warning().Msgf("Could not ensure disable-resume default in config: %v", err)
+	}
+
 	if cfgFile != "" {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
 			return nil, errkit.Wrap(err, "could not read config file")
@@ -264,6 +269,41 @@ func readFlags() (*goflags.FlagSet, error) {
 
 	cleanupOldResumeFiles()
 	return flagSet, nil
+}
+
+// ensureDisableResumeDefault guarantees that the default config file contains
+// an active `disable-resume: false` entry so users can discover and toggle it.
+// goflags generates commented examples by default, so we append the active
+// entry (with an explanatory comment) when no active entry exists yet.
+func ensureDisableResumeDefault(flagSet *goflags.FlagSet) error {
+	cfgPath, err := flagSet.GetConfigFilePath()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	// fix up a malformed entry with a leading dash if present
+	if strings.Contains(content, "\n-disable-resume:") {
+		content = strings.ReplaceAll(content, "\n-disable-resume:", "\ndisable-resume:")
+		return os.WriteFile(cfgPath, []byte(content), 0600)
+	}
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "disable-resume:") {
+			return nil
+		}
+	}
+	f, err := os.OpenFile(cfgPath, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	_, err = f.WriteString("\n# disable resume file creation on interruption, set to true to prevent resume.cfg files from being created\ndisable-resume: false\n")
+	return err
 }
 
 func init() {
@@ -280,18 +320,23 @@ func defaultResumeFilename() string {
 	return filepath.Join(configDir, fmt.Sprintf("resume-%s.cfg", xid.New().String()))
 }
 
-func setupCloseHandler(runner *runner.Runner, resumeFilename string) {
+func setupCloseHandler(katanaRunner *runner.Runner, resumeFilename string) {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			if err := runner.Close(); err != nil {
+			if err := katanaRunner.Close(); err != nil {
 				gologger.Warning().Msgf("Failed to close runner on exit: %v", err)
 			}
 
+			if options.DisableResume {
+				gologger.Info().Msg("Resume file creation disabled, skipping resume file")
+				os.Exit(0)
+			}
+
 			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
-			err := runner.SaveState(resumeFilename)
+			err := katanaRunner.SaveState(resumeFilename)
 			if err != nil {
 				gologger.Error().Msgf("Couldn't create resume file: %s\n", err)
 			}

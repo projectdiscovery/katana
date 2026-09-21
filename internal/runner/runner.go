@@ -156,6 +156,9 @@ func (r *Runner) Close() error {
 }
 
 func (r *Runner) SaveState(resumeFilename string) error {
+	if r.options != nil && r.options.DisableResume {
+		return nil
+	}
 	runnerState := r.state
 	data, _ := json.Marshal(runnerState)
 	return os.WriteFile(resumeFilename, data, os.ModePerm)
