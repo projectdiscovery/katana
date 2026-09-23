@@ -114,6 +114,7 @@ func readFlags() (*goflags.FlagSet, error) {
 	flagSet.CreateGroup("input", "Input",
 		flagSet.StringSliceVarP(&options.URLs, "list", "u", nil, "target url / list to crawl", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVar(&options.Resume, "resume", "", "resume scan using resume.cfg"),
+		flagSet.BoolVar(&options.DisableResume, "disable-resume", false, "disable resume file creation on interruption, set to true to prevent resume.cfg files"),
 		flagSet.StringSliceVarP(&options.Exclude, "exclude", "e", nil, "exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)", goflags.CommaSeparatedStringSliceOptions),
 	)
 
@@ -280,18 +281,23 @@ func defaultResumeFilename() string {
 	return filepath.Join(configDir, fmt.Sprintf("resume-%s.cfg", xid.New().String()))
 }
 
-func setupCloseHandler(runner *runner.Runner, resumeFilename string) {
+func setupCloseHandler(katanaRunner *runner.Runner, resumeFilename string) {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		for range c {
 			gologger.DefaultLogger.Info().Msg("- Ctrl+C pressed in Terminal")
-			if err := runner.Close(); err != nil {
+			if err := katanaRunner.Close(); err != nil {
 				gologger.Warning().Msgf("Failed to close runner on exit: %v", err)
 			}
 
+			if options.DisableResume {
+				gologger.Info().Msg("Resume file creation disabled, skipping resume file")
+				os.Exit(0)
+			}
+
 			gologger.Info().Msgf("Creating resume file: %s\n", resumeFilename)
-			err := runner.SaveState(resumeFilename)
+			err := katanaRunner.SaveState(resumeFilename)
 			if err != nil {
 				gologger.Error().Msgf("Couldn't create resume file: %s\n", err)
 			}
