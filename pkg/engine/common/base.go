@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -46,13 +46,13 @@ type hostBackoff struct {
 const hostBackoffsCacheSize = 10000
 
 type Shared struct {
-	Headers            map[string]string
-	KnownFiles         *files.KnownFiles
-	Options            *types.CrawlerOptions
-	Jar                *httputil.CookieJar
-	PathTrie           *utils.PathTrie
+	Headers           map[string]string
+	KnownFiles        *files.KnownFiles
+	Options           *types.CrawlerOptions
+	Jar               *httputil.CookieJar
+	PathTrie          *utils.PathTrie
 	DomainPageCounter sync.Map
-	hostBackoffs *lru.Cache[string, *hostBackoff]
+	hostBackoffs      *lru.Cache[string, *hostBackoff]
 }
 
 // NewShared creates a new Shared instance with the provided crawler options.
@@ -352,7 +352,13 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		s.Enqueue(queue, navigationRequests...)
 	}
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize)))
+		// BodyReadSize <= 0 (e.g. library callers that never set it) means no
+		// limit; capping the redirect body at 0 would parse an empty document.
+		var bodyReader io.Reader = resp.Body
+		if s.Options.Options.BodyReadSize > 0 {
+			bodyReader = io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize))
+		}
+		body, _ := io.ReadAll(bodyReader)
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		var technologyKeys []string
 		if s.Options.Wappalyzer != nil {
