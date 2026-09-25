@@ -130,6 +130,90 @@ func (g *CrawlGraph) ShortestPath(sourceState, targetState string) ([]*types.Act
 	return actionsSlice, nil
 }
 
+// RootID returns the crawl entrypoint vertex (IsRoot, about:blank, or indegree 0).
+func (g *CrawlGraph) RootID() (string, error) {
+	vertices := g.GetVertices()
+	if len(vertices) == 0 {
+		return "", errors.New("crawl graph is empty")
+	}
+	for _, id := range vertices {
+		ps, err := g.GetPageState(id)
+		if err != nil {
+			continue
+		}
+		if ps.IsRoot || ps.URL == "about:blank" {
+			return id, nil
+		}
+	}
+	pred, err := g.graph.PredecessorMap()
+	if err != nil {
+		return "", errors.Wrap(err, "could not get predecessor map")
+	}
+	for _, id := range vertices {
+		if len(pred[id]) == 0 {
+			return id, nil
+		}
+	}
+	return vertices[0], nil
+}
+
+// PathFromRoot builds a Path of actions from the entrypoint to targetID.
+func (g *CrawlGraph) PathFromRoot(targetID string) (*types.Path, error) {
+	entryID, err := g.RootID()
+	if err != nil {
+		return nil, err
+	}
+	target, err := g.GetPageState(targetID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get target page state")
+	}
+	if entryID == targetID {
+		return &types.Path{
+			EntryID:   entryID,
+			TargetID:  targetID,
+			TargetURL: target.URL,
+			Steps:     nil,
+		}, nil
+	}
+	steps, err := g.ShortestPath(entryID, targetID)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Path{
+		EntryID:   entryID,
+		TargetID:  targetID,
+		TargetURL: target.URL,
+		Steps:     steps,
+	}, nil
+}
+
+// AllPathsFromRoot returns a path from the entrypoint to every non-entry vertex.
+func (g *CrawlGraph) AllPathsFromRoot() ([]*types.Path, error) {
+	entryID, err := g.RootID()
+	if err != nil {
+		return nil, err
+	}
+	var paths []*types.Path
+	for _, id := range g.GetVertices() {
+		if id == entryID {
+			continue
+		}
+		ps, err := g.GetPageState(id)
+		if err != nil {
+			continue
+		}
+		if ps.URL == "about:blank" {
+			continue
+		}
+		p, err := g.PathFromRoot(id)
+		if err != nil {
+			continue
+		}
+		paths = append(paths, p)
+	}
+	return paths, nil
+}
+
 func (g *CrawlGraph) DrawGraph(file string) error {
 	f, err := os.Create(file)
 	if err != nil {
