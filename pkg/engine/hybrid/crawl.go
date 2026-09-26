@@ -56,6 +56,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}()
 	c.addHeadersToPage(page)
 
+	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
+		return nil, err
+	}
+
 	pageRouter := NewHijack(page)
 	pageRouter.SetPattern(&proto.FetchRequestPattern{
 		URLPattern:   "*",
@@ -431,6 +435,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		return nil
 	})
+
+	if err := runAfterLoad(timeoutCtx, c.hooks, sessionPage, request, response); err != nil {
+		return nil, err
+	}
 
 	return response, nil
 }
