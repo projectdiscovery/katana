@@ -36,6 +36,8 @@ type Crawler struct {
 	// https://github.com/projectdiscovery/httpx/issues/1425
 	// previousPIDs map[int32]struct{} // track already running PIDs
 	tempDir string
+	// hooks holds the optional per-page lifecycle callbacks; see SetHooks.
+	hooks Hooks
 }
 
 // proxyBypassList returns the Chrome proxy bypass list to use for proxy.
