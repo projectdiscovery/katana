@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -279,4 +280,56 @@ func TestHooks_AfterLoadErrorIsReported(t *testing.T) {
 	require.True(t, ok)
 	require.Contains(t, res.Error, "AfterLoad hook failed")
 	require.Contains(t, res.Error, "capture failed")
+}
+
+// TestHooks_AfterLoadGetsFreshTimeout verifies that AfterLoad receives its own
+// full timeout budget rather than whatever the navigation left over. A slow
+// page that loads just inside the timeout must not hand AfterLoad a context
+// that is already (nearly) expired, or every hook call on it fails.
+func TestHooks_AfterLoadGetsFreshTimeout(t *testing.T) {
+	const slowLoad = 1500 * time.Millisecond
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(slowLoad)
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body>slow</body></html>`))
+	}))
+	defer srv.Close()
+
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+	sink := &resultSink{}
+	opts := hookTestOptions(sink.add)
+	opts.Timeout = 3
+	options, err := types.NewCrawlerOptions(opts)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = options.Close() })
+	crawler, err := New(options)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = crawler.Close() })
+
+	var remaining atomic.Int64
+	var ctxErr atomic.Value
+	crawler.SetHooks(&Hooks{
+		AfterLoad: func(ctx context.Context, _ *rod.Page, _ *navigation.Request, _ *navigation.Response) error {
+			if deadline, ok := ctx.Deadline(); ok {
+				remaining.Store(int64(time.Until(deadline)))
+			}
+			if err := ctx.Err(); err != nil {
+				ctxErr.Store(err)
+			}
+			return nil
+		},
+	})
+
+	require.NoError(t, crawler.Crawl(srv.URL))
+
+	res, ok := sink.forURL(srv.URL)
+	require.True(t, ok)
+	require.Empty(t, res.Error)
+	require.Nil(t, ctxErr.Load(), "AfterLoad context must be live")
+	// The navigation consumed ~slowLoad of the 3s timeout; a fresh budget
+	// leaves well over what the navigation's own context could have left.
+	require.Greater(t, time.Duration(remaining.Load()), 3*time.Second-slowLoad+250*time.Millisecond,
+		"AfterLoad must get a fresh timeout, not the navigation's leftover")
 }

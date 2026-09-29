@@ -436,7 +436,11 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil
 	})
 
-	if err := runAfterLoad(timeoutCtx, c.hooks, sessionPage, request, response); err != nil {
+	// AfterLoad gets its own timeout, like the DOM and HTML reads above:
+	// timeoutCtx is the navigation's budget and may be nearly spent by now.
+	hookCtx, hookCancel := context.WithTimeout(s.Ctx, timeout)
+	defer hookCancel()
+	if err := runAfterLoad(hookCtx, c.hooks, sessionPage, request, response); err != nil {
 		return nil, err
 	}
 

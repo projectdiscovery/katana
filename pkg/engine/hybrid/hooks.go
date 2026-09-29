@@ -17,9 +17,11 @@ import (
 // crawler, the callbacks must themselves be safe for concurrent use.
 //
 // page is the crawler's own tab, bound to the crawl session's context (it is
-// cancelled with the crawl). ctx is the per-request navigation context and
-// carries the -timeout deadline; use page.Context(ctx) or page.Timeout(d) to
-// bound any CDP call made from a callback. The page is closed by the crawler
+// cancelled with the crawl). ctx is cancelled with the crawl and carries a
+// -timeout deadline: for BeforeNavigate it is the navigation's own context;
+// AfterLoad gets a fresh -timeout budget, so a page that loaded slowly does
+// not leave it an almost-expired context. Use page.Context(ctx) or
+// page.Timeout(d) to bound any CDP call made from a callback. The page is closed by the crawler
 // as soon as the callback returns: callbacks must not retain it, close it, or
 // navigate it.
 //
