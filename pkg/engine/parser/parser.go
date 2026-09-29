@@ -55,8 +55,7 @@ func NewResponseParser() *Parser {
 		{bodyParser, bodyVideoTagParser},
 		{bodyParser, bodyButtonFormactionTagParser},
 		{bodyParser, bodyBlockquoteCiteTagParser},
-		{bodyParser, bodyFrameSrcTagParser},
-		{bodyParser, bodyMapAreaPingTagParser},
+		{bodyParser, bodyMapAreaTagParser},
 		{bodyParser, bodyBaseHrefTagParser},
 		{bodyParser, bodyImportImplementationTagParser},
 		{bodyParser, bodyEmbedTagParser},
@@ -440,23 +439,16 @@ func bodyBlockquoteCiteTagParser(resp *navigation.Response) (navigationRequests 
 	return
 }
 
-// bodyFrameSrcTagParser parses frame src tag from response
-func bodyFrameSrcTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
-	resp.Reader.Find("frame[src]").Each(func(i int, item *goquery.Selection) {
-		src, ok := item.Attr("src")
-		if ok && src != "" {
-			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "frame", "src", resp))
+// bodyMapAreaTagParser parses map area href and ping attributes from response
+func bodyMapAreaTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+	resp.Reader.Find("area").Each(func(i int, item *goquery.Selection) {
+		href, ok := item.Attr("href")
+		if ok && href != "" {
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(href, resp.Resp.Request.URL.String(), "area", "href", resp))
 		}
-	})
-	return
-}
-
-// bodyMapAreaPingTagParser parses map area ping tag from response
-func bodyMapAreaPingTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
-	resp.Reader.Find("area[ping]").Each(func(i int, item *goquery.Selection) {
-		src, ok := item.Attr("ping")
-		if ok && src != "" {
-			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "area", "ping", resp))
+		ping, ok := item.Attr("ping")
+		if ok && ping != "" {
+			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(ping, resp.Resp.Request.URL.String(), "area", "ping", resp))
 		}
 	})
 	return

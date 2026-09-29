@@ -65,12 +65,28 @@ func TestBodyParsers(t *testing.T) {
 		require.Equal(t, "https://security-crawl-maze.app/test/html/body/blockquote/cite.found", navigationRequests[0].URL, "could not get correct url")
 	})
 	t.Run("area", func(t *testing.T) {
-		documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<map name="map">
+		t.Run("ping", func(t *testing.T) {
+			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<map name="map">
 		<area ping="/test/html/body/map/area/ping.found" shape="rect" coords="0,0,150,150" href="#">
 	  </map>`))
-		resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
-		navigationRequests := bodyMapAreaPingTagParser(resp)
-		require.Equal(t, "https://security-crawl-maze.app/test/html/body/map/area/ping.found", navigationRequests[0].URL, "could not get correct url")
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+			// This area carries href="#" as well, so assert on the set rather
+			// than on a position.
+			var got []string
+			for _, req := range bodyMapAreaTagParser(resp) {
+				got = append(got, req.URL)
+			}
+			require.Contains(t, got, "https://security-crawl-maze.app/test/html/body/map/area/ping.found", "could not get correct url")
+		})
+		t.Run("href", func(t *testing.T) {
+			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<map name="map">
+		<area shape="rect" coords="0,0,150,150" href="/test/html/body/map/area/href.found">
+	  </map>`))
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+			navigationRequests := bodyMapAreaTagParser(resp)
+			require.Len(t, navigationRequests, 1, "an area href should be crawled like any other link")
+			require.Equal(t, "https://security-crawl-maze.app/test/html/body/map/area/href.found", navigationRequests[0].URL, "could not get correct url")
+		})
 	})
 	t.Run("audio", func(t *testing.T) {
 		t.Run("src", func(t *testing.T) {
@@ -388,6 +404,47 @@ func TestBodyParsers(t *testing.T) {
 		//	})
 		//	require.Equal(t, "https://security-crawl-maze.app/test/html/head/meta/content-reading-view.found", gotURL, "could not get correct url")
 	})
+}
+
+// The registry used to hold two byte-identical frame parsers, so every
+// frame[src] produced the same navigation request twice. appendFiltered only
+// drops invalid schemes, it does not deduplicate.
+func TestResponseParserEmitsEachURLOnce(t *testing.T) {
+	parsed, _ := urlutil.Parse("https://security-crawl-maze.app/")
+
+	for _, tc := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "frame src",
+			body: `<frameset><frame src="/test/html/body/frame/src.found"></frameset>`,
+			want: "https://security-crawl-maze.app/test/html/body/frame/src.found",
+		},
+		{
+			name: "area href",
+			body: `<map name="map"><area shape="rect" coords="0,0,9,9" href="/test/html/body/map/area/href.found"></map>`,
+			want: "https://security-crawl-maze.app/test/html/body/map/area/href.found",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			documentReader, err := goquery.NewDocumentFromReader(strings.NewReader(tc.body))
+			require.NoError(t, err)
+			resp := &navigation.Response{
+				Resp:   &http.Response{Request: &http.Request{URL: parsed.URL}, Header: http.Header{}},
+				Reader: documentReader,
+			}
+
+			var got []string
+			for _, req := range NewResponseParser().ParseResponse(resp) {
+				if req.URL == tc.want {
+					got = append(got, req.URL)
+				}
+			}
+			require.Equal(t, []string{tc.want}, got, "the url should be found exactly once")
+		})
+	}
 }
 
 func TestScriptParsers(t *testing.T) {
