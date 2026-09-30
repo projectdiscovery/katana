@@ -666,6 +666,14 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 		return
 	}
 
+	// When attached to an externally managed Chrome via ChromeWSUrl,
+	// never close other browser tabs. They belong to the caller/user,
+	// not to Katana.
+	if l.opts.ChromeWSUrl != "" {
+		l.browserPool.Put(browser)
+		return
+	}
+
 	pages, err := browser.Browser.Pages()
 	if err != nil {
 		browser.cancel()
