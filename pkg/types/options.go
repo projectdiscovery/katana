@@ -26,6 +26,8 @@ type Options struct {
 	URLs goflags.StringSlice
 	// Resume the scan from the state stored in the resume config file
 	Resume string
+	// DisableResume disables creation of resume files when a scan is interrupted
+	DisableResume bool
 	// Exclude host matching specified filter ('cdn', 'private-ips', cidr, ip, regex)
 	Exclude goflags.StringSlice
 	// Scope contains a list of regexes for in-scope URLS
