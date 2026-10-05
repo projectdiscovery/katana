@@ -150,8 +150,8 @@ github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7z
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.6.0 h1:n+5WquG0fcWoWp6xPWfHdbskMCQaFnG6PfBrh1Ky4HY=
 github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbSClcnxKAGw=
-github.com/gaissmai/bart v0.29.1 h1:6cMnEsaqI+9uNVX+kIW5NMU7JE1lA8tHgccwNIetvV0=
-github.com/gaissmai/bart v0.29.1/go.mod h1:GREWQfTLRWz/c5FTOsIw+KkscuFkIV5t8Rp7Nd1Td5c=
+github.com/gaissmai/bart v0.30.0 h1:K1oTSQ6Nf76bhrgxeTqzZa4hE0M9x4xDfL6n6UG67Sc=
+github.com/gaissmai/bart v0.30.0/go.mod h1:GREWQfTLRWz/c5FTOsIw+KkscuFkIV5t8Rp7Nd1Td5c=
 github.com/go-ole/go-ole v1.2.6 h1:/Fpf6oFPoeFik9ty7siob0G6Ke8QvQEuVcuChpwXzpY=
 github.com/go-ole/go-ole v1.2.6/go.mod h1:pprOEPIfldk/42T2oK7lQ4v4JSDwmV0As9GaiUsvbm0=
 github.com/go-rod/rod v0.116.2 h1:A5t2Ky2A+5eD/ZJQr1EfsQSe5rms5Xof/qj296e+ZqA=
@@ -330,8 +330,8 @@ github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582 h1:eR+0
 github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582/go.mod h1:3G3BRKui7nMuDFAZKR/M2hiOLtaOmyukT20g88qRQjI=
 github.com/projectdiscovery/mapcidr v1.1.97 h1:7FkxNNVXp+m1rIu5Nv/2SrF9k4+LwP8QuWs2puwy+2w=
 github.com/projectdiscovery/mapcidr v1.1.97/go.mod h1:9dgTJh1SP02gYZdpzMjm6vtYFkEHQHoTyaVNvaeJ7lA=
-github.com/projectdiscovery/networkpolicy v0.1.52 h1:0mjGoggVSHgqgRLBZoU+rl3jRkQkgCKzLDtnb4pswoE=
-github.com/projectdiscovery/networkpolicy v0.1.52/go.mod h1:Mdx5Y4x6b89P0Wz4Hu9yc/qhD7ZLJMdwOqMXwlLcqN8=
+github.com/projectdiscovery/networkpolicy v0.1.53 h1:Oduo0GXFm0aSWqkbkyVXRjwT+GitqnqEEV0KiEtR2aM=
+github.com/projectdiscovery/networkpolicy v0.1.53/go.mod h1:+4ef+If67QABeDgSEoOxOgs5ZiM7ygaEeYQPkaZkLDQ=
 github.com/projectdiscovery/ratelimit v0.0.91 h1:LltAn9OoQ1oR2Pi+eTsDUunsIrT8MsX5p3vfVxWey28=
 github.com/projectdiscovery/ratelimit v0.0.91/go.mod h1:HMWSqjB7aGuUnEFMBGsGhK6aBJahmrgU2L6eENgWc7c=
 github.com/projectdiscovery/retryabledns v1.0.116 h1:tK28PJ4tLO7bgM89RpIFjkfTPMSbRegwvg9mN/q6z78=
