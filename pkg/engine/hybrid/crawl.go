@@ -34,7 +34,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		RootHostname: s.Hostname,
 	}
 
-	page, err := s.Browser.Page(proto.TargetCreateTarget{})
+	page, err := s.Browser.Context(s.Ctx).Page(proto.TargetCreateTarget{})
 	if err != nil {
 		return nil, errkit.Wrap(err, "hybrid: could not create target")
 	}
@@ -55,6 +55,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}()
 	c.addHeadersToPage(page)
+
+	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
+		return nil, err
+	}
 
 	pageRouter := NewHijack(page)
 	pageRouter.SetPattern(&proto.FetchRequestPattern{
@@ -279,8 +283,12 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
 		}
 
-		if err := page.WaitStable(timeStable); err != nil {
-			gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+		if timeStable > 0 {
+			if err := page.WaitStable(timeStable); err != nil {
+				gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+			}
+		} else {
+			gologger.Debug().Msgf("time-stable is non-positive: skipping stability wait\n")
 		}
 	}
 
@@ -291,9 +299,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	case <-time.After(200 * time.Millisecond):
 	}
 
+	maxLinks := c.Options.Options.MaxOnclickLinks
 	clickableLinks, err := page.Elements("a[onclick]")
-	if err == nil && len(clickableLinks) > 0 {
-		maxLinks := c.Options.Options.MaxOnclickLinks
+	if maxLinks > 0 && err == nil && len(clickableLinks) > 0 {
 		linksToProcess := len(clickableLinks)
 		if linksToProcess > maxLinks {
 			linksToProcess = maxLinks
@@ -427,6 +435,14 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		return nil
 	})
+
+	// AfterLoad gets its own timeout, like the DOM and HTML reads above:
+	// timeoutCtx is the navigation's budget and may be nearly spent by now.
+	hookCtx, hookCancel := context.WithTimeout(s.Ctx, timeout)
+	defer hookCancel()
+	if err := runAfterLoad(hookCtx, c.hooks, sessionPage, request, response); err != nil {
+		return nil, err
+	}
 
 	return response, nil
 }

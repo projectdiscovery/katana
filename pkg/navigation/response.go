@@ -42,6 +42,10 @@ type Response struct {
 	XhrRequests        []Request         `json:"xhr_requests,omitempty"`
 	StoredResponsePath string            `json:"stored_response_path,omitempty"`
 	KnowledgeBase      map[string]any    `json:"knowledgebase,omitempty"`
+	// Extra carries caller-defined data attached to the result by a library
+	// user, e.g. from the hybrid engine's AfterLoad hook. katana never sets
+	// or reads it.
+	Extra map[string]any `json:"extra,omitempty"`
 }
 
 func (n Response) AbsoluteURL(path string) string {
