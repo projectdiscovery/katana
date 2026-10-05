@@ -664,19 +664,47 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 		return
 	}
 
-	pages, err := browser.Browser.Pages()
+	targets, err := proto.TargetGetTargets{}.Call(browser.Browser)
 	if err != nil {
 		l.discardBrowserPage(browser)
 		return
 	}
 
-	currentPageID := browser.TargetID
-	for _, page := range pages {
-		if page.TargetID != currentPageID {
-			_ = page.Close()
+	for _, id := range strayPageIDs(targets.TargetInfos, browser.TargetID, l.opts.ChromeWSUrl != "") {
+		_, _ = proto.TargetCloseTarget{TargetID: id}.Call(browser.Browser)
+	}
+	// A backgrounded page never repaints, which stalls rod's repaint waits.
+	// With an external browser the user's tabs or a noopener popup can still
+	// be in front after cleanup.
+	_ = proto.PageBringToFront{}.Call(browser.Page)
+	l.browserPool.Put(browser)
+}
+
+// strayPageIDs returns the pages to close before reusing ownPage. An
+// external browser (ChromeWSUrl) also holds the user's tabs, so there only
+// pages ownPage opened, directly or transitively, are stray.
+func strayPageIDs(targets []*proto.TargetTargetInfo, ownPage proto.TargetTargetID, external bool) []proto.TargetTargetID {
+	opened := map[proto.TargetTargetID]bool{ownPage: true}
+	for grew := external; grew; {
+		grew = false
+		for _, target := range targets {
+			if !opened[target.TargetID] && opened[target.OpenerID] {
+				opened[target.TargetID] = true
+				grew = true
+			}
 		}
 	}
-	l.browserPool.Put(browser)
+
+	var stray []proto.TargetTargetID
+	for _, target := range targets {
+		if target.Type != proto.TargetTargetInfoTypePage || target.TargetID == ownPage {
+			continue
+		}
+		if !external || opened[target.TargetID] {
+			stray = append(stray, target.TargetID)
+		}
+	}
+	return stray
 }
 
 // discardBrowserPage removes an unusable page and replenishes the pool with
