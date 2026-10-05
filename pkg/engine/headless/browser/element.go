@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
@@ -15,6 +16,90 @@ const (
 	// linksCSSSelector is the css selector for all anchor tags
 	linksCSSSelector = "a"
 )
+
+type pageScrollMetrics struct {
+	Top      float64 `json:"top"`
+	Height   float64 `json:"height"`
+	Viewport float64 `json:"viewport"`
+}
+
+const readScrollMetricsScript = `() => {
+  const root = document.scrollingElement || document.documentElement;
+  const bodyHeight = document.body ? document.body.scrollHeight : 0;
+  return {
+    top: window.scrollY || root.scrollTop || 0,
+    height: Math.max(root.scrollHeight || 0, bodyHeight),
+    viewport: window.innerHeight || root.clientHeight || 0,
+  };
+}`
+
+// RevealLazyContent performs a bounded number of viewport-sized scrolls before
+// navigation discovery. This activates common infinite-scroll and lazy-render
+// handlers while retaining a hard work limit for pages that never stop growing.
+func (b *BrowserPage) RevealLazyContent(maxSteps int, settle time.Duration) (int, error) {
+	if maxSteps <= 0 {
+		return 0, nil
+	}
+	if settle < 0 {
+		settle = 0
+	}
+
+	steps := 0
+	for steps < maxSteps {
+		before, err := b.readScrollMetrics()
+		if err != nil {
+			return steps, err
+		}
+		if _, err := b.Eval(`() => {
+  const root = document.scrollingElement || document.documentElement;
+  const viewport = window.innerHeight || root.clientHeight || 1;
+  window.scrollBy(0, Math.max(1, viewport - 64));
+}`); err != nil {
+			return steps, err
+		}
+		steps++
+
+		if settle > 0 {
+			timer := time.NewTimer(settle)
+			select {
+			case <-timer.C:
+			case <-b.GetContext().Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return steps, b.GetContext().Err()
+			}
+		}
+
+		after, err := b.readScrollMetrics()
+		if err != nil {
+			return steps, err
+		}
+		if shouldStopLazyScroll(before, after) {
+			break
+		}
+	}
+	return steps, nil
+}
+
+func (b *BrowserPage) readScrollMetrics() (pageScrollMetrics, error) {
+	value, err := b.Eval(readScrollMetricsScript)
+	if err != nil {
+		return pageScrollMetrics{}, err
+	}
+	var metrics pageScrollMetrics
+	if err := value.Value.Unmarshal(&metrics); err != nil {
+		return pageScrollMetrics{}, err
+	}
+	return metrics, nil
+}
+
+func shouldStopLazyScroll(before, after pageScrollMetrics) bool {
+	const pixelTolerance = 2
+	atBottom := after.Top+after.Viewport >= after.Height-pixelTolerance
+	heightDidNotGrow := after.Height <= before.Height+pixelTolerance
+	return atBottom && heightDidNotGrow
+}
 
 // isElementDisabled checks if a button element is disabled
 func isElementDisabled(element *types.HTMLElement) bool {

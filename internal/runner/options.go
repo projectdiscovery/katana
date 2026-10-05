@@ -49,6 +49,12 @@ func validateOptions(options *types.Options) error {
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
+	if options.MaxScrollSteps < 0 {
+		return errkit.New("max-scroll-steps cannot be negative")
+	}
+	if options.MaxScrollSteps > 0 && !options.Headless && options.ChromeWSUrl == "" {
+		return errkit.New("headless (-hl) mode is required if -max-scroll-steps is set")
+	}
 
 	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
 	// The ChromeWSUrl takes precedence and pure headless engine will be used

@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output/export"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/mapcidr"
 	"github.com/projectdiscovery/mapcidr/asn"
@@ -89,6 +90,11 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not create crawler options")
 	}
+	outputWriter, exportErr := export.Wrap(crawlerOptions.OutputWriter)
+	if exportErr != nil {
+		gologger.Warning().Msgf("Traffic export disabled: %s\n", exportErr)
+	}
+	crawlerOptions.OutputWriter = outputWriter
 
 	var crawler engine.Engine
 

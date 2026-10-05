@@ -127,6 +127,7 @@ func (h *Headless) Crawl(URL string) error {
 		PageLoadStrategy:  h.options.Options.PageLoadStrategy,
 		ChromeWSUrl:       h.options.Options.ChromeWSUrl,
 		DOMWaitTime:       h.options.Options.DOMWaitTime,
+		MaxScrollSteps:    h.options.Options.MaxScrollSteps,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
@@ -219,6 +220,10 @@ func (h *Headless) Crawl(URL string) error {
 	}
 
 	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
+
+	if capturer, ok := h.options.OutputWriter.(interface{ Capture(*output.Result) }); ok {
+		crawlOpts.TrafficCallback = capturer.Capture
+	}
 
 	headlessCrawler, err := crawler.New(crawlOpts)
 	if err != nil {

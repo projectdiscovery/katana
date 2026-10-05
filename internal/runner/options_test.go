@@ -68,6 +68,27 @@ func TestValidateHeadlessFlags(t *testing.T) {
 		err := validateOptions(opts)
 		require.NoError(t, err)
 	})
+
+	t.Run("lazy scrolling requires pure headless mode", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.MaxScrollSteps = 4
+		err := validateOptions(opts)
+		require.ErrorContains(t, err, "headless")
+	})
+
+	t.Run("lazy scrolling is accepted in pure headless mode", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.Headless = true
+		opts.MaxScrollSteps = 4
+		require.NoError(t, validateOptions(opts))
+	})
+
+	t.Run("negative lazy scroll limit is rejected", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.Headless = true
+		opts.MaxScrollSteps = -1
+		require.ErrorContains(t, validateOptions(opts), "cannot be negative")
+	})
 }
 
 func TestValidateRecordedFlow(t *testing.T) {

@@ -180,6 +180,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.EnableDiagnostics, "enable-diagnostics", "ed", false, "enable diagnostics"),
 		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "heuristic", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
+		flagSet.IntVar(&options.MaxScrollSteps, "max-scroll-steps", 0, "maximum viewport scrolls to reveal lazy-loaded content (headless only)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
 		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
