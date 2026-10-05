@@ -36,6 +36,8 @@ type Crawler struct {
 	// https://github.com/projectdiscovery/httpx/issues/1425
 	// previousPIDs map[int32]struct{} // track already running PIDs
 	tempDir string
+	// hooks holds the optional per-page lifecycle callbacks; see SetHooks.
+	hooks Hooks
 }
 
 // proxyBypassList returns the Chrome proxy bypass list to use for proxy.
@@ -174,6 +176,17 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
 	return chromeLauncher != nil || browser.BrowserContextID != ""
+}
+
+// BrowserContextID returns the id of the browser context this crawler created
+// in New, or "" if it has no browser. It lets an embedding program dispose the
+// context out of band: when a crawl dies without running Close, the context
+// otherwise stays resident in a shared, long-lived browser.
+func (c *Crawler) BrowserContextID() string {
+	if c.browser == nil {
+		return ""
+	}
+	return string(c.browser.BrowserContextID)
 }
 
 // Close closes the crawler process

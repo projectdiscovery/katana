@@ -655,14 +655,12 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 	// Discard pages that hit a deadline or were cancelled to avoid immediately
 	// returning a poisoned page that will fail every subsequent call.
 	if cerr := browser.Page.GetContext().Err(); cerr != nil {
-		browser.cancel()
-		browser.CloseBrowserPage()
+		l.discardBrowserPage(browser)
 		return
 	}
 	// If the browser is not connected, close it
 	if !isBrowserConnected(browser.Browser) {
-		browser.cancel()
-		browser.CloseBrowserPage()
+		l.discardBrowserPage(browser)
 		return
 	}
 
@@ -676,8 +674,7 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 
 	pages, err := browser.Browser.Pages()
 	if err != nil {
-		browser.cancel()
-		browser.CloseBrowserPage()
+		l.discardBrowserPage(browser)
 		return
 	}
 
@@ -688,6 +685,14 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 		}
 	}
 	l.browserPool.Put(browser)
+}
+
+// discardBrowserPage removes an unusable page and replenishes the pool with
+// an empty slot so the next GetPageFromPool call can create a replacement.
+func (l *Launcher) discardBrowserPage(browser *BrowserPage) {
+	browser.cancel()
+	browser.CloseBrowserPage()
+	l.browserPool.Put(nil)
 }
 
 func isBrowserConnected(browser *rod.Browser) bool {

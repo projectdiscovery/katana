@@ -19,6 +19,7 @@ import (
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
@@ -78,6 +79,9 @@ type Options struct {
 	AuthUsername  string
 	AuthPassword  string
 	DitClassifier *dit.Classifier
+	// AuthSteps, when non-empty, are replayed once against the browser context
+	// before the crawl queue starts (recorded / multi-step login).
+	AuthSteps []auth.LoginStep
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -206,12 +210,22 @@ func (c *Crawler) Crawl(URL string) error {
 		return err
 	}
 
-	// Create a master context that will automatically cancel all page operations
-	// once the per-URL crawl deadline is reached.
 	parentCtx := c.options.Context
 	if parentCtx == nil {
 		parentCtx = context.Background()
 	}
+
+	// Authentication is setup, not crawling: MaxCrawlDuration starts only after
+	// a session is established so a slow SSO flow cannot consume the crawl's
+	// entire time budget. The caller's context still bounds both phases.
+	if len(c.options.AuthSteps) > 0 {
+		if err := c.runRecordedAuthFlow(parentCtx); err != nil {
+			return err
+		}
+	}
+
+	// Create a master context that will automatically cancel all page operations
+	// once the per-URL crawl deadline is reached.
 	var (
 		ctx           context.Context
 		cancel        context.CancelFunc
@@ -552,6 +566,80 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 	}
 
 	return nil
+}
+
+func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
+	page, err := c.launcher.GetPageFromPool()
+	if err != nil {
+		return err
+	}
+	defer c.launcher.PutBrowserToPool(page)
+
+	page.Page = page.Context(ctx)
+
+	replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(c.options.AuthSteps)
+	if loginURL == "" {
+		return errors.New("recorded auth flow must contain a navigate step")
+	}
+	if len(replaySteps) == 0 {
+		return errors.New("recorded auth flow contains no actions after its navigate step")
+	}
+	c.logger.Info("Replaying recorded auth flow",
+		slog.Int("steps", len(replaySteps)),
+		slog.String("url", loginURL),
+	)
+
+	settle := c.options.PageMaxTimeout
+	if settle <= 0 {
+		settle = 30 * time.Second
+	}
+
+	// Establish the anonymous baseline after loading the login page. Taking the
+	// snapshot before navigation would mistake CSRF/consent cookies created by
+	// the login page for proof that authentication succeeded.
+	if err := page.Navigate(loginURL); err != nil {
+		return errors.Wrap(err, "recorded auth flow could not open login page")
+	}
+	_ = page.WaitLoad()
+	before, err := auth.CaptureSessionState(page.Page)
+	if err != nil {
+		return err
+	}
+
+	if err := auth.RunLoginSteps(ctx, page.Page, replaySteps, c.options.AuthUsername, c.options.AuthPassword, settle); err != nil {
+		return errors.Wrap(err, "recorded auth flow failed")
+	}
+
+	after, err := auth.CaptureSessionState(page.Page)
+	if err != nil {
+		return err
+	}
+	if auth.SessionStateChanged(before, after) || auth.HasTerminalVisibleAssertion(replaySteps) {
+		c.loggedIn = true
+		c.logger.Info("Recorded auth flow established an authenticated session")
+		return nil
+	}
+
+	// A replay can execute every click successfully while the application
+	// rejects stale captured credentials. Try the classifier-based login on the
+	// page that rejected the recording before giving up.
+	c.logger.Warn("Recorded auth flow completed without establishing a session; trying auto-login fallback")
+	if c.options.AuthUsername != "" && c.options.DitClassifier != nil {
+		if html, htmlErr := page.HTML(); htmlErr == nil && c.tryAutoLogin(page, html) {
+			_ = page.WaitPageLoadHeurisitics()
+			fallback, cookieErr := auth.CaptureSessionState(page.Page)
+			if cookieErr != nil {
+				return cookieErr
+			}
+			if auth.SessionStateChanged(before, fallback) {
+				c.loggedIn = true
+				c.logger.Info("Auto-login fallback established an authenticated session")
+				return nil
+			}
+		}
+	}
+
+	return errors.New("recorded auth flow did not establish authenticated browser state")
 }
 
 func (c *Crawler) tryAutoLogin(page *browser.BrowserPage, html string) bool {

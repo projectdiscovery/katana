@@ -159,7 +159,10 @@
   
       const id = node.getAttribute("id");
       if (optimized) {
-        if (id) return { value: `#${id}`, optimized: true };
+        if (id) return {
+          value: `#${window.escapeIdentifierIfNeeded(id)}`,
+          optimized: true,
+        };
         const nodeNameLower = node.nodeName.toLowerCase();
         if (
           nodeNameLower === "body" ||
@@ -170,7 +173,10 @@
       }
       const nodeName = node.nodeName;
   
-      if (id) return { value: `${nodeName}#${id}`, optimized: true };
+      if (id) return {
+        value: `${nodeName}#${window.escapeIdentifierIfNeeded(id)}`,
+        optimized: true,
+      };
       const parent = node.parentNode;
       if (!parent || parent.nodeType === Node.DOCUMENT_NODE)
         return { value: nodeName, optimized: true };
@@ -361,4 +367,3 @@
       return -1;
     };
   })();
-  

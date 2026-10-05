@@ -1,24 +1,28 @@
 package testutils
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"strings"
 )
 
 func RunKatanaBinaryAndGetResults(target string, katanaBinary string, debug bool, args []string) ([]string, error) {
-	cmd := exec.Command("bash", "-c")
-	cmdLine := fmt.Sprintf(`echo %s | %s `, target, katanaBinary)
-	cmdLine += strings.Join(args, " ")
-
-	cmd.Args = append(cmd.Args, cmdLine)
-	data, err := cmd.Output()
-	if err != nil {
-		return nil, err
+	if debug {
+		fmt.Printf("cmd: echo %s | %s %s\n", target, katanaBinary, strings.Join(args, " "))
 	}
+
+	cmd := exec.Command(katanaBinary, args...)
+	cmd.Stdin = strings.NewReader(target + "\n")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("katana failed: %w\nstderr:\n%s\nstdout:\n%s", err, stderr.String(), stdout.String())
+	}
+
 	parts := []string{}
-	items := strings.Split(string(data), "\n")
-	for _, i := range items {
+	for _, i := range strings.Split(stdout.String(), "\n") {
 		if i != "" {
 			parts = append(parts, i)
 		}
