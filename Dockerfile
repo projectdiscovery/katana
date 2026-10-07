@@ -1,4 +1,4 @@
-FROM alpine:3.24.2
+FROM alpine:latest
 
 LABEL org.opencontainers.image.authors="ProjectDiscovery"
 LABEL org.opencontainers.image.description="A next-generation crawling and spidering framework."
