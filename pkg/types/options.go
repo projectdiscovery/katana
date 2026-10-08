@@ -218,7 +218,10 @@ type Options struct {
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
 	PageLoadStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
-	DOMWaitTime           int
+	DOMWaitTime int
+	// MaxScrollSteps is the maximum number of viewport scrolls used to reveal
+	// lazy-loaded content before headless navigation discovery (0 disables it).
+	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
 	// KnowledgeBase enables knowledge base classification using dit

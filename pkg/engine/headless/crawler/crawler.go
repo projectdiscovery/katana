@@ -60,6 +60,7 @@ type Options struct {
 	PageLoadStrategy    string
 	ChromeWSUrl         string
 	DOMWaitTime         int
+	MaxScrollSteps      int
 	UserDataDir         string
 
 	// EnableDiagnostics enables the diagnostics mode
@@ -72,6 +73,7 @@ type Options struct {
 	Logger          *slog.Logger
 	ScopeValidator  browser.ScopeValidator
 	RequestCallback func(*output.Result)
+	TrafficCallback func(*output.Result)
 	ChromeUser      *user.User
 	CaptchaHandler  *captcha.Handler
 	UserArguments   map[string]string
@@ -117,6 +119,7 @@ func New(opts Options) (*Crawler, error) {
 		PageMaxTimeout:      opts.PageMaxTimeout,
 		ShowBrowser:         opts.ShowBrowser,
 		RequestCallback:     opts.RequestCallback,
+		TrafficCallback:     opts.TrafficCallback,
 		SlowMotion:          opts.SlowMotion,
 		ScopeValidator:      opts.ScopeValidator,
 		ChromeUser:          opts.ChromeUser,
@@ -410,6 +413,18 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 					_ = page.WaitPageLoadHeurisitics()
 				}
 			}
+		}
+	}
+
+	if c.options.MaxScrollSteps > 0 {
+		steps, scrollErr := page.RevealLazyContent(c.options.MaxScrollSteps, 300*time.Millisecond)
+		if scrollErr != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			c.logger.Debug("Could not complete lazy-content scrolling", slog.String("error", scrollErr.Error()))
+		} else {
+			c.logger.Debug("Lazy-content scrolling complete", slog.Int("steps", steps))
 		}
 	}
 
