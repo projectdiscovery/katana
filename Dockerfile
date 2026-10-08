@@ -1,12 +1,14 @@
-FROM golang:1.27.1-alpine AS build-env
-RUN apk add --no-cache git gcc musl-dev
-WORKDIR /app
-COPY . /app
-RUN go mod download
-RUN go build ./cmd/katana
+FROM alpine:latest
 
-FROM alpine:3.24.2
+LABEL org.opencontainers.image.authors="ProjectDiscovery"
+LABEL org.opencontainers.image.description="A next-generation crawling and spidering framework."
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.title="katana"
+LABEL org.opencontainers.image.url="https://github.com/projectdiscovery/katana"
+
 RUN apk add --no-cache bind-tools ca-certificates chromium
-COPY --from=build-env /app/katana /usr/local/bin/
+
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/katana /usr/local/bin/
 
 ENTRYPOINT ["katana"]
