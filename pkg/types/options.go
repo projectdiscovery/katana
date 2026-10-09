@@ -191,6 +191,8 @@ type Options struct {
 	// FilterSimilarThreshold is the number of distinct values at a path position
 	// before it is treated as a parameter (default 10, lower = more aggressive)
 	FilterSimilarThreshold int
+	// RewalkSample is how many headless paths to clean-session rewalk after crawl (0 = off)
+	RewalkSample int
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
