@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,7 +18,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/utils/errkit"
-	fileutil "github.com/projectdiscovery/utils/file"
 	"github.com/stoewer/go-strcase"
 	"github.com/valyala/fasttemplate"
 )
@@ -139,22 +137,29 @@ func New(options Options) (Writer, error) {
 			writer.storeResponseDir = options.StoreResponseDir
 		}
 		if options.NoClobber {
-			writer.storeResponseDir = createDirNameNoClobber(writer.storeResponseDir)
 			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+			indexPath := filepath.Join(writer.storeResponseDir, indexFile)
+			f, err := os.OpenFile(indexPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				return nil, errkit.Wrap(err, "output: could not create index file")
+			}
+			if cerr := f.Close(); cerr != nil {
+				return nil, errkit.Wrap(cerr, "output: could not close index file")
+			}
 		} else {
 			removeDirsWithSuffix(writer.storeResponseDir)
 			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
-		}
-		// Pre-create (truncate) the index file. updateIndex() reopens it with
-		// O_APPEND|O_WRONLY per write and closes its own handle, so we must not
-		// retain a long-lived descriptor here.
-		indexPath := filepath.Join(writer.storeResponseDir, indexFile)
-		f, err := os.Create(indexPath)
-		if err != nil {
-			return nil, errkit.Wrap(err, "output: could not create index file")
-		}
-		if cerr := f.Close(); cerr != nil {
-			return nil, errkit.Wrap(cerr, "output: could not close index file")
+			// Pre-create (truncate) the index file. updateIndex() reopens it with
+			// O_APPEND|O_WRONLY per write and closes its own handle, so we must not
+			// retain a long-lived descriptor here.
+			indexPath := filepath.Join(writer.storeResponseDir, indexFile)
+			f, err := os.Create(indexPath)
+			if err != nil {
+				return nil, errkit.Wrap(err, "output: could not create index file")
+			}
+			if cerr := f.Close(); cerr != nil {
+				return nil, errkit.Wrap(cerr, "output: could not close index file")
+			}
 		}
 	}
 	if options.ErrorLogFile != "" {
@@ -212,22 +217,24 @@ func (w *StandardWriter) Write(result *Result) error {
 	var err error
 
 	if w.storeResponse && result.HasResponse() {
-		if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+		if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String(), w.noClobber); err == nil {
 			if absPath, err := filepath.Abs(fileName); err == nil {
 				fileName = absPath
 			}
 			result.Response.StoredResponsePath = fileName
-			data, err := w.formatResult(result)
-			if err != nil {
-				return errkit.Wrap(err, "output: could not store response")
+			if fileWriter != nil {
+				data, err := w.formatResult(result)
+				if err != nil {
+					return errkit.Wrap(err, "output: could not store response")
+				}
+				if err := updateIndex(w.storeResponseDir, result); err != nil {
+					return errkit.Wrap(err, "output: could not store response")
+				}
+				if err := fileWriter.Write(data); err != nil {
+					return errkit.Wrap(err, "output: could not store response")
+				}
+				_ = fileWriter.Close()
 			}
-			if err := updateIndex(w.storeResponseDir, result); err != nil {
-				return errkit.Wrap(err, "output: could not store response")
-			}
-			if err := fileWriter.Write(data); err != nil {
-				return errkit.Wrap(err, "output: could not store response")
-			}
-			_ = fileWriter.Close()
 		}
 	}
 
@@ -321,36 +328,6 @@ func (w *StandardWriter) Close() error {
 // GetResultCount returns the number of results written
 func (w *StandardWriter) GetResultCount() int64 {
 	return atomic.LoadInt64(&w.resultCount)
-}
-
-func createDirNameNoClobber(dir string) string {
-	if !fileutil.FolderExists(dir) {
-		return dir
-	}
-
-	parentDir, dirName := filepath.Dir(dir), filepath.Base(dir)
-	entries, err := os.ReadDir(parentDir)
-	if err != nil {
-		return dirName
-	}
-
-	highestNum := 0
-	regex := regexp.MustCompile(fmt.Sprintf("^%s(\\d+)$", regexp.QuoteMeta(dirName)))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			name := entry.Name()
-			matches := regex.FindStringSubmatch(name)
-			if matches != nil {
-				if num, err := strconv.Atoi(matches[1]); err == nil && num > highestNum {
-					highestNum = num
-				}
-			}
-		}
-	}
-
-	newDirName := fmt.Sprintf("%s%d", dirName, highestNum+1)
-	newFullPath := filepath.Join(parentDir, newDirName)
-	return newFullPath
 }
 
 func removeDirsWithSuffix(dir string) {
