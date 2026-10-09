@@ -23,6 +23,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
@@ -32,15 +33,16 @@ import (
 )
 
 type Crawler struct {
-	logger        *slog.Logger
-	launcher      *browser.Launcher
-	options       Options
-	crawlQueue    queue.Queue[*types.Action]
-	crawlGraph    *graph.CrawlGraph
-	simhashOracle *simhash.Oracle
-	uniqueActions map[string]struct{}
-	diagnostics   diagnostics.Writer
-	loggedIn      bool
+	logger         *slog.Logger
+	launcher       *browser.Launcher
+	options        Options
+	crawlQueue     queue.Queue[*types.Action]
+	crawlGraph     *graph.CrawlGraph
+	simhashOracle  *simhash.Oracle
+	uniqueActions  map[string]struct{}
+	linkIdentities []*cartography.LinkIdentity
+	diagnostics    diagnostics.Writer
+	loggedIn       bool
 }
 
 type Options struct {
@@ -86,6 +88,9 @@ type Options struct {
 
 	// RewalkSample is how many discovered paths to clean-session rewalk after the crawl (0 = off).
 	RewalkSample int
+
+	// LinkIdentity enables volatile-door dedupe across revisits (default on when budget > 0).
+	LinkIdentityBudget int
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -502,6 +507,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		if nav.Element != nil && isLogoutPage(nav.Element) {
 			c.logger.Debug("Skipping Found logout page",
 				slog.String("url", nav.Element.Attributes["href"]),
+			)
+			continue
+		}
+		if !c.acceptLinkIdentity(nav) {
+			c.logger.Debug("Skipping navigation as link identity budget exhausted",
+				slog.Any("navigation", nav),
 			)
 			continue
 		}
