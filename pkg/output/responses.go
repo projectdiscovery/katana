@@ -10,6 +10,7 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/utils/errkit"
+	fileutil "github.com/projectdiscovery/utils/file"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
@@ -46,12 +47,15 @@ func createHostDir(storeResponseFolder, domain string) string {
 	return filepath.Join(storeResponseFolder, domain)
 }
 
-func getResponseFile(storeResponseFolder, URL string) (string, *fileWriter, error) {
+func getResponseFile(storeResponseFolder, URL string, noClobber bool) (string, *fileWriter, error) {
 	domain, err := getResponseHost(URL)
 	if err != nil {
 		return "", nil, err
 	}
 	fileName := getResponseFileName(storeResponseFolder, domain, URL)
+	if noClobber && fileutil.FileExists(fileName) {
+		return fileName, nil, nil
+	}
 	output, err := newFileOutputWriter(fileName)
 	if err != nil {
 		return "", nil, errkit.Wrap(err, "output: could not create output file")
