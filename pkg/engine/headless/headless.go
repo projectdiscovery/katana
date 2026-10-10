@@ -110,8 +110,9 @@ func (h *Headless) Crawl(URL string) error {
 	scopeValidator := validateScopeFunc(h, URL)
 
 	crawlOpts := crawler.Options{
-		Context:           h.options.Options.Context,
-		ChromiumPath:      h.options.Options.SystemChromePath,
+		Context:            h.options.Options.Context,
+		UseInstalledChrome: h.options.Options.UseInstalledChrome,
+		ChromiumPath:       h.options.Options.SystemChromePath,
 		MaxDepth:          h.options.Options.MaxDepth,
 		ShowBrowser:       h.options.Options.ShowBrowser,
 		MaxCrawlDuration:  h.options.Options.CrawlDuration,
