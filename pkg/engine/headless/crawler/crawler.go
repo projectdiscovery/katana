@@ -44,6 +44,7 @@ type Crawler struct {
 
 type Options struct {
 	Context             context.Context
+	UseInstalledChrome  bool
 	ChromiumPath        string
 	MaxBrowsers         int
 	MaxDepth            int
@@ -114,6 +115,7 @@ func New(opts Options) (*Crawler, error) {
 	}
 
 	launcher, err := browser.NewLauncher(browser.LauncherOptions{
+		UseInstalledChrome:  opts.UseInstalledChrome,
 		ChromiumPath:        opts.ChromiumPath,
 		MaxBrowsers:         opts.MaxBrowsers,
 		PageMaxTimeout:      opts.PageMaxTimeout,
