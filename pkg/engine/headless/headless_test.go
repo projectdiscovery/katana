@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -164,4 +165,71 @@ func TestAdditionalAnalysisStillRunsForDuplicateRequests(t *testing.T) {
 		}
 	}
 	require.True(t, foundC, "new URL C should be discovered even though B was a duplicate request")
+}
+
+func TestPerformAdditionalAnalysisUsesConfiguredParser(t *testing.T) {
+	tests := []struct {
+		name    string
+		options parser.Options
+		html    string
+		headers http.Header
+		wantURL string
+		want    bool
+	}{
+		{
+			name:    "javascript_enabled",
+			options: parser.Options{ScrapeJSResponses: true},
+			html:    `<html><script>const endpoint = "/api/from-script";</script></html>`,
+			wantURL: "https://example.com/api/from-script",
+			want:    true,
+		},
+		{
+			name:    "javascript_disabled",
+			html:    `<html><script>const endpoint = "/api/from-script";</script></html>`,
+			wantURL: "https://example.com/api/from-script",
+		},
+		{
+			name:    "form_fill_enabled",
+			options: parser.Options{AutomaticFormFill: true},
+			html:    `<html><form action="/submit" method="post"><input name="name"></form></html>`,
+			wantURL: "https://example.com/submit",
+			want:    true,
+		},
+		{
+			name:    "form_fill_disabled",
+			html:    `<html><form action="/submit" method="post"><input name="name"></form></html>`,
+			wantURL: "https://example.com/submit",
+		},
+		{
+			name:    "redirects_enabled",
+			html:    `<html></html>`,
+			headers: http.Header{"Location": {"/redirect-target"}},
+			wantURL: "https://example.com/redirect-target",
+			want:    true,
+		},
+		{
+			name:    "redirects_disabled",
+			options: parser.Options{DisableRedirects: true},
+			html:    `<html></html>`,
+			headers: http.Header{"Location": {"/redirect-target"}},
+			wantURL: "https://example.com/redirect-target",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newTestHeadless(t, false, false)
+			h.options.Parser = parser.NewResponseParser()
+			h.options.Parser.InitWithOptions(&tt.options)
+			response := makeResponse(t, "https://example.com/page", tt.html)
+			response.Resp.Header = tt.headers
+			results := h.performAdditionalAnalysis(&output.Result{Response: response})
+			var found bool
+			for _, result := range results {
+				if result.Request.URL == tt.wantURL {
+					found = true
+				}
+			}
+			require.Equal(t, tt.want, found)
+		})
+	}
 }

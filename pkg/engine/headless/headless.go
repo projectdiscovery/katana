@@ -251,7 +251,10 @@ func (h *Headless) isUniqueURL(rawURL string) bool {
 }
 
 func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
-	responseParser := parser.NewResponseParser()
+	responseParser := h.options.Parser
+	if responseParser == nil {
+		responseParser = parser.NewResponseParser()
+	}
 	newNavigations := responseParser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
