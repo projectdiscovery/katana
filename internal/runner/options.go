@@ -110,9 +110,9 @@ func validateOptions(options *types.Options) error {
 		}
 	}
 
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "" || options.UseInstalledChrome) &&
 		!options.Headless && !options.HeadlessHybrid {
-		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
+		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos, -sc or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {

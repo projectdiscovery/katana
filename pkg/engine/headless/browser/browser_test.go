@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/stretchr/testify/require"
 )
 
@@ -114,5 +115,83 @@ func TestLauncherIncognitoAndProfilePreservation(t *testing.T) {
 		require.True(t, l.shouldPreserveUserDataDir(profileDir))
 		require.False(t, l.shouldPreserveUserDataDir(filepath.Join(profileDir, "nested")))
 		require.False(t, l.shouldPreserveUserDataDir(""))
+	})
+}
+
+func TestLauncherSystemChromeResolution(t *testing.T) {
+	origLookPath := lookPath
+	t.Cleanup(func() {
+		lookPath = origLookPath
+	})
+
+	t.Run("system chrome enabled and chrome is discovered", func(t *testing.T) {
+		lookPath = func() (string, bool) {
+			return "/usr/bin/mock-chromium", true
+		}
+
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers:        1,
+			UseInstalledChrome: true,
+		})
+		require.NoError(t, err)
+
+		cl, err := l.createChromeLauncher(t.TempDir())
+		require.NoError(t, err)
+		require.Equal(t, "/usr/bin/mock-chromium", cl.Get(flags.Bin))
+	})
+
+	t.Run("system chrome enabled and chrome not found returns error", func(t *testing.T) {
+		lookPath = func() (string, bool) {
+			return "", false
+		}
+
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers:        1,
+			UseInstalledChrome: true,
+		})
+		require.NoError(t, err)
+
+		cl, err := l.createChromeLauncher(t.TempDir())
+		require.Error(t, err)
+		require.Nil(t, cl)
+		require.Contains(t, err.Error(), "the chrome browser is not installed")
+	})
+
+	t.Run("explicit chromium path takes precedence over lookpath", func(t *testing.T) {
+		lookPath = func() (string, bool) {
+			return "/usr/bin/should-not-use", true
+		}
+
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers:        1,
+			UseInstalledChrome: true,
+			ChromiumPath:       "/custom/path/to/chrome",
+		})
+		require.NoError(t, err)
+
+		cl, err := l.createChromeLauncher(t.TempDir())
+		require.NoError(t, err)
+		require.Equal(t, "/custom/path/to/chrome", cl.Get(flags.Bin))
+	})
+
+	t.Run("explicit chromium path works without system chrome flag", func(t *testing.T) {
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers:  1,
+			ChromiumPath: "/custom/path/to/chrome",
+		})
+		require.NoError(t, err)
+
+		cl, err := l.createChromeLauncher(t.TempDir())
+		require.NoError(t, err)
+		require.Equal(t, "/custom/path/to/chrome", cl.Get(flags.Bin))
+	})
+
+	t.Run("use installed chrome option is preserved in launcher", func(t *testing.T) {
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers:        1,
+			UseInstalledChrome: true,
+		})
+		require.NoError(t, err)
+		require.True(t, l.opts.UseInstalledChrome)
 	})
 }

@@ -33,6 +33,8 @@ import (
 	"github.com/rs/xid"
 )
 
+var lookPath = launcher.LookPath
+
 // Launcher is a high level controller to launch browsers
 // and do the execution on them.
 type Launcher struct {
@@ -43,6 +45,7 @@ type Launcher struct {
 
 // LauncherOptions contains options for the launcher
 type LauncherOptions struct {
+	UseInstalledChrome  bool
 	ChromiumPath        string
 	MaxBrowsers         int
 	PageMaxTimeout      time.Duration
@@ -110,6 +113,84 @@ func (l *Launcher) shouldPreserveUserDataDir(tempDir string) bool {
 	return tempDir != "" && tempDir == l.opts.UserDataDir
 }
 
+func (l *Launcher) createChromeLauncher(userDataDir string) (*launcher.Launcher, error) {
+	chromeLauncher := launcher.New().
+		Leakless(true).
+		Set("disable-gpu", "true").
+		Set("ignore-certificate-errors", "true").
+		Set("disable-crash-reporter", "true").
+		Set("disable-notifications", "true").
+		Set("hide-scrollbars", "true").
+		Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
+		Set("mute-audio", "true").
+		Delete("use-mock-keychain").
+		Delete("disable-ipc-flooding-protection").
+		Headless(true)
+
+	if l.shouldUseIncognito() {
+		chromeLauncher = chromeLauncher.Set("incognito", "true")
+	}
+
+	for _, flag := range headlessFlags {
+		splitted := strings.TrimPrefix(flag, "--")
+		values := strings.Split(splitted, "=")
+		flagName := values[0]
+		if l.shouldSkipHeadlessFlag(flagName) {
+			continue
+		}
+		if len(values) == 2 {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
+		} else {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
+		}
+	}
+
+	if l.opts.Proxy != "" {
+		chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
+		// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
+		// unless that implicit rule is subtracted. Same token as hybrid.
+		chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
+	}
+
+	if l.opts.NoSandbox {
+		chromeLauncher = chromeLauncher.NoSandbox(true)
+	}
+
+	if l.opts.ShowBrowser {
+		chromeLauncher = chromeLauncher.Headless(false)
+	}
+
+	if l.opts.UseInstalledChrome {
+		if l.opts.ChromiumPath != "" {
+			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+		} else {
+			if chromePath, hasChrome := lookPath(); hasChrome {
+				chromeLauncher = chromeLauncher.Bin(chromePath)
+			} else {
+				return nil, errors.New("the chrome browser is not installed")
+			}
+		}
+	} else if l.opts.ChromiumPath != "" {
+		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+	} else if !l.opts.ShowBrowser && chromeshell.Supported() {
+		// Prefer chrome-headless-shell on linux/amd64 for headless crawls;
+		// skip when headed since the shell binary cannot show a UI.
+		if shellPath, err := chromeshell.Ensure(); err == nil {
+			chromeLauncher = chromeLauncher.Bin(shellPath)
+		}
+	}
+
+	if userDataDir != "" {
+		chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
+	}
+
+	for k, v := range l.opts.UserArguments {
+		chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
+	}
+
+	return chromeLauncher, nil
+}
+
 func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
 	var launcherURL string
 
@@ -118,71 +199,11 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 		launcherURL = l.opts.ChromeWSUrl
 	} else {
 		// Launch a new Chrome instance
-		chromeLauncher := launcher.New().
-			Leakless(true).
-			Set("disable-gpu", "true").
-			Set("ignore-certificate-errors", "true").
-			Set("disable-crash-reporter", "true").
-			Set("disable-notifications", "true").
-			Set("hide-scrollbars", "true").
-			Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
-			Set("mute-audio", "true").
-			Delete("use-mock-keychain").
-			Delete("disable-ipc-flooding-protection").
-			Headless(true)
-
-		if l.shouldUseIncognito() {
-			chromeLauncher = chromeLauncher.Set("incognito", "true")
+		chromeLauncher, err := l.createChromeLauncher(userDataDir)
+		if err != nil {
+			return nil, err
 		}
 
-		for _, flag := range headlessFlags {
-			splitted := strings.TrimPrefix(flag, "--")
-			values := strings.Split(splitted, "=")
-			flagName := values[0]
-			if l.shouldSkipHeadlessFlag(flagName) {
-				continue
-			}
-			if len(values) == 2 {
-				chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
-			} else {
-				chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
-			}
-		}
-
-		if l.opts.Proxy != "" {
-			chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
-			// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
-			// unless that implicit rule is subtracted. Same token as hybrid.
-			chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
-		}
-
-		if l.opts.NoSandbox {
-			chromeLauncher = chromeLauncher.NoSandbox(true)
-		}
-
-		if l.opts.ShowBrowser {
-			chromeLauncher = chromeLauncher.Headless(false)
-		}
-
-		if l.opts.ChromiumPath != "" {
-			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
-		} else if !l.opts.ShowBrowser && chromeshell.Supported() {
-			// Prefer chrome-headless-shell on linux/amd64 for headless crawls;
-			// skip when headed since the shell binary cannot show a UI.
-			if shellPath, err := chromeshell.Ensure(); err == nil {
-				chromeLauncher = chromeLauncher.Bin(shellPath)
-			}
-		}
-
-		if userDataDir != "" {
-			chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
-		}
-
-		for k, v := range l.opts.UserArguments {
-			chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
-		}
-
-		var err error
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
 			return nil, err
