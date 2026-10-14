@@ -226,7 +226,8 @@ type BrowserPage struct {
 	cancel      context.CancelFunc
 	userDataDir string
 
-	launcher *Launcher
+	launcher     *Launcher
+	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
 }
 
 // WaitOptions controls how WaitPageLoadHeurisitics determines navigation completion.
@@ -458,9 +459,11 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		cancel:      cancel,
 		userDataDir: tempDir,
 	}
-	if err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL); err != nil {
+	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
+	if err != nil {
 		return nil, errors.Wrap(err, "could not apply browser headers and cookies")
 	}
+	browserPage.extraHeaders = extra
 	if err := browserPage.handlePageDialogBoxes(); err != nil {
 		return nil, err
 	}
@@ -495,9 +498,11 @@ func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 // interactive helpers used by a pooled page. The caller owns and closes it.
 func (l *Launcher) AdoptPopup(page *rod.Page, browser *rod.Browser) (*BrowserPage, error) {
 	popup := &BrowserPage{Page: page, Browser: browser, launcher: l}
-	if err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL); err != nil {
+	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
+	if err != nil {
 		return nil, err
 	}
+	popup.extraHeaders = extra
 	if err := popup.handlePageDialogBoxes(); err != nil {
 		return nil, err
 	}
@@ -522,6 +527,10 @@ func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts in
 func (b *BrowserPage) handlePageDialogBoxes() error {
 	err := proto.FetchEnable{
 		Patterns: []*proto.FetchRequestPattern{
+			{
+				URLPattern:   "*",
+				RequestStage: proto.FetchRequestStageRequest,
+			},
 			{
 				URLPattern:   "*",
 				RequestStage: proto.FetchRequestStageResponse,
@@ -554,6 +563,14 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 					}.Call(b.Page)
 					return
 				}
+			}
+
+			// Request stage: attach scoped custom headers before the request leaves.
+			if isFetchRequestStage(e) {
+				if err := b.continueWithScopedHeaders(e); err != nil {
+					slog.Warn("fetchContinueRequest failed", "error", err)
+				}
+				return
 			}
 
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
@@ -619,6 +636,18 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 		},
 	)()
 	return nil
+}
+
+// continueWithScopedHeaders resumes a request-stage pause, attaching
+// non-cookie custom headers only when the URL is in crawl scope.
+func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) error {
+	if len(b.extraHeaders) == 0 || !shouldAttachExtraHeaders(e.Request.URL, b.launcher.opts.ScopeValidator, b.launcher.opts.CookieURL) {
+		return fetchContinueRequest(b.Page, e)
+	}
+	return proto.FetchContinueRequest{
+		RequestID: e.RequestID,
+		Headers:   mergeRequestHeaders(e.Request.Headers, b.extraHeaders),
+	}.Call(b.Page)
 }
 
 func fetchContinueRequest(page *rod.Page, e *proto.FetchRequestPaused) error {

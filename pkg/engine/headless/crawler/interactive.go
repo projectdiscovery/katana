@@ -101,7 +101,12 @@ func (e *interactiveExplorer) explore(depth int, path []*types.HTMLElement) erro
 		e.success++
 		e.settle(stateID)
 		if err := e.explorePopup(beforeTabs, depth+1); err != nil {
-			return err
+			// One broken window.open must not abort sibling exploration.
+			if ctxErr := e.ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			e.failures++
+			e.crawler.logger.Debug("popup exploration failed", slog.String("error", err.Error()))
 		}
 		newID, newURL, err := interactiveState(e.page)
 		if err != nil {
@@ -129,7 +134,12 @@ func (e *interactiveExplorer) explorePopup(before rod.Pages, depth int) error {
 	}
 	pages, err := e.page.Browser.Pages()
 	if err != nil {
-		return err
+		if ctxErr := e.ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		e.failures++
+		e.crawler.logger.Debug("could not list browser pages for popup exploration", slog.String("error", err.Error()))
+		return nil
 	}
 	for _, page := range pages {
 		if _, existed := seen[page.TargetID]; existed {
@@ -140,7 +150,12 @@ func (e *interactiveExplorer) explorePopup(before rod.Pages, depth int) error {
 			continue
 		}
 		if err := e.exploreOpenedPage(page, depth); err != nil {
-			return err
+			if ctxErr := e.ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			e.failures++
+			e.crawler.logger.Debug("popup exploration failed", slog.String("error", err.Error()))
+			continue
 		}
 	}
 	return nil
