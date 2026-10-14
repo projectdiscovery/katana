@@ -23,6 +23,7 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	rodutils "github.com/go-rod/rod/lib/utils"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/js"
@@ -59,9 +60,13 @@ type LauncherOptions struct {
 	UserDataDir         string            // User-provided chrome data directory to preserve sessions
 	ChromeUser          *user.User        // optional chrome user to use
 	UserArguments       map[string]string // user-supplied Chrome flags via -headless-options
+	CustomHeaders       map[string]string
+	CookieURL           string
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
+	ScriptCallback  func(assets.Response)
+	Interactive     bool
 }
 
 type ScopeValidator func(string) bool
@@ -453,6 +458,9 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		cancel:      cancel,
 		userDataDir: tempDir,
 	}
+	if err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL); err != nil {
+		return nil, errors.Wrap(err, "could not apply browser headers and cookies")
+	}
 	if err := browserPage.handlePageDialogBoxes(); err != nil {
 		return nil, err
 	}
@@ -462,7 +470,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize stealth")
 	}
-	err = js.InitJavascriptEnv(page)
+	err = js.InitJavascriptEnvWithHooks(page, l.opts.Interactive)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
@@ -481,6 +489,25 @@ func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 	// TODO: should we check if the browser is alive because sometimes it
 	// might die?
 	return browserPage, nil
+}
+
+// AdoptPopup prepares a browser-created tab for the same response capture and
+// interactive helpers used by a pooled page. The caller owns and closes it.
+func (l *Launcher) AdoptPopup(page *rod.Page, browser *rod.Browser) (*BrowserPage, error) {
+	popup := &BrowserPage{Page: page, Browser: browser, launcher: l}
+	if err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL); err != nil {
+		return nil, err
+	}
+	if err := popup.handlePageDialogBoxes(); err != nil {
+		return nil, err
+	}
+	if _, err := page.EvalOnNewDocument(stealth.JS); err != nil {
+		return nil, err
+	}
+	if err := js.InitJavascriptEnvWithHooks(page, l.opts.Interactive); err != nil {
+		return nil, err
+	}
+	return popup, nil
 }
 
 // backoffCountSleeper returns a sleeper that uses backoff strategy but stops after max attempts.
@@ -537,6 +564,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
+				b.reportScript(e, nil, err)
 				// Continue the request even if we can't get the body
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
@@ -546,6 +574,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			if err := fetchContinueRequest(b.Page, e); err != nil {
 				slog.Warn("fetchContinueRequest failed", "error", err)
 			}
+			b.reportScript(e, body, nil)
 
 			httpreq, err := netHTTPRequestFromProto(e.Request)
 			if err != nil {
@@ -617,6 +646,41 @@ func fetchGetResponseBody(page *rod.Page, e *proto.FetchRequestPaused) ([]byte, 
 		return nil, err
 	}
 	return bs, nil
+}
+
+// reportScript receives Chrome's complete decoded response body before the
+// ordinary URL scope and output filters can discard or truncate it.
+func (b *BrowserPage) reportScript(e *proto.FetchRequestPaused, body []byte, bodyErr error) {
+	if b.launcher.opts.ScriptCallback == nil {
+		return
+	}
+	var mime, length, encoding string
+	for _, header := range e.ResponseHeaders {
+		switch {
+		case strings.EqualFold(header.Name, "content-type"):
+			mime = header.Value
+		case strings.EqualFold(header.Name, "content-length"):
+			length = header.Value
+		case strings.EqualFold(header.Name, "content-encoding"):
+			encoding = header.Value
+		}
+	}
+	urlWithoutQuery := strings.ToLower(strings.SplitN(e.Request.URL, "?", 2)[0])
+	isScript := e.ResourceType == proto.NetworkResourceTypeScript ||
+		strings.Contains(strings.ToLower(mime), "javascript") ||
+		strings.Contains(strings.ToLower(mime), "ecmascript") ||
+		strings.HasSuffix(urlWithoutQuery, ".js") || strings.HasSuffix(urlWithoutQuery, ".mjs")
+	if !isScript {
+		return
+	}
+	status := 0
+	if e.ResponseStatusCode != nil {
+		status = *e.ResponseStatusCode
+	}
+	b.launcher.opts.ScriptCallback(assets.Response{
+		URL: e.Request.URL, Status: status, MIME: mime,
+		ContentLength: length, ContentEncoding: encoding, Body: body, Err: bodyErr,
+	})
 }
 
 func netHTTPRequestFromProto(e *proto.NetworkRequest) (*http.Request, error) {

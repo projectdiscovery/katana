@@ -20,6 +20,27 @@ import (
 
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
+	if options.Interactive {
+		if options.HeadlessHybrid {
+			return errkit.New("interactive mode requires pure headless mode; -hh is not supported")
+		}
+		options.Headless = true
+		if options.InteractionDepth < 1 || options.InteractionMaxStates < 0 || options.InteractionMaxActions < 0 || options.InteractionSettle < 0 || options.InteractionDuration < 0 {
+			return errkit.New("invalid interactive limits: depth must be positive and other limits non-negative")
+		}
+		if options.ScriptOutputDir == "" {
+			options.ScriptOutputDir = "katana-scripts"
+		}
+	}
+	if options.ScriptOutputDir != "" && !options.Headless && options.ChromeWSUrl == "" {
+		return errkit.New("-script-output-dir requires pure headless mode")
+	}
+	if options.ScriptDiscoveryDepth < 0 || options.ScriptDiscoveryMax < 0 || options.ScriptFinalizeReserve < 0 {
+		return errkit.New("script discovery depth and max must not be negative")
+	}
+	if options.ScriptDiscoveryScope != "" && options.ScriptDiscoveryScope != "same-origin" && options.ScriptDiscoveryScope != "all" {
+		return errkit.New("-script-discovery-scope must be same-origin or all")
+	}
 	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
 		return errkit.New("either max-depth or crawl-duration must be specified")
 	}
