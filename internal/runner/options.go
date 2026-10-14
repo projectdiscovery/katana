@@ -32,9 +32,6 @@ func validateOptions(options *types.Options) error {
 			options.ScriptOutputDir = "katana-scripts"
 		}
 	}
-	if options.ScriptOutputDir != "" && !options.Headless && options.ChromeWSUrl == "" {
-		return errkit.New("-script-output-dir requires pure headless mode")
-	}
 	if options.ScriptDiscoveryDepth < 0 || options.ScriptDiscoveryMax < 0 || options.ScriptFinalizeReserve < 0 {
 		return errkit.New("script discovery depth and max must not be negative")
 	}
@@ -129,6 +126,11 @@ func validateOptions(options *types.Options) error {
 		if len(replaySteps) == 0 {
 			return errkit.New("recorded flow requires at least one action after its navigate step")
 		}
+	}
+
+	// After auto-login / recorded-flow may have enabled Headless.
+	if options.ScriptOutputDir != "" && !options.Headless && options.ChromeWSUrl == "" {
+		return errkit.New("-script-output-dir requires pure headless mode")
 	}
 
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&

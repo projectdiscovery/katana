@@ -10,6 +10,7 @@ import (
 
 	"github.com/lmittmann/tint"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -108,25 +109,56 @@ func (h *Headless) Crawl(URL string) error {
 	}()
 
 	scopeValidator := validateScopeFunc(h, URL)
+	var scriptStore *assets.Store
+	if dir := h.options.Options.ScriptOutputDir; dir != "" {
+		var err error
+		scriptStore, err = assets.NewWithDiscovery(dir, h.options.Options.ScriptDiscoveryDepth)
+		if err != nil {
+			return err
+		}
+		defer scriptStore.Close()
+	}
 
 	crawlOpts := crawler.Options{
-		Context:           h.options.Options.Context,
-		ChromiumPath:      h.options.Options.SystemChromePath,
-		MaxDepth:          h.options.Options.MaxDepth,
-		ShowBrowser:       h.options.Options.ShowBrowser,
-		MaxCrawlDuration:  h.options.Options.CrawlDuration,
-		MaxFailureCount:   h.options.Options.MaxFailureCount,
-		NoSandbox:         h.options.Options.HeadlessNoSandbox,
-		NoIncognito:       h.options.Options.HeadlessNoIncognito,
-		UserDataDir:       h.options.Options.ChromeDataDir,
-		Proxy:             h.options.Options.Proxy,
-		MaxBrowsers:       1,
-		PageMaxTimeout:    30 * time.Second,
-		ScopeValidator:    scopeValidator,
-		AutomaticFormFill: h.options.Options.AutomaticFormFill,
-		PageLoadStrategy:  h.options.Options.PageLoadStrategy,
-		ChromeWSUrl:       h.options.Options.ChromeWSUrl,
-		DOMWaitTime:       h.options.Options.DOMWaitTime,
+		Context:               h.options.Options.Context,
+		ChromiumPath:          h.options.Options.SystemChromePath,
+		MaxDepth:              h.options.Options.MaxDepth,
+		ShowBrowser:           h.options.Options.ShowBrowser,
+		MaxCrawlDuration:      h.options.Options.CrawlDuration,
+		MaxFailureCount:       h.options.Options.MaxFailureCount,
+		NoSandbox:             h.options.Options.HeadlessNoSandbox,
+		NoIncognito:           h.options.Options.HeadlessNoIncognito,
+		UserDataDir:           h.options.Options.ChromeDataDir,
+		Proxy:                 h.options.Options.Proxy,
+		MaxBrowsers:           1,
+		PageMaxTimeout:        30 * time.Second,
+		ScopeValidator:        scopeValidator,
+		AutomaticFormFill:     h.options.Options.AutomaticFormFill,
+		CustomHeaders:         h.options.Options.ParseCustomHeaders(),
+		RootURL:               URL,
+		Interactive:           h.options.Options.Interactive,
+		InteractionDepth:      h.options.Options.InteractionDepth,
+		InteractionSelector:   h.options.Options.InteractionSelector,
+		InteractionExclude:    h.options.Options.InteractionExclude,
+		InteractionMaxStates:  h.options.Options.InteractionMaxStates,
+		InteractionMaxActions: h.options.Options.InteractionMaxActions,
+		InteractionSettle:     h.options.Options.InteractionSettle,
+		InteractionDuration:   h.options.Options.InteractionDuration,
+		PageLoadStrategy:      h.options.Options.PageLoadStrategy,
+		ChromeWSUrl:           h.options.Options.ChromeWSUrl,
+		DOMWaitTime:           h.options.Options.DOMWaitTime,
+		ScriptCallback: func(resp assets.Response) {
+			if scriptStore == nil {
+				return
+			}
+			if _, err := scriptStore.Save(resp); err != nil {
+				h.logger.Warn("failed to save script response", slog.String("url", resp.URL), slog.String("error", err.Error()))
+			}
+		},
+		ScriptStore:           scriptStore,
+		ScriptDiscoveryMax:    h.options.Options.ScriptDiscoveryMax,
+		ScriptDiscoveryScope:  h.options.Options.ScriptDiscoveryScope,
+		ScriptFinalizeReserve: h.options.Options.ScriptFinalizeReserve,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
