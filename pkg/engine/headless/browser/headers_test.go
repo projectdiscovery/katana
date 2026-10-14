@@ -31,22 +31,60 @@ func TestSplitCustomHeadersKeepsCookieScopedAndExtraSeparate(t *testing.T) {
 		"Authorization": "Bearer secret",
 		"X-Trace":       "1",
 	}, extra)
-	// Extra headers must not be applied page-wide; attachment is scope-gated.
 	require.False(t, shouldAttachExtraHeaders("https://cdn.third-party.test/lib.js", nil, "https://app.example.test/"))
 	require.True(t, shouldAttachExtraHeaders("https://app.example.test/api", nil, "https://app.example.test/"))
 }
 
-func TestShouldAttachExtraHeadersUsesScopeValidator(t *testing.T) {
+func TestShouldAttachExtraHeadersRequiresSameOriginAndScope(t *testing.T) {
 	inScope := func(u string) bool { return u == "https://app.example.test/api" }
 	require.True(t, shouldAttachExtraHeaders("https://app.example.test/api", inScope, "https://app.example.test/"))
 	require.False(t, shouldAttachExtraHeaders("https://cdn.third-party.test/lib.js", inScope, "https://app.example.test/"))
+	require.False(t, shouldAttachExtraHeaders("https://app.example.test/other", inScope, "https://app.example.test/"))
 }
 
-func TestShouldAttachExtraHeadersFallsBackToCookieHost(t *testing.T) {
-	cookieURL := "https://app.example.test/dashboard"
+func TestShouldAttachExtraHeadersSameOriginNotJustHostname(t *testing.T) {
+	cookieURL := "https://app.example.test/"
 	require.True(t, shouldAttachExtraHeaders("https://app.example.test/api", nil, cookieURL))
-	require.False(t, shouldAttachExtraHeaders("https://cdn.third-party.test/lib.js", nil, cookieURL))
+	// Different port → different origin.
+	require.False(t, shouldAttachExtraHeaders("https://app.example.test:8443/api", nil, cookieURL))
+	// Different scheme → different origin.
+	require.False(t, shouldAttachExtraHeaders("http://app.example.test/api", nil, cookieURL))
+	// Explicit default https port still same origin.
+	require.True(t, shouldAttachExtraHeaders("https://app.example.test:443/api", nil, cookieURL))
+}
+
+func TestShouldAttachExtraHeadersRejectsCleartext(t *testing.T) {
+	// Non-cookie extras must never ride cleartext, even when origin matches.
+	cookieHTTP := "http://app.example.test/"
+	require.False(t, shouldAttachExtraHeaders("http://app.example.test/api", nil, cookieHTTP))
+	allowAll := func(string) bool { return true }
+	require.False(t, shouldAttachExtraHeaders("http://app.example.test/api", allowAll, cookieHTTP))
+	require.True(t, shouldAttachExtraHeaders("https://app.example.test/api", nil, "https://app.example.test/"))
+	require.True(t, shouldAttachExtraHeaders("wss://app.example.test/ws", nil, "wss://app.example.test/"))
+	require.False(t, shouldAttachExtraHeaders("ws://app.example.test/ws", nil, "ws://app.example.test/"))
+}
+
+func TestShouldAttachExtraHeadersEmptyCookieURL(t *testing.T) {
+	require.False(t, shouldAttachExtraHeaders("https://app.example.test/api", nil, ""))
 	require.False(t, shouldAttachExtraHeaders("https://cdn.third-party.test/lib.js", nil, ""))
+}
+
+func TestShouldAttachExtraHeadersSameOriginEvenWhenScopePermissive(t *testing.T) {
+	allowAll := func(string) bool { return true }
+	cookieURL := "https://app.example.test/"
+	require.True(t, shouldAttachExtraHeaders("https://app.example.test/api", allowAll, cookieURL))
+	require.False(t, shouldAttachExtraHeaders("https://cdn.third-party.test/lib.js", allowAll, cookieURL))
+	require.False(t, shouldAttachExtraHeaders("https://other.example.test/x", allowAll, cookieURL))
+	require.False(t, shouldAttachExtraHeaders("https://app.example.test:8443/x", allowAll, cookieURL))
+}
+
+func TestSameOrigin(t *testing.T) {
+	require.True(t, sameOrigin("https://a.test/", "https://a.test/path"))
+	require.True(t, sameOrigin("https://a.test/", "https://a.test:443/path"))
+	require.False(t, sameOrigin("https://a.test/", "https://a.test:8443/path"))
+	require.False(t, sameOrigin("https://a.test/", "http://a.test/path"))
+	require.False(t, sameOrigin("https://a.test/", "https://b.test/path"))
+	require.False(t, sameOrigin("", "https://a.test/"))
 }
 
 func TestMergeRequestHeadersOverlaysExtraWithoutDroppingOthers(t *testing.T) {

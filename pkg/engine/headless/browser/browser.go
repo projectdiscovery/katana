@@ -495,7 +495,9 @@ func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 }
 
 // AdoptPopup prepares a browser-created tab for the same response capture and
-// interactive helpers used by a pooled page. The caller owns and closes it.
+// interactive helpers used by a pooled page. Call it as soon as the target is
+// discovered (even while still about:blank) so Fetch interception is enabled
+// before the popup's first navigation races ahead. The caller owns and closes it.
 func (l *Launcher) AdoptPopup(page *rod.Page, browser *rod.Browser) (*BrowserPage, error) {
 	popup := &BrowserPage{Page: page, Browser: browser, launcher: l}
 	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
@@ -639,7 +641,8 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 }
 
 // continueWithScopedHeaders resumes a request-stage pause, attaching
-// non-cookie custom headers only when the URL is in crawl scope.
+// non-cookie custom headers only for same-origin https/wss requests that
+// also pass ScopeValidator (see shouldAttachExtraHeaders).
 func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) error {
 	if len(b.extraHeaders) == 0 || !shouldAttachExtraHeaders(e.Request.URL, b.launcher.opts.ScopeValidator, b.launcher.opts.CookieURL) {
 		return fetchContinueRequest(b.Page, e)

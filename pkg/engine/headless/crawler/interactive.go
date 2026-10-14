@@ -27,6 +27,17 @@ type interactiveExplorer struct {
 	failures int
 }
 
+
+// reserveAction counts one click toward InteractionMaxActions.
+// Returns false when the budget is already exhausted (attempts unchanged).
+func (e *interactiveExplorer) reserveAction() bool {
+	if limit := e.crawler.options.InteractionMaxActions; limit > 0 && e.attempts >= limit {
+		return false
+	}
+	e.attempts++
+	return true
+}
+
 func (c *Crawler) crawlInteractive(ctx context.Context, rootURL string) error {
 	page, err := c.launcher.GetPageFromPool()
 	if err != nil {
@@ -78,11 +89,10 @@ func (e *interactiveExplorer) explore(depth int, path []*types.HTMLElement) erro
 		if err := e.ctx.Err(); err != nil {
 			return err
 		}
-		if limit := e.crawler.options.InteractionMaxActions; limit > 0 && e.attempts >= limit {
-			return nil
-		}
 		// Recreate the parent only after one of our clicks changed it. Pages
 		// with rotating ads or clocks can mutate between two observations.
+		// Restore path clicks count toward InteractionMaxActions so the budget
+		// stays honest when replaying deep UI paths.
 		if needsRestore {
 			if err := e.restore(path, stateID, pageURL); err != nil {
 				e.crawler.logger.Debug("could not restore interactive state", slog.String("error", err.Error()))
@@ -91,7 +101,9 @@ func (e *interactiveExplorer) explore(depth int, path []*types.HTMLElement) erro
 			}
 			needsRestore = false
 		}
-		e.attempts++
+		if !e.reserveAction() {
+			return nil
+		}
 		beforeTabs, _ := e.page.Browser.Pages()
 		if err := e.click(candidate); err != nil {
 			e.failures++
@@ -163,10 +175,19 @@ func (e *interactiveExplorer) explorePopup(before rod.Pages, depth int) error {
 
 func (e *interactiveExplorer) exploreOpenedPage(page *rod.Page, depth int) error {
 	defer page.Close()
+	// Install Fetch interception and page hooks immediately — before waiting
+	// for a non-blank URL — so the popup's first navigation and early
+	// subresources can be paused for scoped headers / script capture.
+	// A reload after the URL is known covers the race where the document
+	// request already left before we attached.
+	popup, err := e.crawler.launcher.AdoptPopup(page.Context(e.ctx), e.page.Browser)
+	if err != nil {
+		return err
+	}
 	var popupURL string
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) && e.ctx.Err() == nil {
-		info, err := page.Info()
+		info, err := popup.Info()
 		if err != nil {
 			return err
 		}
@@ -183,12 +204,6 @@ func (e *interactiveExplorer) exploreOpenedPage(page *rod.Page, depth int) error
 	if validate := e.crawler.options.ScopeValidator; validate != nil && !validate(popupURL) {
 		return nil
 	}
-	popup, err := e.crawler.launcher.AdoptPopup(page.Context(e.ctx), e.page.Browser)
-	if err != nil {
-		return err
-	}
-	// The target may have loaded its scripts before interception was attached.
-	// Reload it once after installing hooks to capture the complete responses.
 	if err := popup.Timeout(e.crawler.options.PageMaxTimeout).Navigate(popupURL); err != nil {
 		return err
 	}
@@ -367,6 +382,9 @@ func (e *interactiveExplorer) restore(path []*types.HTMLElement, expected, expec
 		return err
 	}
 	for _, item := range path {
+		if !e.reserveAction() {
+			return fmt.Errorf("interaction action budget exhausted during restore")
+		}
 		before, _, err := interactiveState(e.page)
 		if err != nil {
 			return err
