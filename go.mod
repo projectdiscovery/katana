@@ -3,7 +3,6 @@ module github.com/projectdiscovery/katana
 go 1.26.0
 
 require (
-	github.com/Mzack9999/jsluice v0.0.0-20260306161058-30114a312f98
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/adrianbrad/queue v1.3.0
 	github.com/dominikbraun/graph v0.23.0
@@ -23,6 +22,7 @@ require (
 	github.com/projectdiscovery/goflags v0.2.1
 	github.com/projectdiscovery/gologger v1.1.73
 	github.com/projectdiscovery/hmap v0.0.102
+	github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.92
 	github.com/projectdiscovery/retryablehttp-go v1.3.29

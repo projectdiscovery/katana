@@ -19,8 +19,6 @@ github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057 h1:KFac3SiGbId8ub
 github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057/go.mod h1:iLB2pivrPICvLOuROKmlqURtFIEsoJZaMidQfCG1+D4=
 github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 h1:ZbFL+BDfBqegi+/Ssh7im5+aQfBRx6it+kHnC7jaDU8=
 github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809/go.mod h1:upgc3Zs45jBDnBT4tVRgRcgm26ABpaP7MoTSdgysca4=
-github.com/Mzack9999/jsluice v0.0.0-20260306161058-30114a312f98 h1:j0nIOEMm2VD67i7cDhotxHkD0LQCFMe5cTueultYOgs=
-github.com/Mzack9999/jsluice v0.0.0-20260306161058-30114a312f98/go.mod h1:e0935H6X8oYPJhxc300JCpjldqCbq/CD8zqun7KkxSM=
 github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8/go.mod h1:I0gYDMZ6Z5GRU7l58bNFSkPTFN6Yl12dsUlAZ8xy98g=
 github.com/PuerkitoBio/goquery v1.12.0 h1:pAcL4g3WRXekcB9AU/y1mbKez2dbY2AajVhtkO8RIBo=
 github.com/PuerkitoBio/goquery v1.12.0/go.mod h1:802ej+gV2y7bbIhOIoPY5sT183ZW0YFofScC4q/hIpQ=
@@ -326,6 +324,8 @@ github.com/projectdiscovery/hmap v0.0.102 h1:ybPuf7UQvuOLiHLOUbVMvd+PSlItQU5iQpP
 github.com/projectdiscovery/hmap v0.0.102/go.mod h1:IZ92wXFmxYpdn0euZ7VFmypzOBNDwq8c3yRyIIol6XE=
 github.com/projectdiscovery/jarm-go v0.0.0-20260910160638-430e2bae86f6 h1:GUHQYLllWhoca+C4UAT0+TTB1PrUT05klj39V6/KpK8=
 github.com/projectdiscovery/jarm-go v0.0.0-20260910160638-430e2bae86f6/go.mod h1:f8P5X5+jEkUqK9z3oNWtSH1g23jMfw3nuEqmtA1jXA4=
+github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890 h1:xawcAcUDRw5kyCV2GAYWap0nErn2YZh9jb4pdUvAnR8=
+github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890/go.mod h1:p56rhQ/luwUXI5qLcy+LzLMYeuPS8G3HtyEFqfXusow=
 github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582 h1:eR+0HE//Ciyfwy3HC7fjRyKShSJHYoX2Pv7pPshjK/Q=
 github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582/go.mod h1:3G3BRKui7nMuDFAZKR/M2hiOLtaOmyukT20g88qRQjI=
 github.com/projectdiscovery/mapcidr v1.1.97 h1:7FkxNNVXp+m1rIu5Nv/2SrF9k4+LwP8QuWs2puwy+2w=
