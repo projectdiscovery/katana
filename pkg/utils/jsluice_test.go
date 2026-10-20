@@ -42,7 +42,10 @@ func TestIsPathCommonJSLibraryFile(t *testing.T) {
 	}
 }
 
+const escapedQuotesURL = "https://example.com/escaped-quotes"
+
 // escapedQuotesJS mimics a Next.js flight payload: one string literal with many \" sequences.
+// The fetch call is a separate literal so extraction still has a URL to return.
 func escapedQuotesJS(n int) string {
 	var b strings.Builder
 	b.WriteString(`x("`)
@@ -50,6 +53,7 @@ func escapedQuotesJS(n int) string {
 		fmt.Fprintf(&b, `\"k%d\":\"v\",`, i)
 	}
 	b.WriteString("\");\n")
+	fmt.Fprintf(&b, "fetch(%q);\n", escapedQuotesURL)
 	return b.String()
 }
 
@@ -61,8 +65,18 @@ func TestExtractJsluiceEndpointsEscapedQuotesMemory(t *testing.T) {
 			var before, after runtime.MemStats
 			runtime.GC()
 			runtime.ReadMemStats(&before)
-			ExtractJsluiceEndpoints(data)
+			endpoints := ExtractJsluiceEndpoints(data)
 			runtime.ReadMemStats(&after)
+			foundURL := false
+			for _, endpoint := range endpoints {
+				if endpoint.Endpoint == escapedQuotesURL {
+					foundURL = true
+					break
+				}
+			}
+			if !foundURL {
+				t.Fatalf("extracted endpoints = %#v, want %s", endpoints, escapedQuotesURL)
+			}
 			if alloc := after.TotalAlloc - before.TotalAlloc; alloc > maxAlloc {
 				t.Errorf("allocated %d MiB for %d byte input, want <= %d MiB", alloc>>20, len(data), maxAlloc>>20)
 			}

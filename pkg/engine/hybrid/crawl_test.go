@@ -137,6 +137,11 @@ func TestCancelDuringElementInteraction(t *testing.T) {
 	go func() { done <- crawler.Crawl(srv.URL) }()
 
 	time.Sleep(5 * time.Second)
+	select {
+	case err := <-done:
+		t.Fatalf("Crawl completed before context cancellation: %v", err)
+	default:
+	}
 	cancel()
 
 	select {
