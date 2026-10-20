@@ -15,7 +15,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	_ "github.com/projectdiscovery/katana/pkg/engine/headless/captcha/capsolver"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -251,8 +250,7 @@ func (h *Headless) isUniqueURL(rawURL string) bool {
 }
 
 func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
-	responseParser := parser.NewResponseParser()
-	newNavigations := responseParser.ParseResponse(rr.Response)
+	newNavigations := h.options.Parser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
 	for _, resp := range newNavigations {
