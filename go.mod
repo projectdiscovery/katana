@@ -2,6 +2,8 @@ module github.com/projectdiscovery/katana
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	github.com/Mzack9999/jsluice v0.0.0-20260306161058-30114a312f98
 	github.com/PuerkitoBio/goquery v1.12.0
