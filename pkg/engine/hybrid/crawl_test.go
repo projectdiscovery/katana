@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"context"
+	"errors"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -139,7 +140,10 @@ func TestCancelDuringElementInteraction(t *testing.T) {
 	cancel()
 
 	select {
-	case <-done:
+	case err := <-done:
+		if err != nil && !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
 	case <-time.After(30 * time.Second):
 		t.Fatal("Crawl did not return after context cancellation")
 	}
