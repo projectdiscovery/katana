@@ -19,13 +19,13 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/praetorian-inc/titus v1.2.0
 	github.com/projectdiscovery/dsl v0.8.24
-	github.com/projectdiscovery/fastdialer v0.5.23
+	github.com/projectdiscovery/fastdialer v0.5.24
 	github.com/projectdiscovery/goflags v0.2.1
 	github.com/projectdiscovery/gologger v1.1.73
 	github.com/projectdiscovery/hmap v0.0.102
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.92
-	github.com/projectdiscovery/retryablehttp-go v1.3.29
+	github.com/projectdiscovery/retryablehttp-go v1.3.31
 	github.com/projectdiscovery/utils v0.11.9
 	github.com/projectdiscovery/wappalyzergo v0.3.5
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -162,7 +162,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/projectdiscovery/networkpolicy v0.1.53
+	github.com/projectdiscovery/networkpolicy v0.1.54
 	github.com/projectdiscovery/retryabledns v1.0.116 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
