@@ -19,6 +19,7 @@ import (
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -68,13 +69,28 @@ type Options struct {
 	EnableDiagnostics bool
 	DiagnosticsDir    string
 
-	Proxy           string
-	Logger          *slog.Logger
-	ScopeValidator  browser.ScopeValidator
-	RequestCallback func(*output.Result)
-	ChromeUser      *user.User
-	CaptchaHandler  *captcha.Handler
-	UserArguments   map[string]string
+	Proxy                 string
+	Logger                *slog.Logger
+	ScopeValidator        browser.ScopeValidator
+	RequestCallback       func(*output.Result)
+	ScriptCallback        func(assets.Response)
+	ScriptStore           *assets.Store
+	ScriptDiscoveryMax    int
+	ScriptDiscoveryScope  string
+	ScriptFinalizeReserve time.Duration
+	CustomHeaders         map[string]string
+	RootURL               string
+	Interactive           bool
+	InteractionDepth      int
+	InteractionSelector   string
+	InteractionExclude    string
+	InteractionMaxStates  int
+	InteractionMaxActions int
+	InteractionSettle     time.Duration
+	InteractionDuration   time.Duration
+	ChromeUser            *user.User
+	CaptchaHandler        *captcha.Handler
+	UserArguments         map[string]string
 
 	AuthUsername  string
 	AuthPassword  string
@@ -117,6 +133,8 @@ func New(opts Options) (*Crawler, error) {
 		PageMaxTimeout:      opts.PageMaxTimeout,
 		ShowBrowser:         opts.ShowBrowser,
 		RequestCallback:     opts.RequestCallback,
+		ScriptCallback:      opts.ScriptCallback,
+		Interactive:         opts.Interactive,
 		SlowMotion:          opts.SlowMotion,
 		ScopeValidator:      opts.ScopeValidator,
 		ChromeUser:          opts.ChromeUser,
@@ -130,6 +148,8 @@ func New(opts Options) (*Crawler, error) {
 		UserDataDir:         opts.UserDataDir,
 		Proxy:               opts.Proxy,
 		UserArguments:       opts.UserArguments,
+		CustomHeaders:       opts.CustomHeaders,
+		CookieURL:           opts.RootURL,
 	})
 	if err != nil {
 		return nil, err
@@ -238,19 +258,87 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
+	workCtx := ctx
+	reserveEnabled := false
+	if c.options.ScriptStore != nil && c.options.MaxCrawlDuration > 0 && c.options.ScriptFinalizeReserve > 0 {
+		reserve := c.options.ScriptFinalizeReserve
+		if reserve >= c.options.MaxCrawlDuration {
+			reserve = c.options.MaxCrawlDuration / 4
+		}
+		if reserve > 0 {
+			reserveEnabled = true
+			var stopWork context.CancelFunc
+			workCtx, stopWork = context.WithTimeout(ctx, c.options.MaxCrawlDuration-reserve)
+			defer stopWork()
+		}
+	}
+	if c.options.ScriptStore != nil {
+		defer func() {
+			if ctx.Err() == nil {
+				if err := c.CollectDiscoveredScripts(ctx, c.options.ScriptStore); err != nil {
+					c.logger.Warn("nested script collection was incomplete", slog.String("error", err.Error()))
+				}
+			}
+		}()
+	}
+	if c.options.Interactive {
+		uiCtx := workCtx
+		if c.options.InteractionDuration > 0 {
+			var stop context.CancelFunc
+			uiCtx, stop = context.WithTimeout(workCtx, c.options.InteractionDuration)
+			defer stop()
+		}
+		err := c.crawlInteractive(uiCtx, URL)
+		if errors.Is(err, context.DeadlineExceeded) {
+			if ctx.Err() != nil {
+				if localDeadline && parentCtx.Err() == nil {
+					return nil
+				}
+				return err
+			}
+			if workCtx.Err() != nil {
+				c.logger.Info("crawl work time limit reached; finalizing scripts")
+				err = nil
+			}
+			if workCtx.Err() == nil && uiCtx.Err() != nil {
+				c.logger.Info("UI exploration time limit reached; continuing queued crawl")
+				err = nil
+			}
+		}
+		if err != nil {
+			if ctx.Err() != nil {
+				return err
+			}
+			c.logger.Warn("interactive exploration stopped early; continuing queued crawl", slog.String("error", err.Error()))
+		}
+	}
 
 	consecutiveFailures := 0
+	earlyFinalized := false
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-workCtx.Done():
+			if reserveEnabled && !earlyFinalized && ctx.Err() == nil {
+				earlyFinalized = true
+				if err := c.CollectDiscoveredScripts(ctx, c.options.ScriptStore); err != nil {
+					c.logger.Warn("early script finalization was incomplete", slog.String("error", err.Error()))
+				}
+				if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) > 2*time.Second {
+					var stopResume context.CancelFunc
+					workCtx, stopResume = context.WithDeadline(ctx, deadline.Add(-2*time.Second))
+					defer stopResume()
+					c.logger.Info("script finalization complete; resuming queued crawl")
+					continue
+				}
+			}
 			// Distinguish internal max-duration from external parent cancellation
 			if localDeadline && parentCtx.Err() == nil {
 				c.logger.Debug("Max crawl duration reached, stopping crawl")
 				return nil
 			}
 			c.logger.Debug("Context cancelled, stopping headless crawl")
-			return ctx.Err()
+			return workCtx.Err()
 		default:
 			// Check for too many failures
 			if c.options.MaxFailureCount > 0 && consecutiveFailures >= c.options.MaxFailureCount {
@@ -280,13 +368,14 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
-			page.Page = page.Context(ctx)
+			originalPage := page.Page
+			page.Page = page.Context(workCtx)
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
 			)
 
-			if err := c.crawlFn(ctx, action, page); err != nil {
+			if err := c.crawlFn(workCtx, action, page, originalPage); err != nil {
 				if err == ErrNoCrawlingAction {
 					return nil
 				}
@@ -340,8 +429,9 @@ func (c *Crawler) Crawl(URL string) error {
 
 var ErrNoCrawlingAction = errors.New("no more actions to crawl")
 
-func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage, originalPage *rod.Page) error {
 	defer func() {
+		page.Page = originalPage
 		c.launcher.PutBrowserToPool(page)
 	}()
 
@@ -356,7 +446,9 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		slog.String("action", action.String()),
 	)
 
-	if action.OriginID != "" && action.OriginID != currentPageHash {
+	// A load-URL action can navigate directly. Replaying history to reach its
+	// origin wastes the crawl budget, especially after an authentication flow.
+	if action.Type != types.ActionTypeLoadURL && action.OriginID != "" && action.OriginID != currentPageHash {
 		c.logger.Debug("Need to navigate back to origin",
 			slog.String("from", currentPageHash),
 			slog.String("to", action.OriginID),

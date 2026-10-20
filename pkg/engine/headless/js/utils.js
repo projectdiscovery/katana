@@ -39,6 +39,25 @@
       }
     };
 
+    window.getInteractiveElements = function (selector, exclude) {
+      const nodes = document.querySelectorAll(selector);
+      return Array.from(nodes)
+        .filter((el) => !exclude || !el.closest(exclude))
+        .map((el) => _elementDataFromElement(el));
+    };
+
+    window.getClickListenerElements = function () {
+      const elements = (window.__eventListeners || [])
+        .filter((listener) => listener.type === 'click' && listener.element)
+        .map((listener) => listener.element);
+      for (const el of document.querySelectorAll('*')) {
+        if (el !== document.body && el !== document.documentElement && typeof el.onclick === 'function') {
+          elements.push(_elementDataFromElement(el));
+        }
+      }
+      return elements;
+    };
+
     window.getElementFromXPath = function (xpath) {
       try {
         const element = document

@@ -23,6 +23,7 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	rodutils "github.com/go-rod/rod/lib/utils"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/js"
@@ -59,9 +60,13 @@ type LauncherOptions struct {
 	UserDataDir         string            // User-provided chrome data directory to preserve sessions
 	ChromeUser          *user.User        // optional chrome user to use
 	UserArguments       map[string]string // user-supplied Chrome flags via -headless-options
+	CustomHeaders       map[string]string
+	CookieURL           string
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
+	ScriptCallback  func(assets.Response)
+	Interactive     bool
 }
 
 type ScopeValidator func(string) bool
@@ -221,7 +226,8 @@ type BrowserPage struct {
 	cancel      context.CancelFunc
 	userDataDir string
 
-	launcher *Launcher
+	launcher     *Launcher
+	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
 }
 
 // WaitOptions controls how WaitPageLoadHeurisitics determines navigation completion.
@@ -453,6 +459,11 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		cancel:      cancel,
 		userDataDir: tempDir,
 	}
+	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not apply browser headers and cookies")
+	}
+	browserPage.extraHeaders = extra
 	if err := browserPage.handlePageDialogBoxes(); err != nil {
 		return nil, err
 	}
@@ -462,7 +473,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize stealth")
 	}
-	err = js.InitJavascriptEnv(page)
+	err = js.InitJavascriptEnvWithHooks(page, l.opts.Interactive)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
@@ -483,6 +494,29 @@ func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 	return browserPage, nil
 }
 
+// AdoptPopup prepares a browser-created tab for the same response capture and
+// interactive helpers used by a pooled page. Call it as soon as the target is
+// discovered (even while still about:blank) so Fetch interception is enabled
+// before the popup's first navigation races ahead. The caller owns and closes it.
+func (l *Launcher) AdoptPopup(page *rod.Page, browser *rod.Browser) (*BrowserPage, error) {
+	popup := &BrowserPage{Page: page, Browser: browser, launcher: l}
+	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
+	if err != nil {
+		return nil, err
+	}
+	popup.extraHeaders = extra
+	if err := popup.handlePageDialogBoxes(); err != nil {
+		return nil, err
+	}
+	if _, err := page.EvalOnNewDocument(stealth.JS); err != nil {
+		return nil, err
+	}
+	if err := js.InitJavascriptEnvWithHooks(page, l.opts.Interactive); err != nil {
+		return nil, err
+	}
+	return popup, nil
+}
+
 // backoffCountSleeper returns a sleeper that uses backoff strategy but stops after max attempts.
 // It combines the functionality of BackoffSleeper and CountSleeper.
 func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts int, algorithm func(time.Duration) time.Duration) rodutils.Sleeper {
@@ -495,6 +529,10 @@ func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts in
 func (b *BrowserPage) handlePageDialogBoxes() error {
 	err := proto.FetchEnable{
 		Patterns: []*proto.FetchRequestPattern{
+			{
+				URLPattern:   "*",
+				RequestStage: proto.FetchRequestStageRequest,
+			},
 			{
 				URLPattern:   "*",
 				RequestStage: proto.FetchRequestStageResponse,
@@ -529,6 +567,14 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				}
 			}
 
+			// Request stage: attach scoped custom headers before the request leaves.
+			if isFetchRequestStage(e) {
+				if err := b.continueWithScopedHeaders(e); err != nil {
+					slog.Warn("fetchContinueRequest failed", "error", err)
+				}
+				return
+			}
+
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
@@ -537,6 +583,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
+				b.reportScript(e, nil, err)
 				// Continue the request even if we can't get the body
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
@@ -546,6 +593,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			if err := fetchContinueRequest(b.Page, e); err != nil {
 				slog.Warn("fetchContinueRequest failed", "error", err)
 			}
+			b.reportScript(e, body, nil)
 
 			httpreq, err := netHTTPRequestFromProto(e.Request)
 			if err != nil {
@@ -592,6 +640,19 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 	return nil
 }
 
+// continueWithScopedHeaders resumes a request-stage pause, attaching
+// non-cookie custom headers only for same-origin https/wss requests that
+// also pass ScopeValidator (see shouldAttachExtraHeaders).
+func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) error {
+	if len(b.extraHeaders) == 0 || !shouldAttachExtraHeaders(e.Request.URL, b.launcher.opts.ScopeValidator, b.launcher.opts.CookieURL) {
+		return fetchContinueRequest(b.Page, e)
+	}
+	return proto.FetchContinueRequest{
+		RequestID: e.RequestID,
+		Headers:   mergeRequestHeaders(e.Request.Headers, b.extraHeaders),
+	}.Call(b.Page)
+}
+
 func fetchContinueRequest(page *rod.Page, e *proto.FetchRequestPaused) error {
 	return proto.FetchContinueRequest{
 		RequestID: e.RequestID,
@@ -617,6 +678,41 @@ func fetchGetResponseBody(page *rod.Page, e *proto.FetchRequestPaused) ([]byte, 
 		return nil, err
 	}
 	return bs, nil
+}
+
+// reportScript receives Chrome's complete decoded response body before the
+// ordinary URL scope and output filters can discard or truncate it.
+func (b *BrowserPage) reportScript(e *proto.FetchRequestPaused, body []byte, bodyErr error) {
+	if b.launcher.opts.ScriptCallback == nil {
+		return
+	}
+	var mime, length, encoding string
+	for _, header := range e.ResponseHeaders {
+		switch {
+		case strings.EqualFold(header.Name, "content-type"):
+			mime = header.Value
+		case strings.EqualFold(header.Name, "content-length"):
+			length = header.Value
+		case strings.EqualFold(header.Name, "content-encoding"):
+			encoding = header.Value
+		}
+	}
+	urlWithoutQuery := strings.ToLower(strings.SplitN(e.Request.URL, "?", 2)[0])
+	isScript := e.ResourceType == proto.NetworkResourceTypeScript ||
+		strings.Contains(strings.ToLower(mime), "javascript") ||
+		strings.Contains(strings.ToLower(mime), "ecmascript") ||
+		strings.HasSuffix(urlWithoutQuery, ".js") || strings.HasSuffix(urlWithoutQuery, ".mjs")
+	if !isScript {
+		return
+	}
+	status := 0
+	if e.ResponseStatusCode != nil {
+		status = *e.ResponseStatusCode
+	}
+	b.launcher.opts.ScriptCallback(assets.Response{
+		URL: e.Request.URL, Status: status, MIME: mime,
+		ContentLength: length, ContentEncoding: encoding, Body: body, Err: bodyErr,
+	})
 }
 
 func netHTTPRequestFromProto(e *proto.NetworkRequest) (*http.Request, error) {

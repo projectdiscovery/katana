@@ -118,6 +118,25 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// Interactive explores browser UI states with depth-first clicks.
+	Interactive           bool
+	InteractionDepth      int
+	InteractionSelector   string
+	InteractionExclude    string
+	InteractionMaxStates  int
+	InteractionMaxActions int
+	InteractionSettle     time.Duration
+	InteractionDuration   time.Duration
+	// ScriptOutputDir saves complete browser-observed JavaScript responses.
+	ScriptOutputDir string
+	// ScriptDiscoveryDepth follows literal nested imports found in saved scripts.
+	ScriptDiscoveryDepth int
+	// ScriptDiscoveryMax bounds additional requests for scripts found in source.
+	ScriptDiscoveryMax int
+	// ScriptDiscoveryScope controls whether static discovery crosses origins.
+	ScriptDiscoveryScope string
+	// ScriptFinalizeReserve reserves part of crawl duration for script recovery.
+	ScriptFinalizeReserve time.Duration
 	// HeadlessHybrid enables headless hybrid scraping
 	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission

@@ -209,6 +209,30 @@ func (b *BrowserPage) GetAllElements(selector string) ([]*types.HTMLElement, err
 	return elements, nil
 }
 
+func (b *BrowserPage) GetInteractiveElements(selector, exclude string) ([]*types.HTMLElement, error) {
+	objects, err := b.Eval(`() => window.getInteractiveElements(` + strconv.Quote(selector) + `, ` + strconv.Quote(exclude) + `)`)
+	if err != nil {
+		return nil, err
+	}
+	var elements []*types.HTMLElement
+	if err := objects.Value.Unmarshal(&elements); err != nil {
+		return nil, err
+	}
+	return elements, nil
+}
+
+func (b *BrowserPage) GetClickListenerElements() ([]*types.HTMLElement, error) {
+	objects, err := b.Eval(`() => window.getClickListenerElements()`)
+	if err != nil {
+		return nil, err
+	}
+	var elements []*types.HTMLElement
+	if err := objects.Value.Unmarshal(&elements); err != nil {
+		return nil, err
+	}
+	return elements, nil
+}
+
 func (b *BrowserPage) GetElementFromXpath(xpath string) (*types.HTMLElement, error) {
 	object, err := b.Eval(`() => window.getElementFromXPath(` + strconv.Quote(xpath) + `)`)
 	if err != nil {
