@@ -30,8 +30,12 @@ func TestScriptJSFileJsluiceParser(t *testing.T) {
 		wantParsed                   bool
 	}{
 		{"js extension", "https://example.com/app.js", "", jsBody, true},
+		{"uppercase js extension", "https://example.com/app.JS", "", jsBody, true},
 		{"javascript content type", "https://example.com/bundle", "application/javascript", jsBody, true},
+		{"javascript content type with charset", "https://example.com/bundle", "Application/JavaScript; charset=utf-8", jsBody, true},
 		{"css extension with css content type", "https://example.com/styles.css", "text/css", cssBody, false},
+		{"css extension with javascript content type", "https://example.com/styles.css", "application/javascript", cssBody, false},
+		{"uppercase css extension with javascript content type", "https://example.com/styles.CSS", "application/javascript", cssBody, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
