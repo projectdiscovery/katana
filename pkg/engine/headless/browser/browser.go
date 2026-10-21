@@ -62,6 +62,9 @@ type LauncherOptions struct {
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
+	// TrafficCallback, when set, receives every intercepted exchange,
+	// including redirects and failures, before any crawl filtering.
+	TrafficCallback func(*output.Result)
 }
 
 type ScopeValidator func(string) bool
@@ -530,6 +533,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
+				b.observeWithoutBody(e)
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
@@ -537,6 +541,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
+				b.observeWithoutBody(e)
 				// Continue the request even if we can't get the body
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
@@ -580,16 +585,49 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				Resp:          httpresp,
 				Reader:        doc,
 			}
+			result := &output.Result{
+				Timestamp: time.Now(),
+				Request:   &req,
+				Response:  resp,
+			}
+			if b.launcher.opts.TrafficCallback != nil {
+				b.launcher.opts.TrafficCallback(result)
+			}
 			if b.launcher.opts.RequestCallback != nil {
-				b.launcher.opts.RequestCallback(&output.Result{
-					Timestamp: time.Now(),
-					Request:   &req,
-					Response:  resp,
-				})
+				b.launcher.opts.RequestCallback(result)
 			}
 		},
 	)()
 	return nil
+}
+
+// observeWithoutBody reports an exchange whose body is not read (redirects,
+// failures) to the traffic callback.
+func (b *BrowserPage) observeWithoutBody(e *proto.FetchRequestPaused) {
+	callback := b.launcher.opts.TrafficCallback
+	if callback == nil {
+		return
+	}
+	httpreq, err := netHTTPRequestFromProto(e.Request)
+	if err != nil {
+		return
+	}
+	httpresp := netHTTPResponseFromProto(e, nil)
+	httpresp.Request = httpreq
+	callback(&output.Result{
+		Timestamp: time.Now(),
+		Request: &navigation.Request{
+			Method:  httpreq.Method,
+			URL:     httpreq.URL.String(),
+			Body:    e.Request.PostData,
+			Headers: utils.FlattenHeaders(httpreq.Header),
+		},
+		Response: &navigation.Response{
+			StatusCode: httpresp.StatusCode,
+			Headers:    utils.FlattenHeaders(httpresp.Header),
+			Resp:       httpresp,
+		},
+	})
 }
 
 func fetchContinueRequest(page *rod.Page, e *proto.FetchRequestPaused) error {
@@ -635,12 +673,16 @@ func netHTTPRequestFromProto(e *proto.NetworkRequest) (*http.Request, error) {
 }
 
 func netHTTPResponseFromProto(e *proto.FetchRequestPaused, body []byte) *http.Response {
+	statusCode := 0 // failed requests have no status
+	if e.ResponseStatusCode != nil {
+		statusCode = *e.ResponseStatusCode
+	}
 	httpresp := &http.Response{
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
 		Header:        make(http.Header),
-		StatusCode:    *e.ResponseStatusCode,
+		StatusCode:    statusCode,
 		Status:        e.ResponseStatusText,
 		Body:          io.NopCloser(bytes.NewReader(body)),
 		ContentLength: int64(len(body)),

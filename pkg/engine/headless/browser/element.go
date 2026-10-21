@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
@@ -15,6 +16,130 @@ const (
 	// linksCSSSelector is the css selector for all anchor tags
 	linksCSSSelector = "a"
 )
+
+type pageScrollMetrics struct {
+	Top      float64 `json:"top"`
+	Height   float64 `json:"height"`
+	Viewport float64 `json:"viewport"`
+}
+
+const readScrollMetricsScript = `() => {
+  const root = document.scrollingElement || document.documentElement;
+  const bodyHeight = document.body ? document.body.scrollHeight : 0;
+  return {
+    top: window.scrollY || root.scrollTop || 0,
+    height: Math.max(root.scrollHeight || 0, bodyHeight),
+    viewport: window.innerHeight || root.clientHeight || 0,
+  };
+}`
+
+// RevealLazyContent performs a bounded number of viewport-sized scrolls before
+// navigation discovery. This activates common infinite-scroll and lazy-render
+// handlers while retaining a hard work limit for pages that never stop growing.
+func (b *BrowserPage) RevealLazyContent(maxSteps int, settle time.Duration) (int, error) {
+	if maxSteps <= 0 {
+		return 0, nil
+	}
+	if settle < 0 {
+		settle = 0
+	}
+
+	steps := 0
+	for steps < maxSteps {
+		before, err := b.readScrollMetrics()
+		if err != nil {
+			return steps, err
+		}
+		if before.Height <= before.Viewport+lazyScrollPixelTolerance {
+			// Nothing to scroll, so no scroll handlers can fire.
+			break
+		}
+		if _, err := b.Eval(`() => {
+  const root = document.scrollingElement || document.documentElement;
+  const viewport = window.innerHeight || root.clientHeight || 1;
+  window.scrollBy(0, Math.max(1, viewport - 64));
+}`); err != nil {
+			return steps, err
+		}
+		steps++
+
+		if err := b.waitSettle(settle); err != nil {
+			return steps, err
+		}
+		after, err := b.readScrollMetrics()
+		if err != nil {
+			return steps, err
+		}
+		if shouldStopLazyScroll(before, after) {
+			stable, err := b.lazyContentStable(after, settle)
+			if err != nil {
+				return steps, err
+			}
+			if stable {
+				break
+			}
+		}
+	}
+	return steps, nil
+}
+
+// lazyScrollStableChecks is how many extra settle periods the page must stay
+// unchanged at the bottom before scrolling stops, so lazy-load responses that
+// land after the first settle are still revealed before discovery.
+const lazyScrollStableChecks = 2
+
+// lazyContentStable re-samples a page that looks fully scrolled and reports
+// whether it stayed at the bottom without growing. These checks do not count
+// as scroll steps.
+func (b *BrowserPage) lazyContentStable(last pageScrollMetrics, settle time.Duration) (bool, error) {
+	for i := 0; i < lazyScrollStableChecks; i++ {
+		if err := b.waitSettle(settle); err != nil {
+			return false, err
+		}
+		current, err := b.readScrollMetrics()
+		if err != nil {
+			return false, err
+		}
+		if !shouldStopLazyScroll(last, current) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (b *BrowserPage) waitSettle(settle time.Duration) error {
+	if settle <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(settle)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-b.GetContext().Done():
+		return b.GetContext().Err()
+	}
+}
+
+func (b *BrowserPage) readScrollMetrics() (pageScrollMetrics, error) {
+	value, err := b.Eval(readScrollMetricsScript)
+	if err != nil {
+		return pageScrollMetrics{}, err
+	}
+	var metrics pageScrollMetrics
+	if err := value.Value.Unmarshal(&metrics); err != nil {
+		return pageScrollMetrics{}, err
+	}
+	return metrics, nil
+}
+
+const lazyScrollPixelTolerance = 2
+
+func shouldStopLazyScroll(before, after pageScrollMetrics) bool {
+	atBottom := after.Top+after.Viewport >= after.Height-lazyScrollPixelTolerance
+	heightDidNotGrow := after.Height <= before.Height+lazyScrollPixelTolerance
+	return atBottom && heightDidNotGrow
+}
 
 // isElementDisabled checks if a button element is disabled
 func isElementDisabled(element *types.HTMLElement) bool {
