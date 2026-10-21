@@ -181,23 +181,14 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
 
-		// Content uniqueness / page-similarity gates apply only to the main
-		// document. Rejected main docs still record response metadata so the
-		// crawl does not end with "hybrid: response is nil"; only parse/enqueue
-		// is suppressed. Scripts and XHR keep flowing for extraction.
-		skipParse := false
+		// Rejected main docs still record response metadata so the crawl does
+		// not end with "hybrid: response is nil"; only parse/enqueue is suppressed.
 		if matchOriginalURL {
-			if !c.Options.Options.DisableUniqueFilter && !c.Options.UniqueFilter.UniqueContent(body) {
-				skipParse = true
-			}
-			if !skipParse && c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(body) {
-				skipParse = true
-			}
 			request.Raw = string(rawBytesRequest)
 			response = resp
 		}
 
-		if !skipParse {
+		if c.shouldParse(matchOriginalURL, body) {
 			navigationRequests := c.Options.Parser.ParseResponse(resp)
 			c.Enqueue(s.Queue, navigationRequests...)
 		}
@@ -533,4 +524,19 @@ func buildDOMFromNode(node *proto.DOMNode, builder *strings.Builder) {
 	builder.WriteString("</")
 	builder.WriteString(node.LocalName)
 	builder.WriteRune('>')
+}
+
+// shouldParse reports whether a hijacked response is parsed for new links.
+// Page-similarity applies only to the main document. Subresources get the
+// uniqueness check alone: shared scripts and styles load on every page and
+// would otherwise be re-parsed each time.
+func (c *Crawler) shouldParse(isMainDoc bool, body []byte) bool {
+	if !isMainDoc {
+		// Empty bodies still go through for their headers, e.g. redirects.
+		return c.Options.Options.DisableUniqueFilter || len(body) == 0 || c.Options.UniqueFilter.UniqueContent(body)
+	}
+	if !c.Options.Options.DisableUniqueFilter && !c.Options.UniqueFilter.UniqueContent(body) {
+		return false
+	}
+	return c.Options.ContentSimilarity == nil || c.Options.ContentSimilarity.Accept(body)
 }

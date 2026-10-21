@@ -12,8 +12,10 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/stretchr/testify/require"
 )
 
@@ -235,4 +237,40 @@ func TestZeroTimeStableDoesNotPanic(t *testing.T) {
 	t.Cleanup(func() { _ = crawler.Close() })
 
 	require.NoError(t, crawler.Crawl(srv.URL))
+}
+
+func TestShouldParseSubresourceOncePerBody(t *testing.T) {
+	newCrawler := func(t *testing.T, disableUnique bool) *Crawler {
+		t.Helper()
+		filter, err := filters.NewSimple()
+		require.NoError(t, err)
+		t.Cleanup(filter.Close)
+		return &Crawler{Shared: &common.Shared{Options: &types.CrawlerOptions{
+			Options:      &types.Options{DisableUniqueFilter: disableUnique},
+			UniqueFilter: filter,
+		}}}
+	}
+	script := []byte(`fetch("/api/v1/users")`)
+
+	t.Run("repeated subresource body parsed once", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(false, script))
+		require.False(t, c.shouldParse(false, script))
+		require.True(t, c.shouldParse(false, []byte(`fetch("/api/v2")`)))
+	})
+	t.Run("empty subresource body always parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(false, nil))
+		require.True(t, c.shouldParse(false, nil))
+	})
+	t.Run("unique filter disabled", func(t *testing.T) {
+		c := newCrawler(t, true)
+		require.True(t, c.shouldParse(false, script))
+		require.True(t, c.shouldParse(false, script))
+	})
+	t.Run("repeated main document skipped", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(true, []byte("<html>a</html>")))
+		require.False(t, c.shouldParse(true, []byte("<html>a</html>")))
+	})
 }
