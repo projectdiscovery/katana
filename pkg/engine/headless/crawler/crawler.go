@@ -416,8 +416,13 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 
-	if _, scrollErr := c.revealLazyContent(page); scrollErr != nil && ctx.Err() != nil {
-		return ctx.Err()
+	// Scrolling fires lazy requests, so skip it on out-of-scope pages.
+	if c.options.MaxScrollSteps > 0 {
+		if info, infoErr := page.Info(); infoErr == nil && (c.options.ScopeValidator == nil || c.options.ScopeValidator(info.URL)) {
+			if _, scrollErr := c.revealLazyContent(page); scrollErr != nil && ctx.Err() != nil {
+				return ctx.Err()
+			}
+		}
 	}
 
 	pageState, err := newPageState(page, action)

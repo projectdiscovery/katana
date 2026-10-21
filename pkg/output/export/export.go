@@ -28,6 +28,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/output"
 )
 
@@ -39,7 +40,10 @@ const (
 	// EnvIncludeCredentials set to 1 exports credential headers verbatim.
 	EnvIncludeCredentials = "KATANA_TRAFFIC_INCLUDE_CREDENTIALS"
 
-	batchSize     = 100
+	batchSize = 100
+	// maxBatchBytes flushes a batch early to stay under common request
+	// body limits of collectors and proxies.
+	maxBatchBytes = 1 << 20
 	queueSize     = 2048
 	maxBodyBytes  = 64 * 1024
 	flushInterval = time.Second
@@ -51,7 +55,9 @@ const (
 
 var (
 	retryDelays = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second}
-	attrKeyRule = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+	// drainTimeout bounds how long Close waits for queued events to be sent.
+	drainTimeout = 10 * time.Second
+	attrKeyRule  = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 	// reservedKeys are event fields owned by the exporter.
 	reservedKeys = map[string]struct{}{
 		"id": {}, "timestamp": {}, "captured_at": {}, "source_type": {},
@@ -82,6 +88,9 @@ type writer struct {
 	attributes []byte
 	events     chan json.RawMessage
 	done       chan struct{}
+	// ctx is cancelled to abandon delivery once drainTimeout expires.
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	mu        sync.RWMutex
 	closed    bool
@@ -174,17 +183,26 @@ func New(inner output.Writer, config Config) (output.Writer, error) {
 		config.HTTPClient = &http.Client{
 			Transport: transport,
 			Timeout:   15 * time.Second,
-			CheckRedirect: func(*http.Request, []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
 		}
+	} else {
+		// Copy so the caller's client keeps its own redirect policy.
+		client := *config.HTTPClient
+		config.HTTPClient = &client
 	}
+	// Never follow redirects: Go would resend the bearer token, even from
+	// https to http on the same host.
+	config.HTTPClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	ctx, cancel := context.WithCancel(context.Background())
 	w := &writer{
 		Writer:     inner,
 		config:     config,
 		attributes: attributes,
 		events:     make(chan json.RawMessage, queueSize),
 		done:       make(chan struct{}),
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 	go w.run()
 	return w, nil
@@ -270,9 +288,20 @@ func (w *writer) Close() error {
 		w.closed = true
 		close(w.events)
 		w.mu.Unlock()
-		<-w.done
-		if w.err == nil {
-			if dropped := w.dropped.Load(); dropped > 0 {
+		timer := time.NewTimer(drainTimeout)
+		defer timer.Stop()
+		select {
+		case <-w.done:
+		case <-timer.C:
+			// Abandon in-flight and queued batches rather than delay exit.
+			w.cancel()
+			<-w.done
+		}
+		w.cancel()
+		if dropped := w.dropped.Load(); dropped > 0 {
+			if w.err != nil {
+				w.err = fmt.Errorf("traffic export incomplete: %d events dropped: %w", dropped, w.err)
+			} else {
 				w.err = fmt.Errorf("traffic export incomplete: %d events dropped", dropped)
 			}
 		}
@@ -288,18 +317,25 @@ func (w *writer) run() {
 	ticker := time.NewTicker(flushInterval)
 	defer ticker.Stop()
 	batch := make([]json.RawMessage, 0, batchSize)
+	batchBytes := 0
 	flush := func() {
 		if len(batch) == 0 {
 			return
 		}
-		// After a failed batch, stop sending and count the rest as dropped.
-		if w.err != nil {
+		err := errDrainTimeout
+		if w.ctx.Err() == nil {
+			err = w.post(batch)
+		}
+		if err != nil {
+			// Drop only this batch; later batches may still be delivered.
 			w.dropped.Add(int64(len(batch)))
-		} else if err := w.post(batch); err != nil {
-			w.dropped.Add(int64(len(batch)))
-			w.err = err
+			if w.err == nil {
+				w.err = err
+				gologger.Error().Msgf("Traffic export batch failed: %s\n", err)
+			}
 		}
 		batch = batch[:0]
+		batchBytes = 0
 	}
 	for {
 		select {
@@ -309,7 +345,8 @@ func (w *writer) run() {
 				return
 			}
 			batch = append(batch, ev)
-			if len(batch) >= batchSize {
+			batchBytes += len(ev)
+			if len(batch) >= batchSize || batchBytes >= maxBatchBytes {
 				flush()
 			}
 		case <-ticker.C:
@@ -424,15 +461,26 @@ func (w *writer) post(events []json.RawMessage) error {
 		if err == nil {
 			return nil
 		}
+		if w.ctx.Err() != nil {
+			return errDrainTimeout
+		}
 		if !retryable || attempt >= len(retryDelays) {
 			return err
 		}
-		time.Sleep(retryDelays[attempt])
+		timer := time.NewTimer(retryDelays[attempt])
+		select {
+		case <-timer.C:
+		case <-w.ctx.Done():
+			timer.Stop()
+			return errDrainTimeout
+		}
 	}
 }
 
+var errDrainTimeout = errors.New("traffic export did not finish before shutdown deadline")
+
 func (w *writer) postOnce(payload []byte) (retryable bool, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(w.ctx, 15*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, w.config.Endpoint, bytes.NewReader(payload))
 	if err != nil {

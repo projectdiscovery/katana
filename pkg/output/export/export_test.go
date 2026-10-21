@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -86,8 +88,8 @@ func TestEncodeAttributes(t *testing.T) {
 
 func TestWriterCaptureAndDeliver(t *testing.T) {
 	type delivery struct {
-		path, auth string
-		events     []map[string]any
+		path, auth, batchID string
+		events              []map[string]any
 	}
 	received := make(chan delivery, 1)
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
@@ -98,8 +100,7 @@ func TestWriterCaptureAndDeliver(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&batch); err != nil {
 			return nil, err
 		}
-		require.NotEmpty(t, batch.BatchID)
-		received <- delivery{path: r.URL.Path, auth: r.Header.Get("Authorization"), events: batch.Events}
+		received <- delivery{path: r.URL.Path, auth: r.Header.Get("Authorization"), batchID: batch.BatchID, events: batch.Events}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{}`))}, nil
 	})}
 
@@ -147,6 +148,7 @@ func TestWriterCaptureAndDeliver(t *testing.T) {
 	require.True(t, inner.closed)
 
 	got := <-received
+	require.NotEmpty(t, got.batchID)
 	require.Equal(t, "/traffic", got.path)
 	require.Equal(t, "Bearer test-token", got.auth)
 	require.Len(t, got.events, 1)
@@ -304,4 +306,121 @@ func TestEnabled(t *testing.T) {
 	require.False(t, Enabled())
 	t.Setenv(EnvToken, "test-token")
 	require.True(t, Enabled())
+}
+
+func TestWriterCloseBoundsSlowCollector(t *testing.T) {
+	previous := drainTimeout
+	drainTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { drainTimeout = previous })
+
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		<-r.Context().Done()
+		return nil, r.Context().Err()
+	})}
+	w, err := New(&recordingWriter{}, Config{Endpoint: testEndpoint, Token: "test-token", HTTPClient: client})
+	require.NoError(t, err)
+	w.(interface{ Capture(*output.Result) }).Capture(&output.Result{
+		Request:  &navigation.Request{Method: http.MethodGet, URL: "https://target.example"},
+		Response: &navigation.Response{StatusCode: http.StatusOK, Resp: &http.Response{StatusCode: http.StatusOK, Header: http.Header{}}},
+	})
+
+	start := time.Now()
+	err = w.Close()
+	require.Less(t, time.Since(start), 5*time.Second)
+	require.ErrorIs(t, err, errDrainTimeout)
+	require.ErrorContains(t, err, "1 events dropped")
+}
+
+func TestWriterDoesNotFollowRedirects(t *testing.T) {
+	var requests int
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
+		return &http.Response{
+			StatusCode: http.StatusTemporaryRedirect,
+			Header:     http.Header{"Location": []string{"http://127.0.0.1:8080/other"}},
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	})}
+	w, err := New(&recordingWriter{}, Config{Endpoint: testEndpoint, Token: "test-token", HTTPClient: client})
+	require.NoError(t, err)
+	require.Nil(t, client.CheckRedirect, "caller's client must not be mutated")
+	w.(interface{ Capture(*output.Result) }).Capture(&output.Result{
+		Request:  &navigation.Request{Method: http.MethodGet, URL: "https://target.example"},
+		Response: &navigation.Response{StatusCode: http.StatusOK, Resp: &http.Response{StatusCode: http.StatusOK, Header: http.Header{}}},
+	})
+	require.ErrorContains(t, w.Close(), "status 307")
+	require.Equal(t, 1, requests)
+}
+
+func textResult(body string) *output.Result {
+	return &output.Result{
+		Request: &navigation.Request{Method: http.MethodGet, URL: "https://target.example"},
+		Response: &navigation.Response{
+			StatusCode: http.StatusOK,
+			Body:       body,
+			Resp:       &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/html"}}},
+		},
+	}
+}
+
+func TestWriterCapsBatchBytes(t *testing.T) {
+	var mu sync.Mutex
+	var sizes []int
+	events := 0
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		payload, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
+		var batch struct {
+			Events []json.RawMessage `json:"events"`
+		}
+		if err := json.Unmarshal(payload, &batch); err != nil {
+			return nil, err
+		}
+		mu.Lock()
+		sizes = append(sizes, len(payload))
+		events += len(batch.Events)
+		mu.Unlock()
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(""))}, nil
+	})}
+	w, err := New(&recordingWriter{}, Config{Endpoint: testEndpoint, Token: "test-token", HTTPClient: client})
+	require.NoError(t, err)
+	capturer := w.(interface{ Capture(*output.Result) })
+	for i := 0; i < 40; i++ {
+		capturer.Capture(textResult(strings.Repeat("a", maxBodyBytes)))
+	}
+	require.NoError(t, w.Close())
+
+	require.Equal(t, 40, events)
+	require.Greater(t, len(sizes), 1)
+	for _, size := range sizes {
+		// A batch flushes once it reaches the cap, so it overshoots by at
+		// most one event.
+		require.Less(t, size, maxBatchBytes+2*maxBodyBytes)
+	}
+}
+
+func TestWriterContinuesAfterFailedBatch(t *testing.T) {
+	attempts := make(chan struct{}, 2)
+	var calls atomic.Int32
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		status := http.StatusOK
+		if calls.Add(1) == 1 {
+			status = http.StatusBadRequest
+		}
+		attempts <- struct{}{}
+		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(""))}, nil
+	})}
+	w, err := New(&recordingWriter{}, Config{Endpoint: testEndpoint, Token: "test-token", HTTPClient: client})
+	require.NoError(t, err)
+	capturer := w.(interface{ Capture(*output.Result) })
+	capturer.Capture(textResult("first"))
+	<-attempts
+	capturer.Capture(textResult("second"))
+	err = w.Close()
+
+	require.EqualValues(t, 2, calls.Load(), "the batch after a failure must still be sent")
+	require.ErrorContains(t, err, "1 events dropped")
+	require.ErrorContains(t, err, "status 400")
 }

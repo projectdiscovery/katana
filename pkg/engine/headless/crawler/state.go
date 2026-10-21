@@ -325,9 +325,14 @@ func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.
 	c.logger.Debug("Found actions to traverse",
 		slog.Any("actions", actions),
 	)
-	for _, action := range actions {
-		if err := c.executeCrawlStateAction(action, page); err != nil {
+	for i, pathAction := range actions {
+		if err := c.executeCrawlStateAction(pathAction, page); err != nil {
 			return "", err
+		}
+		// Intermediate states were scrolled when discovered, so the next
+		// hop may target a lazily revealed element.
+		if i < len(actions)-1 {
+			_, _ = c.revealLazyContent(page)
 		}
 	}
 	newPageHash, pageState, err := c.isCorrectNavigation(page, action)

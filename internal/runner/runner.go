@@ -94,11 +94,11 @@ func New(options *types.Options) (*Runner, error) {
 	if options.Headless || options.ChromeWSUrl != "" {
 		outputWriter, exportErr := export.Wrap(crawlerOptions.OutputWriter)
 		if exportErr != nil {
-			gologger.Warning().Msgf("Traffic export disabled: %s\n", exportErr)
+			gologger.Error().Msgf("Traffic export disabled: %s\n", exportErr)
 		}
 		crawlerOptions.OutputWriter = outputWriter
 	} else if export.Enabled() {
-		gologger.Warning().Msgf("Traffic export disabled: %s requires headless (-hl) mode\n", export.EnvEndpoint)
+		gologger.Info().Msgf("Traffic export disabled: %s requires headless (-hl) mode\n", export.EnvEndpoint)
 	}
 
 	var crawler engine.Engine

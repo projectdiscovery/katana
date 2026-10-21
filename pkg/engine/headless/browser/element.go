@@ -50,6 +50,10 @@ func (b *BrowserPage) RevealLazyContent(maxSteps int, settle time.Duration) (int
 		if err != nil {
 			return steps, err
 		}
+		if before.Height <= before.Viewport+lazyScrollPixelTolerance {
+			// Nothing to scroll, so no scroll handlers can fire.
+			break
+		}
 		if _, err := b.Eval(`() => {
   const root = document.scrollingElement || document.documentElement;
   const viewport = window.innerHeight || root.clientHeight || 1;
@@ -129,10 +133,11 @@ func (b *BrowserPage) readScrollMetrics() (pageScrollMetrics, error) {
 	return metrics, nil
 }
 
+const lazyScrollPixelTolerance = 2
+
 func shouldStopLazyScroll(before, after pageScrollMetrics) bool {
-	const pixelTolerance = 2
-	atBottom := after.Top+after.Viewport >= after.Height-pixelTolerance
-	heightDidNotGrow := after.Height <= before.Height+pixelTolerance
+	atBottom := after.Top+after.Viewport >= after.Height-lazyScrollPixelTolerance
+	heightDidNotGrow := after.Height <= before.Height+lazyScrollPixelTolerance
 	return atBottom && heightDidNotGrow
 }
 
