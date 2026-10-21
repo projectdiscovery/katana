@@ -90,11 +90,16 @@ func New(options *types.Options) (*Runner, error) {
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not create crawler options")
 	}
-	outputWriter, exportErr := export.Wrap(crawlerOptions.OutputWriter)
-	if exportErr != nil {
-		gologger.Warning().Msgf("Traffic export disabled: %s\n", exportErr)
+	// Only the pure headless engine reports observed traffic.
+	if options.Headless || options.ChromeWSUrl != "" {
+		outputWriter, exportErr := export.Wrap(crawlerOptions.OutputWriter)
+		if exportErr != nil {
+			gologger.Warning().Msgf("Traffic export disabled: %s\n", exportErr)
+		}
+		crawlerOptions.OutputWriter = outputWriter
+	} else if export.Enabled() {
+		gologger.Warning().Msgf("Traffic export disabled: %s requires headless (-hl) mode\n", export.EnvEndpoint)
 	}
-	crawlerOptions.OutputWriter = outputWriter
 
 	var crawler engine.Engine
 

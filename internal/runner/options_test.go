@@ -83,6 +83,22 @@ func TestValidateHeadlessFlags(t *testing.T) {
 		require.NoError(t, validateOptions(opts))
 	})
 
+	t.Run("lazy scrolling is accepted when auto-login enables headless", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AuthCredentials = "user:pass"
+		opts.MaxScrollSteps = 4
+		require.NoError(t, validateOptions(opts))
+		require.True(t, opts.Headless)
+	})
+
+	t.Run("lazy scrolling still requires pure headless with hybrid auto-login", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.HeadlessHybrid = true
+		opts.AuthCredentials = "user:pass"
+		opts.MaxScrollSteps = 4
+		require.ErrorContains(t, validateOptions(opts), "max-scroll-steps")
+	})
+
 	t.Run("negative lazy scroll limit is rejected", func(t *testing.T) {
 		opts := newTestOptions()
 		opts.Headless = true

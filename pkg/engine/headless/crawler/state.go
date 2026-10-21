@@ -29,6 +29,18 @@ func (c *Crawler) isCorrectNavigation(page *browser.BrowserPage, action *types.A
 		return currentPageHash, pageState, nil
 	}
 
+	// Origin states are hashed after lazy-content scrolling, so a page reached
+	// by history or path replay must be scrolled the same way to match.
+	if scrolled, _ := c.revealLazyContent(page); scrolled {
+		currentPageHash, pageState, err = getPageHash(page)
+		if err != nil {
+			return "", nil, err
+		}
+		if currentPageHash == action.OriginID {
+			return currentPageHash, pageState, nil
+		}
+	}
+
 	// Get the origin page state to compare SimHash
 	originPageState, err := c.crawlGraph.GetPageState(action.OriginID)
 	if err != nil {

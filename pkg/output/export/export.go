@@ -36,6 +36,8 @@ const (
 	EnvToken         = "KATANA_TRAFFIC_TOKEN"
 	EnvAttributes    = "KATANA_TRAFFIC_ATTRIBUTES"
 	EnvAllowInsecure = "KATANA_TRAFFIC_ALLOW_INSECURE"
+	// EnvIncludeCredentials set to 1 exports credential headers verbatim.
+	EnvIncludeCredentials = "KATANA_TRAFFIC_INCLUDE_CREDENTIALS"
 
 	batchSize     = 100
 	queueSize     = 2048
@@ -43,6 +45,8 @@ const (
 	flushInterval = time.Second
 	maxAttributes = 32
 	maxAttrValue  = 1024
+
+	redactedValue = "[REDACTED]"
 )
 
 var (
@@ -53,6 +57,11 @@ var (
 		"id": {}, "timestamp": {}, "captured_at": {}, "source_type": {},
 		"process": {}, "request": {}, "response": {},
 	}
+	// credentialHeaders are lower-cased header names redacted by default.
+	credentialHeaders = map[string]struct{}{
+		"authorization": {}, "proxy-authorization": {}, "cookie": {}, "set-cookie": {},
+		"x-api-key": {}, "x-auth-token": {}, "x-csrf-token": {}, "x-xsrf-token": {},
+	}
 )
 
 // Config controls an exporter. Endpoint and Token must come from trusted
@@ -62,7 +71,9 @@ type Config struct {
 	Token         string
 	Attributes    map[string]string
 	AllowInsecure bool
-	HTTPClient    *http.Client
+	// IncludeCredentials exports credential headers instead of redacting them.
+	IncludeCredentials bool
+	HTTPClient         *http.Client
 }
 
 type writer struct {
@@ -107,6 +118,12 @@ type response struct {
 	message
 }
 
+// Enabled reports whether traffic export is configured in the environment,
+// even partially.
+func Enabled() bool {
+	return strings.TrimSpace(os.Getenv(EnvEndpoint)) != "" || strings.TrimSpace(os.Getenv(EnvToken)) != ""
+}
+
 // Wrap returns inner unchanged when export is not configured. On a
 // configuration error it also returns inner, so a bad setting never breaks
 // crawling output.
@@ -126,10 +143,11 @@ func Wrap(inner output.Writer) (output.Writer, error) {
 		}
 	}
 	w, err := New(inner, Config{
-		Endpoint:      endpoint,
-		Token:         token,
-		Attributes:    attributes,
-		AllowInsecure: os.Getenv(EnvAllowInsecure) == "1",
+		Endpoint:           endpoint,
+		Token:              token,
+		Attributes:         attributes,
+		AllowInsecure:      os.Getenv(EnvAllowInsecure) == "1",
+		IncludeCredentials: os.Getenv(EnvIncludeCredentials) == "1",
 	})
 	if err != nil {
 		return inner, err
@@ -330,12 +348,12 @@ func (w *writer) encode(result *output.Result) (json.RawMessage, bool) {
 		CapturedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		SourceType: "cli",
 		Process:    "katana",
-		Request:    newMessage(req.Method, req.URL, requestVersion, req.Headers, req.Body),
+		Request:    newMessage(req.Method, req.URL, requestVersion, w.headers(req.Headers), req.Body),
 		Response: response{
 			Status:      resp.StatusCode,
 			StatusText:  http.StatusText(resp.StatusCode),
 			ContentType: contentType,
-			message:     newMessage("", "", responseVersion, resp.Headers, responseBody),
+			message:     newMessage("", "", responseVersion, w.headers(resp.Headers), responseBody),
 		},
 	}
 	if responseBody == "" && resp.Body != "" {
@@ -358,17 +376,27 @@ func (w *writer) encode(result *output.Result) (json.RawMessage, bool) {
 	return encoded, true
 }
 
+// headers copies headers, redacting credential values unless the exporter
+// is configured to include them.
+func (w *writer) headers(headers map[string]string) map[string]string {
+	copied := make(map[string]string, len(headers))
+	for key, value := range headers {
+		if _, ok := credentialHeaders[strings.ToLower(key)]; ok && !w.config.IncludeCredentials {
+			value = redactedValue
+		}
+		copied[key] = value
+	}
+	return copied
+}
+
 func newMessage(method, fullURL, version string, headers map[string]string, body string) message {
 	m := message{
 		Method:      method,
 		FullURL:     fullURL,
 		HTTPVersion: version,
-		Headers:     make(map[string]string, len(headers)),
+		Headers:     headers,
 		BodySHA256:  sha256Hex(body),
 		BodySize:    int64(len(body)),
-	}
-	for key, value := range headers {
-		m.Headers[key] = value
 	}
 	switch {
 	case !utf8.ValidString(body):

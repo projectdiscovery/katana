@@ -249,3 +249,59 @@ func (r *recordingWriter) GetResultCount() int64        { return int64(len(r.res
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestWriterRedactsCredentialHeaders(t *testing.T) {
+	result := &output.Result{
+		Request: &navigation.Request{
+			Method: http.MethodGet,
+			URL:    "https://target.example/account",
+			Headers: map[string]string{
+				"Authorization": "Bearer secret",
+				"cookie":        "session=secret",
+				"Accept":        "text/html",
+			},
+		},
+		Response: &navigation.Response{
+			StatusCode: http.StatusOK,
+			Headers:    navigation.Headers{"Set-Cookie": "session=secret", "Content-Type": "text/html"},
+			Resp:       &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"text/html"}}},
+		},
+	}
+	decode := func(t *testing.T, w *writer) (map[string]any, map[string]any) {
+		t.Helper()
+		encoded, ok := w.encode(result)
+		require.True(t, ok)
+		var ev map[string]any
+		require.NoError(t, json.Unmarshal(encoded, &ev))
+		req := ev["request"].(map[string]any)["headers"].(map[string]any)
+		resp := ev["response"].(map[string]any)["headers"].(map[string]any)
+		return req, resp
+	}
+
+	t.Run("redacted by default", func(t *testing.T) {
+		req, resp := decode(t, &writer{})
+		require.Equal(t, redactedValue, req["Authorization"])
+		require.Equal(t, redactedValue, req["cookie"])
+		require.Equal(t, "text/html", req["Accept"])
+		require.Equal(t, redactedValue, resp["Set-Cookie"])
+		require.Equal(t, "text/html", resp["Content-Type"])
+	})
+
+	t.Run("included when configured", func(t *testing.T) {
+		req, resp := decode(t, &writer{config: Config{IncludeCredentials: true}})
+		require.Equal(t, "Bearer secret", req["Authorization"])
+		require.Equal(t, "session=secret", req["cookie"])
+		require.Equal(t, "session=secret", resp["Set-Cookie"])
+	})
+
+	// Redaction must not mutate the result, which is still written as output.
+	require.Equal(t, "Bearer secret", result.Request.Headers["Authorization"])
+}
+
+func TestEnabled(t *testing.T) {
+	t.Setenv(EnvEndpoint, "")
+	t.Setenv(EnvToken, "")
+	require.False(t, Enabled())
+	t.Setenv(EnvToken, "test-token")
+	require.True(t, Enabled())
+}

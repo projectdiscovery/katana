@@ -59,27 +59,62 @@ func (b *BrowserPage) RevealLazyContent(maxSteps int, settle time.Duration) (int
 		}
 		steps++
 
-		if settle > 0 {
-			timer := time.NewTimer(settle)
-			select {
-			case <-timer.C:
-			case <-b.GetContext().Done():
-				if !timer.Stop() {
-					<-timer.C
-				}
-				return steps, b.GetContext().Err()
-			}
+		if err := b.waitSettle(settle); err != nil {
+			return steps, err
 		}
-
 		after, err := b.readScrollMetrics()
 		if err != nil {
 			return steps, err
 		}
 		if shouldStopLazyScroll(before, after) {
-			break
+			stable, err := b.lazyContentStable(after, settle)
+			if err != nil {
+				return steps, err
+			}
+			if stable {
+				break
+			}
 		}
 	}
 	return steps, nil
+}
+
+// lazyScrollStableChecks is how many extra settle periods the page must stay
+// unchanged at the bottom before scrolling stops, so lazy-load responses that
+// land after the first settle are still revealed before discovery.
+const lazyScrollStableChecks = 2
+
+// lazyContentStable re-samples a page that looks fully scrolled and reports
+// whether it stayed at the bottom without growing. These checks do not count
+// as scroll steps.
+func (b *BrowserPage) lazyContentStable(last pageScrollMetrics, settle time.Duration) (bool, error) {
+	for i := 0; i < lazyScrollStableChecks; i++ {
+		if err := b.waitSettle(settle); err != nil {
+			return false, err
+		}
+		current, err := b.readScrollMetrics()
+		if err != nil {
+			return false, err
+		}
+		if !shouldStopLazyScroll(last, current) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (b *BrowserPage) waitSettle(settle time.Duration) error {
+	if settle <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(settle)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-b.GetContext().Done():
+		return b.GetContext().Err()
+	}
 }
 
 func (b *BrowserPage) readScrollMetrics() (pageScrollMetrics, error) {

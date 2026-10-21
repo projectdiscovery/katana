@@ -416,16 +416,8 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 
-	if c.options.MaxScrollSteps > 0 {
-		steps, scrollErr := page.RevealLazyContent(c.options.MaxScrollSteps, 300*time.Millisecond)
-		if scrollErr != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			c.logger.Debug("Could not complete lazy-content scrolling", slog.String("error", scrollErr.Error()))
-		} else {
-			c.logger.Debug("Lazy-content scrolling complete", slog.Int("steps", steps))
-		}
+	if _, scrollErr := c.revealLazyContent(page); scrollErr != nil && ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	pageState, err := newPageState(page, action)
@@ -508,6 +500,22 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		return ErrNoCrawlingAction
 	}
 	return nil
+}
+
+// revealLazyContent scrolls page to load lazy content when MaxScrollSteps is
+// set and reports whether it scrolled at all. Failures are logged and
+// returned so callers can check for cancellation.
+func (c *Crawler) revealLazyContent(page *browser.BrowserPage) (bool, error) {
+	if c.options.MaxScrollSteps <= 0 {
+		return false, nil
+	}
+	steps, err := page.RevealLazyContent(c.options.MaxScrollSteps, 300*time.Millisecond)
+	if err != nil {
+		c.logger.Debug("Could not complete lazy-content scrolling", slog.String("error", err.Error()))
+		return steps > 0, err
+	}
+	c.logger.Debug("Lazy-content scrolling complete", slog.Int("steps", steps))
+	return steps > 0, nil
 }
 
 var ErrElementNotVisible = errors.New("element not visible")

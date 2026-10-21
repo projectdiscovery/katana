@@ -52,9 +52,6 @@ func validateOptions(options *types.Options) error {
 	if options.MaxScrollSteps < 0 {
 		return errkit.New("max-scroll-steps cannot be negative")
 	}
-	if options.MaxScrollSteps > 0 && !options.Headless && options.ChromeWSUrl == "" {
-		return errkit.New("headless (-hl) mode is required if -max-scroll-steps is set")
-	}
 
 	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
 	// The ChromeWSUrl takes precedence and pure headless engine will be used
@@ -116,6 +113,10 @@ func validateOptions(options *types.Options) error {
 		}
 	}
 
+	// Checked after -al and -rf, which enable pure headless mode themselves.
+	if options.MaxScrollSteps > 0 && !options.Headless && options.ChromeWSUrl == "" {
+		return errkit.New("headless (-hl) mode is required if -max-scroll-steps is set")
+	}
 	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
 		!options.Headless && !options.HeadlessHybrid {
 		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
