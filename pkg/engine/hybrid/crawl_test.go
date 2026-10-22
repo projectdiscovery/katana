@@ -251,26 +251,41 @@ func TestShouldParseSubresourceOncePerBody(t *testing.T) {
 		}}}
 	}
 	script := []byte(`fetch("/api/v1/users")`)
+	const scriptURL = "https://example.com/static/app.js"
 
 	t.Run("repeated subresource body parsed once", func(t *testing.T) {
 		c := newCrawler(t, false)
-		require.True(t, c.shouldParse(false, script))
-		require.False(t, c.shouldParse(false, script))
-		require.True(t, c.shouldParse(false, []byte(`fetch("/api/v2")`)))
+		require.True(t, c.shouldParse(false, scriptURL, nil, script))
+		require.False(t, c.shouldParse(false, scriptURL, nil, script))
+		require.True(t, c.shouldParse(false, scriptURL, nil, []byte(`fetch("/api/v2")`)))
+	})
+	t.Run("same body at another URL is parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(false, "https://example.com/a.js", nil, script))
+		require.True(t, c.shouldParse(false, "https://cdn.example.com/a.js", nil, script))
+	})
+	t.Run("same body with another Link header is parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		first := map[string][]string{"Link": {`</a>; rel="preload"`}}
+		second := map[string][]string{"link": {`</b>; rel="preload"`}}
+		require.True(t, c.shouldParse(false, scriptURL, first, script))
+		require.True(t, c.shouldParse(false, scriptURL, second, script))
+		require.False(t, c.shouldParse(false, scriptURL, first, script))
 	})
 	t.Run("empty subresource body always parsed", func(t *testing.T) {
 		c := newCrawler(t, false)
-		require.True(t, c.shouldParse(false, nil))
-		require.True(t, c.shouldParse(false, nil))
+		require.True(t, c.shouldParse(false, scriptURL, nil, nil))
+		require.True(t, c.shouldParse(false, scriptURL, nil, nil))
 	})
 	t.Run("unique filter disabled", func(t *testing.T) {
 		c := newCrawler(t, true)
-		require.True(t, c.shouldParse(false, script))
-		require.True(t, c.shouldParse(false, script))
+		require.True(t, c.shouldParse(false, scriptURL, nil, script))
+		require.True(t, c.shouldParse(false, scriptURL, nil, script))
 	})
 	t.Run("repeated main document skipped", func(t *testing.T) {
 		c := newCrawler(t, false)
-		require.True(t, c.shouldParse(true, []byte("<html>a</html>")))
-		require.False(t, c.shouldParse(true, []byte("<html>a</html>")))
+		html := []byte("<html>a</html>")
+		require.True(t, c.shouldParse(true, "https://example.com/a", nil, html))
+		require.False(t, c.shouldParse(true, "https://example.com/b", nil, html))
 	})
 }
