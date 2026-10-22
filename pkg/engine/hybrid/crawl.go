@@ -539,7 +539,7 @@ func buildDOMFromNode(node *proto.DOMNode, builder *strings.Builder) {
 
 // subresourceParseHeaders are the response headers that change what the
 // parsers extract from an otherwise identical body.
-var subresourceParseHeaders = []string{"Content-Location", "Content-Type", "Link", "Refresh"}
+var subresourceParseHeaders = []string{"Content-Location", "Content-Type", "Link", "Location", "Refresh"}
 
 // shouldParse reports whether a hijacked response is parsed for new links.
 // Page-similarity applies only to the main document, and that check is the

@@ -272,6 +272,14 @@ func TestShouldParseSubresourceOncePerBody(t *testing.T) {
 		require.True(t, c.shouldParse(false, scriptURL, second, script))
 		require.False(t, c.shouldParse(false, scriptURL, first, script))
 	})
+	t.Run("same body with another Location header is parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		first := map[string][]string{"Location": {"/a"}}
+		second := map[string][]string{"location": {"/b"}}
+		require.True(t, c.shouldParse(false, scriptURL, first, script))
+		require.True(t, c.shouldParse(false, scriptURL, second, script))
+		require.False(t, c.shouldParse(false, scriptURL, first, script))
+	})
 	t.Run("empty subresource body always parsed", func(t *testing.T) {
 		c := newCrawler(t, false)
 		require.True(t, c.shouldParse(false, scriptURL, nil, nil))
