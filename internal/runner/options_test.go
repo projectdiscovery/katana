@@ -105,6 +105,30 @@ func TestValidateHeadlessFlags(t *testing.T) {
 		opts.MaxScrollSteps = -1
 		require.ErrorContains(t, validateOptions(opts), "cannot be negative")
 	})
+
+	t.Run("system-chrome without headless or hybrid mode fails", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.UseInstalledChrome = true
+		err := validateOptions(opts)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "headless")
+	})
+
+	t.Run("system-chrome with headless mode succeeds", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.Headless = true
+		opts.UseInstalledChrome = true
+		err := validateOptions(opts)
+		require.NoError(t, err)
+	})
+
+	t.Run("system-chrome with hybrid mode succeeds", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.HeadlessHybrid = true
+		opts.UseInstalledChrome = true
+		err := validateOptions(opts)
+		require.NoError(t, err)
+	})
 }
 
 func TestValidateRecordedFlow(t *testing.T) {
