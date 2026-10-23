@@ -1,6 +1,6 @@
 module github.com/projectdiscovery/katana
 
-go 1.26.0
+go 1.26.10
 
 require (
 	github.com/PuerkitoBio/goquery v1.12.0
