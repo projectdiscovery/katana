@@ -395,8 +395,8 @@ github.com/valyala/fasttemplate v1.2.2 h1:lxLXG0uE3Qnshl9QyaK6XJxMXlQZELvChBOCmQ
 github.com/valyala/fasttemplate v1.2.2/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
 github.com/vulncheck-oss/go-exploit v1.51.0 h1:HTmJ4Q94tbEDPb35mQZn6qMg4rT+Sw9n+L7g3Pjr+3o=
 github.com/vulncheck-oss/go-exploit v1.51.0/go.mod h1:J28w0dLnA6DnCrnBm9Sbt6smX8lvztnnN2wCXy7No6c=
-github.com/weppos/publicsuffix-go v0.50.4-0.20260821095816-b0fdb5c2d345 h1:hJZP+OOgu8pORqJKySfSrzEzMmyJUfG9/Khm/Jom0E8=
-github.com/weppos/publicsuffix-go v0.50.4-0.20260821095816-b0fdb5c2d345/go.mod h1:/rOa781xBykZhHK/I3QeHo92qdDKVmKZKF7s8qAEM/4=
+github.com/weppos/publicsuffix-go v0.50.4-0.20260918082853-3c3d7dc4a0cb h1:QIW0GHVTSubm3VxkKpn1FnFAgins6N8FiGTvUQwpXzw=
+github.com/weppos/publicsuffix-go v0.50.4-0.20260918082853-3c3d7dc4a0cb/go.mod h1:/rOa781xBykZhHK/I3QeHo92qdDKVmKZKF7s8qAEM/4=
 github.com/xdg-go/pbkdf2 v1.0.0 h1:Su7DPu48wXMwC3bs7MCNG+z4FhcyEuz5dlvchbq0B0c=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
@@ -429,8 +429,8 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 github.com/zcalusic/sysinfo v1.0.2 h1:nwTTo2a+WQ0NXwo0BGRojOJvJ/5XKvQih+2RrtWqfxc=
 github.com/zcalusic/sysinfo v1.0.2/go.mod h1:kluzTYflRWo6/tXVMJPdEjShsbPpsFRyy+p1mBQPC30=
-github.com/zmap/zcrypto v0.0.0-20260906180147-3ed30b1e9340 h1:DzCAn4KcjdDOAyvwhB6z7BL7oRKvALWBwvQ0BApOdI0=
-github.com/zmap/zcrypto v0.0.0-20260906180147-3ed30b1e9340/go.mod h1:q7N4dwTU1frjgmnTIFxCyAC8mYz32ONxjkbch7whBzo=
+github.com/zmap/zcrypto v0.0.0-20261015050653-aa1de3126e87 h1:B9sBGvtHjiGOOemAh0cCGTzub76DXlxmOh3Qtx3TkRs=
+github.com/zmap/zcrypto v0.0.0-20261015050653-aa1de3126e87/go.mod h1:9O2aSz1l9fUHTFxJMYCoFsZBy6yGlz3nrOp4dHue5qw=
 go.etcd.io/bbolt v1.3.7 h1:j+zJOnnEjF/kyHlDDgGnVL/AIqIJPq8UoB2GSNfkUfQ=
 go.etcd.io/bbolt v1.3.7/go.mod h1:N9Mkw9X8x5fupy0IKsmuqVtoGDyxsaDlbk4Rd05IAQw=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
