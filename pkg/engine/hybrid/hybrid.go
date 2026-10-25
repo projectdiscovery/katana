@@ -39,6 +39,8 @@ type Crawler struct {
 	agents []*browserAgent
 	// browser is the first agent, kept for callers/tests that expect a primary handle.
 	browser *rod.Browser
+	// hooks holds the optional per-page lifecycle callbacks; see SetHooks.
+	hooks Hooks
 }
 
 // proxyBypassList returns the Chrome proxy bypass list to use for proxy.
@@ -208,6 +210,17 @@ func (a *browserAgent) close() error {
 		}
 	}
 	return nil
+}
+
+// BrowserContextID returns the id of the browser context this crawler created
+// in New, or "" if it has no browser. It lets an embedding program dispose the
+// context out of band: when a crawl dies without running Close, the context
+// otherwise stays resident in a shared, long-lived browser.
+func (c *Crawler) BrowserContextID() string {
+	if c.browser == nil {
+		return ""
+	}
+	return string(c.browser.BrowserContextID)
 }
 
 // Close closes the crawler process

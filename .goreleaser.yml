@@ -32,6 +32,26 @@ archives:
 checksum:
   name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"
 
+dockers_v2:
+  - images:
+      - projectdiscovery/katana
+    tags:
+      - "{{ .Tag }}"
+      - "v{{ .Major }}.{{ .Minor }}"
+      - "v{{ .Major }}"
+      - latest
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.ref.name: "{{ .Tag }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    # NOTE: CI snapshot runners may lack QEMU; only build images in CI on real
+    # releases.
+    disable: '{{ and .IsSnapshot (isEnvSet "CI") }}'
+
 announce:
   slack:
     enabled: true

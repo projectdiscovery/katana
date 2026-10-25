@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
@@ -29,6 +30,7 @@ func newTestHeadless(t *testing.T, ignoreQueryParams, filterSimilar bool) *Headl
 	crawlerOpts := &types.CrawlerOptions{
 		Options:      opts,
 		UniqueFilter: filter,
+		Parser:       parser.NewResponseParser(),
 	}
 	h := &Headless{options: crawlerOpts}
 	if filterSimilar {
@@ -164,4 +166,30 @@ func TestAdditionalAnalysisStillRunsForDuplicateRequests(t *testing.T) {
 		}
 	}
 	require.True(t, foundC, "new URL C should be discovered even though B was a duplicate request")
+}
+
+func TestPerformAdditionalAnalysisHonorsParserOptions(t *testing.T) {
+	h := newTestHeadless(t, false, false)
+	h.options.Options.ScrapeJSResponses = true
+	p := parser.NewResponseParser()
+	p.InitWithOptions(&parser.Options{ScrapeJSResponses: true})
+	h.options.Parser = p
+
+	pageURL := "https://example.com/page"
+	html := `<html><body><script>var cfg = {endpoint: "/api/inline_secret"};</script></body></html>`
+	resp := makeResponse(t, pageURL, html)
+	resp.Resp.StatusCode = http.StatusFound
+	resp.Resp.Header = http.Header{"Location": []string{"/redirected"}}
+
+	results := h.performAdditionalAnalysis(&output.Result{
+		Request:  &navigation.Request{URL: pageURL},
+		Response: resp,
+	})
+
+	found := map[string]bool{}
+	for _, r := range results {
+		found[r.Request.URL] = true
+	}
+	require.True(t, found["https://example.com/api/inline_secret"], "-jc inline script endpoint not extracted, got %v", found)
+	require.True(t, found["https://example.com/redirected"], "Location header not extracted, got %v", found)
 }

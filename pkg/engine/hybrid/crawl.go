@@ -3,6 +3,7 @@ package hybrid
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"errors"
 	"io"
 	"net/http"
@@ -56,6 +57,10 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}()
 	c.addHeadersToPage(page)
 
+	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
+		return nil, err
+	}
+
 	pageRouter := NewHijack(page)
 	pageRouter.SetPatterns(fetchRequestPatterns(c.Options.Options))
 
@@ -102,6 +107,49 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			}
 		}
 
+		requestHeaders := make(map[string][]string)
+		for name, value := range e.Request.Headers {
+			requestHeaders[name] = []string{value.Str()}
+		}
+
+		shouldCapture := func(xhrExtraction bool) bool {
+			resourceTypes := []proto.NetworkResourceType{
+				proto.NetworkResourceTypeXHR,
+				proto.NetworkResourceTypeFetch,
+				proto.NetworkResourceTypeScript,
+			}
+
+			return xhrExtraction && slices.Contains(resourceTypes, e.ResourceType)
+		}
+
+		if shouldCapture(c.Options.Options.XhrExtraction) {
+			networkReq := navigation.Request{
+				URL:    httpreq.URL.String(),
+				Method: httpreq.Method,
+				Body:   e.Request.PostData,
+			}
+			if len(httpreq.Header) > 0 {
+				networkReq.Headers = utils.FlattenHeaders(httpreq.Header)
+			} else {
+				networkReq.Headers = utils.FlattenHeaders(requestHeaders)
+			}
+			xhrRequests = append(xhrRequests, networkReq)
+		}
+
+		// trim trailing /
+		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
+		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
+		parse := c.shouldParse(matchOriginalURL, e.Request.URL, headers, body)
+		// A repeated subresource has nothing new to enqueue. Skip the body
+		// copies, goquery, and fingerprinting. The main document is still
+		// recorded so the crawl does not end with "hybrid: response is nil".
+		if !matchOriginalURL && !parse {
+			if c.Options.Options.DisableRedirects && statusCode >= 300 && statusCode <= 399 {
+				return nil
+			}
+			return FetchContinueRequest(page, e)
+		}
+
 		httpresp := &http.Response{
 			Proto:         "HTTP/1.1",
 			ProtoMajor:    1,
@@ -146,56 +194,14 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 		response.ContentLength = resp.ContentLength
 
-		requestHeaders := make(map[string][]string)
-		for name, value := range e.Request.Headers {
-			requestHeaders[name] = []string{value.Str()}
-		}
-
-		shouldCapture := func(xhrExtraction bool) bool {
-			resourceTypes := []proto.NetworkResourceType{
-				proto.NetworkResourceTypeXHR,
-				proto.NetworkResourceTypeFetch,
-				proto.NetworkResourceTypeScript,
-			}
-
-			return xhrExtraction && slices.Contains(resourceTypes, e.ResourceType)
-		}
-
-		if shouldCapture(c.Options.Options.XhrExtraction) {
-			networkReq := navigation.Request{
-				URL:    httpreq.URL.String(),
-				Method: httpreq.Method,
-				Body:   e.Request.PostData,
-			}
-			if len(httpreq.Header) > 0 {
-				networkReq.Headers = utils.FlattenHeaders(httpreq.Header)
-			} else {
-				networkReq.Headers = utils.FlattenHeaders(requestHeaders)
-			}
-			xhrRequests = append(xhrRequests, networkReq)
-		}
-
-		// trim trailing /
-		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
-		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
-
-		// Content uniqueness / page-similarity gates apply only to the main
-		// document. Rejected main docs still record response metadata so the
-		// crawl does not end with "hybrid: response is nil"; only parse/enqueue
-		// is suppressed. Scripts and XHR keep flowing for extraction.
-		skipParse := false
+		// Rejected main docs still record response metadata so the crawl does
+		// not end with "hybrid: response is nil"; only parse/enqueue is suppressed.
 		if matchOriginalURL {
-			if !c.Options.Options.DisableUniqueFilter && !c.Options.UniqueFilter.UniqueContent(body) {
-				skipParse = true
-			}
-			if !skipParse && c.Options.ContentSimilarity != nil && !c.Options.ContentSimilarity.Accept(body) {
-				skipParse = true
-			}
 			request.Raw = string(rawBytesRequest)
 			response = resp
 		}
 
-		if !skipParse {
+		if parse {
 			navigationRequests := c.Options.Parser.ParseResponse(resp)
 			c.Enqueue(s.Queue, navigationRequests...)
 		}
@@ -281,8 +287,12 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			gologger.Warning().Msgf("setting time stable to %s\n", timeStable)
 		}
 
-		if err := page.WaitStable(timeStable); err != nil {
-			gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+		if timeStable > 0 {
+			if err := page.WaitStable(timeStable); err != nil {
+				gologger.Warning().Msgf("could not wait for page to be stable: %s\n", err)
+			}
+		} else {
+			gologger.Debug().Msgf("time-stable is non-positive: skipping stability wait\n")
 		}
 	}
 
@@ -430,6 +440,14 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil
 	})
 
+	// AfterLoad gets its own timeout, like the DOM and HTML reads above:
+	// timeoutCtx is the navigation's budget and may be nearly spent by now.
+	hookCtx, hookCancel := context.WithTimeout(s.Ctx, timeout)
+	defer hookCancel()
+	if err := runAfterLoad(hookCtx, c.hooks, sessionPage, request, response); err != nil {
+		return nil, err
+	}
+
 	return response, nil
 }
 
@@ -519,4 +537,60 @@ func buildDOMFromNode(node *proto.DOMNode, builder *strings.Builder) {
 	builder.WriteString("</")
 	builder.WriteString(node.LocalName)
 	builder.WriteRune('>')
+}
+
+// subresourceParseHeaders are the response headers that change what the
+// parsers extract from an otherwise identical body.
+var subresourceParseHeaders = []string{"Content-Location", "Content-Type", "Link", "Location", "Refresh"}
+
+// shouldParse reports whether a hijacked response is parsed for new links.
+// Page-similarity applies only to the main document, and that check is the
+// body alone. A subresource is parsed once for the same request URL, body,
+// and subresourceParseHeaders, so a shared script is not parsed on every
+// page. The same bytes at another URL, or with different headers, are parsed
+// again. An empty body is always parsed, so redirect headers still apply.
+func (c *Crawler) shouldParse(isMainDoc bool, reqURL string, headers map[string][]string, body []byte) bool {
+	if !isMainDoc {
+		if c.Options.Options.DisableUniqueFilter || len(body) == 0 {
+			return true
+		}
+		return c.Options.UniqueFilter.UniqueContent(subresourceIdentity(reqURL, headers, body))
+	}
+	if !c.Options.Options.DisableUniqueFilter && !c.Options.UniqueFilter.UniqueContent(body) {
+		return false
+	}
+	return c.Options.ContentSimilarity == nil || c.Options.ContentSimilarity.Accept(body)
+}
+
+// subresourceIdentity is a digest of the inputs ParseResponse reads for a
+// subresource. Hashing the parts avoids copying the body into one buffer.
+func subresourceIdentity(reqURL string, headers map[string][]string, body []byte) []byte {
+	h := md5.New()
+	_, _ = io.WriteString(h, reqURL)
+	_, _ = h.Write([]byte{0})
+	for _, name := range subresourceParseHeaders {
+		_, _ = io.WriteString(h, name)
+		_, _ = h.Write([]byte{0})
+		_, _ = io.WriteString(h, headerValues(headers, name))
+		_, _ = h.Write([]byte{0})
+	}
+	_, _ = h.Write(body)
+	return h.Sum(nil)
+}
+
+func headerValues(headers map[string][]string, name string) string {
+	if len(headers) == 0 {
+		return ""
+	}
+	for _, key := range []string{name, http.CanonicalHeaderKey(name), strings.ToLower(name)} {
+		if values, ok := headers[key]; ok {
+			return strings.Join(values, ",")
+		}
+	}
+	for key, values := range headers {
+		if strings.EqualFold(key, name) {
+			return strings.Join(values, ",")
+		}
+	}
+	return ""
 }

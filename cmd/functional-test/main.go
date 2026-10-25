@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/internal/testutils"
+	"github.com/projectdiscovery/katana/internal/testutils/authlab"
 )
 
 var (
@@ -45,6 +47,51 @@ func runFunctionalTests() error {
 		if testcase.Target == "" {
 			testcase.Target = server.URL
 		}
+		if err := runIndividualTestCase(testcase); err != nil {
+			errored = true
+			fmt.Fprintf(os.Stderr, "%s Test \"%s\" failed: %s\n", failed, testcase.Name, err)
+		} else {
+			fmt.Printf("%s Test \"%s\" passed!\n", success, testcase.Name)
+		}
+	}
+
+	if err := runAuthLabFunctionalTests(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runAuthLabFunctionalTests() error {
+	lab, err := authlab.Start()
+	if err != nil {
+		return fmt.Errorf("could not start auth lab: %w", err)
+	}
+	defer func() { _ = lab.Close() }()
+
+	fmt.Printf("Auth lab started at %s\n", lab.URL)
+
+	dir, err := os.MkdirTemp("", "katana-rf-*")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	simpleFlow := filepath.Join(dir, "simple.json")
+	if err := os.WriteFile(simpleFlow, []byte(authlab.ChromeRecordingSimple(lab.URL)), 0o600); err != nil {
+		return err
+	}
+	explicitFlow := filepath.Join(dir, "explicit.json")
+	if err := os.WriteFile(explicitFlow, []byte(authlab.ExplicitStepsSimple(lab.URL)), 0o600); err != nil {
+		return err
+	}
+
+	cases := testutils.AuthTestCases(lab.URL, simpleFlow)
+	// Second case reuses the same CompareFunc shape but should run the explicit steps file.
+	if len(cases) >= 2 {
+		cases[1].Args = strings.Replace(cases[1].Args, simpleFlow, explicitFlow, 1)
+	}
+
+	for _, testcase := range cases {
 		if err := runIndividualTestCase(testcase); err != nil {
 			errored = true
 			fmt.Fprintf(os.Stderr, "%s Test \"%s\" failed: %s\n", failed, testcase.Name, err)
