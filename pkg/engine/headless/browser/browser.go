@@ -509,6 +509,9 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 	browserPage, err := l.browserPool.Get(l.createBrowserPageFunc)
 	if err != nil {
+		// Pool.Get takes the slot before create runs. A failed launch must
+		// put it back, or the next caller blocks until the pool is closed.
+		l.browserPool.Put(nil)
 		return nil, err
 	}
 	// TODO: should we check if the browser is alive because sometimes it

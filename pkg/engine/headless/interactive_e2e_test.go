@@ -73,7 +73,7 @@ func TestInteractiveCrawlFourLevelsWithScopedHeaders(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
 	defer cancel()
 	c, err := crawler.New(crawler.Options{
-		Context: ctx, MaxBrowsers: 1, MaxDepth: 1, PageMaxTimeout: 15 * time.Second,
+		Context: ctx, MaxBrowsers: 1, MaxDepth: 1, PageMaxTimeout: 15 * time.Second, NoSandbox: true,
 		RootURL:       lab.URL,
 		CustomHeaders: map[string]string{"Cookie": "session=ok", "Authorization": "Bearer secret"},
 		Interactive:   true, InteractionDepth: 4,
@@ -105,7 +105,7 @@ func TestInteractiveDurationContinuesQueuedCrawl(t *testing.T) {
 	defer lab.Close()
 	var observed atomic.Bool
 	c, err := crawler.New(crawler.Options{
-		Context: context.Background(), MaxBrowsers: 1, MaxDepth: 1,
+		Context: context.Background(), MaxBrowsers: 1, MaxDepth: 1, NoSandbox: true,
 		MaxCrawlDuration: 20 * time.Second, PageMaxTimeout: 5 * time.Second,
 		RootURL: lab.URL, Interactive: true, InteractionDepth: 4,
 		InteractionSelector: "button", InteractionDuration: time.Millisecond,
