@@ -70,14 +70,24 @@ type Options struct {
 	EnableDiagnostics bool
 	DiagnosticsDir    string
 
-	Proxy           string
-	Logger          *slog.Logger
-	ScopeValidator  browser.ScopeValidator
-	RequestCallback func(*output.Result)
-	TrafficCallback func(*output.Result)
-	ChromeUser      *user.User
-	CaptchaHandler  *captcha.Handler
-	UserArguments   map[string]string
+	Proxy                 string
+	Logger                *slog.Logger
+	ScopeValidator        browser.ScopeValidator
+	RequestCallback       func(*output.Result)
+	TrafficCallback       func(*output.Result)
+	CustomHeaders         map[string]string
+	RootURL               string
+	Interactive           bool
+	InteractionDepth      int
+	InteractionSelector   string
+	InteractionExclude    string
+	InteractionMaxStates  int
+	InteractionMaxActions int
+	InteractionSettle     time.Duration
+	InteractionDuration   time.Duration
+	ChromeUser            *user.User
+	CaptchaHandler        *captcha.Handler
+	UserArguments         map[string]string
 
 	AuthUsername  string
 	AuthPassword  string
@@ -121,6 +131,7 @@ func New(opts Options) (*Crawler, error) {
 		PageMaxTimeout:      opts.PageMaxTimeout,
 		ShowBrowser:         opts.ShowBrowser,
 		RequestCallback:     opts.RequestCallback,
+		Interactive:         opts.Interactive,
 		TrafficCallback:     opts.TrafficCallback,
 		SlowMotion:          opts.SlowMotion,
 		ScopeValidator:      opts.ScopeValidator,
@@ -135,6 +146,8 @@ func New(opts Options) (*Crawler, error) {
 		UserDataDir:         opts.UserDataDir,
 		Proxy:               opts.Proxy,
 		UserArguments:       opts.UserArguments,
+		CustomHeaders:       opts.CustomHeaders,
+		CookieURL:           opts.RootURL,
 	})
 	if err != nil {
 		return nil, err
@@ -243,6 +256,27 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
+	if c.options.Interactive {
+		uiCtx := ctx
+		if c.options.InteractionDuration > 0 {
+			var stop context.CancelFunc
+			uiCtx, stop = context.WithTimeout(ctx, c.options.InteractionDuration)
+			defer stop()
+		}
+		if err := c.crawlInteractive(uiCtx, URL); err != nil {
+			if ctx.Err() != nil {
+				if localDeadline && parentCtx.Err() == nil {
+					return nil
+				}
+				return ctx.Err()
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				c.logger.Info("UI exploration time limit reached; continuing queued crawl")
+			} else {
+				c.logger.Warn("interactive exploration stopped early; continuing queued crawl", slog.String("error", err.Error()))
+			}
+		}
+	}
 
 	consecutiveFailures := 0
 
@@ -285,13 +319,14 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
+			originalPage := page.Page
 			page.Page = page.Context(ctx)
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
 			)
 
-			if err := c.crawlFn(ctx, action, page); err != nil {
+			if err := c.crawlFn(ctx, action, page, originalPage); err != nil {
 				if err == ErrNoCrawlingAction {
 					return nil
 				}
@@ -345,8 +380,9 @@ func (c *Crawler) Crawl(URL string) error {
 
 var ErrNoCrawlingAction = errors.New("no more actions to crawl")
 
-func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage, originalPage *rod.Page) error {
 	defer func() {
+		page.Page = originalPage
 		c.launcher.PutBrowserToPool(page)
 	}()
 
@@ -361,7 +397,9 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		slog.String("action", action.String()),
 	)
 
-	if action.OriginID != "" && action.OriginID != currentPageHash {
+	// A load-URL action can navigate directly. Replaying history to reach its
+	// origin wastes the crawl budget, especially after an authentication flow.
+	if action.Type != types.ActionTypeLoadURL && action.OriginID != "" && action.OriginID != currentPageHash {
 		c.logger.Debug("Need to navigate back to origin",
 			slog.String("from", currentPageHash),
 			slog.String("to", action.OriginID),

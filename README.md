@@ -396,6 +396,20 @@ HEADLESS:
    -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
 ```
 
+### Interactive UI exploration
+
+Use `-interactive` to explore clickable states in the pure headless browser. It enables headless mode, starts at the target page, clicks candidates depth first, and restores a parent state before trying its next control. `-interaction-depth` counts successful state transitions, so a depth of 4 explores four clicks from the starting page. This mode is slower than ordinary headless crawling because a branch may need to be replayed after a click changes the page.
+
+```console
+katana -u https://example.com/app -interactive -interaction-depth 4 \
+  -interaction-max-states 500 -interaction-max-actions 2000 \
+  -interaction-settle 2s -interaction-duration 5m -crawl-duration 20m
+```
+
+`-interaction-selector` and `-interaction-exclude` accept CSS selectors. The default candidate set includes buttons, links, common ARIA controls, inline click handlers, and observed click listeners. After UI exploration, Katana continues its ordinary headless URL crawl. Use `-interaction-duration` to reserve time for that crawl within `-crawl-duration`. Set an action or state limit to `0` to remove that limit.
+
+The existing `-H` option also applies to headless crawling. `Cookie` values are seeded in the browser before navigation, and other headers are attached to requests the crawl scope accepts. New tabs opened by a click are explored when their URL is in scope. Selectors cannot reach every canvas control, closed shadow root, or cross origin frame, so inspect the crawl summary when assessing coverage.
+
 *`-no-sandbox`*
 ----
 

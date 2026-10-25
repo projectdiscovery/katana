@@ -2,9 +2,35 @@ package browser
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetPageFromPoolReleasesSlotWhenCreateFails(t *testing.T) {
+	launcher, err := NewLauncher(LauncherOptions{
+		MaxBrowsers:  1,
+		ChromiumPath: "/nonexistent/chrome",
+		NoSandbox:    true,
+	})
+	require.NoError(t, err)
+	defer launcher.Close()
+
+	_, err = launcher.GetPageFromPool()
+	require.Error(t, err)
+	require.Len(t, launcher.browserPool, 1)
+
+	done := make(chan struct{})
+	go func() {
+		_, _ = launcher.GetPageFromPool()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("GetPageFromPool blocked after a failed page creation")
+	}
+}
 
 func TestPutBrowserToPoolReplenishesDiscardedSlot(t *testing.T) {
 	skipIfNoBrowser(t)
