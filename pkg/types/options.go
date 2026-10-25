@@ -127,16 +127,6 @@ type Options struct {
 	InteractionMaxActions int
 	InteractionSettle     time.Duration
 	InteractionDuration   time.Duration
-	// ScriptOutputDir saves complete browser-observed JavaScript responses.
-	ScriptOutputDir string
-	// ScriptDiscoveryDepth follows literal nested imports found in saved scripts.
-	ScriptDiscoveryDepth int
-	// ScriptDiscoveryMax bounds additional requests for scripts found in source.
-	ScriptDiscoveryMax int
-	// ScriptDiscoveryScope controls whether static discovery crosses origins.
-	ScriptDiscoveryScope string
-	// ScriptFinalizeReserve reserves part of crawl duration for script recovery.
-	ScriptFinalizeReserve time.Duration
 	// HeadlessHybrid enables headless hybrid scraping
 	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission
@@ -237,7 +227,10 @@ type Options struct {
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
 	PageLoadStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
-	DOMWaitTime           int
+	DOMWaitTime int
+	// MaxScrollSteps is the maximum number of viewport scrolls used to reveal
+	// lazy-loaded content before headless navigation discovery (0 disables it).
+	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
 	// KnowledgeBase enables knowledge base classification using dit

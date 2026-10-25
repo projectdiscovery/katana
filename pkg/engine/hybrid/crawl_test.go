@@ -2,6 +2,7 @@ package hybrid
 
 import (
 	"context"
+	"errors"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +12,10 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
+	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/stretchr/testify/require"
 )
 
@@ -136,10 +139,18 @@ func TestCancelDuringElementInteraction(t *testing.T) {
 	go func() { done <- crawler.Crawl(srv.URL) }()
 
 	time.Sleep(5 * time.Second)
+	select {
+	case err := <-done:
+		t.Fatalf("Crawl completed before context cancellation: %v", err)
+	default:
+	}
 	cancel()
 
 	select {
-	case <-done:
+	case err := <-done:
+		if err != nil && !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
 	case <-time.After(30 * time.Second):
 		t.Fatal("Crawl did not return after context cancellation")
 	}
@@ -226,4 +237,63 @@ func TestZeroTimeStableDoesNotPanic(t *testing.T) {
 	t.Cleanup(func() { _ = crawler.Close() })
 
 	require.NoError(t, crawler.Crawl(srv.URL))
+}
+
+func TestShouldParseSubresourceOncePerBody(t *testing.T) {
+	newCrawler := func(t *testing.T, disableUnique bool) *Crawler {
+		t.Helper()
+		filter, err := filters.NewSimple()
+		require.NoError(t, err)
+		t.Cleanup(filter.Close)
+		return &Crawler{Shared: &common.Shared{Options: &types.CrawlerOptions{
+			Options:      &types.Options{DisableUniqueFilter: disableUnique},
+			UniqueFilter: filter,
+		}}}
+	}
+	script := []byte(`fetch("/api/v1/users")`)
+	const scriptURL = "https://example.com/static/app.js"
+
+	t.Run("repeated subresource body parsed once", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(false, scriptURL, nil, script))
+		require.False(t, c.shouldParse(false, scriptURL, nil, script))
+		require.True(t, c.shouldParse(false, scriptURL, nil, []byte(`fetch("/api/v2")`)))
+	})
+	t.Run("same body at another URL is parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(false, "https://example.com/a.js", nil, script))
+		require.True(t, c.shouldParse(false, "https://cdn.example.com/a.js", nil, script))
+	})
+	t.Run("same body with another Link header is parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		first := map[string][]string{"Link": {`</a>; rel="preload"`}}
+		second := map[string][]string{"link": {`</b>; rel="preload"`}}
+		require.True(t, c.shouldParse(false, scriptURL, first, script))
+		require.True(t, c.shouldParse(false, scriptURL, second, script))
+		require.False(t, c.shouldParse(false, scriptURL, first, script))
+	})
+	t.Run("same body with another Location header is parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		first := map[string][]string{"Location": {"/a"}}
+		second := map[string][]string{"location": {"/b"}}
+		require.True(t, c.shouldParse(false, scriptURL, first, script))
+		require.True(t, c.shouldParse(false, scriptURL, second, script))
+		require.False(t, c.shouldParse(false, scriptURL, first, script))
+	})
+	t.Run("empty subresource body always parsed", func(t *testing.T) {
+		c := newCrawler(t, false)
+		require.True(t, c.shouldParse(false, scriptURL, nil, nil))
+		require.True(t, c.shouldParse(false, scriptURL, nil, nil))
+	})
+	t.Run("unique filter disabled", func(t *testing.T) {
+		c := newCrawler(t, true)
+		require.True(t, c.shouldParse(false, scriptURL, nil, script))
+		require.True(t, c.shouldParse(false, scriptURL, nil, script))
+	})
+	t.Run("repeated main document skipped", func(t *testing.T) {
+		c := newCrawler(t, false)
+		html := []byte("<html>a</html>")
+		require.True(t, c.shouldParse(true, "https://example.com/a", nil, html))
+		require.False(t, c.shouldParse(true, "https://example.com/b", nil, html))
+	})
 }

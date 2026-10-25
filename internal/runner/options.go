@@ -28,15 +28,6 @@ func validateOptions(options *types.Options) error {
 		if options.InteractionDepth < 1 || options.InteractionMaxStates < 0 || options.InteractionMaxActions < 0 || options.InteractionSettle < 0 || options.InteractionDuration < 0 {
 			return errkit.New("invalid interactive limits: depth must be positive and other limits non-negative")
 		}
-		if options.ScriptOutputDir == "" {
-			options.ScriptOutputDir = "katana-scripts"
-		}
-	}
-	if options.ScriptDiscoveryDepth < 0 || options.ScriptDiscoveryMax < 0 || options.ScriptFinalizeReserve < 0 {
-		return errkit.New("script discovery depth and max must not be negative")
-	}
-	if options.ScriptDiscoveryScope != "" && options.ScriptDiscoveryScope != "same-origin" && options.ScriptDiscoveryScope != "all" {
-		return errkit.New("-script-discovery-scope must be same-origin or all")
 	}
 	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
 		return errkit.New("either max-depth or crawl-duration must be specified")
@@ -66,6 +57,9 @@ func validateOptions(options *types.Options) error {
 	// Disallow ambiguous engine selection
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
+	}
+	if options.MaxScrollSteps < 0 {
+		return errkit.New("max-scroll-steps cannot be negative")
 	}
 
 	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
@@ -128,14 +122,13 @@ func validateOptions(options *types.Options) error {
 		}
 	}
 
-	// After auto-login / recorded-flow may have enabled Headless.
-	if options.ScriptOutputDir != "" && !options.Headless && options.ChromeWSUrl == "" {
-		return errkit.New("-script-output-dir requires pure headless mode")
+	// Checked after -al and -rf, which enable pure headless mode themselves.
+	if options.MaxScrollSteps > 0 && !options.Headless && options.ChromeWSUrl == "" {
+		return errkit.New("headless (-hl) mode is required if -max-scroll-steps is set")
 	}
-
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "" || options.UseInstalledChrome) &&
 		!options.Headless && !options.HeadlessHybrid {
-		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
+		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos, -sc or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {

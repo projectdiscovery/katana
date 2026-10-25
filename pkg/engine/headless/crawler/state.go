@@ -29,6 +29,18 @@ func (c *Crawler) isCorrectNavigation(page *browser.BrowserPage, action *types.A
 		return currentPageHash, pageState, nil
 	}
 
+	// Origin states are hashed after lazy-content scrolling, so a page reached
+	// by history or path replay must be scrolled the same way to match.
+	if scrolled, _ := c.revealLazyContent(page); scrolled {
+		currentPageHash, pageState, err = getPageHash(page)
+		if err != nil {
+			return "", nil, err
+		}
+		if currentPageHash == action.OriginID {
+			return currentPageHash, pageState, nil
+		}
+	}
+
 	// Get the origin page state to compare SimHash
 	originPageState, err := c.crawlGraph.GetPageState(action.OriginID)
 	if err != nil {
@@ -313,9 +325,14 @@ func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.
 	c.logger.Debug("Found actions to traverse",
 		slog.Any("actions", actions),
 	)
-	for _, action := range actions {
-		if err := c.executeCrawlStateAction(action, page); err != nil {
+	for i, pathAction := range actions {
+		if err := c.executeCrawlStateAction(pathAction, page); err != nil {
 			return "", err
+		}
+		// Intermediate states were scrolled when discovered, so the next
+		// hop may target a lazily revealed element.
+		if i < len(actions)-1 {
+			_, _ = c.revealLazyContent(page)
 		}
 	}
 	newPageHash, pageState, err := c.isCorrectNavigation(page, action)

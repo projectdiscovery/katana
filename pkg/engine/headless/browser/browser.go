@@ -23,7 +23,6 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 	rodutils "github.com/go-rod/rod/lib/utils"
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/js"
@@ -33,6 +32,8 @@ import (
 	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/rs/xid"
 )
+
+var lookPath = launcher.LookPath
 
 // Launcher is a high level controller to launch browsers
 // and do the execution on them.
@@ -44,6 +45,7 @@ type Launcher struct {
 
 // LauncherOptions contains options for the launcher
 type LauncherOptions struct {
+	UseInstalledChrome  bool
 	ChromiumPath        string
 	MaxBrowsers         int
 	PageMaxTimeout      time.Duration
@@ -65,8 +67,10 @@ type LauncherOptions struct {
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
-	ScriptCallback  func(assets.Response)
 	Interactive     bool
+	// TrafficCallback, when set, receives every intercepted exchange,
+	// including redirects and failures, before any crawl filtering.
+	TrafficCallback func(*output.Result)
 }
 
 type ScopeValidator func(string) bool
@@ -115,6 +119,84 @@ func (l *Launcher) shouldPreserveUserDataDir(tempDir string) bool {
 	return tempDir != "" && tempDir == l.opts.UserDataDir
 }
 
+func (l *Launcher) createChromeLauncher(userDataDir string) (*launcher.Launcher, error) {
+	chromeLauncher := launcher.New().
+		Leakless(true).
+		Set("disable-gpu", "true").
+		Set("ignore-certificate-errors", "true").
+		Set("disable-crash-reporter", "true").
+		Set("disable-notifications", "true").
+		Set("hide-scrollbars", "true").
+		Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
+		Set("mute-audio", "true").
+		Delete("use-mock-keychain").
+		Delete("disable-ipc-flooding-protection").
+		Headless(true)
+
+	if l.shouldUseIncognito() {
+		chromeLauncher = chromeLauncher.Set("incognito", "true")
+	}
+
+	for _, flag := range headlessFlags {
+		splitted := strings.TrimPrefix(flag, "--")
+		values := strings.Split(splitted, "=")
+		flagName := values[0]
+		if l.shouldSkipHeadlessFlag(flagName) {
+			continue
+		}
+		if len(values) == 2 {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
+		} else {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
+		}
+	}
+
+	if l.opts.Proxy != "" {
+		chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
+		// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
+		// unless that implicit rule is subtracted. Same token as hybrid.
+		chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
+	}
+
+	if l.opts.NoSandbox {
+		chromeLauncher = chromeLauncher.NoSandbox(true)
+	}
+
+	if l.opts.ShowBrowser {
+		chromeLauncher = chromeLauncher.Headless(false)
+	}
+
+	if l.opts.UseInstalledChrome {
+		if l.opts.ChromiumPath != "" {
+			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+		} else {
+			if chromePath, hasChrome := lookPath(); hasChrome {
+				chromeLauncher = chromeLauncher.Bin(chromePath)
+			} else {
+				return nil, errors.New("the chrome browser is not installed")
+			}
+		}
+	} else if l.opts.ChromiumPath != "" {
+		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+	} else if !l.opts.ShowBrowser && chromeshell.Supported() {
+		// Prefer chrome-headless-shell on linux/amd64 for headless crawls;
+		// skip when headed since the shell binary cannot show a UI.
+		if shellPath, err := chromeshell.Ensure(); err == nil {
+			chromeLauncher = chromeLauncher.Bin(shellPath)
+		}
+	}
+
+	if userDataDir != "" {
+		chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
+	}
+
+	for k, v := range l.opts.UserArguments {
+		chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
+	}
+
+	return chromeLauncher, nil
+}
+
 func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
 	var launcherURL string
 
@@ -123,71 +205,11 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 		launcherURL = l.opts.ChromeWSUrl
 	} else {
 		// Launch a new Chrome instance
-		chromeLauncher := launcher.New().
-			Leakless(true).
-			Set("disable-gpu", "true").
-			Set("ignore-certificate-errors", "true").
-			Set("disable-crash-reporter", "true").
-			Set("disable-notifications", "true").
-			Set("hide-scrollbars", "true").
-			Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
-			Set("mute-audio", "true").
-			Delete("use-mock-keychain").
-			Delete("disable-ipc-flooding-protection").
-			Headless(true)
-
-		if l.shouldUseIncognito() {
-			chromeLauncher = chromeLauncher.Set("incognito", "true")
+		chromeLauncher, err := l.createChromeLauncher(userDataDir)
+		if err != nil {
+			return nil, err
 		}
 
-		for _, flag := range headlessFlags {
-			splitted := strings.TrimPrefix(flag, "--")
-			values := strings.Split(splitted, "=")
-			flagName := values[0]
-			if l.shouldSkipHeadlessFlag(flagName) {
-				continue
-			}
-			if len(values) == 2 {
-				chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
-			} else {
-				chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
-			}
-		}
-
-		if l.opts.Proxy != "" {
-			chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
-			// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
-			// unless that implicit rule is subtracted. Same token as hybrid.
-			chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
-		}
-
-		if l.opts.NoSandbox {
-			chromeLauncher = chromeLauncher.NoSandbox(true)
-		}
-
-		if l.opts.ShowBrowser {
-			chromeLauncher = chromeLauncher.Headless(false)
-		}
-
-		if l.opts.ChromiumPath != "" {
-			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
-		} else if !l.opts.ShowBrowser && chromeshell.Supported() {
-			// Prefer chrome-headless-shell on linux/amd64 for headless crawls;
-			// skip when headed since the shell binary cannot show a UI.
-			if shellPath, err := chromeshell.Ensure(); err == nil {
-				chromeLauncher = chromeLauncher.Bin(shellPath)
-			}
-		}
-
-		if userDataDir != "" {
-			chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
-		}
-
-		for k, v := range l.opts.UserArguments {
-			chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
-		}
-
-		var err error
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
 			return nil, err
@@ -527,18 +549,19 @@ func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts in
 }
 
 func (b *BrowserPage) handlePageDialogBoxes() error {
-	err := proto.FetchEnable{
-		Patterns: []*proto.FetchRequestPattern{
-			{
-				URLPattern:   "*",
-				RequestStage: proto.FetchRequestStageRequest,
-			},
-			{
-				URLPattern:   "*",
-				RequestStage: proto.FetchRequestStageResponse,
-			},
-		},
-	}.Call(b.Page)
+	patterns := []*proto.FetchRequestPattern{{
+		URLPattern:   "*",
+		RequestStage: proto.FetchRequestStageResponse,
+	}}
+	// Pausing at the request stage costs a CDP round trip per request, so only
+	// do it when there are custom headers to attach.
+	if len(b.extraHeaders) > 0 {
+		patterns = append(patterns, &proto.FetchRequestPattern{
+			URLPattern:   "*",
+			RequestStage: proto.FetchRequestStageRequest,
+		})
+	}
+	err := proto.FetchEnable{Patterns: patterns}.Call(b.Page)
 	if err != nil {
 		return errors.Wrap(err, "could not enable fetch domain")
 	}
@@ -576,6 +599,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
+				b.observeWithoutBody(e)
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
@@ -583,7 +607,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
-				b.reportScript(e, nil, err)
+				b.observeWithoutBody(e)
 				// Continue the request even if we can't get the body
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
@@ -593,7 +617,6 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			if err := fetchContinueRequest(b.Page, e); err != nil {
 				slog.Warn("fetchContinueRequest failed", "error", err)
 			}
-			b.reportScript(e, body, nil)
 
 			httpreq, err := netHTTPRequestFromProto(e.Request)
 			if err != nil {
@@ -628,12 +651,16 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				Resp:          httpresp,
 				Reader:        doc,
 			}
+			result := &output.Result{
+				Timestamp: time.Now(),
+				Request:   &req,
+				Response:  resp,
+			}
+			if b.launcher.opts.TrafficCallback != nil {
+				b.launcher.opts.TrafficCallback(result)
+			}
 			if b.launcher.opts.RequestCallback != nil {
-				b.launcher.opts.RequestCallback(&output.Result{
-					Timestamp: time.Now(),
-					Request:   &req,
-					Response:  resp,
-				})
+				b.launcher.opts.RequestCallback(result)
 			}
 		},
 	)()
@@ -641,8 +668,8 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 }
 
 // continueWithScopedHeaders resumes a request-stage pause, attaching
-// non-cookie custom headers only for same-origin https/wss requests that
-// also pass ScopeValidator (see shouldAttachExtraHeaders).
+// non-cookie custom headers only to in-scope requests (see
+// shouldAttachExtraHeaders).
 func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) error {
 	if len(b.extraHeaders) == 0 || !shouldAttachExtraHeaders(e.Request.URL, b.launcher.opts.ScopeValidator, b.launcher.opts.CookieURL) {
 		return fetchContinueRequest(b.Page, e)
@@ -651,6 +678,35 @@ func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) err
 		RequestID: e.RequestID,
 		Headers:   mergeRequestHeaders(e.Request.Headers, b.extraHeaders),
 	}.Call(b.Page)
+}
+
+// observeWithoutBody reports an exchange whose body is not read (redirects,
+// failures) to the traffic callback.
+func (b *BrowserPage) observeWithoutBody(e *proto.FetchRequestPaused) {
+	callback := b.launcher.opts.TrafficCallback
+	if callback == nil {
+		return
+	}
+	httpreq, err := netHTTPRequestFromProto(e.Request)
+	if err != nil {
+		return
+	}
+	httpresp := netHTTPResponseFromProto(e, nil)
+	httpresp.Request = httpreq
+	callback(&output.Result{
+		Timestamp: time.Now(),
+		Request: &navigation.Request{
+			Method:  httpreq.Method,
+			URL:     httpreq.URL.String(),
+			Body:    e.Request.PostData,
+			Headers: utils.FlattenHeaders(httpreq.Header),
+		},
+		Response: &navigation.Response{
+			StatusCode: httpresp.StatusCode,
+			Headers:    utils.FlattenHeaders(httpresp.Header),
+			Resp:       httpresp,
+		},
+	})
 }
 
 func fetchContinueRequest(page *rod.Page, e *proto.FetchRequestPaused) error {
@@ -680,41 +736,6 @@ func fetchGetResponseBody(page *rod.Page, e *proto.FetchRequestPaused) ([]byte, 
 	return bs, nil
 }
 
-// reportScript receives Chrome's complete decoded response body before the
-// ordinary URL scope and output filters can discard or truncate it.
-func (b *BrowserPage) reportScript(e *proto.FetchRequestPaused, body []byte, bodyErr error) {
-	if b.launcher.opts.ScriptCallback == nil {
-		return
-	}
-	var mime, length, encoding string
-	for _, header := range e.ResponseHeaders {
-		switch {
-		case strings.EqualFold(header.Name, "content-type"):
-			mime = header.Value
-		case strings.EqualFold(header.Name, "content-length"):
-			length = header.Value
-		case strings.EqualFold(header.Name, "content-encoding"):
-			encoding = header.Value
-		}
-	}
-	urlWithoutQuery := strings.ToLower(strings.SplitN(e.Request.URL, "?", 2)[0])
-	isScript := e.ResourceType == proto.NetworkResourceTypeScript ||
-		strings.Contains(strings.ToLower(mime), "javascript") ||
-		strings.Contains(strings.ToLower(mime), "ecmascript") ||
-		strings.HasSuffix(urlWithoutQuery, ".js") || strings.HasSuffix(urlWithoutQuery, ".mjs")
-	if !isScript {
-		return
-	}
-	status := 0
-	if e.ResponseStatusCode != nil {
-		status = *e.ResponseStatusCode
-	}
-	b.launcher.opts.ScriptCallback(assets.Response{
-		URL: e.Request.URL, Status: status, MIME: mime,
-		ContentLength: length, ContentEncoding: encoding, Body: body, Err: bodyErr,
-	})
-}
-
 func netHTTPRequestFromProto(e *proto.NetworkRequest) (*http.Request, error) {
 	req, err := http.NewRequest(e.Method, e.URL, nil)
 	if err != nil {
@@ -731,12 +752,16 @@ func netHTTPRequestFromProto(e *proto.NetworkRequest) (*http.Request, error) {
 }
 
 func netHTTPResponseFromProto(e *proto.FetchRequestPaused, body []byte) *http.Response {
+	statusCode := 0 // failed requests have no status
+	if e.ResponseStatusCode != nil {
+		statusCode = *e.ResponseStatusCode
+	}
 	httpresp := &http.Response{
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
 		Header:        make(http.Header),
-		StatusCode:    *e.ResponseStatusCode,
+		StatusCode:    statusCode,
 		Status:        e.ResponseStatusText,
 		Body:          io.NopCloser(bytes.NewReader(body)),
 		ContentLength: int64(len(body)),

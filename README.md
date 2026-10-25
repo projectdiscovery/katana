@@ -41,7 +41,7 @@
 
 ## Installation
 
-katana requires Go 1.26+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.26.10+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -396,22 +396,19 @@ HEADLESS:
    -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
 ```
 
-### Interactive UI exploration and script capture
+### Interactive UI exploration
 
 Use `-interactive` to explore clickable states in the pure headless browser. It enables headless mode, starts at the target page, clicks candidates depth first, and restores a parent state before trying its next control. `-interaction-depth` counts successful state transitions, so a depth of 4 explores four clicks from the starting page. This mode is slower than ordinary headless crawling because a branch may need to be replayed after a click changes the page.
 
 ```console
 katana -u https://example.com/app -interactive -interaction-depth 4 \
   -interaction-max-states 500 -interaction-max-actions 2000 \
-  -interaction-settle 2s -interaction-duration 5m -crawl-duration 20m \
-  -script-output-dir ./katana-scripts
+  -interaction-settle 2s -interaction-duration 5m -crawl-duration 20m
 ```
 
-`-interaction-selector` and `-interaction-exclude` accept CSS selectors. The default candidate set includes buttons, links, common ARIA controls, inline click handlers, and observed click listeners. After UI exploration, Katana continues its ordinary headless URL crawl. Use `-interaction-duration` to reserve time for that crawl within `-crawl-duration`. When script saving is enabled, `-script-finalize-reserve` (default `10s`) gives nested imports and failed-response retries an early slot; Katana resumes the URL crawl if time remains, leaving a short final slot for later scripts. Set an action or state limit to `0` to remove that limit.
+`-interaction-selector` and `-interaction-exclude` accept CSS selectors. The default candidate set includes buttons, links, common ARIA controls, inline click handlers, and observed click listeners. After UI exploration, Katana continues its ordinary headless URL crawl. Use `-interaction-duration` to reserve time for that crawl within `-crawl-duration`. Set an action or state limit to `0` to remove that limit.
 
-Each completed JavaScript response is saved under `scripts/` and described in `manifest.jsonl` with its URL, byte count, SHA-256, source, and completion status. This includes chunks loaded after a click, even when the script is outside normal page output scope. Literal nested imports can be fetched with `-script-discovery-depth` (default `2`); `-script-discovery-max` limits extra requests (default `100`), and `-script-discovery-scope all` allows cross origin static discovery (default `same-origin`). A failed or short 2xx response is recorded as incomplete and queued for one browser-session retry while time remains; a later complete `recovered` record confirms recovery. Runtime computed import paths require the UI branch that triggers them to run.
-
-The existing `-H 'Cookie: name=value'` option seeds cookies in the headless browser before navigation. Cookie values are not written to the script manifest. New tabs opened by a click are explored when their URL is in scope. Selectors cannot reach every canvas control, closed shadow root, or cross origin frame, so inspect the crawl summary and incomplete records when assessing coverage.
+The existing `-H` option also applies to headless crawling. `Cookie` values are seeded in the browser before navigation, and other headers are attached to requests the crawl scope accepts. New tabs opened by a click are explored when their URL is in scope. Selectors cannot reach every canvas control, closed shadow root, or cross origin frame, so inspect the crawl summary when assessing coverage.
 
 *`-no-sandbox`*
 ----

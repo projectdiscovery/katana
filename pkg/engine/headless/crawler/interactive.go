@@ -27,7 +27,6 @@ type interactiveExplorer struct {
 	failures int
 }
 
-
 // reserveAction counts one click toward InteractionMaxActions.
 // Returns false when the budget is already exhausted (attempts unchanged).
 func (e *interactiveExplorer) reserveAction() bool {
@@ -174,10 +173,10 @@ func (e *interactiveExplorer) explorePopup(before rod.Pages, depth int) error {
 }
 
 func (e *interactiveExplorer) exploreOpenedPage(page *rod.Page, depth int) error {
-	defer page.Close()
+	defer func() { _ = page.Close() }()
 	// Install Fetch interception and page hooks immediately — before waiting
 	// for a non-blank URL — so the popup's first navigation and early
-	// subresources can be paused for scoped headers / script capture.
+	// subresources can be paused for scoped headers.
 	// A reload after the URL is known covers the race where the document
 	// request already left before we attached.
 	popup, err := e.crawler.launcher.AdoptPopup(page.Context(e.ctx), e.page.Browser)

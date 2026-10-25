@@ -10,13 +10,11 @@ import (
 
 	"github.com/lmittmann/tint"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	_ "github.com/projectdiscovery/katana/pkg/engine/headless/captcha/capsolver"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -109,18 +107,9 @@ func (h *Headless) Crawl(URL string) error {
 	}()
 
 	scopeValidator := validateScopeFunc(h, URL)
-	var scriptStore *assets.Store
-	if dir := h.options.Options.ScriptOutputDir; dir != "" {
-		var err error
-		scriptStore, err = assets.NewWithDiscovery(dir, h.options.Options.ScriptDiscoveryDepth)
-		if err != nil {
-			return err
-		}
-		defer scriptStore.Close()
-	}
-
 	crawlOpts := crawler.Options{
 		Context:               h.options.Options.Context,
+		UseInstalledChrome:    h.options.Options.UseInstalledChrome,
 		ChromiumPath:          h.options.Options.SystemChromePath,
 		MaxDepth:              h.options.Options.MaxDepth,
 		ShowBrowser:           h.options.Options.ShowBrowser,
@@ -147,18 +136,7 @@ func (h *Headless) Crawl(URL string) error {
 		PageLoadStrategy:      h.options.Options.PageLoadStrategy,
 		ChromeWSUrl:           h.options.Options.ChromeWSUrl,
 		DOMWaitTime:           h.options.Options.DOMWaitTime,
-		ScriptCallback: func(resp assets.Response) {
-			if scriptStore == nil {
-				return
-			}
-			if _, err := scriptStore.Save(resp); err != nil {
-				h.logger.Warn("failed to save script response", slog.String("url", resp.URL), slog.String("error", err.Error()))
-			}
-		},
-		ScriptStore:           scriptStore,
-		ScriptDiscoveryMax:    h.options.Options.ScriptDiscoveryMax,
-		ScriptDiscoveryScope:  h.options.Options.ScriptDiscoveryScope,
-		ScriptFinalizeReserve: h.options.Options.ScriptFinalizeReserve,
+		MaxScrollSteps:        h.options.Options.MaxScrollSteps,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
@@ -252,6 +230,10 @@ func (h *Headless) Crawl(URL string) error {
 
 	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
 
+	if capturer, ok := h.options.OutputWriter.(interface{ Capture(*output.Result) }); ok {
+		crawlOpts.TrafficCallback = capturer.Capture
+	}
+
 	headlessCrawler, err := crawler.New(crawlOpts)
 	if err != nil {
 		return err
@@ -283,8 +265,7 @@ func (h *Headless) isUniqueURL(rawURL string) bool {
 }
 
 func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
-	responseParser := parser.NewResponseParser()
-	newNavigations := responseParser.ParseResponse(rr.Response)
+	newNavigations := h.options.Parser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
 	for _, resp := range newNavigations {

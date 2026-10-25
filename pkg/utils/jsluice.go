@@ -5,7 +5,7 @@ package utils
 import (
 	"regexp"
 
-	"github.com/Mzack9999/jsluice"
+	"github.com/projectdiscovery/jsluice"
 )
 
 var (

@@ -19,7 +19,6 @@ import (
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/assets"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -45,6 +44,7 @@ type Crawler struct {
 
 type Options struct {
 	Context             context.Context
+	UseInstalledChrome  bool
 	ChromiumPath        string
 	MaxBrowsers         int
 	MaxDepth            int
@@ -61,6 +61,7 @@ type Options struct {
 	PageLoadStrategy    string
 	ChromeWSUrl         string
 	DOMWaitTime         int
+	MaxScrollSteps      int
 	UserDataDir         string
 
 	// EnableDiagnostics enables the diagnostics mode
@@ -73,11 +74,7 @@ type Options struct {
 	Logger                *slog.Logger
 	ScopeValidator        browser.ScopeValidator
 	RequestCallback       func(*output.Result)
-	ScriptCallback        func(assets.Response)
-	ScriptStore           *assets.Store
-	ScriptDiscoveryMax    int
-	ScriptDiscoveryScope  string
-	ScriptFinalizeReserve time.Duration
+	TrafficCallback       func(*output.Result)
 	CustomHeaders         map[string]string
 	RootURL               string
 	Interactive           bool
@@ -128,13 +125,14 @@ func New(opts Options) (*Crawler, error) {
 	}
 
 	launcher, err := browser.NewLauncher(browser.LauncherOptions{
+		UseInstalledChrome:  opts.UseInstalledChrome,
 		ChromiumPath:        opts.ChromiumPath,
 		MaxBrowsers:         opts.MaxBrowsers,
 		PageMaxTimeout:      opts.PageMaxTimeout,
 		ShowBrowser:         opts.ShowBrowser,
 		RequestCallback:     opts.RequestCallback,
-		ScriptCallback:      opts.ScriptCallback,
 		Interactive:         opts.Interactive,
+		TrafficCallback:     opts.TrafficCallback,
 		SlowMotion:          opts.SlowMotion,
 		ScopeValidator:      opts.ScopeValidator,
 		ChromeUser:          opts.ChromeUser,
@@ -258,87 +256,40 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
-	workCtx := ctx
-	reserveEnabled := false
-	if c.options.ScriptStore != nil && c.options.MaxCrawlDuration > 0 && c.options.ScriptFinalizeReserve > 0 {
-		reserve := c.options.ScriptFinalizeReserve
-		if reserve >= c.options.MaxCrawlDuration {
-			reserve = c.options.MaxCrawlDuration / 4
-		}
-		if reserve > 0 {
-			reserveEnabled = true
-			var stopWork context.CancelFunc
-			workCtx, stopWork = context.WithTimeout(ctx, c.options.MaxCrawlDuration-reserve)
-			defer stopWork()
-		}
-	}
-	if c.options.ScriptStore != nil {
-		defer func() {
-			if ctx.Err() == nil {
-				if err := c.CollectDiscoveredScripts(ctx, c.options.ScriptStore); err != nil {
-					c.logger.Warn("nested script collection was incomplete", slog.String("error", err.Error()))
-				}
-			}
-		}()
-	}
 	if c.options.Interactive {
-		uiCtx := workCtx
+		uiCtx := ctx
 		if c.options.InteractionDuration > 0 {
 			var stop context.CancelFunc
-			uiCtx, stop = context.WithTimeout(workCtx, c.options.InteractionDuration)
+			uiCtx, stop = context.WithTimeout(ctx, c.options.InteractionDuration)
 			defer stop()
 		}
-		err := c.crawlInteractive(uiCtx, URL)
-		if errors.Is(err, context.DeadlineExceeded) {
+		if err := c.crawlInteractive(uiCtx, URL); err != nil {
 			if ctx.Err() != nil {
 				if localDeadline && parentCtx.Err() == nil {
 					return nil
 				}
-				return err
+				return ctx.Err()
 			}
-			if workCtx.Err() != nil {
-				c.logger.Info("crawl work time limit reached; finalizing scripts")
-				err = nil
-			}
-			if workCtx.Err() == nil && uiCtx.Err() != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
 				c.logger.Info("UI exploration time limit reached; continuing queued crawl")
-				err = nil
+			} else {
+				c.logger.Warn("interactive exploration stopped early; continuing queued crawl", slog.String("error", err.Error()))
 			}
-		}
-		if err != nil {
-			if ctx.Err() != nil {
-				return err
-			}
-			c.logger.Warn("interactive exploration stopped early; continuing queued crawl", slog.String("error", err.Error()))
 		}
 	}
 
 	consecutiveFailures := 0
-	earlyFinalized := false
 
 	for {
 		select {
-		case <-workCtx.Done():
-			if reserveEnabled && !earlyFinalized && ctx.Err() == nil {
-				earlyFinalized = true
-				if err := c.CollectDiscoveredScripts(ctx, c.options.ScriptStore); err != nil {
-					c.logger.Warn("early script finalization was incomplete", slog.String("error", err.Error()))
-				}
-				if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) > 2*time.Second {
-					var stopResume context.CancelFunc
-					workCtx, stopResume = context.WithDeadline(ctx, deadline.Add(-2*time.Second))
-					defer stopResume()
-					c.logger.Info("script finalization complete; resuming queued crawl")
-					continue
-				}
-			}
+		case <-ctx.Done():
 			// Distinguish internal max-duration from external parent cancellation
 			if localDeadline && parentCtx.Err() == nil {
 				c.logger.Debug("Max crawl duration reached, stopping crawl")
 				return nil
 			}
 			c.logger.Debug("Context cancelled, stopping headless crawl")
-			return workCtx.Err()
+			return ctx.Err()
 		default:
 			// Check for too many failures
 			if c.options.MaxFailureCount > 0 && consecutiveFailures >= c.options.MaxFailureCount {
@@ -369,13 +320,13 @@ func (c *Crawler) Crawl(URL string) error {
 			}
 
 			originalPage := page.Page
-			page.Page = page.Context(workCtx)
+			page.Page = page.Context(ctx)
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
 			)
 
-			if err := c.crawlFn(workCtx, action, page, originalPage); err != nil {
+			if err := c.crawlFn(ctx, action, page, originalPage); err != nil {
 				if err == ErrNoCrawlingAction {
 					return nil
 				}
@@ -505,6 +456,15 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 
+	// Scrolling fires lazy requests, so skip it on out-of-scope pages.
+	if c.options.MaxScrollSteps > 0 {
+		if info, infoErr := page.Info(); infoErr == nil && (c.options.ScopeValidator == nil || c.options.ScopeValidator(info.URL)) {
+			if _, scrollErr := c.revealLazyContent(page); scrollErr != nil && ctx.Err() != nil {
+				return ctx.Err()
+			}
+		}
+	}
+
 	pageState, err := newPageState(page, action)
 	if err != nil {
 		return err
@@ -585,6 +545,22 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		return ErrNoCrawlingAction
 	}
 	return nil
+}
+
+// revealLazyContent scrolls page to load lazy content when MaxScrollSteps is
+// set and reports whether it scrolled at all. Failures are logged and
+// returned so callers can check for cancellation.
+func (c *Crawler) revealLazyContent(page *browser.BrowserPage) (bool, error) {
+	if c.options.MaxScrollSteps <= 0 {
+		return false, nil
+	}
+	steps, err := page.RevealLazyContent(c.options.MaxScrollSteps, 300*time.Millisecond)
+	if err != nil {
+		c.logger.Debug("Could not complete lazy-content scrolling", slog.String("error", err.Error()))
+		return steps > 0, err
+	}
+	c.logger.Debug("Lazy-content scrolling complete", slog.Int("steps", steps))
+	return steps > 0, nil
 }
 
 var ErrElementNotVisible = errors.New("element not visible")

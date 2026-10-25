@@ -57,28 +57,15 @@ func parseCookieHeader(raw, targetURL string) []*proto.NetworkCookieParam {
 	return cookies
 }
 
-// shouldAttachExtraHeaders reports whether non-cookie custom headers may be
-// sent with reqURL.
-//
-// Gates (all required):
-//  1. cookieURL non-empty — no safe origin to pin to otherwise
-//  2. same authorized origin as cookieURL (scheme + host + port), so
-//     https://app.example.test/ never leaks Auth to https://app.example.test:8443/
-//     or to a different host even when ScopeValidator/-ns is permissive
-//  3. reqURL is https or wss — never send credential-bearing -H values over
-//     cleartext http/ws, independent of scope
-//  4. ScopeValidator, when set, must also accept the URL
-func shouldAttachExtraHeaders(reqURL string, validate ScopeValidator, cookieURL string) bool {
-	if cookieURL == "" || !sameOrigin(cookieURL, reqURL) {
-		return false
+// shouldAttachExtraHeaders reports whether non-cookie custom headers go with
+// reqURL. Like the standard engine, they follow the crawl scope, so third-party
+// resources the page loads never receive them. Without a scope validator they
+// stay on the root URL's origin.
+func shouldAttachExtraHeaders(reqURL string, validate ScopeValidator, rootURL string) bool {
+	if validate != nil {
+		return validate(reqURL)
 	}
-	if !isSecureURL(reqURL) {
-		return false
-	}
-	if validate != nil && !validate(reqURL) {
-		return false
-	}
-	return true
+	return rootURL != "" && sameOrigin(rootURL, reqURL)
 }
 
 // sameOrigin compares scheme, hostname, and effective port (defaulting
@@ -108,19 +95,6 @@ func effectivePort(u *url.URL) string {
 		return "80"
 	default:
 		return ""
-	}
-}
-
-func isSecureURL(raw string) bool {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return false
-	}
-	switch strings.ToLower(u.Scheme) {
-	case "https", "wss":
-		return true
-	default:
-		return false
 	}
 }
 
