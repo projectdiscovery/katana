@@ -53,3 +53,22 @@ func TestLinkKeyWithoutAnchor(t *testing.T) {
 	load := &types.Action{Type: types.ActionTypeLoadURL, Input: "https://example.com/p?id=1"}
 	require.Equal(t, LinkKey("https://example.com/", load), LinkKey("https://example.com/", &types.Action{Type: types.ActionTypeLoadURL, Input: "https://example.com/p?id=2"}))
 }
+
+func TestLinkKeyHashRoutes(t *testing.T) {
+	t.Parallel()
+	const page = "https://example.com/app"
+	load := func(u string) *types.Action { return &types.Action{Type: types.ActionTypeLoadURL, Input: u} }
+
+	// Distinct hash routes are distinct doors.
+	require.NotEqual(t, LinkKey(page, load(page+"#/users")), LinkKey(page, load(page+"#/settings")))
+	require.NotEqual(t, LinkKey(page, load(page+"#!/users")), LinkKey(page, load(page+"#!/settings")))
+	require.NotEqual(t, LinkKey(page, click("", "nav > a", "Go", "#/users")), LinkKey(page, click("", "nav > a", "Go", "#/settings")))
+	// The same element on two routes is two doors.
+	require.NotEqual(t, LinkKey(page+"#/users", click("", "main > a", "Edit", "/edit")), LinkKey(page+"#/settings", click("", "main > a", "Edit", "/edit")))
+
+	// Route query values, in-page anchors and token fragments still churn.
+	require.Equal(t, LinkKey(page, load(page+"#/item?id=1")), LinkKey(page, load(page+"#/item?id=2")))
+	require.Equal(t, LinkKey(page, load(page+"#top")), LinkKey(page, load(page+"#comments")))
+	require.Equal(t, LinkKey(page, load(page+"#access_token=a")), LinkKey(page, load(page+"#access_token=b")))
+	require.Equal(t, LinkKey(page+"#top", click("", "main > a", "Edit", "/edit")), LinkKey(page+"#bottom", click("", "main > a", "Edit", "/edit")))
+}
