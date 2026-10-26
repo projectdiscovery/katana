@@ -34,9 +34,14 @@ func buildAgents(opts *types.Options) []agent {
 		gologger.Warning().Msgf("-headless-agent is ignored with -chrome-data-dir or -chrome-ws-url: a shared browser holds one session")
 		return single
 	}
+	if header := sessionHeader(opts); header != "" {
+		gologger.Warning().Msgf("-headless-agent is ignored with a %s header: every identity would send the same session", header)
+		return single
+	}
 
 	agents := make([]agent, 0, len(opts.HeadlessAgents))
 	seen := map[string]bool{}
+	labels := map[string]int{}
 	for _, value := range opts.HeadlessAgents {
 		value = strings.TrimSpace(value)
 		if value == "" {
@@ -50,6 +55,12 @@ func buildAgents(opts *types.Options) []agent {
 		}
 		seen[value] = true
 		a := agent{label: agentLabel(value)}
+		// One username with other credentials is another identity: number
+		// it, so its results and URL dedupe stay apart without the password.
+		labels[a.label]++
+		if n := labels[a.label]; n > 1 {
+			a.label = fmt.Sprintf("%s#%d", a.label, n)
+		}
 		if value != anonAgent {
 			a.credentials = value
 		}
@@ -59,6 +70,18 @@ func buildAgents(opts *types.Options) []agent {
 		return single
 	}
 	return agents
+}
+
+// sessionHeader returns the name of a -H header that carries a session
+// (Cookie or Authorization), or "" if there is none. Every identity sends the
+// -H headers, so such a header would make all identities one session.
+func sessionHeader(opts *types.Options) string {
+	for name := range opts.ParseCustomHeaders() {
+		if strings.EqualFold(name, "Cookie") || strings.EqualFold(name, "Authorization") {
+			return name
+		}
+	}
+	return ""
 }
 
 func agentLabel(value string) string {
