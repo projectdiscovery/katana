@@ -157,6 +157,19 @@ func TestBodyParsers(t *testing.T) {
 				"https://security-crawl-maze.app/test/html/body/img/srcset2x.found",
 			}, gotURL, "could not get correct url")
 		})
+		t.Run("srcset-with-data-src", func(t *testing.T) {
+			var gotURL []string
+			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader(`<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+				srcset="/test/html/body/img/srcset1x.found 1x, /test/html/body/img/srcset2x.found 2x">`))
+			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
+			for _, navigationResponse := range bodyImgTagParser(resp) {
+				gotURL = append(gotURL, navigationResponse.URL)
+			}
+			require.ElementsMatch(t, []string{
+				"https://security-crawl-maze.app/test/html/body/img/srcset1x.found",
+				"https://security-crawl-maze.app/test/html/body/img/srcset2x.found",
+			}, gotURL, "could not get correct url")
+		})
 	})
 	t.Run("html-body", func(t *testing.T) {
 		// TODO: Fix parsing

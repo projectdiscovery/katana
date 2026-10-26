@@ -333,11 +333,8 @@ func bodyImgTagParser(resp *navigation.Response) (navigationRequests []*navigati
 			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(srcLowsrc, resp.Resp.Request.URL.String(), "img", "lowsrc", resp))
 		}
 		src, ok := item.Attr("src")
-		if ok && src != "" && src != "#" {
-			if strings.HasPrefix(src, "data:") {
-				// TODO: Add data:uri/data:image parsing
-				return
-			}
+		// TODO: Add data:uri/data:image parsing
+		if ok && src != "" && src != "#" && !strings.HasPrefix(src, "data:") {
 			navigationRequests = append(navigationRequests, navigation.NewNavigationRequestURLFromResponse(src, resp.Resp.Request.URL.String(), "img", "src", resp))
 		}
 		srcSet, ok := item.Attr("srcset")
