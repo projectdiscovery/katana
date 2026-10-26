@@ -37,6 +37,7 @@ type Crawler struct {
 	options       Options
 	crawlQueue    queue.Queue[*types.Action]
 	crawlGraph    *graph.CrawlGraph
+	rewalkResults []RewalkResult
 	simhashOracle *simhash.Oracle
 	uniqueActions map[string]struct{}
 	diagnostics   diagnostics.Writer
@@ -246,6 +247,9 @@ func (c *Crawler) Crawl(URL string) error {
 		if err := c.writePathsExport(); err != nil {
 			c.logger.Error("Failed to write paths export", slog.String("error", err.Error()))
 		}
+		if err := c.writeRewalkExport(); err != nil {
+			c.logger.Error("Failed to write rewalk export", slog.String("error", err.Error()))
+		}
 	}()
 
 	actions := []*types.Action{{
@@ -299,10 +303,9 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
-	// Rewalk on the parent context (not the crawl's child ctx): the crawl's own
-	// MaxCrawlDuration deadline only cancels ctx, so post-crawl rewalk still runs,
-	// while a genuine caller abort (parentCtx) correctly interrupts it.
-	defer c.maybeRewalk(parentCtx)
+	// Rewalk on the crawl context so -ct and Ctrl+C bound it too. Deferred
+	// after cancel, so it runs while ctx is still live.
+	defer c.maybeRewalk(ctx)
 	if c.options.Interactive {
 		uiCtx := ctx
 		if c.options.InteractionDuration > 0 {
