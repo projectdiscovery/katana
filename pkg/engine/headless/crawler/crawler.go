@@ -42,6 +42,7 @@ type Crawler struct {
 	simhashOracle   *simhash.Oracle
 	uniqueActions   map[string]struct{}
 	linkIdentities  map[string]int
+	linkPositions   map[string]*linkPosition
 	explosionBudget *cartography.ExplosionBudget
 	diagnostics     diagnostics.Writer
 	loggedIn        bool

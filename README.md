@@ -180,7 +180,7 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
-   -link-identity-budget int         maximum near-duplicate links (same element and target path, other query values) to follow per page (headless only, 0 = off)
+   -link-identity-budget int         maximum near-duplicate links (same element and target path shape, other query values or path IDs) to follow per page (headless only, 0 = off)
    -explosion-budget int             maximum near-duplicate pages (similar DOM at other URLs) to explore links from (headless only, 0 = off)
    -explosion-hamming int            maximum simhash distance for pages to count as near-duplicates with -explosion-budget (default 3)
    -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
@@ -394,7 +394,7 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr requests
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
-   -link-identity-budget int         maximum near-duplicate links (same element and target path, other query values) to follow per page (headless only, 0 = off)
+   -link-identity-budget int         maximum near-duplicate links (same element and target path shape, other query values or path IDs) to follow per page (headless only, 0 = off)
    -explosion-budget int             maximum near-duplicate pages (similar DOM at other URLs) to explore links from (headless only, 0 = off)
    -explosion-hamming int            maximum simhash distance for pages to count as near-duplicates with -explosion-budget (default 3)
    -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
@@ -802,7 +802,7 @@ To compare what different users can reach, crawl as several identities at once. 
 katana -hl -u https://app.example.com -ha anon -ha 'alice:password' -ha 'admin:password'
 ```
 
-A URL is reported once per identity. In JSON output, results that carry a response name the identity in `response.extra.agent`. With `-chrome-data-dir` or `-chrome-ws-url` the browser holds one session, so katana crawls as one identity. A `Cookie` or `Authorization` header given with `-H` is sent by every identity, so katana also crawls as one identity then. The same username with another password is a separate identity, named `bob#2`, `bob#3` and so on.
+A URL is reported once per identity. In JSON output, every result names the identity in `request.agent`, and results that carry a response also name it in `response.extra.agent`. A crawl as one identity leaves both fields out. With `-chrome-data-dir` or `-chrome-ws-url` the browser holds one session, so katana crawls as one identity. A session header given with `-H` (`Cookie`, `Authorization`, `X-API-Key`, `X-Auth-Token` or `X-Access-Token`) is sent by every identity, so katana also crawls as one identity then. The same username with another password is a separate identity, named `bob#2`, `bob#3` and so on, skipping a label that another identity already uses. The label `anon` is only for the anonymous identity, so an account named `anon` is `anon#2`.
 
 ### Recorded flow (`-recorded-flow`)
 

@@ -22,6 +22,9 @@ type Request struct {
 	Source         string              `json:"source,omitempty"`
 	CustomFields   map[string][]string `json:"custom_fields,omitempty"`
 	Raw            string              `json:"raw,omitempty"`
+	// Agent names the identity that found the request when a crawl runs as
+	// several identities. It is empty for a crawl as one identity.
+	Agent string `json:"agent,omitempty"`
 }
 
 // RequestURL returns the request URL for the navigation
