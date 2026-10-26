@@ -51,16 +51,28 @@ func ParseLinkTag(value string) []string {
 }
 
 // ParseRefreshTag parses refresh tag values returning found urls
+//
+// The "url" keyword is matched case-insensitively, whitespace around "=" is
+// allowed and the target may be wrapped in single or double quotes, as in
+// "0; URL='/next'".
 func ParseRefreshTag(value string) string {
-	chunks := strings.Split(value, "url=")
-	if len(chunks) < 2 {
+	idx := strings.Index(strings.ToLower(value), "url")
+	if idx == -1 {
 		return ""
 	}
-	chunk := chunks[1]
+	chunk := strings.TrimSpace(value[idx+len("url"):])
+	if !strings.HasPrefix(chunk, "=") {
+		return ""
+	}
+	chunk = strings.TrimSpace(chunk[1:])
+	if chunk != "" && (chunk[0] == '"' || chunk[0] == '\'') {
+		quote := chunk[0]
+		chunk = chunk[1:]
+		if end := strings.IndexByte(chunk, quote); end != -1 {
+			chunk = chunk[:end]
+		}
+	}
 	chunk = strings.TrimSuffix(chunk, ";")
-	if chunk == "" {
-		return ""
-	}
 	return chunk
 }
 

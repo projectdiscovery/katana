@@ -32,7 +32,9 @@ func SameLocation(a, b LocationFingerprint, maxHamming int) bool {
 	if a.UniqueID != "" && b.UniqueID != "" && a.UniqueID == b.UniqueID {
 		return true
 	}
-	if a.SimHash == 0 && b.SimHash == 0 {
+	// A zero SimHash means no content fingerprint. A distance to it says
+	// nothing, so only the URL can tell.
+	if a.SimHash == 0 || b.SimHash == 0 {
 		return a.URL != "" && a.URL == b.URL
 	}
 	return int(simhash.Distance(a.SimHash, b.SimHash)) <= maxHamming
