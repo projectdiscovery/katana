@@ -99,7 +99,8 @@ func pageFeatures(raw string) string {
 }
 
 // targetFeatures returns the path shape and the sorted query keys of a link
-// target, plus its hash route if it has one. A relative target is resolved
+// target, with its scheme and host, plus its hash route if it has one. A
+// relative target is resolved
 // against the source page first, so a relative and an absolute href to the
 // same place agree. Query values and variable path segments are left out:
 // they are what churns.
@@ -119,7 +120,12 @@ func targetFeatures(sourceURL, raw string) string {
 			u = base.ResolveReference(u)
 		}
 	}
-	return u.Host + PathShape(u.Path) + "?" + queryKeys(u.Query()) + routeFeatures(u.Fragment)
+	origin := u.Host
+	if u.Scheme != "" {
+		// http and https to the same path are separate doors.
+		origin = strings.ToLower(u.Scheme) + "://" + u.Host
+	}
+	return origin + PathShape(u.Path) + "?" + queryKeys(u.Query()) + routeFeatures(u.Fragment)
 }
 
 // routeFeatures returns the hash route of a fragment ("#/users" or
