@@ -1,0 +1,36 @@
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:v20.3.0
+    ports:
+      - 127.0.0.1:3000:3000
+    healthcheck:
+      # the image is distroless, so there is no shell or curl
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 2s
+      retries: 60
+
+  dvwa:
+    image: ghcr.io/digininja/dvwa@sha256:8029450682bd70e2e8cd1ffe8e46dd1885ff2a913296091cebfa8ba0a7d36498
+    environment:
+      - DB_SERVER=db
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:4280:80
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-o", "/dev/null", "http://127.0.0.1/login.php"]
+      interval: 2s
+      retries: 60
+
+  db:
+    image: mariadb:11.8
+    environment:
+      - MYSQL_ROOT_PASSWORD=dvwa
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=p@ssw0rd
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 60

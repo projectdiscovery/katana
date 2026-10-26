@@ -1,0 +1,15 @@
+targets:
+  - name: juice-shop
+    url: http://127.0.0.1:3000
+    prepare: docker compose up -d --wait --force-recreate juice-shop >/dev/null 2>&1
+  - name: dvwa
+    url: http://127.0.0.1:4280
+    prepare: ./dvwa-setup.sh
+    # logout ends the session the crawl depends on
+    args: [-cos, logout]
+
+runs:
+  standard: [-d, "5", -jc, -jsl, -kf, all, -aff, -ct, "180"]
+  # targets are local test apps, and CI runners block the Chrome sandbox
+  headless: [-d, "5", -jc, -hl, -no-sandbox, -aff, -ct, "300"]
+  hybrid: [-d, "5", -jc, -hh, -no-sandbox, -aff, -ct, "300"]

@@ -1,0 +1,142 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sort"
+	"strings"
+	"sync"
+)
+
+// maxBodyCapture bounds how much of a request body is read to learn its parameter names.
+const maxBodyCapture = 1 << 20
+
+// hit is one request as the target server received it.
+type hit struct {
+	Method string
+	Path   string
+	Params []string
+	Body   bool
+	Status int
+}
+
+// recorder is a reverse proxy in front of a target that records every request,
+// so coverage is measured from the server side rather than from katana's output.
+type recorder struct {
+	proxy *httputil.ReverseProxy
+	mu    sync.Mutex
+	hits  []hit
+}
+
+func newRecorder(target *url.URL) *recorder {
+	r := &recorder{}
+	r.proxy = &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target)
+			// keep the proxy host so absolute links and redirects the app builds point back through the proxy
+			pr.Out.Host = pr.In.Host
+		},
+		// recorded here rather than after ServeHTTP, which for a websocket returns only when the socket closes
+		ModifyResponse: func(resp *http.Response) error {
+			r.record(resp.Request, resp.StatusCode)
+			return nil
+		},
+		ErrorHandler: func(w http.ResponseWriter, req *http.Request, err error) {
+			status := http.StatusBadGateway
+			if errors.Is(err, context.Canceled) {
+				// katana gave up on the request, which says nothing about the server
+				status = statusClientClosed
+			}
+			r.record(req, status)
+			w.WriteHeader(status)
+		},
+	}
+	return r
+}
+
+// statusClientClosed follows nginx's convention for a client that left before the response.
+const statusClientClosed = 499
+
+type hitKey struct{}
+
+func (r *recorder) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	h := &hit{Method: req.Method, Path: req.URL.Path, Params: queryKeys(req.URL.Query())}
+	if req.Body != nil && req.ContentLength != 0 {
+		body, _ := io.ReadAll(io.LimitReader(req.Body, maxBodyCapture))
+		req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(body), req.Body))
+		if len(body) > 0 {
+			h.Body = true
+			h.Params = append(h.Params, bodyKeys(req.Header.Get("Content-Type"), body)...)
+		}
+	}
+	r.proxy.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), hitKey{}, h)))
+}
+
+func (r *recorder) record(req *http.Request, status int) {
+	h, ok := req.Context().Value(hitKey{}).(*hit)
+	if !ok {
+		return
+	}
+	h.Status = status
+	r.mu.Lock()
+	r.hits = append(r.hits, *h)
+	r.mu.Unlock()
+}
+
+func (r *recorder) snapshot() []hit {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]hit(nil), r.hits...)
+}
+
+func queryKeys(values url.Values) []string {
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func bodyKeys(contentType string, body []byte) []string {
+	switch {
+	case strings.Contains(contentType, "json"):
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(body, &obj) != nil {
+			return nil
+		}
+		keys := make([]string, 0, len(obj))
+		for k := range obj {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		return keys
+	case strings.Contains(contentType, "multipart/form-data"):
+		_, params, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			return nil
+		}
+		var keys []string
+		mr := multipart.NewReader(bytes.NewReader(body), params["boundary"])
+		for {
+			part, err := mr.NextPart()
+			if err != nil {
+				return keys
+			}
+			keys = append(keys, part.FormName())
+		}
+	default:
+		values, err := url.ParseQuery(string(body))
+		if err != nil {
+			return nil
+		}
+		return queryKeys(values)
+	}
+}
