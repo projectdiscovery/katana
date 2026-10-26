@@ -1,8 +1,11 @@
 package headless
 
 import (
+	"encoding/json"
 	"testing"
 
+	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
 )
@@ -68,4 +71,41 @@ func TestSplitCredentials(t *testing.T) {
 	user, pass := splitCredentials("bob:p:w")
 	require.Equal(t, "bob", user)
 	require.Equal(t, "p:w", pass)
+}
+
+func TestLabelAgent(t *testing.T) {
+	t.Run("request_only", func(t *testing.T) {
+		rr := &output.Result{Request: &navigation.Request{Method: "GET", URL: "https://example.com/a"}}
+		labelAgent(rr, "bob")
+		raw, err := json.Marshal(rr)
+		require.NoError(t, err)
+		var got struct {
+			Request  map[string]any `json:"request"`
+			Response map[string]any `json:"response"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &got))
+		require.Equal(t, "bob", got.Request["agent"])
+		require.Nil(t, got.Response, "a request-only result must not gain a response")
+	})
+
+	t.Run("with_response", func(t *testing.T) {
+		rr := &output.Result{
+			Request:  &navigation.Request{Method: "GET", URL: "https://example.com/a"},
+			Response: &navigation.Response{StatusCode: 200},
+		}
+		labelAgent(rr, "anon")
+		require.Equal(t, "anon", rr.Request.Agent)
+		require.Equal(t, "anon", rr.Response.Extra["agent"])
+	})
+
+	t.Run("nil_safe", func(t *testing.T) {
+		labelAgent(nil, "anon")
+		labelAgent(&output.Result{}, "anon")
+	})
+}
+
+func TestRequestAgentOmittedWhenUnset(t *testing.T) {
+	raw, err := json.Marshal(&navigation.Request{Method: "GET", URL: "https://example.com/a"})
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "agent", "a single-identity crawl must keep its output unchanged")
 }
