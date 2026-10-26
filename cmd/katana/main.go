@@ -190,7 +190,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarP(&options.CrawlStrategy, "crawl-strategy", "cstr", "", "crawl intensity preset for headless (fast, balanced, thorough)"),
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.IntVar(&options.MaxScrollSteps, "max-scroll-steps", 0, "maximum viewport scrolls to reveal lazy-loaded content (headless only)"),
-		flagSet.IntVar(&options.LinkIdentityBudget, "link-identity-budget", 0, "maximum near-duplicate links (same element and target path, other query values) to follow per page (headless only, 0 = off)"),
+		flagSet.IntVar(&options.LinkIdentityBudget, "link-identity-budget", 0, "maximum near-duplicate links (same element and target path shape, other query values or path IDs) to follow per page (headless only, 0 = off)"),
 		flagSet.IntVar(&options.ExplosionBudget, "explosion-budget", 0, "maximum near-duplicate pages (similar DOM at other URLs) to explore links from (headless only, 0 = off)"),
 		flagSet.IntVar(&options.ExplosionHamming, "explosion-hamming", 3, "maximum simhash distance for pages to count as near-duplicates with -explosion-budget"),
 		flagSet.IntVar(&options.RewalkSample, "rewalk-sample", 0, "number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)"),

@@ -34,6 +34,10 @@ func buildAgents(opts *types.Options) []agent {
 		gologger.Warning().Msgf("-headless-agent is ignored with -chrome-data-dir or -chrome-ws-url: a shared browser holds one session")
 		return single
 	}
+	if header := sessionHeader(opts); header != "" {
+		gologger.Warning().Msgf("-headless-agent is ignored with a %s header: every identity would send the same session", header)
+		return single
+	}
 
 	agents := make([]agent, 0, len(opts.HeadlessAgents))
 	seen := map[string]bool{}
@@ -58,7 +62,61 @@ func buildAgents(opts *types.Options) []agent {
 	if len(agents) == 0 {
 		return single
 	}
+	uniqueLabels(agents)
 	return agents
+}
+
+// uniqueLabels makes the label of each agent unique, as each label is also
+// the dedupe scope of the agent. The first agent with a username keeps it as
+// its label, and so does a username that is already numbered, such as bob#2.
+// Another agent with the same username (other credentials) gets the next free
+// number: bob#2, bob#3 and so on. The label anon is only for the anonymous
+// agent, so an account named anon is numbered too.
+func uniqueLabels(agents []agent) {
+	taken := map[string]bool{anonAgent: true}
+	numbered := make([]bool, len(agents))
+	for i, a := range agents {
+		if a.credentials == "" {
+			continue
+		}
+		if taken[a.label] {
+			numbered[i] = true
+			continue
+		}
+		taken[a.label] = true
+	}
+	for i := range agents {
+		if !numbered[i] {
+			continue
+		}
+		for n := 2; ; n++ {
+			label := fmt.Sprintf("%s#%d", agents[i].label, n)
+			if !taken[label] {
+				taken[label] = true
+				agents[i].label = label
+				break
+			}
+		}
+	}
+}
+
+// sessionHeaders are the -H headers that katana treats as a session: the
+// standard ones and the API key headers that the README documents for
+// authenticated crawling. Other header names are not treated as a session.
+var sessionHeaders = []string{"Cookie", "Authorization", "X-API-Key", "X-Auth-Token", "X-Access-Token"}
+
+// sessionHeader returns the name of a -H header that carries a session (one
+// of sessionHeaders), or "" if there is none. Every identity sends the -H
+// headers, so such a header would make all identities one session.
+func sessionHeader(opts *types.Options) string {
+	for name := range opts.ParseCustomHeaders() {
+		for _, session := range sessionHeaders {
+			if strings.EqualFold(strings.TrimSpace(name), session) {
+				return name
+			}
+		}
+	}
+	return ""
 }
 
 func agentLabel(value string) string {

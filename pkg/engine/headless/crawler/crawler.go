@@ -42,9 +42,12 @@ type Crawler struct {
 	simhashOracle   *simhash.Oracle
 	uniqueActions   map[string]struct{}
 	linkIdentities  map[string]int
+	linkPositions   map[string]*linkPosition
 	explosionBudget *cartography.ExplosionBudget
-	diagnostics     diagnostics.Writer
-	loggedIn        bool
+	// explosionRejected holds the states that the explosion budget rejected.
+	explosionRejected map[string]struct{}
+	diagnostics       diagnostics.Writer
+	loggedIn          bool
 }
 
 type Options struct {

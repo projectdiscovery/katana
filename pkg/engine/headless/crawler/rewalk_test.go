@@ -1,6 +1,8 @@
 package crawler
 
 import (
+	"bytes"
+	"log/slog"
 	"testing"
 
 	"github.com/projectdiscovery/katana/pkg/engine/headless/graph"
@@ -36,4 +38,28 @@ func TestCrawledOrigins(t *testing.T) {
 		require.NoError(t, c.crawlGraph.AddPageState(types.PageState{UniqueID: string(rune('a' + i)), URL: u}))
 	}
 	require.Equal(t, []string{"http://api.example.com:8080", "https://example.com"}, c.crawledOrigins())
+}
+
+func TestWarnProfileClear(t *testing.T) {
+	t.Parallel()
+	origins := []string{"https://example.com"}
+	for _, tc := range []struct {
+		name string
+		opts Options
+		warn bool
+	}{
+		{name: "fresh profile", opts: Options{}},
+		{name: "user data dir", opts: Options{UserDataDir: "/profile"}, warn: true},
+		{name: "remote browser", opts: Options{ChromeWSUrl: "ws://127.0.0.1:9222"}, warn: true},
+	} {
+		var buf bytes.Buffer
+		c := &Crawler{logger: slog.New(slog.NewTextHandler(&buf, nil)), options: tc.opts}
+		c.warnProfileClear(origins)
+		if !tc.warn {
+			require.Empty(t, buf.String(), tc.name)
+			continue
+		}
+		require.Contains(t, buf.String(), "level=WARN", tc.name)
+		require.Contains(t, buf.String(), "https://example.com", tc.name)
+	}
 }
