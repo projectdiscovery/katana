@@ -190,6 +190,12 @@ func (c *Crawler) Close() {
 	}
 }
 
+// CloseBrowsers closes every browser of a crawl that may still be running
+// and removes their temporary data dirs. Close must still be called.
+func (c *Crawler) CloseBrowsers() {
+	c.launcher.CloseAll()
+}
+
 func (c *Crawler) GetCrawlGraph() *graph.CrawlGraph {
 	return c.crawlGraph
 }

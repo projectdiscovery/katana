@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lmittmann/tint"
@@ -29,6 +30,11 @@ type Headless struct {
 	debugger *CrawlDebugger
 
 	hooks Hooks
+
+	// active holds running crawlers so Close can release their browsers on
+	// interrupt, when their deferred Close never runs.
+	activeMu sync.Mutex
+	active   map[*crawler.Crawler]struct{}
 }
 
 // New returns a new headless crawler instance
@@ -238,7 +244,18 @@ func (h *Headless) Crawl(URL string) error {
 	if err != nil {
 		return err
 	}
-	defer headlessCrawler.Close()
+	h.activeMu.Lock()
+	if h.active == nil {
+		h.active = make(map[*crawler.Crawler]struct{})
+	}
+	h.active[headlessCrawler] = struct{}{}
+	h.activeMu.Unlock()
+	defer func() {
+		h.activeMu.Lock()
+		delete(h.active, headlessCrawler)
+		h.activeMu.Unlock()
+		headlessCrawler.Close()
+	}()
 
 	if err = headlessCrawler.Crawl(URL); err != nil {
 		return err
@@ -249,6 +266,15 @@ func (h *Headless) Crawl(URL string) error {
 func (h *Headless) Close() error {
 	if h.debugger != nil {
 		h.debugger.Close()
+	}
+	h.activeMu.Lock()
+	active := make([]*crawler.Crawler, 0, len(h.active))
+	for c := range h.active {
+		active = append(active, c)
+	}
+	h.activeMu.Unlock()
+	for _, c := range active {
+		c.CloseBrowsers()
 	}
 	return nil
 }

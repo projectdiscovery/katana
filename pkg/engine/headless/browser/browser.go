@@ -35,10 +35,20 @@ import (
 
 var lookPath = launcher.LookPath
 
+// chromeExitTimeout bounds the wait for a closed Chrome to exit before its
+// data dir is removed.
+var chromeExitTimeout = 5 * time.Second
+
 // Launcher is a high level controller to launch browsers
 // and do the execution on them.
 type Launcher struct {
 	browserPool rod.Pool[BrowserPage]
+	closeOnce   sync.Once
+
+	// live holds every page created by the pool, including pages checked
+	// out by a crawl, so CloseAll can release them on interrupt.
+	liveMu sync.Mutex
+	live   map[*BrowserPage]struct{}
 
 	opts LauncherOptions
 }
@@ -89,6 +99,7 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	l := &Launcher{
 		opts:        opts,
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
+		live:        make(map[*BrowserPage]struct{}),
 	}
 
 	return l, nil
@@ -197,22 +208,26 @@ func (l *Launcher) createChromeLauncher(userDataDir string) (*launcher.Launcher,
 	return chromeLauncher, nil
 }
 
-func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
+// launchBrowserWithDataDir returns the connected browser and, when katana
+// launched Chrome itself, the launcher that owns the Chrome process.
+func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, *launcher.Launcher, error) {
 	var launcherURL string
+	var chromeLauncher *launcher.Launcher
 
 	// If ChromeWSUrl is provided, connect to existing Chrome instead of launching new one
 	if l.opts.ChromeWSUrl != "" {
 		launcherURL = l.opts.ChromeWSUrl
 	} else {
 		// Launch a new Chrome instance
-		chromeLauncher, err := l.createChromeLauncher(userDataDir)
+		var err error
+		chromeLauncher, err = l.createChromeLauncher(userDataDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -226,19 +241,70 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 		browser = browser.SlowMotion(1 * time.Second)
 	}
 	if browserErr := browser.Connect(); browserErr != nil {
-		return nil, browserErr
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+			waitForChromeExit(chromeLauncher)
+		}
+		return nil, nil, browserErr
 	}
 
-	return browser, nil
+	return browser, chromeLauncher, nil
+}
+
+// waitForChromeExit waits until a Chrome process katana launched has exited,
+// killing it if it does not exit in time. Chrome writes to its data dir while
+// it shuts down, so removing the dir before exit leaves it behind.
+func waitForChromeExit(chromeLauncher *launcher.Launcher) {
+	if chromeLauncher == nil || chromeLauncher.PID() == 0 {
+		return
+	}
+	// Cleanup waits for exit and then removes the launcher's data dir. Drop
+	// the flag so it only waits: callers decide whether the dir is removed.
+	chromeLauncher.Delete(flags.UserDataDir)
+	exited := make(chan struct{})
+	go func() {
+		chromeLauncher.Cleanup()
+		close(exited)
+	}()
+	select {
+	case <-exited:
+		return
+	case <-time.After(chromeExitTimeout):
+	}
+	chromeLauncher.Kill()
+	select {
+	case <-exited:
+	case <-time.After(chromeExitTimeout):
+	}
 }
 
 // Close closes the launcher
 func (l *Launcher) Close() {
-	l.browserPool.Cleanup(func(b *BrowserPage) {
+	l.closeOnce.Do(func() {
+		l.browserPool.Cleanup(func(b *BrowserPage) {
+			b.cancel()
+			b.CloseBrowserPage()
+		})
+		close(l.browserPool)
+	})
+	l.CloseAll()
+}
+
+// CloseAll closes every page the launcher created, including pages a crawl
+// still holds, and removes their temporary data dirs. Unlike Close it leaves
+// the pool open, so a crawl that returns a page afterwards does not panic.
+func (l *Launcher) CloseAll() {
+	l.liveMu.Lock()
+	pages := make([]*BrowserPage, 0, len(l.live))
+	for b := range l.live {
+		pages = append(pages, b)
+	}
+	l.liveMu.Unlock()
+
+	for _, b := range pages {
 		b.cancel()
 		b.CloseBrowserPage()
-	})
-	close(l.browserPool)
+	}
 }
 
 // BrowserPage is a combination of a browser and a page
@@ -247,6 +313,9 @@ type BrowserPage struct {
 	Browser     *rod.Browser
 	cancel      context.CancelFunc
 	userDataDir string
+	// chromeLauncher owns the Chrome process when katana launched it.
+	chromeLauncher *launcher.Launcher
+	closed         sync.Once
 
 	launcher     *Launcher
 	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
@@ -439,7 +508,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		}
 	}
 
-	browser, err := l.launchBrowserWithDataDir(tempDir)
+	browser, chromeLauncher, err := l.launchBrowserWithDataDir(tempDir)
 	if err != nil {
 		if shouldCleanupTempDir {
 			_ = os.RemoveAll(tempDir)
@@ -449,6 +518,13 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 
 	page, err := browser.Page(proto.TargetCreateTarget{})
 	if err != nil {
+		if chromeLauncher != nil {
+			_ = browser.Close()
+			waitForChromeExit(chromeLauncher)
+		}
+		if shouldCleanupTempDir {
+			_ = os.RemoveAll(tempDir)
+		}
 		return nil, errors.Wrap(err, "could not create new page")
 	}
 
@@ -458,6 +534,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 			_ = page.Close()
 			if l.opts.ChromeWSUrl == "" {
 				_ = browser.Close()
+				waitForChromeExit(chromeLauncher)
 			}
 			if shouldCleanupTempDir {
 				_ = os.RemoveAll(tempDir)
@@ -475,11 +552,12 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	page = page.Context(cancelCtx)
 
 	browserPage := &BrowserPage{
-		Page:        page,
-		Browser:     browser,
-		launcher:    l,
-		cancel:      cancel,
-		userDataDir: tempDir,
+		Page:           page,
+		Browser:        browser,
+		launcher:       l,
+		cancel:         cancel,
+		userDataDir:    tempDir,
+		chromeLauncher: chromeLauncher,
 	}
 	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
 	if err != nil {
@@ -502,6 +580,9 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 
 	// Success - cancel any deferred cleanup
 	successfulPageCreation = true
+	l.liveMu.Lock()
+	l.live[browserPage] = struct{}{}
+	l.liveMu.Unlock()
 	return browserPage, nil
 }
 
@@ -851,6 +932,15 @@ func isBrowserConnected(browser *rod.Browser) bool {
 }
 
 func (b *BrowserPage) CloseBrowserPage() {
+	// A page can be closed by its crawl and by CloseAll on interrupt.
+	b.closed.Do(b.closeBrowserPage)
+}
+
+func (b *BrowserPage) closeBrowserPage() {
+	b.launcher.liveMu.Lock()
+	delete(b.launcher.live, b)
+	b.launcher.liveMu.Unlock()
+
 	_ = b.Close() // Close the page/tab
 
 	// Only close the browser if we launched it ourselves (not connecting via ChromeWSUrl)
@@ -861,6 +951,7 @@ func (b *BrowserPage) CloseBrowserPage() {
 
 	// Only cleanup temp data dir if we created it (not user-provided)
 	if b.userDataDir != "" && !b.launcher.shouldPreserveUserDataDir(b.userDataDir) {
+		waitForChromeExit(b.chromeLauncher)
 		_ = os.RemoveAll(b.userDataDir)
 	}
 }
