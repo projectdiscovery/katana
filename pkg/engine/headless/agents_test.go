@@ -51,12 +51,41 @@ func TestBuildAgentsSameUserOtherPassword(t *testing.T) {
 
 func TestBuildAgentsSessionHeader(t *testing.T) {
 	t.Parallel()
-	for _, header := range []string{"Cookie: sid=1", "cookie:sid=1", "Authorization: Bearer x"} {
+	for _, header := range []string{"Cookie: sid=1", "cookie:sid=1", "Authorization: Bearer x", "X-API-KEY: key", "x-auth-token: t", "X-Access-Token: t"} {
 		got := buildAgents(&types.Options{CustomHeaders: []string{header}, HeadlessAgents: []string{"anon", "bob:pw"}})
 		require.Equal(t, []agent{{label: "anon"}}, got, header)
 	}
 	got := buildAgents(&types.Options{CustomHeaders: []string{"X-Test: 1"}, HeadlessAgents: []string{"anon", "bob:pw"}})
 	require.Len(t, got, 2, "other headers keep every identity")
+}
+
+func TestBuildAgentsUniqueLabels(t *testing.T) {
+	t.Parallel()
+	labels := func(values ...string) []string {
+		var out []string
+		for _, a := range buildAgents(&types.Options{HeadlessAgents: values}) {
+			out = append(out, a.label)
+		}
+		return out
+	}
+	// anon is only for the anonymous agent, whatever the order.
+	require.Equal(t, []string{"anon#2", "anon"}, labels("anon:password", "anon"))
+	require.Equal(t, []string{"anon", "anon#2"}, labels("anon", "anon:password"))
+	require.Equal(t, []string{"anon#2", "bob"}, labels("anon:password", "bob:pw"))
+	// A literal numbered username keeps its label; generated numbers skip it.
+	require.Equal(t, []string{"bob", "bob#3", "bob#2"}, labels("bob:old", "bob:new", "bob#2:password"))
+	require.Equal(t, []string{"bob#2", "bob", "bob#3"}, labels("bob#2:password", "bob:old", "bob:new"))
+	for _, values := range [][]string{
+		{"bob:a", "bob:b", "bob#2:c", "bob#3:d", "bob:e"},
+		{"anon:a", "anon#2:b", "anon", "anon:c"},
+	} {
+		got := labels(values...)
+		unique := map[string]bool{}
+		for _, l := range got {
+			unique[l] = true
+		}
+		require.Len(t, unique, len(got), "labels %v must be unique", got)
+	}
 }
 
 func TestAgentDedupScope(t *testing.T) {

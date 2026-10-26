@@ -41,7 +41,6 @@ func buildAgents(opts *types.Options) []agent {
 
 	agents := make([]agent, 0, len(opts.HeadlessAgents))
 	seen := map[string]bool{}
-	labels := map[string]int{}
 	for _, value := range opts.HeadlessAgents {
 		value = strings.TrimSpace(value)
 		if value == "" {
@@ -55,12 +54,6 @@ func buildAgents(opts *types.Options) []agent {
 		}
 		seen[value] = true
 		a := agent{label: agentLabel(value)}
-		// One username with other credentials is another identity: number
-		// it, so its results and URL dedupe stay apart without the password.
-		labels[a.label]++
-		if n := labels[a.label]; n > 1 {
-			a.label = fmt.Sprintf("%s#%d", a.label, n)
-		}
 		if value != anonAgent {
 			a.credentials = value
 		}
@@ -69,16 +62,58 @@ func buildAgents(opts *types.Options) []agent {
 	if len(agents) == 0 {
 		return single
 	}
+	uniqueLabels(agents)
 	return agents
 }
 
-// sessionHeader returns the name of a -H header that carries a session
-// (Cookie or Authorization), or "" if there is none. Every identity sends the
-// -H headers, so such a header would make all identities one session.
+// uniqueLabels makes the label of each agent unique, as each label is also
+// the dedupe scope of the agent. The first agent with a username keeps it as
+// its label, and so does a username that is already numbered, such as bob#2.
+// Another agent with the same username (other credentials) gets the next free
+// number: bob#2, bob#3 and so on. The label anon is only for the anonymous
+// agent, so an account named anon is numbered too.
+func uniqueLabels(agents []agent) {
+	taken := map[string]bool{anonAgent: true}
+	numbered := make([]bool, len(agents))
+	for i, a := range agents {
+		if a.credentials == "" {
+			continue
+		}
+		if taken[a.label] {
+			numbered[i] = true
+			continue
+		}
+		taken[a.label] = true
+	}
+	for i := range agents {
+		if !numbered[i] {
+			continue
+		}
+		for n := 2; ; n++ {
+			label := fmt.Sprintf("%s#%d", agents[i].label, n)
+			if !taken[label] {
+				taken[label] = true
+				agents[i].label = label
+				break
+			}
+		}
+	}
+}
+
+// sessionHeaders are the -H headers that katana treats as a session: the
+// standard ones and the API key headers that the README documents for
+// authenticated crawling. Other header names are not treated as a session.
+var sessionHeaders = []string{"Cookie", "Authorization", "X-API-Key", "X-Auth-Token", "X-Access-Token"}
+
+// sessionHeader returns the name of a -H header that carries a session (one
+// of sessionHeaders), or "" if there is none. Every identity sends the -H
+// headers, so such a header would make all identities one session.
 func sessionHeader(opts *types.Options) string {
 	for name := range opts.ParseCustomHeaders() {
-		if strings.EqualFold(name, "Cookie") || strings.EqualFold(name, "Authorization") {
-			return name
+		for _, session := range sessionHeaders {
+			if strings.EqualFold(strings.TrimSpace(name), session) {
+				return name
+			}
 		}
 	}
 	return ""
