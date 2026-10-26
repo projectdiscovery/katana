@@ -29,8 +29,11 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/rs/xid"
 )
+
+var lookPath = launcher.LookPath
 
 // Launcher is a high level controller to launch browsers
 // and do the execution on them.
@@ -42,6 +45,7 @@ type Launcher struct {
 
 // LauncherOptions contains options for the launcher
 type LauncherOptions struct {
+	UseInstalledChrome  bool
 	ChromiumPath        string
 	MaxBrowsers         int
 	PageMaxTimeout      time.Duration
@@ -53,14 +57,20 @@ type LauncherOptions struct {
 	Trace               bool
 	CookieConsentBypass bool
 	PageLoadStrategy    string
-	ChromeWSUrl         string // WebSocket URL to connect to existing Chrome
-	DOMWaitTime         int    // Time in seconds to wait for DOM (used with domcontentloaded strategy)
-	UserDataDir         string // User-provided chrome data directory to preserve sessions
-	ChromeUser          *user.User // optional chrome user to use
+	ChromeWSUrl         string            // WebSocket URL to connect to existing Chrome
+	DOMWaitTime         int               // Time in seconds to wait for DOM (used with domcontentloaded strategy)
+	UserDataDir         string            // User-provided chrome data directory to preserve sessions
+	ChromeUser          *user.User        // optional chrome user to use
 	UserArguments       map[string]string // user-supplied Chrome flags via -headless-options
+	CustomHeaders       map[string]string
+	CookieURL           string
 
 	ScopeValidator  ScopeValidator
 	RequestCallback func(*output.Result)
+	Interactive     bool
+	// TrafficCallback, when set, receives every intercepted exchange,
+	// including redirects and failures, before any crawl filtering.
+	TrafficCallback func(*output.Result)
 }
 
 type ScopeValidator func(string) bool
@@ -77,7 +87,7 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	if opts.DOMWaitTime < 0 {
 		opts.DOMWaitTime = 5
 	}
-	
+
 	l := &Launcher{
 		opts:        opts,
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
@@ -111,70 +121,97 @@ func (l *Launcher) shouldPreserveUserDataDir(tempDir string) bool {
 	return tempDir != "" && tempDir == l.opts.UserDataDir
 }
 
+func (l *Launcher) createChromeLauncher(userDataDir string) (*launcher.Launcher, error) {
+	chromeLauncher := launcher.New().
+		Leakless(true).
+		Set("disable-gpu", "true").
+		Set("ignore-certificate-errors", "true").
+		Set("disable-crash-reporter", "true").
+		Set("disable-notifications", "true").
+		Set("hide-scrollbars", "true").
+		Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
+		Set("mute-audio", "true").
+		Delete("use-mock-keychain").
+		Delete("disable-ipc-flooding-protection").
+		Headless(true)
+
+	if l.shouldUseIncognito() {
+		chromeLauncher = chromeLauncher.Set("incognito", "true")
+	}
+
+	for _, flag := range headlessFlags {
+		splitted := strings.TrimPrefix(flag, "--")
+		values := strings.Split(splitted, "=")
+		flagName := values[0]
+		if l.shouldSkipHeadlessFlag(flagName) {
+			continue
+		}
+		if len(values) == 2 {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
+		} else {
+			chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
+		}
+	}
+
+	if l.opts.Proxy != "" {
+		chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
+		// Chrome bypasses the proxy for localhost/127.0.0.0/8/[::1]/link-local
+		// unless that implicit rule is subtracted. Same token as hybrid.
+		chromeLauncher = chromeLauncher.Set("proxy-bypass-list", "<-loopback>")
+	}
+
+	if l.opts.NoSandbox {
+		chromeLauncher = chromeLauncher.NoSandbox(true)
+	}
+
+	if l.opts.ShowBrowser {
+		chromeLauncher = chromeLauncher.Headless(false)
+	}
+
+	if l.opts.UseInstalledChrome {
+		if l.opts.ChromiumPath != "" {
+			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+		} else {
+			if chromePath, hasChrome := lookPath(); hasChrome {
+				chromeLauncher = chromeLauncher.Bin(chromePath)
+			} else {
+				return nil, errors.New("the chrome browser is not installed")
+			}
+		}
+	} else if l.opts.ChromiumPath != "" {
+		chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
+	} else if !l.opts.ShowBrowser && chromeshell.Supported() {
+		// Prefer chrome-headless-shell on linux/amd64 for headless crawls;
+		// skip when headed since the shell binary cannot show a UI.
+		if shellPath, err := chromeshell.Ensure(); err == nil {
+			chromeLauncher = chromeLauncher.Bin(shellPath)
+		}
+	}
+
+	if userDataDir != "" {
+		chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
+	}
+
+	for k, v := range l.opts.UserArguments {
+		chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
+	}
+
+	return chromeLauncher, nil
+}
+
 func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
 	var launcherURL string
-	
+
 	// If ChromeWSUrl is provided, connect to existing Chrome instead of launching new one
 	if l.opts.ChromeWSUrl != "" {
 		launcherURL = l.opts.ChromeWSUrl
 	} else {
 		// Launch a new Chrome instance
-		chromeLauncher := launcher.New().
-			Leakless(true).
-			Set("disable-gpu", "true").
-			Set("ignore-certificate-errors", "true").
-			Set("disable-crash-reporter", "true").
-			Set("disable-notifications", "true").
-			Set("hide-scrollbars", "true").
-			Set("window-size", fmt.Sprintf("%d,%d", 1080, 1920)).
-			Set("mute-audio", "true").
-			Delete("use-mock-keychain").
-			Delete("disable-ipc-flooding-protection").
-			Headless(true)
-
-		if l.shouldUseIncognito() {
-			chromeLauncher = chromeLauncher.Set("incognito", "true")
+		chromeLauncher, err := l.createChromeLauncher(userDataDir)
+		if err != nil {
+			return nil, err
 		}
 
-		for _, flag := range headlessFlags {
-			splitted := strings.TrimPrefix(flag, "--")
-			values := strings.Split(splitted, "=")
-			flagName := values[0]
-			if l.shouldSkipHeadlessFlag(flagName) {
-				continue
-			}
-			if len(values) == 2 {
-				chromeLauncher = chromeLauncher.Set(flags.Flag(values[0]), strings.Split(values[1], ",")...)
-			} else {
-				chromeLauncher = chromeLauncher.Set(flags.Flag(splitted), "true")
-			}
-		}
-
-		if l.opts.Proxy != "" {
-			chromeLauncher = chromeLauncher.Proxy(l.opts.Proxy)
-		}
-
-		if l.opts.NoSandbox {
-			chromeLauncher = chromeLauncher.NoSandbox(true)
-		}
-
-		if l.opts.ShowBrowser {
-			chromeLauncher = chromeLauncher.Headless(false)
-		}
-
-		if l.opts.ChromiumPath != "" {
-			chromeLauncher = chromeLauncher.Bin(l.opts.ChromiumPath)
-		}
-
-		if userDataDir != "" {
-			chromeLauncher = chromeLauncher.UserDataDir(userDataDir)
-		}
-
-		for k, v := range l.opts.UserArguments {
-			chromeLauncher = chromeLauncher.Set(flags.Flag(k), v)
-		}
-
-		var err error
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
 			return nil, err
@@ -213,7 +250,8 @@ type BrowserPage struct {
 	cancel      context.CancelFunc
 	userDataDir string
 
-	launcher *Launcher
+	launcher     *Launcher
+	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
 }
 
 // WaitOptions controls how WaitPageLoadHeurisitics determines navigation completion.
@@ -249,17 +287,17 @@ var defaultWaitOptions = WaitOptions{
 func (b *BrowserPage) WaitPageLoadHeurisitics() error {
 	// Respect the page load strategy from launcher options
 	strategy := b.launcher.opts.PageLoadStrategy
-	
+
 	switch strategy {
 	case "none":
 		// Don't wait at all, return immediately
 		return nil
-		
+
 	case "load":
 		// Just wait for the load event
 		chained := b.Timeout(15 * time.Second)
 		return chained.WaitLoad()
-		
+
 	case "domcontentloaded":
 		// WaitLoad checks document.readyState via JS, so it's safe to call
 		// after Navigate() has already started (no race with missed events).
@@ -269,14 +307,14 @@ func (b *BrowserPage) WaitPageLoadHeurisitics() error {
 			time.Sleep(time.Duration(b.launcher.opts.DOMWaitTime) * time.Second)
 		}
 		return nil
-		
+
 	case "networkidle":
 		// Wait for network activity to stop
 		chained := b.Timeout(15 * time.Second)
 		_ = chained.WaitLoad()
 		_ = chained.WaitIdle(2 * time.Second)
 		return nil
-		
+
 	case "heuristic":
 		fallthrough
 	default:
@@ -365,7 +403,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	// since we're connecting to an existing browser
 	var tempDir string
 	shouldCleanupTempDir := false
-	
+
 	if l.opts.ChromeWSUrl == "" {
 		if l.opts.UserDataDir != "" {
 			// Use user-provided data directory (preserve sessions/cookies)
@@ -445,6 +483,11 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 		cancel:      cancel,
 		userDataDir: tempDir,
 	}
+	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not apply browser headers and cookies")
+	}
+	browserPage.extraHeaders = extra
 	if err := browserPage.handlePageDialogBoxes(); err != nil {
 		return nil, err
 	}
@@ -454,7 +497,7 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize stealth")
 	}
-	err = js.InitJavascriptEnv(page)
+	err = js.InitJavascriptEnvWithHooks(page, l.opts.Interactive)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not initialize javascript env")
 	}
@@ -468,11 +511,37 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 func (l *Launcher) GetPageFromPool() (*BrowserPage, error) {
 	browserPage, err := l.browserPool.Get(l.createBrowserPageFunc)
 	if err != nil {
+		// Pool.Get takes the slot before create runs. A failed launch must
+		// put it back, or the next caller blocks until the pool is closed.
+		l.browserPool.Put(nil)
 		return nil, err
 	}
 	// TODO: should we check if the browser is alive because sometimes it
 	// might die?
 	return browserPage, nil
+}
+
+// AdoptPopup prepares a browser-created tab for the same response capture and
+// interactive helpers used by a pooled page. Call it as soon as the target is
+// discovered (even while still about:blank) so Fetch interception is enabled
+// before the popup's first navigation races ahead. The caller owns and closes it.
+func (l *Launcher) AdoptPopup(page *rod.Page, browser *rod.Browser) (*BrowserPage, error) {
+	popup := &BrowserPage{Page: page, Browser: browser, launcher: l}
+	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
+	if err != nil {
+		return nil, err
+	}
+	popup.extraHeaders = extra
+	if err := popup.handlePageDialogBoxes(); err != nil {
+		return nil, err
+	}
+	if _, err := page.EvalOnNewDocument(stealth.JS); err != nil {
+		return nil, err
+	}
+	if err := js.InitJavascriptEnvWithHooks(page, l.opts.Interactive); err != nil {
+		return nil, err
+	}
+	return popup, nil
 }
 
 // backoffCountSleeper returns a sleeper that uses backoff strategy but stops after max attempts.
@@ -485,14 +554,19 @@ func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts in
 }
 
 func (b *BrowserPage) handlePageDialogBoxes() error {
-	err := proto.FetchEnable{
-		Patterns: []*proto.FetchRequestPattern{
-			{
-				URLPattern:   "*",
-				RequestStage: proto.FetchRequestStageResponse,
-			},
-		},
-	}.Call(b.Page)
+	patterns := []*proto.FetchRequestPattern{{
+		URLPattern:   "*",
+		RequestStage: proto.FetchRequestStageResponse,
+	}}
+	// Pausing at the request stage costs a CDP round trip per request, so only
+	// do it when there are custom headers to attach.
+	if len(b.extraHeaders) > 0 {
+		patterns = append(patterns, &proto.FetchRequestPattern{
+			URLPattern:   "*",
+			RequestStage: proto.FetchRequestStageRequest,
+		})
+	}
+	err := proto.FetchEnable{Patterns: patterns}.Call(b.Page)
 	if err != nil {
 		return errors.Wrap(err, "could not enable fetch domain")
 	}
@@ -521,7 +595,16 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				}
 			}
 
+			// Request stage: attach scoped custom headers before the request leaves.
+			if isFetchRequestStage(e) {
+				if err := b.continueWithScopedHeaders(e); err != nil {
+					slog.Warn("fetchContinueRequest failed", "error", err)
+				}
+				return
+			}
+
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
+				b.observeWithoutBody(e)
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
@@ -529,6 +612,7 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			}
 			body, err := fetchGetResponseBody(b.Page, e)
 			if err != nil {
+				b.observeWithoutBody(e)
 				// Continue the request even if we can't get the body
 				if err := fetchContinueRequest(b.Page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
@@ -572,16 +656,62 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 				Resp:          httpresp,
 				Reader:        doc,
 			}
+			result := &output.Result{
+				Timestamp: time.Now(),
+				Request:   &req,
+				Response:  resp,
+			}
+			if b.launcher.opts.TrafficCallback != nil {
+				b.launcher.opts.TrafficCallback(result)
+			}
 			if b.launcher.opts.RequestCallback != nil {
-				b.launcher.opts.RequestCallback(&output.Result{
-					Timestamp: time.Now(),
-					Request:   &req,
-					Response:  resp,
-				})
+				b.launcher.opts.RequestCallback(result)
 			}
 		},
 	)()
 	return nil
+}
+
+// continueWithScopedHeaders resumes a request-stage pause, attaching
+// non-cookie custom headers only to in-scope requests (see
+// shouldAttachExtraHeaders).
+func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) error {
+	if len(b.extraHeaders) == 0 || !shouldAttachExtraHeaders(e.Request.URL, b.launcher.opts.ScopeValidator, b.launcher.opts.CookieURL) {
+		return fetchContinueRequest(b.Page, e)
+	}
+	return proto.FetchContinueRequest{
+		RequestID: e.RequestID,
+		Headers:   mergeRequestHeaders(e.Request.Headers, b.extraHeaders),
+	}.Call(b.Page)
+}
+
+// observeWithoutBody reports an exchange whose body is not read (redirects,
+// failures) to the traffic callback.
+func (b *BrowserPage) observeWithoutBody(e *proto.FetchRequestPaused) {
+	callback := b.launcher.opts.TrafficCallback
+	if callback == nil {
+		return
+	}
+	httpreq, err := netHTTPRequestFromProto(e.Request)
+	if err != nil {
+		return
+	}
+	httpresp := netHTTPResponseFromProto(e, nil)
+	httpresp.Request = httpreq
+	callback(&output.Result{
+		Timestamp: time.Now(),
+		Request: &navigation.Request{
+			Method:  httpreq.Method,
+			URL:     httpreq.URL.String(),
+			Body:    e.Request.PostData,
+			Headers: utils.FlattenHeaders(httpreq.Header),
+		},
+		Response: &navigation.Response{
+			StatusCode: httpresp.StatusCode,
+			Headers:    utils.FlattenHeaders(httpresp.Header),
+			Resp:       httpresp,
+		},
+	})
 }
 
 func fetchContinueRequest(page *rod.Page, e *proto.FetchRequestPaused) error {
@@ -627,12 +757,16 @@ func netHTTPRequestFromProto(e *proto.NetworkRequest) (*http.Request, error) {
 }
 
 func netHTTPResponseFromProto(e *proto.FetchRequestPaused, body []byte) *http.Response {
+	statusCode := 0 // failed requests have no status
+	if e.ResponseStatusCode != nil {
+		statusCode = *e.ResponseStatusCode
+	}
 	httpresp := &http.Response{
 		Proto:         "HTTP/1.1",
 		ProtoMajor:    1,
 		ProtoMinor:    1,
 		Header:        make(http.Header),
-		StatusCode:    *e.ResponseStatusCode,
+		StatusCode:    statusCode,
 		Status:        e.ResponseStatusText,
 		Body:          io.NopCloser(bytes.NewReader(body)),
 		ContentLength: int64(len(body)),
@@ -647,31 +781,64 @@ func (l *Launcher) PutBrowserToPool(browser *BrowserPage) {
 	// Discard pages that hit a deadline or were cancelled to avoid immediately
 	// returning a poisoned page that will fail every subsequent call.
 	if cerr := browser.Page.GetContext().Err(); cerr != nil {
-		browser.cancel()
-		browser.CloseBrowserPage()
+		l.discardBrowserPage(browser)
 		return
 	}
 	// If the browser is not connected, close it
 	if !isBrowserConnected(browser.Browser) {
-		browser.cancel()
-		browser.CloseBrowserPage()
+		l.discardBrowserPage(browser)
 		return
 	}
 
-	pages, err := browser.Browser.Pages()
+	targets, err := proto.TargetGetTargets{}.Call(browser.Browser)
 	if err != nil {
-		browser.cancel()
-		browser.CloseBrowserPage()
+		l.discardBrowserPage(browser)
 		return
 	}
 
-	currentPageID := browser.TargetID
-	for _, page := range pages {
-		if page.TargetID != currentPageID {
-			_ = page.Close()
+	for _, id := range strayPageIDs(targets.TargetInfos, browser.TargetID, l.opts.ChromeWSUrl != "") {
+		_, _ = proto.TargetCloseTarget{TargetID: id}.Call(browser.Browser)
+	}
+	// A backgrounded page never repaints, which stalls rod's repaint waits.
+	// With an external browser the user's tabs or a noopener popup can still
+	// be in front after cleanup.
+	_ = proto.PageBringToFront{}.Call(browser.Page)
+	l.browserPool.Put(browser)
+}
+
+// strayPageIDs returns the pages to close before reusing ownPage. An
+// external browser (ChromeWSUrl) also holds the user's tabs, so there only
+// pages ownPage opened, directly or transitively, are stray.
+func strayPageIDs(targets []*proto.TargetTargetInfo, ownPage proto.TargetTargetID, external bool) []proto.TargetTargetID {
+	opened := map[proto.TargetTargetID]bool{ownPage: true}
+	for grew := external; grew; {
+		grew = false
+		for _, target := range targets {
+			if !opened[target.TargetID] && opened[target.OpenerID] {
+				opened[target.TargetID] = true
+				grew = true
+			}
 		}
 	}
-	l.browserPool.Put(browser)
+
+	var stray []proto.TargetTargetID
+	for _, target := range targets {
+		if target.Type != proto.TargetTargetInfoTypePage || target.TargetID == ownPage {
+			continue
+		}
+		if !external || opened[target.TargetID] {
+			stray = append(stray, target.TargetID)
+		}
+	}
+	return stray
+}
+
+// discardBrowserPage removes an unusable page and replenishes the pool with
+// an empty slot so the next GetPageFromPool call can create a replacement.
+func (l *Launcher) discardBrowserPage(browser *BrowserPage) {
+	browser.cancel()
+	browser.CloseBrowserPage()
+	l.browserPool.Put(nil)
 }
 
 func isBrowserConnected(browser *rod.Browser) bool {

@@ -118,6 +118,15 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// Interactive explores browser UI states with depth-first clicks.
+	Interactive           bool
+	InteractionDepth      int
+	InteractionSelector   string
+	InteractionExclude    string
+	InteractionMaxStates  int
+	InteractionMaxActions int
+	InteractionSettle     time.Duration
+	InteractionDuration   time.Duration
 	// HeadlessHybrid enables headless hybrid scraping
 	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission
@@ -193,10 +202,11 @@ type Options struct {
 	FilterSimilarThreshold int
 	// RewalkSample is how many headless paths to clean-session rewalk after crawl (0 = off)
 	RewalkSample int
-	// LinkIdentityBudget is how many near-duplicate doors to enqueue (-1 disables, default 1)
+	// LinkIdentityBudget is how many near-duplicate doors to enqueue per page (headless, 0 = off)
 	LinkIdentityBudget int
-	// HeadlessAgents is how many isolated browser identities to run (default 1; forced to 1 with -cdd/-cwu)
-	HeadlessAgents int
+	// HeadlessAgents are the identities to crawl as, at the same time: anon or
+	// username:password each (headless only; one identity with -cdd/-cwu)
+	HeadlessAgents goflags.StringSlice
 	// ExplosionBudget is near-duplicate page explore budget for headless (-1 off, default 1)
 	ExplosionBudget int
 	// ExplosionHamming is simhash distance for explosion clustering (default 3)
@@ -230,7 +240,10 @@ type Options struct {
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
 	PageLoadStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
-	DOMWaitTime           int
+	DOMWaitTime int
+	// MaxScrollSteps is the maximum number of viewport scrolls used to reveal
+	// lazy-loaded content before headless navigation discovery (0 disables it).
+	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
 	// KnowledgeBase enables knowledge base classification using dit
@@ -248,6 +261,9 @@ type Options struct {
 	FilterPageType goflags.StringSlice
 	// AuthCredentials holds username:password for automatic login
 	AuthCredentials string
+	// RecordedFlow is the path to a Chrome DevTools Recorder JSON (or an explicit
+	// LoginStep list) replayed once in headless mode before crawling starts.
+	RecordedFlow string
 	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
 	MaxDomainPages int
 }

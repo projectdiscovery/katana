@@ -16,6 +16,11 @@ func TestSameLocation(t *testing.T) {
 	d := LocationFingerprint{SimHash: 0b1110} // hamming 1
 	require.True(t, SameLocation(c, d, 3))
 	require.False(t, SameLocation(c, LocationFingerprint{SimHash: 0}, 3))
+	// A low-popcount hash is close to zero but must not match a page that has
+	// no content fingerprint; only the URL can decide then.
+	low := LocationFingerprint{URL: "https://example.com/a", SimHash: 0b111}
+	require.False(t, SameLocation(low, LocationFingerprint{URL: "https://example.com/b"}, 3))
+	require.True(t, SameLocation(low, LocationFingerprint{URL: "https://example.com/a"}, 3))
 }
 
 func TestClassifyRewalks(t *testing.T) {

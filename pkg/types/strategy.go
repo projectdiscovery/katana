@@ -31,7 +31,6 @@ func ApplyCrawlStrategy(options *Options) error {
 	options.ExplosionBudget = cfg.ExplosionBudget
 	options.ExplosionHamming = cfg.ExplosionHamming
 	options.RewalkSample = cfg.RewalkSample
-	options.HeadlessAgents = cfg.AgentCount
 	options.FilterSimilar = cfg.FilterSimilarURLs
 	return nil
 }

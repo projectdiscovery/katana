@@ -1,20 +1,21 @@
 package headless
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/lmittmann/tint"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	_ "github.com/projectdiscovery/katana/pkg/engine/headless/captcha/capsolver"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
-	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -106,52 +107,68 @@ func (h *Headless) Crawl(URL string) error {
 		}
 	}()
 
-	pool := buildAgentPool(h.options.Options)
-	var firstErr error
-	for _, agent := range pool.All() {
-		cleanup, err := ensureAgentDataDir(agent)
-		if err != nil {
-			return err
-		}
-		err = h.crawlWithAgent(URL, agent)
-		cleanup()
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
+	agents := buildAgents(h.options.Options)
+	if len(agents) == 1 {
+		return h.crawlAs(URL, agents[0], len(agents))
 	}
-	return firstErr
+
+	// Identities run at the same time, so -ct bounds the whole crawl rather
+	// than each identity in turn.
+	errs := make([]error, len(agents))
+	var wg sync.WaitGroup
+	for i, a := range agents {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			h.logger.Info("headless agent starting", slog.String("agent", a.label))
+			if err := h.crawlAs(URL, a, len(agents)); err != nil {
+				gologger.Warning().Msgf("headless agent %s failed to crawl %s: %s", a.label, URL, err)
+				errs[i] = err
+			}
+		}()
+	}
+	wg.Wait()
+	return errors.Join(errs...)
 }
 
-func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
+// crawlAs crawls URL as identity a, one of agents identities.
+func (h *Headless) crawlAs(URL string, a agent, agents int) error {
+	dedupScope := a.dedupScope(agents)
 	scopeValidator := validateScopeFunc(h, URL)
-
-	userDataDir := h.options.Options.ChromeDataDir
-	if agent != nil && agent.DataDir != "" {
-		userDataDir = agent.DataDir
-	}
-
 	crawlOpts := crawler.Options{
-		Context:            h.options.Options.Context,
-		ChromiumPath:       h.options.Options.SystemChromePath,
-		MaxDepth:           h.options.Options.MaxDepth,
-		ShowBrowser:        h.options.Options.ShowBrowser,
-		MaxCrawlDuration:   h.options.Options.CrawlDuration,
-		MaxFailureCount:    h.options.Options.MaxFailureCount,
-		NoSandbox:          h.options.Options.HeadlessNoSandbox,
-		NoIncognito:        h.options.Options.HeadlessNoIncognito,
-		UserDataDir:        userDataDir,
-		Proxy:              h.options.Options.Proxy,
-		MaxBrowsers:        1,
-		PageMaxTimeout:     30 * time.Second,
-		ScopeValidator:     scopeValidator,
-		AutomaticFormFill:  h.options.Options.AutomaticFormFill,
-		PageLoadStrategy:   h.options.Options.PageLoadStrategy,
-		ChromeWSUrl:        h.options.Options.ChromeWSUrl,
-		DOMWaitTime:        h.options.Options.DOMWaitTime,
-		RewalkSample:       h.options.Options.RewalkSample,
-		LinkIdentityBudget: h.options.Options.LinkIdentityBudget,
-		ExplosionBudget:    h.options.Options.ExplosionBudget,
-		ExplosionHamming:   h.options.Options.ExplosionHamming,
+		Context:               h.options.Options.Context,
+		UseInstalledChrome:    h.options.Options.UseInstalledChrome,
+		ChromiumPath:          h.options.Options.SystemChromePath,
+		MaxDepth:              h.options.Options.MaxDepth,
+		ShowBrowser:           h.options.Options.ShowBrowser,
+		MaxCrawlDuration:      h.options.Options.CrawlDuration,
+		MaxFailureCount:       h.options.Options.MaxFailureCount,
+		NoSandbox:             h.options.Options.HeadlessNoSandbox,
+		NoIncognito:           h.options.Options.HeadlessNoIncognito,
+		UserDataDir:           h.options.Options.ChromeDataDir,
+		Proxy:                 h.options.Options.Proxy,
+		MaxBrowsers:           1,
+		PageMaxTimeout:        30 * time.Second,
+		ScopeValidator:        scopeValidator,
+		AutomaticFormFill:     h.options.Options.AutomaticFormFill,
+		CustomHeaders:         h.options.Options.ParseCustomHeaders(),
+		RootURL:               URL,
+		Interactive:           h.options.Options.Interactive,
+		InteractionDepth:      h.options.Options.InteractionDepth,
+		InteractionSelector:   h.options.Options.InteractionSelector,
+		InteractionExclude:    h.options.Options.InteractionExclude,
+		InteractionMaxStates:  h.options.Options.InteractionMaxStates,
+		InteractionMaxActions: h.options.Options.InteractionMaxActions,
+		InteractionSettle:     h.options.Options.InteractionSettle,
+		InteractionDuration:   h.options.Options.InteractionDuration,
+		PageLoadStrategy:      h.options.Options.PageLoadStrategy,
+		ChromeWSUrl:           h.options.Options.ChromeWSUrl,
+		DOMWaitTime:           h.options.Options.DOMWaitTime,
+		MaxScrollSteps:        h.options.Options.MaxScrollSteps,
+		RewalkSample:          h.options.Options.RewalkSample,
+		LinkIdentityBudget:    h.options.Options.LinkIdentityBudget,
+		ExplosionBudget:       h.options.Options.ExplosionBudget,
+		ExplosionHamming:      h.options.Options.ExplosionHamming,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
@@ -160,9 +177,16 @@ func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
 				return
 			}
 
-			isUnique := h.isUniqueURL(rr.Request.URL)
+			// Register the real (intercepted) request URL before parsing the
+			// response body for additional discoveries. This ensures that real
+			// results with full response data always take priority over
+			// synthetic Request-only entries produced by performAdditionalAnalysis.
+			isUnique := h.isUniqueURL(dedupScope, rr.Request.URL)
 
-			navigationRequests := h.performAdditionalAnalysis(rr)
+			// Always run additional analysis regardless of uniqueness so we
+			// don't miss URL discoveries embedded in a response body that the
+			// browser happened to fetch more than once.
+			navigationRequests := h.performAdditionalAnalysis(rr, dedupScope)
 			for _, req := range navigationRequests {
 				if err := h.options.OutputWriter.Write(req); err != nil {
 					h.logger.Debug("failed to write navigation result",
@@ -193,6 +217,13 @@ func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
 				if h.options.Options.OmitBody {
 					rr.Response.Body = ""
 				}
+				// Name the identity so results of several agents can be told apart.
+				if agents > 1 {
+					if rr.Response.Extra == nil {
+						rr.Response.Extra = map[string]any{}
+					}
+					rr.Response.Extra["agent"] = a.label
+				}
 			}
 			if err := h.options.OutputWriter.Write(rr); err != nil {
 				h.logger.Debug("failed to write result",
@@ -210,12 +241,16 @@ func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
 		Hooks:               h.hooks,
 	}
 
-	creds := h.options.Options.AuthCredentials
-	if agent != nil && agent.Credentials != "" {
-		creds = agent.Credentials
+	if a.credentials != "" {
+		crawlOpts.AuthUsername, crawlOpts.AuthPassword = splitCredentials(a.credentials)
 	}
-	if creds != "" {
-		crawlOpts.AuthUsername, crawlOpts.AuthPassword = splitCredentials(creds)
+
+	if path := h.options.Options.RecordedFlow; path != "" {
+		steps, err := auth.StepsFromFile(path, crawlOpts.AuthUsername, crawlOpts.AuthPassword)
+		if err != nil {
+			return err
+		}
+		crawlOpts.AuthSteps = steps
 	}
 
 	if provider := h.options.Options.CaptchaSolverProvider; provider != "" {
@@ -228,11 +263,10 @@ func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
 		}
 	}
 
-	if agent != nil {
-		h.logger.Info("headless agent starting",
-			slog.String("agent", agent.ID),
-			slog.String("role", agent.Role),
-		)
+	// TODO: Make the crawling multi-threaded. Right now concurrency is hardcoded to 1.
+
+	if capturer, ok := h.options.OutputWriter.(interface{ Capture(*output.Result) }); ok {
+		crawlOpts.TrafficCallback = capturer.Capture
 	}
 
 	headlessCrawler, err := crawler.New(crawlOpts)
@@ -241,7 +275,10 @@ func (h *Headless) crawlWithAgent(URL string, agent *cartography.Agent) error {
 	}
 	defer headlessCrawler.Close()
 
-	return headlessCrawler.Crawl(URL)
+	if err = headlessCrawler.Crawl(URL); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *Headless) Close() error {
@@ -251,7 +288,9 @@ func (h *Headless) Close() error {
 	return nil
 }
 
-func (h *Headless) isUniqueURL(rawURL string) bool {
+// isUniqueURL reports whether rawURL is new within dedupScope, the prefix that
+// keeps the results of each crawl identity apart.
+func (h *Headless) isUniqueURL(dedupScope, rawURL string) bool {
 	dedupKey := rawURL
 	if h.options.Options.IgnoreQueryParams {
 		dedupKey = utils.ReplaceAllQueryParam(dedupKey, "")
@@ -259,16 +298,15 @@ func (h *Headless) isUniqueURL(rawURL string) bool {
 	if h.options.Options.FilterSimilar {
 		dedupKey = utils.FingerprintURL(dedupKey, h.pathTrie)
 	}
-	return h.options.UniqueFilter.UniqueURL(dedupKey)
+	return h.options.UniqueFilter.UniqueURL(dedupScope + dedupKey)
 }
 
-func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
-	responseParser := parser.NewResponseParser()
-	newNavigations := responseParser.ParseResponse(rr.Response)
+func (h *Headless) performAdditionalAnalysis(rr *output.Result, dedupScope string) []*output.Result {
+	newNavigations := h.options.Parser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
 	for _, resp := range newNavigations {
-		if !h.isUniqueURL(resp.URL) {
+		if !h.isUniqueURL(dedupScope, resp.URL) {
 			continue
 		}
 		navigationRequests = append(navigationRequests, &output.Result{

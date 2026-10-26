@@ -4,180 +4,78 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 )
 
-// LinkFeatures are the stable-ish attributes used to recognize a door across revisits.
-type LinkFeatures struct {
-	Tag        string
-	ID         string
-	CSSPath    string
-	Text       string
-	PathOnly   string // URL path without query/fragment
-	QueryKeys  []string
-	ActionType types.ActionType
-}
-
-// LinkIdentity tracks which features remain stable for a logical door.
-type LinkIdentity struct {
-	mu       sync.Mutex
-	core     LinkFeatures
-	visits   int
-	unstable map[string]int // feature name -> times it changed
-}
-
-// Observe updates core features: values that change are marked unstable and cleared from core.
-func (l *LinkIdentity) Observe(f LinkFeatures) {
-	if l == nil {
-		return
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.visits++
-	if l.unstable == nil {
-		l.unstable = make(map[string]int)
-	}
-	if l.visits == 1 {
-		l.core = normalizeFeatures(f)
-		return
-	}
-	cur := normalizeFeatures(f)
-	l.dropIfChanged("tag", l.core.Tag, cur.Tag, func() { l.core.Tag = "" })
-	l.dropIfChanged("id", l.core.ID, cur.ID, func() { l.core.ID = "" })
-	l.dropIfChanged("css", l.core.CSSPath, cur.CSSPath, func() { l.core.CSSPath = "" })
-	l.dropIfChanged("text", l.core.Text, cur.Text, func() { l.core.Text = "" })
-	l.dropIfChanged("path", l.core.PathOnly, cur.PathOnly, func() { l.core.PathOnly = "" })
-	if !sameStringSet(l.core.QueryKeys, cur.QueryKeys) {
-		l.unstable["query_keys"]++
-		l.core.QueryKeys = nil
-	}
-	if l.core.ActionType != "" && cur.ActionType != "" && l.core.ActionType != cur.ActionType {
-		l.unstable["action_type"]++
-		l.core.ActionType = ""
-	}
-}
-
-func (l *LinkIdentity) dropIfChanged(name, old, neu string, clear func()) {
-	if old == "" || neu == "" {
-		return
-	}
-	if old != neu {
-		l.unstable[name]++
-		clear()
-	}
-}
-
-// Core returns a snapshot of features still considered stable.
-func (l *LinkIdentity) Core() LinkFeatures {
-	if l == nil {
-		return LinkFeatures{}
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	out := l.core
-	if len(l.core.QueryKeys) > 0 {
-		out.QueryKeys = append([]string(nil), l.core.QueryKeys...)
-	}
-	return out
-}
-
-// Visits returns how many observations were recorded.
-func (l *LinkIdentity) Visits() int {
-	if l == nil {
-		return 0
-	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.visits
-}
-
-// Matches reports whether f agrees with remaining core features.
-// Empty fields on f are ignored so partial observations can still match.
-func (l *LinkIdentity) Matches(f LinkFeatures) bool {
-	core := l.Core()
-	f = normalizeFeatures(f)
-	if core.Tag != "" && f.Tag != "" && core.Tag != f.Tag {
-		return false
-	}
-	if core.ID != "" && f.ID != "" && core.ID != f.ID {
-		return false
-	}
-	if core.CSSPath != "" && f.CSSPath != "" && core.CSSPath != f.CSSPath {
-		return false
-	}
-	if core.Text != "" && f.Text != "" && core.Text != f.Text {
-		return false
-	}
-	if core.PathOnly != "" && f.PathOnly != "" && core.PathOnly != f.PathOnly {
-		return false
-	}
-	if len(core.QueryKeys) > 0 && len(f.QueryKeys) > 0 && !sameStringSet(core.QueryKeys, f.QueryKeys) {
-		return false
-	}
-	if core.ActionType != "" && f.ActionType != "" && core.ActionType != f.ActionType {
-		return false
-	}
-	return true
-}
-
-// FeaturesFromAction extracts link features from a crawl action.
-func FeaturesFromAction(a *types.Action) LinkFeatures {
+// LinkKey returns the identity of the door an action opens, as found on the
+// page at sourceURL. Doors with the same key are near-duplicates: the same
+// element of the same page, whose target differs only in query values or
+// visible text, such as session tokens, product IDs or counters.
+//
+// The key holds only features that do not churn: the source page without its
+// query, the action type and tag, the element anchor (ID, else CSS path, else
+// XPath), and the target path with its sorted query keys. It is an exact key,
+// so it never widens over time and never joins elements that differ in anchor
+// or target path. An empty key means the action has no anchor to track.
+func LinkKey(sourceURL string, a *types.Action) string {
 	if a == nil {
-		return LinkFeatures{}
+		return ""
 	}
-	f := LinkFeatures{ActionType: a.Type}
-	if a.Element != nil {
-		f.Tag = a.Element.TagName
-		f.ID = a.Element.ID
-		f.CSSPath = a.Element.CSSSelector
-		f.Text = strings.TrimSpace(a.Element.TextContent)
-		if href := a.Element.Attributes["href"]; href != "" {
-			f.PathOnly, f.QueryKeys = splitURLFeatures(href)
+	var target string
+	var anchor string
+	switch {
+	case a.Element != nil:
+		anchor = firstNonEmpty(a.Element.ID, a.Element.CSSSelector, a.Element.XPath)
+		if anchor == "" {
+			return ""
 		}
+		if a.Element.ID != "" {
+			anchor = "#" + anchor
+		}
+		target = targetFeatures(a.Element.Attributes["href"])
+		anchor = strings.ToLower(strings.TrimSpace(a.Element.TagName)) + "|" + anchor
+	case a.Type == types.ActionTypeLoadURL && a.Input != "":
+		target = targetFeatures(a.Input)
+	default:
+		return ""
 	}
-	if a.Type == types.ActionTypeLoadURL && a.Input != "" {
-		f.PathOnly, f.QueryKeys = splitURLFeatures(a.Input)
-	}
-	return normalizeFeatures(f)
+	return strings.Join([]string{pageFeatures(sourceURL), string(a.Type), anchor, target}, "\x00")
 }
 
-func splitURLFeatures(raw string) (pathOnly string, queryKeys []string) {
+// pageFeatures returns the source page without query and fragment, so a page
+// revisited with a new token in its own URL keeps its doors.
+func pageFeatures(raw string) string {
 	u, err := url.Parse(raw)
-	if err != nil || u == nil {
-		return raw, nil
+	if err != nil {
+		return raw
 	}
-	pathOnly = u.Path
+	return u.Scheme + "://" + u.Host + u.Path
+}
+
+// targetFeatures returns the path and the sorted query keys of a link target.
+// Query values are left out: they are what churns.
+func targetFeatures(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return ""
+	}
+	keys := make([]string, 0, len(u.Query()))
 	for k := range u.Query() {
-		queryKeys = append(queryKeys, k)
+		keys = append(keys, k)
 	}
-	sort.Strings(queryKeys)
-	return pathOnly, queryKeys
+	sort.Strings(keys)
+	return u.Host + u.Path + "?" + strings.Join(keys, "&")
 }
 
-func normalizeFeatures(f LinkFeatures) LinkFeatures {
-	f.Tag = strings.ToLower(strings.TrimSpace(f.Tag))
-	f.ID = strings.TrimSpace(f.ID)
-	f.CSSPath = strings.TrimSpace(f.CSSPath)
-	f.Text = strings.Join(strings.Fields(f.Text), " ")
-	f.PathOnly = strings.TrimSpace(f.PathOnly)
-	if len(f.QueryKeys) > 0 {
-		keys := append([]string(nil), f.QueryKeys...)
-		sort.Strings(keys)
-		f.QueryKeys = keys
-	}
-	return f
-}
-
-func sameStringSet(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v = strings.TrimSpace(v); v != "" {
+			return v
 		}
 	}
-	return true
+	return ""
 }

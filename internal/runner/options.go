@@ -10,6 +10,7 @@ import (
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/utils/errkit"
@@ -19,6 +20,15 @@ import (
 
 // validateOptions validates the provided options for crawler
 func validateOptions(options *types.Options) error {
+	if options.Interactive {
+		if options.HeadlessHybrid {
+			return errkit.New("interactive mode requires pure headless mode; -hh is not supported")
+		}
+		options.Headless = true
+		if options.InteractionDepth < 1 || options.InteractionMaxStates < 0 || options.InteractionMaxActions < 0 || options.InteractionSettle < 0 || options.InteractionDuration < 0 {
+			return errkit.New("invalid interactive limits: depth must be positive and other limits non-negative")
+		}
+	}
 	if options.MaxDepth <= 0 && options.CrawlDuration.Seconds() <= 0 {
 		return errkit.New("either max-depth or crawl-duration must be specified")
 	}
@@ -36,6 +46,9 @@ func validateOptions(options *types.Options) error {
 	// Disallow ambiguous engine selection
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
+	}
+	if options.MaxScrollSteps < 0 {
+		return errkit.New("max-scroll-steps cannot be negative")
 	}
 
 	// Warn if -headless or -hh is used with -cwu (Chrome WebSocket URL)
@@ -60,7 +73,50 @@ func validateOptions(options *types.Options) error {
 		}
 	}
 
-	// Overlay -crawl-strategy after headless mode is resolved (-auth may enable it).
+	if options.RecordedFlow != "" {
+		if !fileutil.FileExists(options.RecordedFlow) {
+			return errkit.New("recorded flow file does not exist")
+		}
+		// Recorded flows replay against the pure headless engine only.
+		if options.HeadlessHybrid {
+			options.HeadlessHybrid = false
+			gologger.Warning().Msgf("Recorded flow (-rf) requires pure headless mode; disabling -hh.")
+		}
+		if !options.Headless {
+			options.Headless = true
+			gologger.Info().Msgf("Headless mode enabled automatically for recorded flow.")
+		}
+
+		username, password := "", ""
+		if options.AuthCredentials != "" {
+			parts := strings.SplitN(options.AuthCredentials, ":", 2)
+			username = parts[0]
+			if len(parts) > 1 {
+				password = parts[1]
+			}
+		}
+		steps, err := auth.StepsFromFile(options.RecordedFlow, username, password)
+		if err != nil {
+			return errkit.Wrap(err, "invalid recorded flow")
+		}
+		if auth.NeedsCredentials(steps) && options.AuthCredentials == "" {
+			return errkit.New("recorded flow requires -auto-login username:password for credential placeholders")
+		}
+		replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(steps)
+		if loginURL == "" {
+			return errkit.New("recorded flow requires an absolute http(s) navigate step")
+		}
+		if len(replaySteps) == 0 {
+			return errkit.New("recorded flow requires at least one action after its navigate step")
+		}
+	}
+
+	// Checked after -al and -rf, which enable pure headless mode themselves.
+	if options.MaxScrollSteps > 0 && !options.Headless && options.ChromeWSUrl == "" {
+		return errkit.New("headless (-hl) mode is required if -max-scroll-steps is set")
+	}
+
+	// Overlay -crawl-strategy after headless mode is resolved (-al and -rf may enable it).
 	if err := types.ApplyCrawlStrategy(options); err != nil {
 		return err
 	}
@@ -76,9 +132,9 @@ func validateOptions(options *types.Options) error {
 		options.PageLoadStrategy = "heuristic"
 	}
 
-	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "") &&
+	if (options.HeadlessOptionalArguments != nil || options.HeadlessNoSandbox || options.SystemChromePath != "" || options.UseInstalledChrome) &&
 		!options.Headless && !options.HeadlessHybrid {
-		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos or -scp are set")
+		return errkit.New("headless (-hl) or hybrid (-hh) mode is required if -ho, -nos, -sc or -scp are set")
 	}
 	if options.SystemChromePath != "" {
 		if !fileutil.FileExists(options.SystemChromePath) {
