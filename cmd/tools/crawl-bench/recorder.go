@@ -12,8 +12,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // maxBodyCapture bounds how much of a request body is read to learn its parameter names.
@@ -31,13 +33,16 @@ type hit struct {
 // recorder is a reverse proxy in front of a target that records every request,
 // so coverage is measured from the server side rather than from katana's output.
 type recorder struct {
-	proxy *httputil.ReverseProxy
-	mu    sync.Mutex
-	hits  []hit
+	target *url.URL
+	proxy  *httputil.ReverseProxy
+	// fallback is the page the app serves for paths it does not have, if it answers them with 200.
+	fallback []byte
+	mu       sync.Mutex
+	hits     []hit
 }
 
 func newRecorder(target *url.URL) *recorder {
-	r := &recorder{}
+	r := &recorder{target: target}
 	r.proxy = &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)
@@ -46,7 +51,12 @@ func newRecorder(target *url.URL) *recorder {
 		},
 		// recorded here rather than after ServeHTTP, which for a websocket returns only when the socket closes
 		ModifyResponse: func(resp *http.Response) error {
-			r.record(resp.Request, resp.StatusCode)
+			status := resp.StatusCode
+			if r.isFallback(resp) {
+				// a single page app serving its shell for an unknown path is a 404 in all but status
+				status = http.StatusNotFound
+			}
+			r.record(resp.Request, status)
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, req *http.Request, err error) {
@@ -60,6 +70,40 @@ func newRecorder(target *url.URL) *recorder {
 		},
 	}
 	return r
+}
+
+// calibrate learns the app's fallback page by requesting a path that cannot exist.
+func (r *recorder) calibrate() error {
+	resp, err := http.Get(r.target.JoinPath("crawl-bench-" + strconv.FormatInt(time.Now().UnixNano(), 36)).String())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyCapture))
+	if err != nil {
+		return err
+	}
+	r.fallback = body
+	return nil
+}
+
+func (r *recorder) isFallback(resp *http.Response) bool {
+	if len(r.fallback) == 0 || resp.StatusCode != http.StatusOK {
+		return false
+	}
+	if resp.ContentLength >= 0 && resp.ContentLength != int64(len(r.fallback)) {
+		return false
+	}
+	// read one byte past the fallback size so a longer body never matches
+	head, _ := io.ReadAll(io.LimitReader(resp.Body, int64(len(r.fallback))+1))
+	resp.Body = struct {
+		io.Reader
+		io.Closer
+	}{io.MultiReader(bytes.NewReader(head), resp.Body), resp.Body}
+	return bytes.Equal(head, r.fallback)
 }
 
 // statusClientClosed follows nginx's convention for a client that left before the response.

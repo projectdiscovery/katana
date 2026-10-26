@@ -111,6 +111,9 @@ func crawl(katana string, t target, runArgs []string) (Metrics, error) {
 		return Metrics{}, err
 	}
 	rec := newRecorder(upstream)
+	if err := rec.calibrate(); err != nil {
+		return Metrics{}, fmt.Errorf("calibrate: %w", err)
+	}
 	srv := &http.Server{Handler: rec, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
 	defer func() { _ = srv.Shutdown(context.Background()) }()

@@ -50,6 +50,33 @@ func TestRecorderRecordsWhatTheServerReceived(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, hits[1].Status)
 }
 
+func TestRecorderTreatsFallbackPageAsNotFound(t *testing.T) {
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/items" {
+			_, _ = w.Write([]byte(`[1,2]`))
+			return
+		}
+		// single page apps answer every unknown path with their index page
+		_, _ = w.Write([]byte("<html>app shell</html>"))
+	}))
+	defer app.Close()
+
+	upstream, _ := url.Parse(app.URL)
+	rec := newRecorder(upstream)
+	require.NoError(t, rec.calibrate())
+	proxy := httptest.NewServer(rec)
+	defer proxy.Close()
+
+	for _, p := range []string{"/api/items", "/made/up/path", "/another.js"} {
+		resp, err := http.Get(proxy.URL + p)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		require.NotEmpty(t, body, "client must still get the body")
+	}
+	require.Equal(t, 1, computeMetrics(rec.snapshot(), 0).Routes)
+}
+
 func TestRecorderUpgradesConnections(t *testing.T) {
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Connection", "Upgrade")
