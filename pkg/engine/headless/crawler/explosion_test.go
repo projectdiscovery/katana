@@ -33,6 +33,15 @@ func TestOverExplosionBudget(t *testing.T) {
 	require.NoError(t, c.crawlGraph.AddPageState(types.PageState{UniqueID: "m1", OriginID: "list", URL: "https://example.com/calendar?month=1", SimHash: 0b00001111}))
 	require.True(t, c.overExplosionBudget(&types.PageState{UniqueID: "m2", OriginID: "m1", URL: "https://example.com/calendar?month=2", SimHash: 0b11110001}))
 
+	// A rejected state stays in the graph, but a later visit to it is still
+	// rejected, and so is an in-place change of it.
+	rejected := &types.PageState{UniqueID: "p3", OriginID: "list", URL: "https://example.com/p/3", SimHash: 0b11110010}
+	require.True(t, c.overExplosionBudget(rejected))
+	require.NoError(t, c.crawlGraph.AddPageState(*rejected))
+	require.True(t, c.overExplosionBudget(rejected), "a revisit must not admit a rejected state")
+	require.True(t, c.overExplosionBudget(&types.PageState{UniqueID: "p3-menu", OriginID: "p3", URL: "https://example.com/p/3#menu", SimHash: 0b11110011}))
+	require.False(t, c.overExplosionBudget(first), "an admitted state stays admitted")
+
 	off := &Crawler{crawlGraph: graph.NewCrawlGraph()}
 	require.False(t, off.overExplosionBudget(&types.PageState{UniqueID: "x", URL: "https://example.com/x"}))
 }
