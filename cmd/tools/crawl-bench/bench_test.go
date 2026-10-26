@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"mime/multipart"
@@ -75,6 +76,44 @@ func TestRecorderTreatsFallbackPageAsNotFound(t *testing.T) {
 		require.NotEmpty(t, body, "client must still get the body")
 	}
 	require.Equal(t, 1, computeMetrics(rec.snapshot(), 0).Routes)
+}
+
+func TestRecorderTreatsCompressedAndRevalidatedFallbackAsNotFound(t *testing.T) {
+	shell := []byte("<html>app shell</html>")
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("ETag", `W/"shell"`)
+		if r.Header.Get("If-None-Match") == `W/"shell"` {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+			gz := gzip.NewWriter(w)
+			_, _ = gz.Write(shell)
+			_ = gz.Close()
+			return
+		}
+		_, _ = w.Write(shell)
+	}))
+	defer app.Close()
+
+	upstream, _ := url.Parse(app.URL)
+	rec := newRecorder(upstream)
+	require.NoError(t, rec.calibrate())
+	proxy := httptest.NewServer(rec)
+	defer proxy.Close()
+
+	// browsers ask for gzip and revalidate pages they have seen
+	for _, h := range []map[string]string{{"Accept-Encoding": "gzip"}, {"If-None-Match": `W/"shell"`}} {
+		req, _ := http.NewRequest(http.MethodGet, proxy.URL+"/made/up", nil)
+		for k, v := range h {
+			req.Header.Set(k, v)
+		}
+		resp, err := http.DefaultTransport.RoundTrip(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+	}
+	require.Zero(t, computeMetrics(rec.snapshot(), 0).Routes)
 }
 
 func TestRecorderUpgradesConnections(t *testing.T) {

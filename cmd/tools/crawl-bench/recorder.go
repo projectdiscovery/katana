@@ -36,9 +36,10 @@ type recorder struct {
 	target *url.URL
 	proxy  *httputil.ReverseProxy
 	// fallback is the page the app serves for paths it does not have, if it answers them with 200.
-	fallback []byte
-	mu       sync.Mutex
-	hits     []hit
+	fallback     []byte
+	fallbackETag string
+	mu           sync.Mutex
+	hits         []hit
 }
 
 func newRecorder(target *url.URL) *recorder {
@@ -48,6 +49,8 @@ func newRecorder(target *url.URL) *recorder {
 			pr.SetURL(target)
 			// keep the proxy host so absolute links and redirects the app builds point back through the proxy
 			pr.Out.Host = pr.In.Host
+			// the transport then negotiates and decodes compression itself, so bodies compare byte for byte
+			pr.Out.Header.Del("Accept-Encoding")
 		},
 		// recorded here rather than after ServeHTTP, which for a websocket returns only when the socket closes
 		ModifyResponse: func(resp *http.Response) error {
@@ -87,11 +90,19 @@ func (r *recorder) calibrate() error {
 		return err
 	}
 	r.fallback = body
+	r.fallbackETag = resp.Header.Get("ETag")
 	return nil
 }
 
 func (r *recorder) isFallback(resp *http.Response) bool {
-	if len(r.fallback) == 0 || resp.StatusCode != http.StatusOK {
+	if len(r.fallback) == 0 {
+		return false
+	}
+	if resp.StatusCode == http.StatusNotModified {
+		// a browser revalidating the fallback it already got
+		return r.fallbackETag != "" && resp.Header.Get("ETag") == r.fallbackETag
+	}
+	if resp.StatusCode != http.StatusOK {
 		return false
 	}
 	if resp.ContentLength >= 0 && resp.ContentLength != int64(len(r.fallback)) {
