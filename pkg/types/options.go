@@ -202,7 +202,7 @@ type Options struct {
 	FilterSimilarThreshold int
 	// RewalkSample is how many headless paths to clean-session rewalk after crawl (0 = off)
 	RewalkSample int
-	// LinkIdentityBudget is how many near-duplicate doors to enqueue (-1 disables, default 1)
+	// LinkIdentityBudget is how many near-duplicate doors to enqueue per page (headless, 0 = off)
 	LinkIdentityBudget int
 	// Debug
 	Debug bool

@@ -7,56 +7,49 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLinkIdentityDropsVolatileQuery(t *testing.T) {
+func click(id, css, text, href string) *types.Action {
+	return &types.Action{
+		Type: types.ActionTypeLeftClick,
+		Element: &types.HTMLElement{
+			TagName:     "a",
+			ID:          id,
+			CSSSelector: css,
+			TextContent: text,
+			Attributes:  map[string]string{"href": href},
+		},
+	}
+}
+
+func TestLinkKeyIgnoresChurn(t *testing.T) {
 	t.Parallel()
-	id := &LinkIdentity{}
-	id.Observe(FeaturesFromAction(&types.Action{
-		Type: types.ActionTypeLeftClick,
-		Element: &types.HTMLElement{
-			TagName:     "a",
-			ID:          "buy",
-			CSSSelector: "a#buy",
-			TextContent: "Buy",
-			Attributes:  map[string]string{"href": "/product?id=1&token=aaa"},
-		},
-	}))
-	id.Observe(FeaturesFromAction(&types.Action{
-		Type: types.ActionTypeLeftClick,
-		Element: &types.HTMLElement{
-			TagName:     "a",
-			ID:          "buy",
-			CSSSelector: "a#buy",
-			TextContent: "Buy",
-			Attributes:  map[string]string{"href": "/product?id=2&token=bbb"},
-		},
-	}))
+	const page = "https://example.com/list"
+	// Query values, visible text and the source page query churn between visits.
+	a := LinkKey(page+"?session=1", click("buy", "a#buy", "Buy (1)", "/product?id=1&token=aaa"))
+	b := LinkKey(page+"?session=2", click("buy", "a#buy", "Buy (2)", "/product?token=bbb&id=2"))
+	require.NotEmpty(t, a)
+	require.Equal(t, a, b)
+}
 
-	core := id.Core()
-	require.Equal(t, 2, id.Visits())
-	require.Equal(t, "a", core.Tag)
-	require.Equal(t, "buy", core.ID)
-	require.Equal(t, "/product", core.PathOnly)
-	// query key set changed (id/token values change identity of key set still same keys - wait, keys are id,token both times)
-	// Path stayed; query keys same set [id, token] - should remain
-	require.Equal(t, []string{"id", "token"}, core.QueryKeys)
+func TestLinkKeySeparatesDoors(t *testing.T) {
+	t.Parallel()
+	const page = "https://example.com/list"
+	base := LinkKey(page, click("", "div > a:nth-child(1)", "Edit", "/edit?id=1"))
 
-	// Path changes → path dropped
-	id.Observe(FeaturesFromAction(&types.Action{
-		Type: types.ActionTypeLeftClick,
-		Element: &types.HTMLElement{
-			TagName:    "a",
-			ID:         "buy",
-			Attributes: map[string]string{"href": "/other?id=3&token=ccc"},
-		},
-	}))
-	core = id.Core()
-	require.Empty(t, core.PathOnly)
-	require.True(t, id.Matches(FeaturesFromAction(&types.Action{
-		Type: types.ActionTypeLeftClick,
-		Element: &types.HTMLElement{
-			TagName:    "a",
-			ID:         "buy",
-			Attributes: map[string]string{"href": "/whatever?id=9&token=zzz"},
-		},
-	})))
+	// Same text, other element: a second Edit button is another door.
+	require.NotEqual(t, base, LinkKey(page, click("", "div > a:nth-child(2)", "Edit", "/edit?id=2")))
+	// Same element, other target path.
+	require.NotEqual(t, base, LinkKey(page, click("", "div > a:nth-child(1)", "Edit", "/delete?id=1")))
+	// Same element, other query keys.
+	require.NotEqual(t, base, LinkKey(page, click("", "div > a:nth-child(1)", "Edit", "/edit?id=1&mode=full")))
+	// Same element on another page.
+	require.NotEqual(t, base, LinkKey("https://example.com/other", click("", "div > a:nth-child(1)", "Edit", "/edit?id=1")))
+}
+
+func TestLinkKeyWithoutAnchor(t *testing.T) {
+	t.Parallel()
+	require.Empty(t, LinkKey("https://example.com/", nil))
+	require.Empty(t, LinkKey("https://example.com/", click("", "", "Edit", "/edit")))
+	require.Empty(t, LinkKey("https://example.com/", &types.Action{Type: types.ActionTypeFillForm}))
+	load := &types.Action{Type: types.ActionTypeLoadURL, Input: "https://example.com/p?id=1"}
+	require.Equal(t, LinkKey("https://example.com/", load), LinkKey("https://example.com/", &types.Action{Type: types.ActionTypeLoadURL, Input: "https://example.com/p?id=2"}))
 }

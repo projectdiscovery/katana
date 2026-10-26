@@ -23,7 +23,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
@@ -41,7 +40,7 @@ type Crawler struct {
 	rewalkResults  []RewalkResult
 	simhashOracle  *simhash.Oracle
 	uniqueActions  map[string]struct{}
-	linkIdentities []*cartography.LinkIdentity
+	linkIdentities map[string]int
 	diagnostics    diagnostics.Writer
 	loggedIn       bool
 }
@@ -103,7 +102,8 @@ type Options struct {
 	// RewalkSample is how many discovered paths to clean-session rewalk after the crawl (0 = off).
 	RewalkSample int
 
-	// LinkIdentity enables volatile-door dedupe across revisits (default on when budget > 0).
+	// LinkIdentityBudget is how many near-duplicate doors (same
+	// cartography.LinkKey) to enqueue. Zero or less disables the check.
 	LinkIdentityBudget int
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
@@ -578,7 +578,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			)
 			continue
 		}
-		if !c.acceptLinkIdentity(nav) {
+		if !c.acceptLinkIdentity(nav, pageState.URL) {
 			c.logger.Debug("Skipping navigation as link identity budget exhausted",
 				slog.Any("navigation", nav),
 			)
