@@ -153,7 +153,7 @@ func prepare(command string) ([]string, error) {
 
 func report(res, base results) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "target\trun\t"+strings.Join(metricNames, "\t"))
+	_, _ = fmt.Fprintln(w, "target\trun\t"+strings.Join(metricNames, "\t"))
 	for _, tname := range sortedKeys(res) {
 		for _, rname := range sortedKeys(res[tname]) {
 			cur := res[tname][rname].fields()
@@ -165,7 +165,7 @@ func report(res, base results) {
 					cells[i] += " (" + delta(old.fields()[i], v) + ")"
 				}
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\n", tname, rname, strings.Join(cells, "\t"))
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", tname, rname, strings.Join(cells, "\t"))
 		}
 	}
 	_ = w.Flush()
