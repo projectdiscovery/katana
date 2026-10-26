@@ -42,6 +42,9 @@ var chromeExitTimeout = 5 * time.Second
 // pageCloseTimeout bounds the CDP calls that close a page and its browser.
 var pageCloseTimeout = 5 * time.Second
 
+// errLauncherClosing is returned for page requests after CloseAll.
+var errLauncherClosing = errors.New("launcher is closing")
+
 // Launcher is a high level controller to launch browsers
 // and do the execution on them.
 type Launcher struct {
@@ -488,6 +491,15 @@ func (p *BrowserPage) WaitNewStable(d time.Duration) error {
 }
 
 func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
+	// Do not start a Chrome during shutdown. The check after creation still
+	// covers a CloseAll that starts while this page is being created.
+	l.liveMu.Lock()
+	closing := l.closing
+	l.liveMu.Unlock()
+	if closing {
+		return nil, errLauncherClosing
+	}
+
 	// When using ChromeWSUrl, we don't need temp directories
 	// since we're connecting to an existing browser
 	var tempDir string
@@ -603,14 +615,14 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	// Success - cancel any deferred cleanup
 	successfulPageCreation = true
 	l.liveMu.Lock()
-	closing := l.closing
+	closing = l.closing
 	l.live[browserPage] = struct{}{}
 	l.liveMu.Unlock()
 	if closing {
 		// CloseAll already ran, so nothing else would close this page.
 		browserPage.cancel()
 		browserPage.CloseBrowserPage()
-		return nil, errors.New("launcher is closing")
+		return nil, errLauncherClosing
 	}
 	return browserPage, nil
 }

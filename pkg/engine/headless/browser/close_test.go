@@ -54,7 +54,10 @@ func TestCloseAllClosesPageInExternalBrowser(t *testing.T) {
 	chrome := launcher.New().Headless(true).NoSandbox(true)
 	wsURL, err := chrome.Launch()
 	require.NoError(t, err)
-	defer chrome.Kill()
+	defer func() {
+		chrome.Kill()
+		chrome.Cleanup() // waits for Chrome to exit, then removes rod's temporary profile
+	}()
 
 	user := rod.New().ControlURL(wsURL)
 	require.NoError(t, user.Connect())
