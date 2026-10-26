@@ -181,7 +181,7 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 		case "password":
 			data.Set(input.Name, FormData.Password)
 		case "tel":
-			data.Set(input.Name, FormData.Password)
+			data.Set(input.Name, FormData.PhoneNumber)
 		default:
 			data.Set(input.Name, FormData.Placeholder)
 		}

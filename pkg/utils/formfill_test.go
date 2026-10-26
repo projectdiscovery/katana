@@ -84,7 +84,7 @@ func TestFormInputFillSuggestions(t *testing.T) {
 			return true
 		})
 		value := queryValuesWriter.Encode()
-		require.Equal(t, "Startdate=katana&color=green&country=india&firstname=katana&food=pasta&message=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=katanaP%40assw0rd1&upclick=%23a52a2a", value, "could not get correct encoded form")
+		require.Equal(t, "Startdate=katana&color=green&country=india&firstname=katana&food=pasta&message=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=2124567890&upclick=%23a52a2a", value, "could not get correct encoded form")
 	})
 }
 
@@ -136,7 +136,7 @@ func TestFormInputFillSuggestionsWithDefaults(t *testing.T) {
 	require.Equal(t, DefaultFormFillData.Password, passVal)
 
 	phoneVal, _ := suggestions.Get("user_phone")
-	require.Equal(t, DefaultFormFillData.Password, phoneVal, "tel type uses Password field")
+	require.Equal(t, DefaultFormFillData.PhoneNumber, phoneVal)
 
 	nickVal, _ := suggestions.Get("nickname")
 	require.Equal(t, DefaultFormFillData.Placeholder, nickVal)
@@ -270,7 +270,7 @@ placeholder: "custom"
 	pwVal, _ := suggestions.Get("pw")
 	require.Equal(t, "customP@ss", pwVal)
 	phVal, _ := suggestions.Get("ph")
-	require.Equal(t, "customP@ss", phVal, "tel uses Password field")
+	require.Equal(t, "9876543210", phVal)
 	nmVal, _ := suggestions.Get("nm")
 	require.Equal(t, "custom", nmVal)
 	clVal, _ := suggestions.Get("cl")
@@ -506,7 +506,7 @@ placeholder: "static-user"
 
 		require.Contains(t, values.Get("contact_email"), "@", "email should be a resolved random address")
 		require.Equal(t, "H@rdC0ded!", values.Get("secret"), "password should be the static value")
-		require.Equal(t, "H@rdC0ded!", values.Get("mobile"), "tel uses Password field value")
+		require.Equal(t, FormData.PhoneNumber, values.Get("mobile"), "tel should use the resolved phone")
 		require.Equal(t, "static-user", values.Get("display_name"), "text should use static placeholder")
 		require.Equal(t, "#facade", values.Get("theme"), "color should be the static value")
 		require.Equal(t, "static-user", values.Get("bio"), "textarea should use static placeholder")
