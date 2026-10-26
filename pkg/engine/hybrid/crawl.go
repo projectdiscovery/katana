@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -57,8 +58,30 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}()
 	c.addHeadersToPage(page)
 
+	if c.cookies != nil {
+		if err := c.cookies.apply(s.Browser.Context(timeoutCtx)); err != nil {
+			gologger.Debug().Msgf("hybrid: could not set shared cookies: %v", err)
+		}
+	}
+
 	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
 		return nil, err
+	}
+
+	// With several agents, links found by the hijack are held and queued
+	// after the cookies of the page are shared; see cookieStore.
+	var (
+		heldMu sync.Mutex
+		held   []*navigation.Request
+	)
+	if c.cookies != nil {
+		share := c.shareCookies(s)
+		defer func() {
+			share()
+			heldMu.Lock()
+			defer heldMu.Unlock()
+			c.Enqueue(s.Queue, held...)
+		}()
 	}
 
 	pageRouter := NewHijack(page)
@@ -203,7 +226,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 		if parse {
 			navigationRequests := c.Options.Parser.ParseResponse(resp)
-			c.Enqueue(s.Queue, navigationRequests...)
+			if c.cookies != nil {
+				// Hold the links until the cookies of this page are shared, so
+				// the agent that takes a link sends them.
+				heldMu.Lock()
+				held = append(held, navigationRequests...)
+				heldMu.Unlock()
+			} else {
+				c.Enqueue(s.Queue, navigationRequests...)
+			}
 		}
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -449,6 +480,30 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	return response, nil
+}
+
+// shareCookies reads the cookies of the agent browser before a navigation and
+// returns a func that, after it, writes the cookies that changed to the
+// shared store.
+func (c *Crawler) shareCookies(s *common.CrawlSession) func() {
+	read := func() (map[cookieKey]*proto.NetworkCookie, error) {
+		ctx, cancel := context.WithTimeout(s.Ctx, 5*time.Second)
+		defer cancel()
+		return browserCookies(s.Browser.Context(ctx))
+	}
+	before, err := read()
+	if err != nil {
+		gologger.Debug().Msgf("hybrid: could not read cookies: %v", err)
+		return func() {}
+	}
+	return func() {
+		after, err := read()
+		if err != nil {
+			gologger.Debug().Msgf("hybrid: could not read cookies: %v", err)
+			return
+		}
+		c.cookies.record(before, after)
+	}
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {

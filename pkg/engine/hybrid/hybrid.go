@@ -41,6 +41,8 @@ type Crawler struct {
 	browser *rod.Browser
 	// hooks holds the optional per-page lifecycle callbacks; see SetHooks.
 	hooks Hooks
+	// cookies shares cookies between agents. It is nil with one agent.
+	cookies *cookieStore
 }
 
 // proxyBypassList returns the Chrome proxy bypass list to use for proxy.
@@ -95,6 +97,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		Shared:  shared,
 		agents:  agents,
 		browser: agents[0].browser,
+	}
+	if len(agents) > 1 {
+		crawler.cookies = newCookieStore()
 	}
 	return crawler, nil
 }
