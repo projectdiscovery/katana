@@ -71,8 +71,10 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	if opts.PageLoadStrategy == "" {
 		opts.PageLoadStrategy = "heuristic"
 	}
-	
-	if opts.DOMWaitTime <= 0 {
+
+	// Negative means unset → default 5s. Zero is a valid "no post-load wait"
+	// (used by -crawl-strategy fast and explicit -dwt 0).
+	if opts.DOMWaitTime < 0 {
 		opts.DOMWaitTime = 5
 	}
 	
