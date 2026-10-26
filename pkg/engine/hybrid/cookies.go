@@ -1,6 +1,7 @@
 package hybrid
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -24,9 +25,20 @@ type cookieStore struct {
 	cookies map[cookieKey]*proto.NetworkCookieParam
 }
 
-// cookieKey identifies a cookie as a browser does: by name, domain and path.
+// cookieKey identifies a cookie as a browser does: by name, domain, path and
+// partition. A partitioned cookie (CHIPS) is apart from an unpartitioned one
+// with the same name, domain and path.
 type cookieKey struct {
 	name, domain, path string
+	partition          string
+}
+
+func newCookieKey(c *proto.NetworkCookie) cookieKey {
+	key := cookieKey{name: c.Name, domain: c.Domain, path: c.Path}
+	if p := c.PartitionKey; p != nil {
+		key.partition = fmt.Sprintf("%s|%t", p.TopLevelSite, p.HasCrossSiteAncestor)
+	}
+	return key
 }
 
 func newCookieStore() *cookieStore {
@@ -78,7 +90,7 @@ func browserCookies(b *rod.Browser) (map[cookieKey]*proto.NetworkCookie, error) 
 	}
 	cookies := make(map[cookieKey]*proto.NetworkCookie, len(res.Cookies))
 	for _, c := range res.Cookies {
-		cookies[cookieKey{name: c.Name, domain: c.Domain, path: c.Path}] = c
+		cookies[newCookieKey(c)] = c
 	}
 	return cookies, nil
 }
@@ -101,6 +113,10 @@ func cookieParam(c *proto.NetworkCookie) *proto.NetworkCookieParam {
 		Priority:     c.Priority,
 		SourceScheme: c.SourceScheme,
 		SourcePort:   &port,
+	}
+	if c.PartitionKey != nil {
+		partition := *c.PartitionKey
+		p.PartitionKey = &partition
 	}
 	// A host-only cookie has a domain without a leading dot. Set it by URL,
 	// as a domain would also send it to subdomains.

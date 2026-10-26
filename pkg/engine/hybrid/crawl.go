@@ -58,24 +58,36 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}()
 	c.addHeadersToPage(page)
 
+	// With several agents, the links found on the page are held and queued
+	// after the cookies of the page are shared; see cookieStore.
+	var (
+		heldMu sync.Mutex
+		held   []*navigation.Request
+		share  func()
+	)
+	enqueue := func(reqs ...*navigation.Request) {
+		if c.cookies == nil {
+			c.Enqueue(s.Queue, reqs...)
+			return
+		}
+		heldMu.Lock()
+		held = append(held, reqs...)
+		heldMu.Unlock()
+	}
 	if c.cookies != nil {
 		if err := c.cookies.apply(s.Browser.Context(timeoutCtx)); err != nil {
 			gologger.Debug().Msgf("hybrid: could not set shared cookies: %v", err)
 		}
+		// The baseline is read before BeforeNavigate, so cookies that the
+		// hook sets are shared too.
+		share = c.shareCookies(s)
 	}
 
 	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
 		return nil, err
 	}
 
-	// With several agents, links found by the hijack are held and queued
-	// after the cookies of the page are shared; see cookieStore.
-	var (
-		heldMu sync.Mutex
-		held   []*navigation.Request
-	)
 	if c.cookies != nil {
-		share := c.shareCookies(s)
 		defer func() {
 			share()
 			heldMu.Lock()
@@ -225,16 +237,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		if parse {
-			navigationRequests := c.Options.Parser.ParseResponse(resp)
-			if c.cookies != nil {
-				// Hold the links until the cookies of this page are shared, so
-				// the agent that takes a link sends them.
-				heldMu.Lock()
-				held = append(held, navigationRequests...)
-				heldMu.Unlock()
-			} else {
-				c.Enqueue(s.Queue, navigationRequests...)
-			}
+			enqueue(c.Options.Parser.ParseResponse(resp)...)
 		}
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -434,8 +437,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 		if responseCopy.Reader != nil {
-			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-			c.Enqueue(s.Queue, navigationRequests...)
+			enqueue(c.Options.Parser.ParseResponse(&responseCopy)...)
 		}
 	}
 
@@ -464,7 +466,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 					Depth:        depth,
 					RootHostname: s.Hostname,
 				}
-				c.Enqueue(s.Queue, navReq)
+				enqueue(navReq)
 				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
 			}
 		}
