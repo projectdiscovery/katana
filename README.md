@@ -41,7 +41,7 @@
 
 ## Installation
 
-katana requires Go 1.26+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
+katana requires Go 1.26.10+ to install successfully. If you encounter any installation issues, we recommend trying with the latest available version of Go, as the minimum required version may have changed. Run the command below or download a pre-compiled binary from the [release page](https://github.com/projectdiscovery/katana/releases).
 
 ```console
 CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
@@ -180,6 +180,7 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
+   -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
 
@@ -390,9 +391,26 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr requests
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
+   -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
+   -al, -auto-login string           automatic login with username:password (headless only)
+   -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
 ```
+
+### Interactive UI exploration
+
+Use `-interactive` to explore clickable states in the pure headless browser. It enables headless mode, starts at the target page, clicks candidates depth first, and restores a parent state before trying its next control. `-interaction-depth` counts successful state transitions, so a depth of 4 explores four clicks from the starting page. This mode is slower than ordinary headless crawling because a branch may need to be replayed after a click changes the page.
+
+```console
+katana -u https://example.com/app -interactive -interaction-depth 4 \
+  -interaction-max-states 500 -interaction-max-actions 2000 \
+  -interaction-settle 2s -interaction-duration 5m -crawl-duration 20m
+```
+
+`-interaction-selector` and `-interaction-exclude` accept CSS selectors. The default candidate set includes buttons, links, common ARIA controls, inline click handlers, and observed click listeners. After UI exploration, Katana continues its ordinary headless URL crawl. Use `-interaction-duration` to reserve time for that crawl within `-crawl-duration`. Set an action or state limit to `0` to remove that limit.
+
+The existing `-H` option also applies to headless crawling. `Cookie` values are seeded in the browser before navigation, and other headers are attached to requests the crawl scope accepts. New tabs opened by a click are explored when their URL is in scope. Selectors cannot reach every canvas control, closed shadow root, or cross origin frame, so inspect the crawl summary when assessing coverage.
 
 *`-no-sandbox`*
 ----
@@ -726,9 +744,13 @@ katana -u https://example.com -kb-endpoints
 
 ## Authenticated Crawling
 
-Authenticated crawling involves including custom headers or cookies in HTTP requests to access protected resources. These headers provide authentication or authorization information, allowing you to crawl authenticated content / endpoint. You can specify headers directly in the command line or provide them as a file with katana to perform authenticated crawling.
+Katana supports authenticated crawling in several ways: static headers/cookies, attaching to an already-logged-in Chrome session, automatic form login (`-auto-login`), and **recorded browser flows** (`-recorded-flow`) for multi-step / SPA / SSO-style logins.
 
-> **Note**: User needs to be manually perform the authentication and export the session cookie / header to file to use with katana.
+### Headers / cookies
+
+Authenticated crawling can include custom headers or cookies in HTTP requests to access protected resources. You can specify headers directly on the command line or provide them as a file.
+
+> **Note**: For the header/cookie approach, perform authentication manually once and export the session cookie / header to use with katana.
 
 *`-headers`*
 ----
@@ -755,6 +777,65 @@ TOKEN=XX
 katana -u https://tesla.com -H cookie.txt
 ```
 
+### Automatic login (`-auto-login`)
+
+In pure headless mode, katana can detect a login form and submit credentials automatically:
+
+```console
+katana -hl -u https://app.example.com -al 'user:password'
+```
+
+This is best for simple username/password forms. For multi-step, SPA, or SSO logins prefer a recorded flow.
+
+### Recorded flow (`-recorded-flow`)
+
+Recorded flows let you export a real browser login from **Chrome DevTools → Recorder** and replay it once **before the crawl starts**. Session cookies and same-origin web storage stay in the headless browser context for the rest of the crawl.
+
+**1. Record the login in Chrome**
+
+1. Open Chrome DevTools → **Recorder**
+2. Start a new recording and perform the login (navigate, type, click Next, type password, submit, …)
+3. Export the recording as JSON
+
+**2. Replay it with katana**
+
+```console
+katana -hl -u https://app.example.com/dashboard \
+  -rf login.json \
+  -al 'user:password'
+```
+
+Credential literals in the recording are replaced with `{{username}}` / `{{password}}` placeholders and filled from `-al`. If the recording (or an explicit step list) still needs those placeholders, `-al` is required.
+
+Katana also accepts a hand-authored explicit step file:
+
+```json
+{
+  "steps": [
+    {"action": "navigate", "value": "https://app.example.com/login"},
+    {"action": "fill", "selector": "#email", "value": "{{username}}"},
+    {"action": "fill", "selector": "#password", "value": "{{password}}"},
+    {"action": "click", "selector": "#submit"}
+  ]
+}
+```
+
+Supported step actions: `navigate`, `fill`, `click`, `doubleclick`, `waitvisible`, `wait`, `press`, `submit`.
+
+**How it runs**
+
+1. Katana launches headless Chrome
+2. Captures the anonymous browser state, then replays the recorded flow once
+3. Verifies that a cookie or same-origin web-storage value changed; if not, tries `-auto-login` as a fallback
+4. Starts crawling `-u` with the established session
+5. Skips logout URLs while authenticated
+
+For applications that keep authentication entirely server-side without changing
+cookies or web storage, end an explicit flow with `waitvisible` targeting an
+element that only exists after login. A successful terminal visibility check is
+treated as the flow's explicit authentication assertion.
+
+> Recorded flows require **pure headless** (`-hl`). Hybrid (`-hh`) is disabled automatically when `-rf` is set.
 
 There are more options to configure when needed, here is all the config related CLI options - 
 

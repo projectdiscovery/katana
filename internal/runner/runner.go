@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless"
 	"github.com/projectdiscovery/katana/pkg/engine/hybrid"
 	"github.com/projectdiscovery/katana/pkg/engine/standard"
+	"github.com/projectdiscovery/katana/pkg/output/export"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/mapcidr"
 	"github.com/projectdiscovery/mapcidr/asn"
@@ -88,6 +89,16 @@ func New(options *types.Options) (*Runner, error) {
 	crawlerOptions, err := types.NewCrawlerOptions(options)
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not create crawler options")
+	}
+	// Only the pure headless engine reports observed traffic.
+	if options.Headless || options.ChromeWSUrl != "" {
+		outputWriter, exportErr := export.Wrap(crawlerOptions.OutputWriter)
+		if exportErr != nil {
+			gologger.Error().Msgf("Traffic export disabled: %s\n", exportErr)
+		}
+		crawlerOptions.OutputWriter = outputWriter
+	} else if export.Enabled() {
+		gologger.Info().Msgf("Traffic export disabled: %s requires headless (-hl) mode\n", export.EnvEndpoint)
 	}
 
 	var crawler engine.Engine

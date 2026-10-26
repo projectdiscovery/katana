@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -170,4 +171,35 @@ func TestSimHashSimilarity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStateIDSeparatesURLs(t *testing.T) {
+	dom, err := getStrippedDOM(`<html><body><a href="/c.html">go</a></body></html>`)
+	if !assert.NoError(t, err) {
+		return
+	}
+	other, err := getStrippedDOM(`<html><body><a href="/">back</a></body></html>`)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, dom, other, "pages that share a template must have the same stripped DOM")
+
+	assert.NotEqual(t, stateID("https://example.com/a.html", dom), stateID("https://example.com/b.html", other))
+	assert.Equal(t, stateID("https://example.com/a.html", dom), stateID("https://example.com/a.html#top", dom))
+	assert.NotEqual(t, emptyPageHash, stateID("", ""))
+}
+
+func TestSameDocument(t *testing.T) {
+	assert.True(t, sameDocument("https://example.com/a?x=1", "https://example.com/a?x=2#f"))
+	assert.False(t, sameDocument("https://example.com/a.html", "https://example.com/b.html"))
+	assert.False(t, sameDocument("https://example.com/a", "https://other.com/a"))
+}
+
+func TestIsElementMatchHref(t *testing.T) {
+	link := func(href string) *types.HTMLElement {
+		return &types.HTMLElement{TagName: "a", TextContent: "go", Attributes: map[string]string{"href": href}}
+	}
+	assert.True(t, isElementMatch(link("/c.html"), link("/c.html")))
+	assert.False(t, isElementMatch(link("/"), link("/c.html")), "same tag and text but another target is another element")
+	assert.True(t, isElementMatch(&types.HTMLElement{TagName: "button", TextContent: "ok"}, &types.HTMLElement{TagName: "button", TextContent: "ok"}))
 }

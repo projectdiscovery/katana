@@ -9,7 +9,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
-	stringsutil "github.com/projectdiscovery/utils/strings"
 )
 
 type Options struct {
@@ -55,10 +54,15 @@ func scriptContentJsluiceParser(resp *navigation.Response) (navigationRequests [
 
 // scriptJSFileJsluiceParser parses endpoints using jsluice from js file pages
 func scriptJSFileJsluiceParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
-	// Only process javascript file based on path or content type
-	// CSS, JS are supported for relative endpoint extraction.
+	// Only process javascript file based on path or content type.
+	// CSS is skipped first: jsluice finds nothing in it and its JS parser blows up on large stylesheets.
+	// A .css path wins over a JavaScript content type, including a mislabeled stylesheet.
+	path := strings.ToLower(resp.Resp.Request.URL.Path)
+	if strings.HasSuffix(path, ".css") {
+		return
+	}
 	contentType := resp.Resp.Header.Get("Content-Type")
-	if !stringsutil.HasSuffixAny(resp.Resp.Request.URL.Path, ".js", ".css") && !strings.Contains(contentType, "/javascript") {
+	if !strings.HasSuffix(path, ".js") && !strings.Contains(strings.ToLower(contentType), "/javascript") {
 		return
 	}
 	// Skip common js libraries

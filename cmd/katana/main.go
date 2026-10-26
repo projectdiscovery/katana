@@ -166,6 +166,14 @@ func readFlags() (*goflags.FlagSet, error) {
 	// Headless group
 	flagSet.CreateGroup("headless", "Headless",
 		flagSet.BoolVarP(&options.Headless, "headless", "hl", false, "enable headless crawling (experimental)"),
+		flagSet.BoolVar(&options.Interactive, "interactive", false, "explore clickable UI states with depth-first traversal (pure headless)"),
+		flagSet.IntVar(&options.InteractionDepth, "interaction-depth", 4, "maximum number of consecutive UI clicks in interactive mode"),
+		flagSet.StringVar(&options.InteractionSelector, "interaction-selector", "button, input[type=button], input[type=submit], a, [role=button], [role=link], [role=tab], [onclick]", "CSS selector for candidate elements in interactive mode"),
+		flagSet.StringVar(&options.InteractionExclude, "interaction-exclude", "", "CSS selector for elements to skip in interactive mode"),
+		flagSet.IntVar(&options.InteractionMaxStates, "interaction-max-states", 1000, "maximum unique UI states in interactive mode (0 = unlimited)"),
+		flagSet.IntVar(&options.InteractionMaxActions, "interaction-max-actions", 10000, "maximum click attempts in interactive mode (0 = unlimited)"),
+		flagSet.DurationVar(&options.InteractionSettle, "interaction-settle", 2*time.Second, "maximum wait for a UI change after each click"),
+		flagSet.DurationVar(&options.InteractionDuration, "interaction-duration", 0, "maximum time spent on UI exploration before continuing ordinary headless crawl (0 = unlimited)"),
 		flagSet.BoolVarP(&options.HeadlessHybrid, "hybrid", "hh", false, "enable headless hybrid crawling (experimental)"),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "use local installed chrome browser instead of katana installed"),
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
@@ -180,9 +188,12 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.EnableDiagnostics, "enable-diagnostics", "ed", false, "enable diagnostics"),
 		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "heuristic", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
+		flagSet.IntVar(&options.MaxScrollSteps, "max-scroll-steps", 0, "maximum viewport scrolls to reveal lazy-loaded content (headless only)"),
+		flagSet.IntVar(&options.RewalkSample, "rewalk-sample", 0, "number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
 		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
+		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
 	)
 
 	// Scope group
