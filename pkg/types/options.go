@@ -207,9 +207,9 @@ type Options struct {
 	// HeadlessAgents are the identities to crawl as, at the same time: anon or
 	// username:password each (headless only; one identity with -cdd/-cwu)
 	HeadlessAgents goflags.StringSlice
-	// ExplosionBudget is near-duplicate page explore budget for headless (-1 off, default 1)
+	// ExplosionBudget is how many near-duplicate pages to explore links from (headless, 0 = off)
 	ExplosionBudget int
-	// ExplosionHamming is simhash distance for explosion clustering (default 3)
+	// ExplosionHamming is the simhash distance for explosion clustering (0 or less = 3)
 	ExplosionHamming int
 	// CrawlStrategy is fast|balanced|thorough (-crawl-strategy / -cstr); when set it overlays headless cartography knobs
 	CrawlStrategy string

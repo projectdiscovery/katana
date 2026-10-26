@@ -22,8 +22,8 @@ func ApplyCrawlStrategy(options *Options) error {
 	}
 	cfg := cartography.ConfigFor(s)
 	gologger.Warning().Msgf(
-		"crawl-strategy %q overlays depth=%d page-load=%s dom-wait=%ds agents=%d rewalk=%d explosion-budget=%d filter-similar=%t",
-		s, cfg.MaxDepth, cfg.PageLoadStrategy, cfg.DOMWaitTime, cfg.AgentCount, cfg.RewalkSample, cfg.ExplosionBudget, cfg.FilterSimilarURLs,
+		"crawl-strategy %q overlays depth=%d page-load=%s dom-wait=%ds rewalk=%d explosion-budget=%d filter-similar=%t",
+		s, cfg.MaxDepth, cfg.PageLoadStrategy, cfg.DOMWaitTime, cfg.RewalkSample, cfg.ExplosionBudget, cfg.FilterSimilarURLs,
 	)
 	options.PageLoadStrategy = cfg.PageLoadStrategy
 	options.DOMWaitTime = cfg.DOMWaitTime

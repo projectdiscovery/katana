@@ -108,9 +108,11 @@ type Options struct {
 	// cartography.LinkKey) to enqueue. Zero or less disables the check.
 	LinkIdentityBudget int
 
-	// ExplosionBudget is how many near-duplicate page locations to fully explore (0 = default 1, -1 = off).
+	// ExplosionBudget is how many near-duplicate pages to fully explore. Zero
+	// or less disables the check.
 	ExplosionBudget int
-	// ExplosionHamming is the max simhash distance for explosion clustering (default 3).
+	// ExplosionHamming is the max simhash distance for explosion clustering
+	// (0 or less = cartography.DefaultMaxHamming).
 	ExplosionHamming int
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
@@ -195,12 +197,8 @@ func New(opts Options) (*Crawler, error) {
 		diagnostics:   diagnosticsWriter,
 		simhashOracle: simhash.NewOracle(),
 	}
-	if opts.ExplosionBudget >= 0 {
-		budget := opts.ExplosionBudget
-		if budget == 0 {
-			budget = 1
-		}
-		crawler.explosionBudget = cartography.NewExplosionBudget(budget, opts.ExplosionHamming)
+	if opts.ExplosionBudget > 0 {
+		crawler.explosionBudget = cartography.NewExplosionBudget(opts.ExplosionBudget, opts.ExplosionHamming)
 	}
 	return crawler, nil
 }
@@ -545,17 +543,6 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 	}
 	pageState.OriginID = currentPageHash
 
-	if c.explosionBudget != nil && !c.explosionBudget.Allow(pageState.SimHash) {
-		c.logger.Debug("Skipping page state - explosion budget exhausted",
-			slog.String("url", pageState.URL),
-			slog.Uint64("simhash", pageState.SimHash),
-		)
-		if c.crawlQueue.Size() == 0 {
-			return ErrNoCrawlingAction
-		}
-		return nil
-	}
-
 	if c.options.ScopeValidator != nil {
 		if !c.options.ScopeValidator(pageState.URL) {
 			c.logger.Debug("Skipping navigation collection - current page is out of scope",
@@ -566,6 +553,22 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			}
 			return nil
 		}
+	}
+
+	if c.overExplosionBudget(pageState) {
+		// The location was reached, so it stays in the graph and its paths;
+		// only its links are not explored.
+		if err := c.crawlGraph.AddPageState(*pageState); err != nil {
+			return err
+		}
+		c.logger.Debug("Skipping navigation collection - explosion budget exhausted",
+			slog.String("url", pageState.URL),
+			slog.Uint64("simhash", pageState.SimHash),
+		)
+		if c.crawlQueue.Size() == 0 {
+			return ErrNoCrawlingAction
+		}
+		return nil
 	}
 
 	navigations, err := page.FindNavigations()

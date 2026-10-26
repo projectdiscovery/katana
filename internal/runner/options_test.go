@@ -61,7 +61,7 @@ func TestValidateCrawlStrategy(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, opts.MaxDepth)
 		require.Equal(t, "domcontentloaded", opts.PageLoadStrategy)
-		require.Equal(t, 0, opts.DOMWaitTime)
+		require.Equal(t, 1, opts.DOMWaitTime)
 	})
 }
 

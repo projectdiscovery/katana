@@ -22,7 +22,6 @@ type StrategyConfig struct {
 	ExplosionBudget   int
 	ExplosionHamming  int
 	RewalkSample      int // how many discovered paths to clean-session rewalk after the crawl (0 = off)
-	AgentCount        int
 	FilterSimilarURLs bool
 }
 
@@ -46,23 +45,21 @@ func ConfigFor(s Strategy) StrategyConfig {
 	case StrategyFast:
 		return StrategyConfig{
 			PageLoadStrategy:  "domcontentloaded",
-			DOMWaitTime:       0,
+			DOMWaitTime:       1,
 			MaxDepth:          2,
 			ExplosionBudget:   1,
 			ExplosionHamming:  3,
 			RewalkSample:      0,
-			AgentCount:        1,
 			FilterSimilarURLs: true,
 		}
 	case StrategyThorough:
 		return StrategyConfig{
 			PageLoadStrategy:  "heuristic",
-			DOMWaitTime:       0, // unused with heuristic page-load
+			DOMWaitTime:       5, // unused with heuristic page-load
 			MaxDepth:          5,
 			ExplosionBudget:   3,
 			ExplosionHamming:  2,
 			RewalkSample:      3,
-			AgentCount:        2,
 			FilterSimilarURLs: true,
 		}
 	default: // balanced
@@ -73,7 +70,6 @@ func ConfigFor(s Strategy) StrategyConfig {
 			ExplosionBudget:   1,
 			ExplosionHamming:  3,
 			RewalkSample:      1,
-			AgentCount:        1,
 			FilterSimilarURLs: true,
 		}
 	}

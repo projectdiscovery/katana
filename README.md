@@ -180,8 +180,10 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -cstr, -crawl-strategy string     crawl intensity preset for headless (fast, balanced, thorough)
-   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (0 disables) (default 5)
+   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -link-identity-budget int         maximum near-duplicate links (same element and target path, other query values) to follow per page (headless only, 0 = off)
+   -explosion-budget int             maximum near-duplicate pages (similar DOM at other URLs) to explore links from (headless only, 0 = off)
+   -explosion-hamming int            maximum simhash distance for pages to count as near-duplicates with -explosion-budget (default 3)
    -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
@@ -393,8 +395,10 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr requests
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -cstr, -crawl-strategy string     crawl intensity preset for headless (fast, balanced, thorough)
-   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (0 disables) (default 5)
+   -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -link-identity-budget int         maximum near-duplicate links (same element and target path, other query values) to follow per page (headless only, 0 = off)
+   -explosion-budget int             maximum near-duplicate pages (similar DOM at other URLs) to explore links from (headless only, 0 = off)
+   -explosion-hamming int            maximum simhash distance for pages to count as near-duplicates with -explosion-budget (default 3)
    -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
@@ -473,11 +477,11 @@ The `domcontentloaded` strategy is particularly useful for Single Page Applicati
 *`-crawl-strategy`*
 ----
 
-Named intensity preset for headless cartography. Requires `-headless`, `-hh`, or `-cwu`. When set, it overlays depth, page-load wait, rewalk sample, agent count, similar-URL filtering, and explosion budget (a warning lists the applied values). Distinct from `-strategy` (visit order: depth-first / breadth-first).
+Named intensity preset for headless cartography. Requires `-headless`, `-hh`, or `-cwu`. When set, it overlays depth, page-load wait, rewalk sample, similar-URL filtering, and explosion budget (a warning lists the applied values). Distinct from `-strategy` (visit order: depth-first / breadth-first).
 
 | Preset | Description |
 |--------|-------------|
-| `fast` | Shallow crawl, `domcontentloaded` with no post-load wait, no rewalk |
+| `fast` | Shallow crawl, `domcontentloaded` with a 1 second post-load wait, no rewalk |
 | `balanced` | Default-intensity middle ground |
 | `thorough` | Deeper crawl, heuristic page-load, rewalk sample |
 
@@ -488,7 +492,7 @@ katana -u https://tesla.com -headless -crawl-strategy thorough
 *`-dom-wait-time`*
 ----
 
-When using the `domcontentloaded` page load strategy, this option specifies how many seconds to wait after the DOMContentLoaded event fires. This allows time for JavaScript to render interactive elements. Default is 5 seconds; `0` disables the extra wait.
+When using the `domcontentloaded` page load strategy, this option specifies how many seconds to wait after the DOMContentLoaded event fires. This allows time for JavaScript to render interactive elements. Default is 5 seconds.
 
 ```console
 katana -u https://tesla.com -headless -pls domcontentloaded -dwt 10
