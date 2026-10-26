@@ -53,6 +53,9 @@ func main() {
 	out := flag.String("out", "", "write results as json")
 	baseline := flag.String("baseline", "", "results json to compare against")
 	flag.Parse()
+	if err := validateRepeat(*repeat); err != nil {
+		fatal(err)
+	}
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
@@ -179,6 +182,13 @@ func trim(v float64) string {
 		return fmt.Sprint(int(v))
 	}
 	return fmt.Sprintf("%.1f", v)
+}
+
+func validateRepeat(n int) error {
+	if n < 1 {
+		return fmt.Errorf("-repeat must be at least 1")
+	}
+	return nil
 }
 
 func loadConfig(path string) (*config, error) {

@@ -5,7 +5,7 @@ base=${DVWA_URL:-http://127.0.0.1:4280}
 jar=$(mktemp)
 trap 'rm -f "$jar"' EXIT
 
-docker compose -f "$(dirname "$0")/compose.yml" up -d --wait --force-recreate dvwa db >/dev/null 2>&1
+docker compose -f "$(dirname "$0")/compose.yml" up -d --wait --force-recreate dvwa db >/dev/null
 
 token() { curl -fsS -b "$jar" -c "$jar" "$base/$1" | sed -n "s/.*name='user_token' value='\([0-9a-f]*\)'.*/\1/p"; }
 

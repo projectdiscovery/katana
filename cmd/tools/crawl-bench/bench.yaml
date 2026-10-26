@@ -1,7 +1,7 @@
 targets:
   - name: juice-shop
     url: http://127.0.0.1:3000
-    prepare: docker compose up -d --wait --force-recreate juice-shop >/dev/null 2>&1
+    prepare: docker compose up -d --wait --force-recreate juice-shop >/dev/null
   - name: dvwa
     url: http://127.0.0.1:4280
     prepare: ./dvwa-setup.sh

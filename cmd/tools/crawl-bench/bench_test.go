@@ -157,7 +157,52 @@ func TestRecorderDoesNotCountAbandonedRequestsAsErrors(t *testing.T) {
 	require.Error(t, err)
 
 	require.Eventually(t, func() bool { return len(rec.snapshot()) == 1 }, 2*time.Second, 20*time.Millisecond)
-	require.Zero(t, computeMetrics(rec.snapshot(), 0).Errors)
+	m := computeMetrics(rec.snapshot(), 0)
+	require.Zero(t, m.Errors)
+	require.Zero(t, m.Routes)
+}
+
+func TestRecorderKeepsSameOriginRedirect(t *testing.T) {
+	var upstreamURL string
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/next" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.Redirect(w, r, upstreamURL+"/next?x=1", http.StatusFound)
+	}))
+	defer app.Close()
+	upstreamURL = app.URL
+
+	upstream, _ := url.Parse(app.URL)
+	rec := newRecorder(upstream)
+	proxy := httptest.NewServer(rec)
+	defer proxy.Close()
+
+	resp, err := http.Get(proxy.URL + "/start")
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	hits := rec.snapshot()
+	require.Len(t, hits, 2)
+	require.Equal(t, "/next", hits[1].Path)
+	require.Equal(t, []string{"x"}, hits[1].Params)
+
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://example.com/away", http.StatusFound)
+	}))
+	defer other.Close()
+	elsewhere, _ := url.Parse(other.URL)
+	external := newRecorder(elsewhere)
+	extProxy := httptest.NewServer(external)
+	defer extProxy.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, extProxy.URL+"/leave", nil)
+	resp, err = http.DefaultTransport.RoundTrip(req)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	require.Equal(t, "https://example.com/away", resp.Header.Get("Location"))
 }
 
 func TestBodyKeys(t *testing.T) {
@@ -176,13 +221,20 @@ func TestComputeMetrics(t *testing.T) {
 	hits := []hit{
 		{Method: "GET", Path: "/products/1", Status: 200},
 		{Method: "GET", Path: "/products/2", Params: []string{"q"}, Status: 200},
-		{Method: "POST", Path: "/login", Params: []string{"user", "pass"}, Body: true, Status: 302},
-		{Method: "POST", Path: "/login", Params: []string{"pass", "user"}, Body: true, Status: 200},
+		{Method: "POST", Path: "/login", Params: []string{"user", "pass"}, BodyParams: []string{"user", "pass"}, Body: true, Status: 302},
+		{Method: "POST", Path: "/login", Params: []string{"next", "pass", "user"}, BodyParams: []string{"pass", "user"}, Body: true, Status: 200},
 		{Method: "GET", Path: "/nope", Status: 404},
+		{Method: "GET", Path: "/slow", Status: statusClientClosed},
 		{Method: "GET", Path: "/boom", Status: 500},
 	}
 	m := computeMetrics(hits, 1.5)
-	require.Equal(t, Metrics{Routes: 3, Params: 3, Forms: 1, Requests: 6, Errors: 1, Seconds: 1.5}, m)
+	require.Equal(t, Metrics{Routes: 3, Params: 4, Forms: 1, Requests: 7, Errors: 1, Seconds: 1.5}, m)
+}
+
+func TestValidateRepeat(t *testing.T) {
+	require.NoError(t, validateRepeat(1))
+	require.Error(t, validateRepeat(0))
+	require.Error(t, validateRepeat(-1))
 }
 
 func TestMedian(t *testing.T) {

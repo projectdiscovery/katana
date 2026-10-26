@@ -26,8 +26,10 @@ type hit struct {
 	Method string
 	Path   string
 	Params []string
-	Body   bool
-	Status int
+	// BodyParams are the parameter names from the request body. Query names stay in Params.
+	BodyParams []string
+	Body       bool
+	Status     int
 }
 
 // recorder is a reverse proxy in front of a target that records every request,
@@ -54,6 +56,7 @@ func newRecorder(target *url.URL) *recorder {
 		},
 		// recorded here rather than after ServeHTTP, which for a websocket returns only when the socket closes
 		ModifyResponse: func(resp *http.Response) error {
+			rewriteSameOriginRedirect(resp, target)
 			status := resp.StatusCode
 			if r.isFallback(resp) {
 				// a single page app serving its shell for an unknown path is a 404 in all but status
@@ -75,9 +78,35 @@ func newRecorder(target *url.URL) *recorder {
 	return r
 }
 
+// rewriteSameOriginRedirect turns an absolute redirect back to the target into a
+// relative one, so katana follows it through the recorder instead of the upstream.
+func rewriteSameOriginRedirect(resp *http.Response, target *url.URL) {
+	loc := resp.Header.Get("Location")
+	if loc == "" {
+		return
+	}
+	redirect, err := url.Parse(loc)
+	if err != nil || !redirect.IsAbs() || redirect.Scheme != target.Scheme || redirect.Host != target.Host {
+		return
+	}
+	if redirect.Path == "" {
+		redirect.Path = "/"
+	}
+	redirect.Scheme = ""
+	redirect.Host = ""
+	redirect.User = nil
+	resp.Header.Set("Location", redirect.String())
+}
+
 // calibrate learns the app's fallback page by requesting a path that cannot exist.
 func (r *recorder) calibrate() error {
-	resp, err := http.Get(r.target.JoinPath("crawl-bench-" + strconv.FormatInt(time.Now().UnixNano(), 36)).String())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.target.JoinPath("crawl-bench-"+strconv.FormatInt(time.Now().UnixNano(), 36)).String(), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -129,7 +158,8 @@ func (r *recorder) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(body), req.Body))
 		if len(body) > 0 {
 			h.Body = true
-			h.Params = append(h.Params, bodyKeys(req.Header.Get("Content-Type"), body)...)
+			h.BodyParams = bodyKeys(req.Header.Get("Content-Type"), body)
+			h.Params = append(h.Params, h.BodyParams...)
 		}
 	}
 	r.proxy.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), hitKey{}, h)))

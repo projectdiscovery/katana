@@ -34,7 +34,7 @@ func computeMetrics(hits []hit, seconds float64) Metrics {
 		if h.Status >= http.StatusInternalServerError {
 			m.Errors++
 		}
-		if h.Status == http.StatusNotFound {
+		if h.Status == http.StatusNotFound || h.Status == statusClientClosed {
 			continue
 		}
 		route := h.Method + " " + utils.FingerprintURL(h.Path, nil)
@@ -43,7 +43,7 @@ func computeMetrics(hits []hit, seconds float64) Metrics {
 			params[route+" "+p] = struct{}{}
 		}
 		if h.Body {
-			names := append([]string(nil), h.Params...)
+			names := append([]string(nil), h.BodyParams...)
 			sort.Strings(names)
 			forms[route+" "+strings.Join(names, ",")] = struct{}{}
 		}
