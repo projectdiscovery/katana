@@ -7,6 +7,7 @@ require (
 	github.com/adrianbrad/queue v1.3.0
 	github.com/dominikbraun/graph v0.23.0
 	github.com/go-rod/rod v0.116.2
+	github.com/google/uuid v1.6.0
 	github.com/happyhackingspace/dit v0.0.25
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/json-iterator/go v1.1.12
@@ -17,17 +18,17 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/praetorian-inc/titus v1.2.0
-	github.com/projectdiscovery/dsl v0.8.24
+	github.com/projectdiscovery/dsl v0.9.0
 	github.com/projectdiscovery/fastdialer v0.5.26
 	github.com/projectdiscovery/goflags v0.2.1
 	github.com/projectdiscovery/gologger v1.1.73
 	github.com/projectdiscovery/hmap v0.0.102
 	github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890
 	github.com/projectdiscovery/mapcidr v1.1.97
-	github.com/projectdiscovery/ratelimit v0.0.92
+	github.com/projectdiscovery/ratelimit v0.0.94
 	github.com/projectdiscovery/retryablehttp-go v1.3.31
 	github.com/projectdiscovery/utils v0.11.10-0.20261013234757-73f5497aaf2e
-	github.com/projectdiscovery/wappalyzergo v0.3.5
+	github.com/projectdiscovery/wappalyzergo v0.3.6
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stoewer/go-strcase v1.3.0
@@ -90,7 +91,6 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250423184734-337e5dd93bb4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gosimple/slug v1.15.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/hashicorp/go-version v1.8.0 // indirect
@@ -170,7 +170,7 @@ require (
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/weppos/publicsuffix-go v0.50.4-0.20260918082853-3c3d7dc4a0cb // indirect
 	github.com/ysmood/goob v0.4.0 // indirect
-	github.com/ysmood/gson v0.7.3 // indirect
+	github.com/ysmood/gson v0.7.3
 	github.com/ysmood/leakless v0.9.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zmap/zcrypto v0.0.0-20261015050653-aa1de3126e87 // indirect
