@@ -18,7 +18,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/praetorian-inc/titus v1.2.0
-	github.com/projectdiscovery/dsl v0.8.24
+	github.com/projectdiscovery/dsl v0.9.0
 	github.com/projectdiscovery/fastdialer v0.5.26
 	github.com/projectdiscovery/goflags v0.2.1
 	github.com/projectdiscovery/gologger v1.1.73
