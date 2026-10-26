@@ -211,6 +211,8 @@ type Options struct {
 	ExplosionBudget int
 	// ExplosionHamming is the simhash distance for explosion clustering (0 or less = 3)
 	ExplosionHamming int
+	// CrawlStrategy is fast|balanced|thorough (-crawl-strategy / -cstr); when set it overlays headless cartography knobs
+	CrawlStrategy string
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
