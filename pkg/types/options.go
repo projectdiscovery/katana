@@ -118,6 +118,15 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
+	// Interactive explores browser UI states with depth-first clicks.
+	Interactive           bool
+	InteractionDepth      int
+	InteractionSelector   string
+	InteractionExclude    string
+	InteractionMaxStates  int
+	InteractionMaxActions int
+	InteractionSettle     time.Duration
+	InteractionDuration   time.Duration
 	// HeadlessHybrid enables headless hybrid scraping
 	HeadlessHybrid bool
 	// AutomaticFormFill enables optional automatic form filling and submission
@@ -220,7 +229,10 @@ type Options struct {
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
 	PageLoadStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
-	DOMWaitTime           int
+	DOMWaitTime int
+	// MaxScrollSteps is the maximum number of viewport scrolls used to reveal
+	// lazy-loaded content before headless navigation discovery (0 disables it).
+	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
 	// KnowledgeBase enables knowledge base classification using dit
@@ -238,6 +250,9 @@ type Options struct {
 	FilterPageType goflags.StringSlice
 	// AuthCredentials holds username:password for automatic login
 	AuthCredentials string
+	// RecordedFlow is the path to a Chrome DevTools Recorder JSON (or an explicit
+	// LoginStep list) replayed once in headless mode before crawling starts.
+	RecordedFlow string
 	// MaxDomainPages is the maximum number of pages to crawl per domain (0 = unlimited)
 	MaxDomainPages int
 }

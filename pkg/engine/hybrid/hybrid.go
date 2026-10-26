@@ -1,19 +1,23 @@
 package hybrid
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/cdp"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
 )
@@ -24,6 +28,7 @@ type Crawler struct {
 
 	browser        *rod.Browser
 	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
+	cdpWS          *cdp.WebSocket
 	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
 	// This change will be made if there are no complaints about zombie Chrome processes.
 	// References:
@@ -31,6 +36,23 @@ type Crawler struct {
 	// https://github.com/projectdiscovery/httpx/issues/1425
 	// previousPIDs map[int32]struct{} // track already running PIDs
 	tempDir string
+	// hooks holds the optional per-page lifecycle callbacks; see SetHooks.
+	hooks Hooks
+}
+
+// proxyBypassList returns the Chrome proxy bypass list to use for proxy.
+//
+// Chrome bypasses the proxy for localhost, 127.0.0.0/8, [::1] and link-local
+// addresses by default, even when one is configured. "<-loopback>" is the
+// documented way to SUBTRACT that implicit rule, so a configured proxy is
+// honoured for local targets too -- the case where an intercepting proxy is
+// most often used. Empty when no proxy is set, since there is nothing to
+// bypass.
+func proxyBypassList(proxy string) string {
+	if proxy == "" {
+		return ""
+	}
+	return "<-loopback>"
 }
 
 // New returns a new standard crawler instance
@@ -67,33 +89,75 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		}
 	}
 
-	browser := rod.New().ControlURL(launcherURL)
+	// Construct the CDP client here rather than using rod.New().ControlURL(...)
+	// so the websocket handle survives into Close(). rod hides it in an
+	// unexported field, and without it the connection can never be closed --
+	// see Close() for why that leaks. StartWithURL, which Connect calls, is
+	// exactly this.
+	dialCtx, dialCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cdpWS := &cdp.WebSocket{}
+	wsErr := cdpWS.Connect(dialCtx, launcherURL, nil)
+	dialCancel()
+	if wsErr != nil {
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+		return nil, errkit.Wrap(wsErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
+	}
+	browser := rod.New().Client(cdp.New().Start(cdpWS))
 	if browserErr := browser.Connect(); browserErr != nil {
+		_ = cdpWS.Close()
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
 		}
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 
+	owned := false
+	defer func() {
+		if owned {
+			return
+		}
+		if ownsBrowser(browser, chromeLauncher) {
+			_ = browser.Close()
+		}
+		_ = cdpWS.Close()
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+	}()
+
 	// create a new browser instance (default to incognito mode)
 	if !options.Options.HeadlessNoIncognito {
-		incognito, err := browser.Incognito()
+		// Create the browser context directly rather than via browser.Incognito():
+		// rod's helper takes no proxy argument, and Options.Proxy otherwise never
+		// reaches a browser attached through ChromeWSUrl, because the chrome
+		// launcher -- its only proxy path -- does not run in that case.
+		res, err := proto.TargetCreateBrowserContext{
+			ProxyServer: options.Options.Proxy,
+			// "<-loopback>" SUBTRACTS Chrome's implicit proxy bypass.
+			//
+			// Chrome always bypasses the proxy for localhost, 127.0.0.0/8,
+			// [::1] and link-local, even when one is configured; the only way
+			// to disable that built-in rule is to subtract it here. Without
+			// this, `-proxy` is silently ignored for exactly the local targets
+			// people most often put behind an intercepting proxy, and the
+			// crawl still succeeds -- so the traffic simply never appears.
+			//
+			// Only applied when a proxy was actually requested: with no proxy
+			// there is nothing to bypass, and the token would be meaningless.
+			ProxyBypassList: proxyBypassList(options.Options.Proxy),
+		}.Call(browser)
 		if err != nil {
-			_ = browser.Close()
-			if chromeLauncher != nil {
-				chromeLauncher.Kill()
-			}
 			return nil, errkit.Wrap(err, "hybrid: failed to create incognito browser")
 		}
-		browser = incognito
+		incognito := *browser
+		incognito.BrowserContextID = res.BrowserContextID
+		browser = &incognito
 	}
 
 	shared, err := common.NewShared(options)
 	if err != nil {
-		_ = browser.Close()
-		if chromeLauncher != nil {
-			chromeLauncher.Kill()
-		}
 		return nil, errkit.Wrap(err, "hybrid")
 	}
 
@@ -101,17 +165,47 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		Shared:         shared,
 		browser:        browser,
 		chromeLauncher: chromeLauncher,
+		cdpWS:          cdpWS,
 		// previousPIDs: previousPIDs,
 		tempDir: dataStore,
 	}
+	owned = true
 
 	return crawler, nil
 }
 
+func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
+	return chromeLauncher != nil || browser.BrowserContextID != ""
+}
+
+// BrowserContextID returns the id of the browser context this crawler created
+// in New, or "" if it has no browser. It lets an embedding program dispose the
+// context out of band: when a crawl dies without running Close, the context
+// otherwise stays resident in a shared, long-lived browser.
+func (c *Crawler) BrowserContextID() string {
+	if c.browser == nil {
+		return ""
+	}
+	return string(c.browser.BrowserContextID)
+}
+
 // Close closes the crawler process
 func (c *Crawler) Close() error {
-	if c.browser != nil {
+	if c.browser != nil && ownsBrowser(c.browser, c.chromeLauncher) {
 		_ = c.browser.Close()
+	}
+	if c.cdpWS != nil {
+		// Close AFTER browser.Close, which dispatches
+		// Target.disposeBrowserContext over this same socket.
+		//
+		// rod's initEvents goroutine blocks on `for e := range client.Event()`,
+		// and that channel closes only when cdp's read loop errors -- which
+		// happens only when the CONNECTION closes, not on context cancellation
+		// (the websocket Read is a blocking socket read). Disposing the browser
+		// context does not close the connection, so against a browser attached
+		// via ChromeWSUrl -- where there is no launcher to kill -- every crawl
+		// left the socket and its goroutines behind for the browser's lifetime.
+		_ = c.cdpWS.Close()
 	}
 	if c.chromeLauncher != nil {
 		c.chromeLauncher.Kill()
@@ -288,9 +382,14 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 				return nil, errkit.New("hybrid: the chrome browser is not installed")
 			}
 		}
-	}
-	if options.Options.SystemChromePath != "" {
+	} else if options.Options.SystemChromePath != "" {
 		chromeLauncher.Bin(options.Options.SystemChromePath)
+	} else if !options.Options.ShowBrowser && chromeshell.Supported() {
+		// Prefer chrome-headless-shell on linux/amd64 for headless crawls; skip
+		// when headed since the shell binary cannot show a UI.
+		if shellPath, err := chromeshell.Ensure(); err == nil {
+			chromeLauncher.Bin(shellPath)
+		}
 	}
 
 	if options.Options.ShowBrowser {
@@ -303,12 +402,17 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 		chromeLauncher.Set("no-sandbox", "true")
 	}
 
-	if options.Options.Proxy != "" && options.Options.Headless {
+	if options.Options.Proxy != "" {
 		proxyURL, err := urlutil.Parse(options.Options.Proxy)
 		if err != nil {
 			return nil, err
 		}
 		chromeLauncher.Set("proxy-server", proxyURL.String())
+		// Same implicit-bypass problem as the browser-context path above: without
+		// this, a launched Chrome ignores the proxy for loopback targets.
+		// Applied whenever a proxy is set, including -hh (Headless is mutually
+		// exclusive with HeadlessHybrid, so the previous Headless guard never ran).
+		chromeLauncher.Set("proxy-bypass-list", proxyBypassList(options.Options.Proxy))
 	}
 
 	for k, v := range options.Options.ParseHeadlessOptionalArguments() {
