@@ -133,8 +133,8 @@ func targetFeatures(sourceURL, raw string) string {
 // distinct routes are distinct pages. Any other fragment, such as an in-page
 // anchor or a token, is left out.
 func routeFeatures(fragment string) string {
-	route := strings.TrimPrefix(fragment, "!")
-	if !strings.HasPrefix(route, "/") {
+	route := HashRoute(fragment)
+	if route == "" {
 		return ""
 	}
 	route, rawQuery, hasQuery := strings.Cut(route, "?")
@@ -144,6 +144,17 @@ func routeFeatures(fragment string) string {
 	}
 	query, _ := url.ParseQuery(rawQuery)
 	return "#" + route + "?" + queryKeys(query)
+}
+
+// HashRoute returns the hash route of a fragment: "/users" for "#/users" or
+// "#!/users", with its own query. It is "" for any other fragment, such as an
+// in-page anchor (#section) or a token, as those do not name another page.
+func HashRoute(fragment string) string {
+	route := strings.TrimPrefix(fragment, "!")
+	if !strings.HasPrefix(route, "/") {
+		return ""
+	}
+	return route
 }
 
 func queryKeys(query url.Values) string {

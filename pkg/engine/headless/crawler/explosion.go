@@ -2,6 +2,9 @@ package crawler
 
 import (
 	"net/url"
+	"strings"
+
+	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 )
@@ -44,8 +47,10 @@ func (c *Crawler) rejectExplosion(pageState *types.PageState) {
 }
 
 // samePage reports whether a and b are one page: the same document with the
-// same query. Only the fragment may differ. A new query (/calendar?month=2)
-// is another page and counts against the budget.
+// same query and the same hash route (cartography.HashRoute). Only a fragment
+// that is not a route, such as #section, may differ. A new query
+// (/calendar?month=2) or a new hash route (/app#/product/2) is another page
+// and counts against the budget.
 func samePage(a, b string) bool {
 	if !sameDocument(a, b) {
 		return false
@@ -55,5 +60,20 @@ func samePage(a, b string) bool {
 	if errA != nil || errB != nil {
 		return a == b
 	}
-	return ua.Query().Encode() == ub.Query().Encode()
+	return ua.Query().Encode() == ub.Query().Encode() &&
+		normalizedRoute(ua.Fragment) == normalizedRoute(ub.Fragment)
+}
+
+// normalizedRoute returns the hash route of fragment with its query keys in
+// order, so #/item?a=1&b=2 and #/item?b=2&a=1 are one route.
+func normalizedRoute(fragment string) string {
+	route, rawQuery, hasQuery := strings.Cut(cartography.HashRoute(fragment), "?")
+	if !hasQuery {
+		return route
+	}
+	query, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return route + "?" + rawQuery
+	}
+	return route + "?" + query.Encode()
 }

@@ -52,4 +52,32 @@ func TestSamePage(t *testing.T) {
 	require.True(t, samePage("https://example.com/a?x=1&y=2", "https://example.com/a?y=2&x=1"))
 	require.False(t, samePage("https://example.com/a?x=1", "https://example.com/a?x=2"))
 	require.False(t, samePage("https://example.com/a", "https://example.com/b"))
+
+	// Hash routes are pages of a single-page app; other fragments are not.
+	require.False(t, samePage("https://example.com/app#/product/1", "https://example.com/app#/product/2"))
+	require.False(t, samePage("https://example.com/app#!/product/1", "https://example.com/app#!/product/2"))
+	require.False(t, samePage("https://example.com/app", "https://example.com/app#/product/1"))
+	require.False(t, samePage("https://example.com/app#/item?id=1", "https://example.com/app#/item?id=2"))
+	require.True(t, samePage("https://example.com/app#/item?a=1&b=2", "https://example.com/app#/item?b=2&a=1"))
+	require.True(t, samePage("https://example.com/app#/product/1", "https://example.com/app#!/product/1"))
+	require.True(t, samePage("https://example.com/app#section", "https://example.com/app#other"))
+	require.True(t, samePage("https://example.com/app", "https://example.com/app#section"))
+}
+
+func TestOverExplosionBudgetHashRoutes(t *testing.T) {
+	t.Parallel()
+	c := &Crawler{
+		crawlGraph:      graph.NewCrawlGraph(),
+		explosionBudget: cartography.NewExplosionBudget(1, 3),
+	}
+	first := types.PageState{UniqueID: "p1", URL: "https://example.com/app#/product/1", SimHash: 0b11110000}
+	require.False(t, c.overExplosionBudget(&first))
+	require.NoError(t, c.crawlGraph.AddPageState(first))
+
+	// A near-duplicate route reached from the first one is another page.
+	require.True(t, c.overExplosionBudget(&types.PageState{UniqueID: "p2", OriginID: "p1", URL: "https://example.com/app#/product/2", SimHash: 0b11110001}))
+	// An in-page anchor of the first route stays exempt.
+	require.False(t, c.overExplosionBudget(&types.PageState{UniqueID: "p1-menu", OriginID: "p1", URL: "https://example.com/app#/product/1", SimHash: 0b11110001}))
+	require.NoError(t, c.crawlGraph.AddPageState(types.PageState{UniqueID: "doc", URL: "https://example.com/doc"}))
+	require.False(t, c.overExplosionBudget(&types.PageState{UniqueID: "doc-sec", OriginID: "doc", URL: "https://example.com/doc#section", SimHash: 0b11110001}))
 }
