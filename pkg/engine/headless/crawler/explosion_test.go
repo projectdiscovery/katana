@@ -28,6 +28,19 @@ func TestOverExplosionBudget(t *testing.T) {
 	// An in-place change of the page (an opened menu) is never dropped.
 	require.False(t, c.overExplosionBudget(&types.PageState{UniqueID: "p1-menu", OriginID: "p1", URL: "https://example.com/p/1#menu", SimHash: 0b11110001}))
 
+	// A page that links to the next one by query is another page: a calendar
+	// does not walk every month through the exemption.
+	require.NoError(t, c.crawlGraph.AddPageState(types.PageState{UniqueID: "m1", OriginID: "list", URL: "https://example.com/calendar?month=1", SimHash: 0b00001111}))
+	require.True(t, c.overExplosionBudget(&types.PageState{UniqueID: "m2", OriginID: "m1", URL: "https://example.com/calendar?month=2", SimHash: 0b11110001}))
+
 	off := &Crawler{crawlGraph: graph.NewCrawlGraph()}
 	require.False(t, off.overExplosionBudget(&types.PageState{UniqueID: "x", URL: "https://example.com/x"}))
+}
+
+func TestSamePage(t *testing.T) {
+	t.Parallel()
+	require.True(t, samePage("https://example.com/a?x=1", "https://example.com/a?x=1#menu"))
+	require.True(t, samePage("https://example.com/a?x=1&y=2", "https://example.com/a?y=2&x=1"))
+	require.False(t, samePage("https://example.com/a?x=1", "https://example.com/a?x=2"))
+	require.False(t, samePage("https://example.com/a", "https://example.com/b"))
 }
