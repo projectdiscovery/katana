@@ -200,7 +200,17 @@ func (c *Crawler) Paths() ([]*types.Path, error) {
 	if c == nil || c.crawlGraph == nil {
 		return nil, nil
 	}
-	return c.crawlGraph.AllPathsFromRoot()
+	paths, unreachable, err := c.crawlGraph.PathsFrom(emptyPageHash)
+	if err != nil {
+		return nil, err
+	}
+	if len(unreachable) > 0 && c.logger != nil {
+		c.logger.Warn("Crawl states have no path from the entrypoint",
+			slog.Int("count", len(unreachable)),
+			slog.Any("states", unreachable),
+		)
+	}
+	return paths, nil
 }
 
 func (c *Crawler) writePathsExport() error {

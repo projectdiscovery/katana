@@ -4,6 +4,8 @@ package graph
 
 import (
 	"os"
+	"slices"
+	"sort"
 
 	"github.com/dominikbraun/graph"
 	"github.com/dominikbraun/graph/draw"
@@ -130,94 +132,66 @@ func (g *CrawlGraph) ShortestPath(sourceState, targetState string) ([]*types.Act
 	return actionsSlice, nil
 }
 
-// RootID returns the crawl entrypoint vertex (IsRoot, about:blank, or indegree 0).
-func (g *CrawlGraph) RootID() (string, error) {
-	vertices := g.GetVertices()
-	if len(vertices) == 0 {
-		return "", errors.New("crawl graph is empty")
-	}
-	for _, id := range vertices {
-		ps, err := g.GetPageState(id)
-		if err != nil {
-			continue
-		}
-		if ps.IsRoot || ps.URL == "about:blank" {
-			return id, nil
-		}
-	}
-	pred, err := g.graph.PredecessorMap()
+// PathsFrom returns a replayable path from entryID to every other vertex it
+// reaches. One breadth-first walk builds all paths, so each path has the fewest
+// steps. Vertices the walk cannot reach are returned, sorted, in unreachable so
+// callers can report them.
+func (g *CrawlGraph) PathsFrom(entryID string) (paths []*types.Path, unreachable []string, err error) {
+	adjacency, err := g.graph.AdjacencyMap()
 	if err != nil {
-		return "", errors.Wrap(err, "could not get predecessor map")
+		return nil, nil, errors.Wrap(err, "could not get adjacency map")
 	}
-	for _, id := range vertices {
-		if len(pred[id]) == 0 {
-			return id, nil
-		}
+	if _, ok := adjacency[entryID]; !ok {
+		return nil, nil, errors.Errorf("entry state %s is not in the crawl graph", entryID)
 	}
-	return vertices[0], nil
-}
 
-// PathFromRoot builds a Path of actions from the entrypoint to targetID.
-func (g *CrawlGraph) PathFromRoot(targetID string) (*types.Path, error) {
-	entryID, err := g.RootID()
-	if err != nil {
-		return nil, err
-	}
-	return g.pathFromRoot(entryID, targetID)
-}
+	steps := map[string][]*types.Action{entryID: {}}
+	queue := []string{entryID}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
 
-// pathFromRoot builds a Path from a pre-resolved entrypoint to targetID,
-// avoiding a RootID() recomputation per call.
-func (g *CrawlGraph) pathFromRoot(entryID, targetID string) (*types.Path, error) {
-	target, err := g.GetPageState(targetID)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get target page state")
-	}
-	if entryID == targetID {
-		return &types.Path{
-			EntryID:   entryID,
-			TargetID:  targetID,
-			TargetURL: target.URL,
-			Steps:     nil,
-		}, nil
-	}
-	steps, err := g.ShortestPath(entryID, targetID)
-	if err != nil {
-		return nil, err
-	}
-	return &types.Path{
-		EntryID:   entryID,
-		TargetID:  targetID,
-		TargetURL: target.URL,
-		Steps:     steps,
-	}, nil
-}
+		targets := make([]string, 0, len(adjacency[id]))
+		for target := range adjacency[id] {
+			targets = append(targets, target)
+		}
+		sort.Strings(targets)
 
-// AllPathsFromRoot returns a path from the entrypoint to every non-entry vertex.
-func (g *CrawlGraph) AllPathsFromRoot() ([]*types.Path, error) {
-	entryID, err := g.RootID()
-	if err != nil {
-		return nil, err
+		for _, target := range targets {
+			if _, seen := steps[target]; seen {
+				continue
+			}
+			state, err := g.GetPageState(target)
+			if err != nil {
+				return nil, nil, err
+			}
+			targetSteps := steps[id]
+			if state.URL != "about:blank" && state.NavigationAction != nil {
+				// Clip forces a copy, so sibling paths never share a backing array.
+				targetSteps = append(slices.Clip(targetSteps), state.NavigationAction)
+			}
+			steps[target] = targetSteps
+			queue = append(queue, target)
+
+			if state.URL == "about:blank" {
+				continue
+			}
+			paths = append(paths, &types.Path{
+				EntryID:   entryID,
+				TargetID:  target,
+				TargetURL: state.URL,
+				Steps:     targetSteps,
+			})
+		}
 	}
-	var paths []*types.Path
-	for _, id := range g.GetVertices() {
-		if id == entryID {
-			continue
+
+	for id := range adjacency {
+		if _, ok := steps[id]; !ok {
+			unreachable = append(unreachable, id)
 		}
-		ps, err := g.GetPageState(id)
-		if err != nil {
-			continue
-		}
-		if ps.URL == "about:blank" {
-			continue
-		}
-		p, err := g.pathFromRoot(entryID, id)
-		if err != nil {
-			continue
-		}
-		paths = append(paths, p)
 	}
-	return paths, nil
+	sort.Strings(unreachable)
+	return paths, unreachable, nil
 }
 
 func (g *CrawlGraph) DrawGraph(file string) error {
