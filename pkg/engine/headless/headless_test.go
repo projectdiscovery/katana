@@ -40,34 +40,41 @@ func newTestHeadless(t *testing.T, ignoreQueryParams, filterSimilar bool) *Headl
 }
 
 func TestIsUniqueURL(t *testing.T) {
+	t.Run("scopes_are_independent", func(t *testing.T) {
+		h := newTestHeadless(t, false, false)
+		require.True(t, h.isUniqueURL("agent:anon|", "https://example.com/a"))
+		require.True(t, h.isUniqueURL("agent:bob|", "https://example.com/a"), "another identity must still report the URL")
+		require.False(t, h.isUniqueURL("agent:bob|", "https://example.com/a"))
+	})
+
 	t.Run("first_call_returns_true", func(t *testing.T) {
 		h := newTestHeadless(t, false, false)
-		require.True(t, h.isUniqueURL("https://example.com/a"))
+		require.True(t, h.isUniqueURL("", "https://example.com/a"))
 	})
 
 	t.Run("second_call_same_url_returns_false", func(t *testing.T) {
 		h := newTestHeadless(t, false, false)
-		require.True(t, h.isUniqueURL("https://example.com/a"))
-		require.False(t, h.isUniqueURL("https://example.com/a"))
+		require.True(t, h.isUniqueURL("", "https://example.com/a"))
+		require.False(t, h.isUniqueURL("", "https://example.com/a"))
 	})
 
 	t.Run("different_urls_both_unique", func(t *testing.T) {
 		h := newTestHeadless(t, false, false)
-		require.True(t, h.isUniqueURL("https://example.com/a"))
-		require.True(t, h.isUniqueURL("https://example.com/b"))
+		require.True(t, h.isUniqueURL("", "https://example.com/a"))
+		require.True(t, h.isUniqueURL("", "https://example.com/b"))
 	})
 
 	t.Run("ignore_query_params", func(t *testing.T) {
 		h := newTestHeadless(t, true, false)
-		require.True(t, h.isUniqueURL("https://example.com/page?id=1"))
-		require.False(t, h.isUniqueURL("https://example.com/page?id=2"),
+		require.True(t, h.isUniqueURL("", "https://example.com/page?id=1"))
+		require.False(t, h.isUniqueURL("", "https://example.com/page?id=2"),
 			"same path and key with different value should be duplicate when IgnoreQueryParams is set")
 	})
 
 	t.Run("query_params_matter_when_not_ignored", func(t *testing.T) {
 		h := newTestHeadless(t, false, false)
-		require.True(t, h.isUniqueURL("https://example.com/page?id=1"))
-		require.True(t, h.isUniqueURL("https://example.com/page?id=2"),
+		require.True(t, h.isUniqueURL("", "https://example.com/page?id=1"))
+		require.True(t, h.isUniqueURL("", "https://example.com/page?id=2"),
 			"different query param values should be unique when IgnoreQueryParams is off")
 	})
 }
@@ -78,12 +85,12 @@ func TestRealRequestTakesPriority(t *testing.T) {
 	targetURL := "https://example.com/target"
 
 	// Simulate the reordered RequestCallback: real request registers first.
-	isUnique := h.isUniqueURL(targetURL)
+	isUnique := h.isUniqueURL("", targetURL)
 	require.True(t, isUnique, "real request should register as unique")
 
 	// A later performAdditionalAnalysis call that discovers the same URL
 	// should see it as already registered.
-	require.False(t, h.isUniqueURL(targetURL),
+	require.False(t, h.isUniqueURL("", targetURL),
 		"synthetic discovery of same URL should be filtered after real request registered it")
 }
 
@@ -117,9 +124,9 @@ func TestPerformAdditionalAnalysisDedups(t *testing.T) {
 	}
 
 	// Register the real request URL first (matching the reordered callback flow).
-	h.isUniqueURL(rr.Request.URL)
+	h.isUniqueURL("", rr.Request.URL)
 
-	results := h.performAdditionalAnalysis(rr)
+	results := h.performAdditionalAnalysis(rr, "")
 
 	// Count occurrences to verify dedup actually works (a map would hide duplicates).
 	counts := make(map[string]int)
@@ -137,8 +144,8 @@ func TestAdditionalAnalysisStillRunsForDuplicateRequests(t *testing.T) {
 	h := newTestHeadless(t, false, false)
 
 	// Simulate page A discovering URL B via additional analysis.
-	h.isUniqueURL("https://example.com/a")
-	h.isUniqueURL("https://example.com/b") // as if discovered from A's analysis
+	h.isUniqueURL("", "https://example.com/a")
+	h.isUniqueURL("", "https://example.com/b") // as if discovered from A's analysis
 
 	// Now the browser visits B. B is a duplicate, but its response body
 	// contains a new URL C that we should still discover.
@@ -154,10 +161,10 @@ func TestAdditionalAnalysisStillRunsForDuplicateRequests(t *testing.T) {
 
 	// In the reordered callback, B is checked first (returns false = duplicate),
 	// but additional analysis still runs.
-	isUnique := h.isUniqueURL(rr.Request.URL)
+	isUnique := h.isUniqueURL("", rr.Request.URL)
 	require.False(t, isUnique, "B should be a duplicate")
 
-	results := h.performAdditionalAnalysis(rr)
+	results := h.performAdditionalAnalysis(rr, "")
 
 	var foundC bool
 	for _, r := range results {
@@ -184,7 +191,7 @@ func TestPerformAdditionalAnalysisHonorsParserOptions(t *testing.T) {
 	results := h.performAdditionalAnalysis(&output.Result{
 		Request:  &navigation.Request{URL: pageURL},
 		Response: resp,
-	})
+	}, "")
 
 	found := map[string]bool{}
 	for _, r := range results {

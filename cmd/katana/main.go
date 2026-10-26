@@ -195,7 +195,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
 		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
 		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
-		flagSet.IntVarP(&options.HeadlessAgents, "headless-agents", "ha", 1, "number of isolated headless browser identities to run (forced to 1 with -cdd/-cwu)"),
+		flagSet.StringSliceVarP(&options.HeadlessAgents, "headless-agent", "ha", nil, "identity to crawl as, anon or username:password; repeat to crawl as several at once (headless only)", goflags.StringSliceOptions),
 	)
 
 	// Scope group

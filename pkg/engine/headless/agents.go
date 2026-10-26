@@ -2,62 +2,75 @@ package headless
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 	"github.com/projectdiscovery/katana/pkg/types"
 )
 
-func buildAgentPool(opts *types.Options) *cartography.AgentPool {
-	if opts == nil {
-		return cartography.NewAgentPool()
+// anonAgent is the -headless-agent value for a crawl without credentials.
+const anonAgent = "anon"
+
+// agent is one crawl identity. Each crawl launches its own browser with a
+// fresh profile, so identities never share cookies or storage.
+type agent struct {
+	// label names the identity in output and logs: anon, or the username.
+	label       string
+	credentials string // username:password, empty for an anonymous crawl
+}
+
+// buildAgents returns the identities to crawl as. Without -headless-agent it
+// is one identity with the -auto-login credentials, as before. A shared
+// profile (-cdd) or browser (-cwu) holds a single session, so it keeps one.
+func buildAgents(opts *types.Options) []agent {
+	single := []agent{{label: anonAgent, credentials: opts.AuthCredentials}}
+	if opts.AuthCredentials != "" {
+		single[0].label = username(opts.AuthCredentials)
+	}
+	if len(opts.HeadlessAgents) == 0 {
+		return single
 	}
 	if opts.ChromeDataDir != "" || opts.ChromeWSUrl != "" {
-		return cartography.NewAgentPool(&cartography.Agent{
-			ID:      "default",
-			Role:    "anon",
-			DataDir: opts.ChromeDataDir,
-		})
+		gologger.Warning().Msgf("-headless-agent is ignored with -chrome-data-dir or -chrome-ws-url: a shared browser holds one session")
+		return single
 	}
-	n := opts.HeadlessAgents
-	if n <= 0 {
-		n = 1
-	}
-	agents := make([]*cartography.Agent, 0, n)
-	for i := 0; i < n; i++ {
-		a := &cartography.Agent{
-			ID:   fmt.Sprintf("agent-%d", i),
-			Role: "anon",
+
+	agents := make([]agent, 0, len(opts.HeadlessAgents))
+	seen := map[string]bool{}
+	for _, value := range opts.HeadlessAgents {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
 		}
-		if opts.AuthCredentials != "" && i == 0 {
-			a.Credentials = opts.AuthCredentials
-			a.Role = "auth"
+		if seen[value] {
+			// Two crawls with one account can log each other out on sites
+			// that allow a single session.
+			gologger.Warning().Msgf("-headless-agent %q is given more than once; it is crawled once", agentLabel(value))
+			continue
+		}
+		seen[value] = true
+		a := agent{label: agentLabel(value)}
+		if value != anonAgent {
+			a.credentials = value
 		}
 		agents = append(agents, a)
 	}
-	pool := cartography.NewAgentPool(agents...)
-	// A single -auto-login credential authenticates only the first agent; the
-	// rest crawl anonymously. Warn so the user knows N-1 identities are anon and
-	// can supply distinct accounts if they wanted multiple authenticated crawls.
-	if opts.AuthCredentials != "" && n > 1 {
-		gologger.Warning().Msgf("only 1 of %d headless agents is authenticated; the rest crawl anonymously (provide distinct accounts for multiple authenticated identities)", n)
+	if len(agents) == 0 {
+		return single
 	}
-	return pool
+	return agents
 }
 
-func ensureAgentDataDir(agent *cartography.Agent) (cleanup func(), err error) {
-	cleanup = func() {}
-	if agent == nil || agent.DataDir != "" {
-		return cleanup, nil
+func agentLabel(value string) string {
+	if value == anonAgent {
+		return anonAgent
 	}
-	dir, err := os.MkdirTemp("", fmt.Sprintf("katana-agent-%s-*", agent.ID))
-	if err != nil {
-		return cleanup, err
-	}
-	agent.DataDir = dir
-	return func() { _ = os.RemoveAll(dir) }, nil
+	return username(value)
+}
+
+func username(credentials string) string {
+	user, _ := splitCredentials(credentials)
+	return user
 }
 
 func splitCredentials(creds string) (user, pass string) {
@@ -67,4 +80,14 @@ func splitCredentials(creds string) (user, pass string) {
 		pass = parts[1]
 	}
 	return user, pass
+}
+
+// dedupScope returns the prefix that keeps the URL dedupe of one identity
+// apart from the others: a page another identity already reported can show
+// different content to this one.
+func (a agent) dedupScope(agents int) string {
+	if agents <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("agent:%s|", a.label)
 }

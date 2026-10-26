@@ -398,6 +398,7 @@ HEADLESS:
    -csk, -captcha-solver-key string       captcha solver provider api key
    -al, -auto-login string           automatic login with username:password (headless only)
    -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
+   -ha, -headless-agent string[]     identity to crawl as, anon or username:password; repeat to crawl as several at once (headless only)
 ```
 
 ### Interactive UI exploration
@@ -788,6 +789,16 @@ katana -hl -u https://app.example.com -al 'user:password'
 ```
 
 This is best for simple username/password forms. For multi-step, SPA, or SSO logins prefer a recorded flow.
+
+### Several identities (`-headless-agent`)
+
+To compare what different users can reach, crawl as several identities at once. Each identity runs its own browser with a fresh profile, so sessions never mix:
+
+```console
+katana -hl -u https://app.example.com -ha anon -ha 'alice:password' -ha 'admin:password'
+```
+
+A URL is reported once per identity. In JSON output, results that carry a response name the identity in `response.extra.agent`. With `-chrome-data-dir` or `-chrome-ws-url` the browser holds one session, so katana crawls as one identity.
 
 ### Recorded flow (`-recorded-flow`)
 
