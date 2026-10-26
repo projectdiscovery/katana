@@ -73,6 +73,7 @@ func (g *CrawlGraph) AddPageState(n types.PageState) error {
 		err = g.graph.AddEdge(n.OriginID, n.UniqueID, func(ep *graph.EdgeProperties) {
 			ep.Weight = n.Depth
 			ep.Attributes = edgeAttrs
+			ep.Data = n.NavigationAction
 		})
 		if err != nil {
 			if errors.Is(err, graph.ErrEdgeAlreadyExists) {
@@ -94,6 +95,7 @@ func (g *CrawlGraph) AddEdge(sourceState, targetState string, action *types.Acti
 	err := g.graph.AddEdge(sourceState, targetState, func(ep *graph.EdgeProperties) {
 		ep.Weight = action.Depth
 		ep.Attributes = edgeAttrs
+		ep.Data = action
 	})
 	if err != nil {
 		if errors.Is(err, graph.ErrEdgeAlreadyExists) {
@@ -134,7 +136,8 @@ func (g *CrawlGraph) ShortestPath(sourceState, targetState string) ([]*types.Act
 
 // PathsFrom returns a replayable path from entryID to every other vertex it
 // reaches. One breadth-first walk builds all paths, so each path has the fewest
-// steps. Vertices the walk cannot reach are returned, sorted, in unreachable so
+// steps. Each step is the action recorded on the traversed edge; an edge
+// without an action is not followed. Vertices the walk cannot reach are returned, sorted, in unreachable so
 // callers can report them.
 func (g *CrawlGraph) PathsFrom(entryID string) (paths []*types.Path, unreachable []string, err error) {
 	adjacency, err := g.graph.AdjacencyMap()
@@ -161,14 +164,20 @@ func (g *CrawlGraph) PathsFrom(entryID string) (paths []*types.Path, unreachable
 			if _, seen := steps[target]; seen {
 				continue
 			}
+			// The step is the action on the traversed edge. The target's own
+			// NavigationAction can start from a different origin state.
+			action, _ := adjacency[id][target].Properties.Data.(*types.Action)
+			if action == nil {
+				continue
+			}
 			state, err := g.GetPageState(target)
 			if err != nil {
 				return nil, nil, err
 			}
 			targetSteps := steps[id]
-			if state.URL != "about:blank" && state.NavigationAction != nil {
+			if state.URL != "about:blank" {
 				// Clip forces a copy, so sibling paths never share a backing array.
-				targetSteps = append(slices.Clip(targetSteps), state.NavigationAction)
+				targetSteps = append(slices.Clip(targetSteps), action)
 			}
 			steps[target] = targetSteps
 			queue = append(queue, target)
