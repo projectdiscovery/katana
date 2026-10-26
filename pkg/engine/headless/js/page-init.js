@@ -157,7 +157,6 @@
           listener: listener.toString(),
           options: options || {},
         };
-        console.log("[hook] got event listener", item);
         window.__eventListeners.push(item);
         return originalAddEventListener.call(this, type, listener, options);
       };
@@ -169,4 +168,3 @@
     try { if (__opts.hooked === true) hookNavigatedLinkSinks(); } catch (_) {}
     try { if (__opts.hooked === true) hookMiscellaneousUtilities(); } catch (_) {}
   })();
-  

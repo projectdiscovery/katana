@@ -20,6 +20,7 @@ import (
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
@@ -44,6 +45,7 @@ type Crawler struct {
 
 type Options struct {
 	Context             context.Context
+	UseInstalledChrome  bool
 	ChromiumPath        string
 	MaxBrowsers         int
 	MaxDepth            int
@@ -60,6 +62,7 @@ type Options struct {
 	PageLoadStrategy    string
 	ChromeWSUrl         string
 	DOMWaitTime         int
+	MaxScrollSteps      int
 	UserDataDir         string
 
 	// EnableDiagnostics enables the diagnostics mode
@@ -68,17 +71,31 @@ type Options struct {
 	EnableDiagnostics bool
 	DiagnosticsDir    string
 
-	Proxy           string
-	Logger          *slog.Logger
-	ScopeValidator  browser.ScopeValidator
-	RequestCallback func(*output.Result)
-	ChromeUser      *user.User
-	CaptchaHandler  *captcha.Handler
-	UserArguments   map[string]string
+	Proxy                 string
+	Logger                *slog.Logger
+	ScopeValidator        browser.ScopeValidator
+	RequestCallback       func(*output.Result)
+	TrafficCallback       func(*output.Result)
+	CustomHeaders         map[string]string
+	RootURL               string
+	Interactive           bool
+	InteractionDepth      int
+	InteractionSelector   string
+	InteractionExclude    string
+	InteractionMaxStates  int
+	InteractionMaxActions int
+	InteractionSettle     time.Duration
+	InteractionDuration   time.Duration
+	ChromeUser            *user.User
+	CaptchaHandler        *captcha.Handler
+	UserArguments         map[string]string
 
 	AuthUsername  string
 	AuthPassword  string
 	DitClassifier *dit.Classifier
+	// AuthSteps, when non-empty, are replayed once against the browser context
+	// before the crawl queue starts (recorded / multi-step login).
+	AuthSteps []auth.LoginStep
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -109,11 +126,14 @@ func New(opts Options) (*Crawler, error) {
 	}
 
 	launcher, err := browser.NewLauncher(browser.LauncherOptions{
+		UseInstalledChrome:  opts.UseInstalledChrome,
 		ChromiumPath:        opts.ChromiumPath,
 		MaxBrowsers:         opts.MaxBrowsers,
 		PageMaxTimeout:      opts.PageMaxTimeout,
 		ShowBrowser:         opts.ShowBrowser,
 		RequestCallback:     opts.RequestCallback,
+		Interactive:         opts.Interactive,
+		TrafficCallback:     opts.TrafficCallback,
 		SlowMotion:          opts.SlowMotion,
 		ScopeValidator:      opts.ScopeValidator,
 		ChromeUser:          opts.ChromeUser,
@@ -127,6 +147,8 @@ func New(opts Options) (*Crawler, error) {
 		UserDataDir:         opts.UserDataDir,
 		Proxy:               opts.Proxy,
 		UserArguments:       opts.UserArguments,
+		CustomHeaders:       opts.CustomHeaders,
+		CookieURL:           opts.RootURL,
 	})
 	if err != nil {
 		return nil, err
@@ -236,12 +258,22 @@ func (c *Crawler) Crawl(URL string) error {
 		return err
 	}
 
-	// Create a master context that will automatically cancel all page operations
-	// once the per-URL crawl deadline is reached.
 	parentCtx := c.options.Context
 	if parentCtx == nil {
 		parentCtx = context.Background()
 	}
+
+	// Authentication is setup, not crawling: MaxCrawlDuration starts only after
+	// a session is established so a slow SSO flow cannot consume the crawl's
+	// entire time budget. The caller's context still bounds both phases.
+	if len(c.options.AuthSteps) > 0 {
+		if err := c.runRecordedAuthFlow(parentCtx); err != nil {
+			return err
+		}
+	}
+
+	// Create a master context that will automatically cancel all page operations
+	// once the per-URL crawl deadline is reached.
 	var (
 		ctx           context.Context
 		cancel        context.CancelFunc
@@ -254,6 +286,27 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
+	if c.options.Interactive {
+		uiCtx := ctx
+		if c.options.InteractionDuration > 0 {
+			var stop context.CancelFunc
+			uiCtx, stop = context.WithTimeout(ctx, c.options.InteractionDuration)
+			defer stop()
+		}
+		if err := c.crawlInteractive(uiCtx, URL); err != nil {
+			if ctx.Err() != nil {
+				if localDeadline && parentCtx.Err() == nil {
+					return nil
+				}
+				return ctx.Err()
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				c.logger.Info("UI exploration time limit reached; continuing queued crawl")
+			} else {
+				c.logger.Warn("interactive exploration stopped early; continuing queued crawl", slog.String("error", err.Error()))
+			}
+		}
+	}
 
 	consecutiveFailures := 0
 
@@ -296,13 +349,14 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
+			originalPage := page.Page
 			page.Page = page.Context(ctx)
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
 			)
 
-			if err := c.crawlFn(ctx, action, page); err != nil {
+			if err := c.crawlFn(ctx, action, page, originalPage); err != nil {
 				if err == ErrNoCrawlingAction {
 					return nil
 				}
@@ -356,8 +410,9 @@ func (c *Crawler) Crawl(URL string) error {
 
 var ErrNoCrawlingAction = errors.New("no more actions to crawl")
 
-func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage, originalPage *rod.Page) error {
 	defer func() {
+		page.Page = originalPage
 		c.launcher.PutBrowserToPool(page)
 	}()
 
@@ -372,7 +427,9 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		slog.String("action", action.String()),
 	)
 
-	if action.OriginID != "" && action.OriginID != currentPageHash {
+	// A load-URL action can navigate directly. Replaying history to reach its
+	// origin wastes the crawl budget, especially after an authentication flow.
+	if action.Type != types.ActionTypeLoadURL && action.OriginID != "" && action.OriginID != currentPageHash {
 		c.logger.Debug("Need to navigate back to origin",
 			slog.String("from", currentPageHash),
 			slog.String("to", action.OriginID),
@@ -425,6 +482,15 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 				if c.tryAutoLogin(page, html) {
 					_ = page.WaitPageLoadHeurisitics()
 				}
+			}
+		}
+	}
+
+	// Scrolling fires lazy requests, so skip it on out-of-scope pages.
+	if c.options.MaxScrollSteps > 0 {
+		if info, infoErr := page.Info(); infoErr == nil && (c.options.ScopeValidator == nil || c.options.ScopeValidator(info.URL)) {
+			if _, scrollErr := c.revealLazyContent(page); scrollErr != nil && ctx.Err() != nil {
+				return ctx.Err()
 			}
 		}
 	}
@@ -511,6 +577,22 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 	return nil
 }
 
+// revealLazyContent scrolls page to load lazy content when MaxScrollSteps is
+// set and reports whether it scrolled at all. Failures are logged and
+// returned so callers can check for cancellation.
+func (c *Crawler) revealLazyContent(page *browser.BrowserPage) (bool, error) {
+	if c.options.MaxScrollSteps <= 0 {
+		return false, nil
+	}
+	steps, err := page.RevealLazyContent(c.options.MaxScrollSteps, 300*time.Millisecond)
+	if err != nil {
+		c.logger.Debug("Could not complete lazy-content scrolling", slog.String("error", err.Error()))
+		return steps > 0, err
+	}
+	c.logger.Debug("Lazy-content scrolling complete", slog.Int("steps", steps))
+	return steps > 0, nil
+}
+
 var ErrElementNotVisible = errors.New("element not visible")
 
 func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
@@ -582,6 +664,80 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 	}
 
 	return nil
+}
+
+func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
+	page, err := c.launcher.GetPageFromPool()
+	if err != nil {
+		return err
+	}
+	defer c.launcher.PutBrowserToPool(page)
+
+	page.Page = page.Context(ctx)
+
+	replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(c.options.AuthSteps)
+	if loginURL == "" {
+		return errors.New("recorded auth flow must contain a navigate step")
+	}
+	if len(replaySteps) == 0 {
+		return errors.New("recorded auth flow contains no actions after its navigate step")
+	}
+	c.logger.Info("Replaying recorded auth flow",
+		slog.Int("steps", len(replaySteps)),
+		slog.String("url", loginURL),
+	)
+
+	settle := c.options.PageMaxTimeout
+	if settle <= 0 {
+		settle = 30 * time.Second
+	}
+
+	// Establish the anonymous baseline after loading the login page. Taking the
+	// snapshot before navigation would mistake CSRF/consent cookies created by
+	// the login page for proof that authentication succeeded.
+	if err := page.Navigate(loginURL); err != nil {
+		return errors.Wrap(err, "recorded auth flow could not open login page")
+	}
+	_ = page.WaitLoad()
+	before, err := auth.CaptureSessionState(page.Page)
+	if err != nil {
+		return err
+	}
+
+	if err := auth.RunLoginSteps(ctx, page.Page, replaySteps, c.options.AuthUsername, c.options.AuthPassword, settle); err != nil {
+		return errors.Wrap(err, "recorded auth flow failed")
+	}
+
+	after, err := auth.CaptureSessionState(page.Page)
+	if err != nil {
+		return err
+	}
+	if auth.SessionStateChanged(before, after) || auth.HasTerminalVisibleAssertion(replaySteps) {
+		c.loggedIn = true
+		c.logger.Info("Recorded auth flow established an authenticated session")
+		return nil
+	}
+
+	// A replay can execute every click successfully while the application
+	// rejects stale captured credentials. Try the classifier-based login on the
+	// page that rejected the recording before giving up.
+	c.logger.Warn("Recorded auth flow completed without establishing a session; trying auto-login fallback")
+	if c.options.AuthUsername != "" && c.options.DitClassifier != nil {
+		if html, htmlErr := page.HTML(); htmlErr == nil && c.tryAutoLogin(page, html) {
+			_ = page.WaitPageLoadHeurisitics()
+			fallback, cookieErr := auth.CaptureSessionState(page.Page)
+			if cookieErr != nil {
+				return cookieErr
+			}
+			if auth.SessionStateChanged(before, fallback) {
+				c.loggedIn = true
+				c.logger.Info("Auto-login fallback established an authenticated session")
+				return nil
+			}
+		}
+	}
+
+	return errors.New("recorded auth flow did not establish authenticated browser state")
 }
 
 func (c *Crawler) tryAutoLogin(page *browser.BrowserPage, html string) bool {

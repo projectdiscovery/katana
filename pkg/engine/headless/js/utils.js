@@ -39,6 +39,25 @@
       }
     };
 
+    window.getInteractiveElements = function (selector, exclude) {
+      const nodes = document.querySelectorAll(selector);
+      return Array.from(nodes)
+        .filter((el) => !exclude || !el.closest(exclude))
+        .map((el) => _elementDataFromElement(el));
+    };
+
+    window.getClickListenerElements = function () {
+      const elements = (window.__eventListeners || [])
+        .filter((listener) => listener.type === 'click' && listener.element)
+        .map((listener) => listener.element);
+      for (const el of document.querySelectorAll('*')) {
+        if (el !== document.body && el !== document.documentElement && typeof el.onclick === 'function') {
+          elements.push(_elementDataFromElement(el));
+        }
+      }
+      return elements;
+    };
+
     window.getElementFromXPath = function (xpath) {
       try {
         const element = document
@@ -159,7 +178,10 @@
   
       const id = node.getAttribute("id");
       if (optimized) {
-        if (id) return { value: `#${id}`, optimized: true };
+        if (id) return {
+          value: `#${window.escapeIdentifierIfNeeded(id)}`,
+          optimized: true,
+        };
         const nodeNameLower = node.nodeName.toLowerCase();
         if (
           nodeNameLower === "body" ||
@@ -170,7 +192,10 @@
       }
       const nodeName = node.nodeName;
   
-      if (id) return { value: `${nodeName}#${id}`, optimized: true };
+      if (id) return {
+        value: `${nodeName}#${window.escapeIdentifierIfNeeded(id)}`,
+        optimized: true,
+      };
       const parent = node.parentNode;
       if (!parent || parent.nodeType === Node.DOCUMENT_NODE)
         return { value: nodeName, optimized: true };
@@ -361,4 +386,3 @@
       return -1;
     };
   })();
-  

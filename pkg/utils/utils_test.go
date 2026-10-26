@@ -19,6 +19,23 @@ func TestParseRefreshTag(t *testing.T) {
 
 	values := ParseRefreshTag(header)
 	require.Equal(t, "/test/headers/refresh.found", values, "could not parse correct links")
+
+	tests := []struct {
+		header   string
+		expected string
+	}{
+		{header: "0; URL=/upper", expected: "/upper"},
+		{header: "0;Url=/mixed", expected: "/mixed"},
+		{header: "5; url = /spaced", expected: "/spaced"},
+		{header: "0; url='/single-quoted'", expected: "/single-quoted"},
+		{header: `0; url="/double-quoted"`, expected: "/double-quoted"},
+		{header: "0; url=/login?url=/home", expected: "/login?url=/home"},
+		{header: "0; url=", expected: ""},
+		{header: "10", expected: ""},
+	}
+	for _, tt := range tests {
+		require.Equal(t, tt.expected, ParseRefreshTag(tt.header), "could not parse refresh header %q", tt.header)
+	}
 }
 
 func TestExtractParentPaths(t *testing.T) {
