@@ -1,6 +1,7 @@
 package headless
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -32,10 +33,20 @@ type Headless struct {
 	hooks Hooks
 
 	// active holds running crawlers so Close can release their browsers on
-	// interrupt, when their deferred Close never runs.
+	// interrupt, when their deferred Close never runs. crawls counts every
+	// running Crawl, so Close can join them. closing blocks new crawls.
 	activeMu sync.Mutex
 	active   map[*crawler.Crawler]struct{}
+	crawls   sync.WaitGroup
+	closing  bool
 }
+
+// errClosing is returned by Crawl after Close has started.
+var errClosing = errors.New("headless crawler is closing")
+
+// crawlJoinTimeout bounds how long Close waits for running crawls to finish
+// their cleanup, so an interrupt never hangs for long.
+var crawlJoinTimeout = 10 * time.Second
 
 // New returns a new headless crawler instance
 func New(options *types.CrawlerOptions) (*Headless, error) {
@@ -103,6 +114,15 @@ func validateScopeFunc(h *Headless, URL string) browser.ScopeValidator {
 
 // Crawl executes the headless crawling on a given URL
 func (h *Headless) Crawl(URL string) error {
+	h.activeMu.Lock()
+	if h.closing {
+		h.activeMu.Unlock()
+		return errClosing
+	}
+	h.crawls.Add(1)
+	h.activeMu.Unlock()
+	defer h.crawls.Done()
+
 	if h.debugger != nil {
 		h.debugger.StartURL(URL, 0)
 	}
@@ -245,6 +265,12 @@ func (h *Headless) Crawl(URL string) error {
 		return err
 	}
 	h.activeMu.Lock()
+	if h.closing {
+		// Close already released the registered crawlers.
+		h.activeMu.Unlock()
+		headlessCrawler.Close()
+		return errClosing
+	}
 	if h.active == nil {
 		h.active = make(map[*crawler.Crawler]struct{})
 	}
@@ -268,13 +294,34 @@ func (h *Headless) Close() error {
 		h.debugger.Close()
 	}
 	h.activeMu.Lock()
+	h.closing = true
 	active := make([]*crawler.Crawler, 0, len(h.active))
 	for c := range h.active {
 		active = append(active, c)
 	}
 	h.activeMu.Unlock()
+
+	var wg sync.WaitGroup
 	for _, c := range active {
-		c.CloseBrowsers()
+		wg.Add(1)
+		go func(c *crawler.Crawler) {
+			defer wg.Done()
+			c.CloseBrowsers()
+		}(c)
+	}
+	wg.Wait()
+
+	// The crawls fail fast once their browsers are gone. Join them so their
+	// deferred cleanup runs before the caller exits.
+	joined := make(chan struct{})
+	go func() {
+		h.crawls.Wait()
+		close(joined)
+	}()
+	select {
+	case <-joined:
+	case <-time.After(crawlJoinTimeout):
+		h.logger.Warn("Timed out waiting for headless crawls to stop")
 	}
 	return nil
 }

@@ -39,6 +39,9 @@ var lookPath = launcher.LookPath
 // data dir is removed.
 var chromeExitTimeout = 5 * time.Second
 
+// pageCloseTimeout bounds the CDP calls that close a page and its browser.
+var pageCloseTimeout = 5 * time.Second
+
 // Launcher is a high level controller to launch browsers
 // and do the execution on them.
 type Launcher struct {
@@ -49,6 +52,8 @@ type Launcher struct {
 	// out by a crawl, so CloseAll can release them on interrupt.
 	liveMu sync.Mutex
 	live   map[*BrowserPage]struct{}
+	// closing is set by CloseAll. Pages created after it are closed at once.
+	closing bool
 
 	opts LauncherOptions
 }
@@ -280,31 +285,48 @@ func waitForChromeExit(chromeLauncher *launcher.Launcher) {
 
 // Close closes the launcher
 func (l *Launcher) Close() {
+	var pooled []*BrowserPage
 	l.closeOnce.Do(func() {
 		l.browserPool.Cleanup(func(b *BrowserPage) {
-			b.cancel()
-			b.CloseBrowserPage()
+			pooled = append(pooled, b)
 		})
 		close(l.browserPool)
 	})
-	l.CloseAll()
+	l.closeAll(pooled)
 }
 
 // CloseAll closes every page the launcher created, including pages a crawl
-// still holds, and removes their temporary data dirs. Unlike Close it leaves
-// the pool open, so a crawl that returns a page afterwards does not panic.
+// still holds, and removes their temporary data dirs. Pages created after it
+// are closed at once. Unlike Close it leaves the pool open, so a crawl that
+// returns a page afterwards does not panic.
 func (l *Launcher) CloseAll() {
+	l.closeAll(nil)
+}
+
+// closeAll closes the live pages and extra concurrently, so each hung
+// Chrome adds its exit wait only once to the total.
+func (l *Launcher) closeAll(extra []*BrowserPage) {
 	l.liveMu.Lock()
-	pages := make([]*BrowserPage, 0, len(l.live))
+	l.closing = true
+	pages := make(map[*BrowserPage]struct{}, len(l.live)+len(extra))
 	for b := range l.live {
-		pages = append(pages, b)
+		pages[b] = struct{}{}
 	}
 	l.liveMu.Unlock()
-
-	for _, b := range pages {
-		b.cancel()
-		b.CloseBrowserPage()
+	for _, b := range extra {
+		pages[b] = struct{}{}
 	}
+
+	var wg sync.WaitGroup
+	for b := range pages {
+		wg.Add(1)
+		go func(b *BrowserPage) {
+			defer wg.Done()
+			b.cancel()
+			b.CloseBrowserPage()
+		}(b)
+	}
+	wg.Wait()
 }
 
 // BrowserPage is a combination of a browser and a page
@@ -581,8 +603,15 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	// Success - cancel any deferred cleanup
 	successfulPageCreation = true
 	l.liveMu.Lock()
+	closing := l.closing
 	l.live[browserPage] = struct{}{}
 	l.liveMu.Unlock()
+	if closing {
+		// CloseAll already ran, so nothing else would close this page.
+		browserPage.cancel()
+		browserPage.CloseBrowserPage()
+		return nil, errors.New("launcher is closing")
+	}
 	return browserPage, nil
 }
 
@@ -941,12 +970,17 @@ func (b *BrowserPage) closeBrowserPage() {
 	delete(b.launcher.live, b)
 	b.launcher.liveMu.Unlock()
 
-	_ = b.Close() // Close the page/tab
+	// The page context is often canceled already, so close with a fresh
+	// bounded one. Otherwise Page.close fails and, with ChromeWSUrl, the tab
+	// stays open in the external browser.
+	ctx, cancel := context.WithTimeout(context.Background(), pageCloseTimeout)
+	defer cancel()
+	_ = b.Page.Context(ctx).Close() // Close the page/tab
 
 	// Only close the browser if we launched it ourselves (not connecting via ChromeWSUrl)
 	// If ChromeWSUrl was used, we should leave the browser running
 	if b.launcher.opts.ChromeWSUrl == "" {
-		_ = b.Browser.Close()
+		_ = b.Browser.Context(ctx).Close()
 	}
 
 	// Only cleanup temp data dir if we created it (not user-provided)
