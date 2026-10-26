@@ -27,6 +27,35 @@ func TestBuildAgents(t *testing.T) {
 	require.Len(t, shared, 1)
 }
 
+func TestBuildAgentsSameUserOtherPassword(t *testing.T) {
+	t.Parallel()
+	got := buildAgents(&types.Options{HeadlessAgents: []string{"bob:old", "bob:new", "anon", "bob:third"}})
+	require.Equal(t, []agent{
+		{label: "bob", credentials: "bob:old"},
+		{label: "bob#2", credentials: "bob:new"},
+		{label: "anon"},
+		{label: "bob#3", credentials: "bob:third"},
+	}, got)
+	scopes := map[string]bool{}
+	for _, a := range got {
+		scope := a.dedupScope(len(got))
+		require.NotContains(t, scope, "old")
+		require.NotContains(t, scope, "new")
+		scopes[scope] = true
+	}
+	require.Len(t, scopes, len(got), "each identity needs its own dedupe scope")
+}
+
+func TestBuildAgentsSessionHeader(t *testing.T) {
+	t.Parallel()
+	for _, header := range []string{"Cookie: sid=1", "cookie:sid=1", "Authorization: Bearer x"} {
+		got := buildAgents(&types.Options{CustomHeaders: []string{header}, HeadlessAgents: []string{"anon", "bob:pw"}})
+		require.Equal(t, []agent{{label: "anon"}}, got, header)
+	}
+	got := buildAgents(&types.Options{CustomHeaders: []string{"X-Test: 1"}, HeadlessAgents: []string{"anon", "bob:pw"}})
+	require.Len(t, got, 2, "other headers keep every identity")
+}
+
 func TestAgentDedupScope(t *testing.T) {
 	t.Parallel()
 	a := agent{label: "bob"}

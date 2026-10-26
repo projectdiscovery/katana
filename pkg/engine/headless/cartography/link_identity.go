@@ -15,7 +15,8 @@ import (
 //
 // The key holds only features that do not churn: the source page without its
 // query, the action type and tag, the element anchor (ID, else CSS path, else
-// XPath), and the target path with its sorted query keys. It is an exact key,
+// XPath), and the target path with its sorted query keys. A hash route in the
+// fragment (#/path) counts as path; other fragments are left out. It is an exact key,
 // so it never widens over time and never joins elements that differ in anchor
 // or target path. An empty key means the action has no anchor to track.
 func LinkKey(sourceURL string, a *types.Action) string {
@@ -43,18 +44,20 @@ func LinkKey(sourceURL string, a *types.Action) string {
 	return strings.Join([]string{pageFeatures(sourceURL), string(a.Type), anchor, target}, "\x00")
 }
 
-// pageFeatures returns the source page without query and fragment, so a page
-// revisited with a new token in its own URL keeps its doors.
+// pageFeatures returns the source page without query, so a page revisited
+// with a new token in its own URL keeps its doors. Only a hash route of the
+// fragment is kept.
 func pageFeatures(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return raw
 	}
-	return u.Scheme + "://" + u.Host + u.Path
+	return u.Scheme + "://" + u.Host + u.Path + routeFeatures(u.Fragment)
 }
 
-// targetFeatures returns the path and the sorted query keys of a link target.
-// Query values are left out: they are what churns.
+// targetFeatures returns the path and the sorted query keys of a link target,
+// plus its hash route if it has one. Query values are left out: they are what
+// churns.
 func targetFeatures(raw string) string {
 	if raw == "" {
 		return ""
@@ -63,12 +66,33 @@ func targetFeatures(raw string) string {
 	if err != nil {
 		return ""
 	}
-	keys := make([]string, 0, len(u.Query()))
-	for k := range u.Query() {
+	return u.Host + u.Path + "?" + queryKeys(u.Query()) + routeFeatures(u.Fragment)
+}
+
+// routeFeatures returns the hash route of a fragment ("#/users" or
+// "#!/users"), with the sorted keys of its own query. SPAs route on it, so
+// distinct routes are distinct pages. Any other fragment, such as an in-page
+// anchor or a token, is left out.
+func routeFeatures(fragment string) string {
+	route := strings.TrimPrefix(fragment, "!")
+	if !strings.HasPrefix(route, "/") {
+		return ""
+	}
+	route, rawQuery, hasQuery := strings.Cut(route, "?")
+	if !hasQuery {
+		return "#" + route
+	}
+	query, _ := url.ParseQuery(rawQuery)
+	return "#" + route + "?" + queryKeys(query)
+}
+
+func queryKeys(query url.Values) string {
+	keys := make([]string, 0, len(query))
+	for k := range query {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	return u.Host + u.Path + "?" + strings.Join(keys, "&")
+	return strings.Join(keys, "&")
 }
 
 func firstNonEmpty(values ...string) string {

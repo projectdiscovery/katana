@@ -802,7 +802,7 @@ To compare what different users can reach, crawl as several identities at once. 
 katana -hl -u https://app.example.com -ha anon -ha 'alice:password' -ha 'admin:password'
 ```
 
-A URL is reported once per identity. In JSON output, results that carry a response name the identity in `response.extra.agent`. With `-chrome-data-dir` or `-chrome-ws-url` the browser holds one session, so katana crawls as one identity.
+A URL is reported once per identity. In JSON output, results that carry a response name the identity in `response.extra.agent`. With `-chrome-data-dir` or `-chrome-ws-url` the browser holds one session, so katana crawls as one identity. A `Cookie` or `Authorization` header given with `-H` is sent by every identity, so katana also crawls as one identity then. The same username with another password is a separate identity, named `bob#2`, `bob#3` and so on.
 
 ### Recorded flow (`-recorded-flow`)
 

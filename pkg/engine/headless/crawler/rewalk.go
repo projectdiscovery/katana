@@ -112,6 +112,17 @@ func (c *Crawler) crawledOrigins() []string {
 	return origins
 }
 
+// warnProfileClear warns that the rewalk deletes the cookies and storage of
+// origins in a browser profile that outlives the crawl (-cdd, -cwu).
+func (c *Crawler) warnProfileClear(origins []string) {
+	if c.logger == nil || len(origins) == 0 || (c.options.UserDataDir == "" && c.options.ChromeWSUrl == "") {
+		return
+	}
+	c.logger.Warn("rewalk clears cookies and storage of the crawled origins in the configured browser profile",
+		slog.Any("origins", origins),
+	)
+}
+
 // maybeRewalk clears the session and replays a sample of discovered paths to
 // classify match / app_change / session_fork / non_deterministic. It runs on
 // the crawl context, so -ct and Ctrl+C stop it too.
@@ -132,6 +143,7 @@ func (c *Crawler) maybeRewalk(ctx context.Context) {
 	defer c.launcher.PutBrowserToPool(page)
 
 	origins := c.crawledOrigins()
+	c.warnProfileClear(origins)
 	runner := &cartography.Runner{
 		Clear: func(ctx context.Context) error {
 			return browser.ClearSession(ctx, page.Page, origins)
