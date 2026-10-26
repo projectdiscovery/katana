@@ -11,11 +11,12 @@ import (
 func TestHybridBrowserAgents(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, 1, hybridBrowserAgents(nil))
-	require.Equal(t, 1, hybridBrowserAgents(&types.Options{Concurrency: 0}))
-	require.Equal(t, 4, hybridBrowserAgents(&types.Options{Concurrency: 4}))
-	require.Equal(t, maxHybridBrowserAgents, hybridBrowserAgents(&types.Options{Concurrency: 100}))
-	require.Equal(t, 1, hybridBrowserAgents(&types.Options{Concurrency: 10, ChromeWSUrl: "ws://127.0.0.1:9222"}))
-	require.Equal(t, 1, hybridBrowserAgents(&types.Options{Concurrency: 10, ChromeDataDir: "/tmp/chrome"}))
+	require.Equal(t, 1, hybridBrowserAgents(&types.Options{BrowserAgents: 0}))
+	require.Equal(t, 1, hybridBrowserAgents(&types.Options{Concurrency: 10}), "-c must not start extra browsers")
+	require.Equal(t, 4, hybridBrowserAgents(&types.Options{BrowserAgents: 4}))
+	require.Equal(t, maxHybridBrowserAgents, hybridBrowserAgents(&types.Options{BrowserAgents: 100}))
+	require.Equal(t, 1, hybridBrowserAgents(&types.Options{BrowserAgents: 4, ChromeWSUrl: "ws://127.0.0.1:9222"}))
+	require.Equal(t, 1, hybridBrowserAgents(&types.Options{BrowserAgents: 4, ChromeDataDir: "/tmp/chrome"}))
 }
 
 func TestShouldInspectFetchResource(t *testing.T) {

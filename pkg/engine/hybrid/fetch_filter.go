@@ -9,7 +9,9 @@ const maxHybridBrowserAgents = 8
 
 // hybridBrowserAgents returns how many isolated Chrome instances to run.
 // Concurrent tabs on one browser are unsafe under CDP; parallel agents each
-// own a browser. Shared profile / remote debugger modes stay single-agent.
+// own a browser. Agents are opt-in through -browser-agents since every one is
+// a full Chrome process. Shared profile / remote debugger modes stay
+// single-agent.
 func hybridBrowserAgents(opts *types.Options) int {
 	if opts == nil {
 		return 1
@@ -17,7 +19,7 @@ func hybridBrowserAgents(opts *types.Options) int {
 	if opts.ChromeWSUrl != "" || opts.ChromeDataDir != "" {
 		return 1
 	}
-	n := opts.Concurrency
+	n := opts.BrowserAgents
 	if n < 1 {
 		return 1
 	}
@@ -92,8 +94,5 @@ func fetchRequestPatterns(opts *types.Options) []*proto.FetchRequestPattern {
 			},
 		)
 	}
-	// Redirect blocking needs Fetch for every navigation response we care about;
-	// Document is already covered. Keep patterns unchanged otherwise.
-	_ = opts.DisableRedirects
 	return patterns
 }

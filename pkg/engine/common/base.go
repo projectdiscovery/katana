@@ -352,13 +352,14 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		s.Enqueue(queue, navigationRequests...)
 	}
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
-		// BodyReadSize <= 0 (e.g. library callers that never set it) means no
-		// limit; capping the redirect body at 0 would parse an empty document.
-		var bodyReader io.Reader = resp.Body
-		if s.Options.Options.BodyReadSize > 0 {
-			bodyReader = io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize))
+		// BodyReadSize <= 0 (e.g. library callers that never set it) falls back
+		// to the default cap: a limit of 0 would parse an empty document, and no
+		// limit would let a redirect body stream without end.
+		bodyReadSize := s.Options.Options.BodyReadSize
+		if bodyReadSize <= 0 {
+			bodyReadSize = types.DefaultOptions.BodyReadSize
 		}
-		body, _ := io.ReadAll(bodyReader)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(bodyReadSize)))
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
 		var technologyKeys []string
 		if s.Options.Wappalyzer != nil {

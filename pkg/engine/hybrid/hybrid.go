@@ -44,6 +44,13 @@ type Crawler struct {
 }
 
 // proxyBypassList returns the Chrome proxy bypass list to use for proxy.
+//
+// Chrome bypasses the proxy for localhost, 127.0.0.0/8, [::1] and link-local
+// addresses by default, even when one is configured. "<-loopback>" is the
+// documented way to SUBTRACT that implicit rule, so a configured proxy is
+// honoured for local targets too -- the case where an intercepting proxy is
+// most often used. Empty when no proxy is set, since there is nothing to
+// bypass.
 func proxyBypassList(proxy string) string {
 	if proxy == "" {
 		return ""
@@ -59,7 +66,7 @@ func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
 func New(options *types.CrawlerOptions) (*Crawler, error) {
 	agentsCount := hybridBrowserAgents(options.Options)
 	if agentsCount > 1 {
-		gologger.Info().Msgf("hybrid: using %d browser agents (from -c, max %d)", agentsCount, maxHybridBrowserAgents)
+		gologger.Info().Msgf("hybrid: using %d browser agents (max %d)", agentsCount, maxHybridBrowserAgents)
 	}
 
 	agents := make([]*browserAgent, 0, agentsCount)
@@ -129,6 +136,11 @@ func launchBrowserAgent(options *types.CrawlerOptions, index int) (*browserAgent
 		}
 	}
 
+	// Construct the CDP client here rather than using rod.New().ControlURL(...)
+	// so the websocket handle survives into close(). rod hides it in an
+	// unexported field, and without it the connection can never be closed --
+	// see close() for why that leaks. StartWithURL, which Connect calls, is
+	// exactly this.
 	dialCtx, dialCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	cdpWS := &cdp.WebSocket{}
 	wsErr := cdpWS.Connect(dialCtx, launcherURL, nil)
@@ -168,9 +180,16 @@ func launchBrowserAgent(options *types.CrawlerOptions, index int) (*browserAgent
 		}
 	}()
 
+	// create a new browser instance (default to incognito mode)
 	if !options.Options.HeadlessNoIncognito {
+		// Create the browser context directly rather than via browser.Incognito():
+		// rod's helper takes no proxy argument, and Options.Proxy otherwise never
+		// reaches a browser attached through ChromeWSUrl, because the chrome
+		// launcher -- its only proxy path -- does not run in that case.
 		res, err := proto.TargetCreateBrowserContext{
-			ProxyServer:     options.Options.Proxy,
+			ProxyServer: options.Options.Proxy,
+			// "<-loopback>" SUBTRACTS Chrome's implicit proxy bypass; see
+			// proxyBypassList. Only applied when a proxy was actually requested.
 			ProxyBypassList: proxyBypassList(options.Options.Proxy),
 		}.Call(browser)
 		if err != nil {
@@ -199,6 +218,16 @@ func (a *browserAgent) close() error {
 		_ = a.browser.Close()
 	}
 	if a.cdpWS != nil {
+		// Close AFTER browser.Close, which dispatches
+		// Target.disposeBrowserContext over this same socket.
+		//
+		// rod's initEvents goroutine blocks on `for e := range client.Event()`,
+		// and that channel closes only when cdp's read loop errors -- which
+		// happens only when the CONNECTION closes, not on context cancellation
+		// (the websocket Read is a blocking socket read). Disposing the browser
+		// context does not close the connection, so against a browser attached
+		// via ChromeWSUrl -- where there is no launcher to kill -- every crawl
+		// left the socket and its goroutines behind for the browser's lifetime.
 		_ = a.cdpWS.Close()
 	}
 	if a.chromeLauncher != nil {
@@ -215,7 +244,8 @@ func (a *browserAgent) close() error {
 // BrowserContextID returns the id of the browser context this crawler created
 // in New, or "" if it has no browser. It lets an embedding program dispose the
 // context out of band: when a crawl dies without running Close, the context
-// otherwise stays resident in a shared, long-lived browser.
+// otherwise stays resident in a shared, long-lived browser. A shared browser
+// (ChromeWSUrl) always runs a single agent, so this is the only context then.
 func (c *Crawler) BrowserContextID() string {
 	if c.browser == nil {
 		return ""
@@ -252,8 +282,8 @@ func (c *Crawler) Crawl(rootURL string) error {
 }
 
 // Do executes the crawling loop with one page at a time per browser agent.
-// Multiple agents (from -c) each own an isolated Chrome process so CDP work
-// does not contend on a single browser target.
+// Multiple agents (from -browser-agents) each own an isolated Chrome process so
+// CDP work does not contend on a single browser target.
 func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
 	agents := c.agents
 	if len(agents) == 0 {
@@ -266,6 +296,26 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 	}
 
 	wg := sizedwaitgroup.New(len(agents))
+	// The queue closes its channel after an idle timeout, which can fire while
+	// a page is still loading. Wait for the in-flight pages and resume popping
+	// if they enqueued new work, so their links are not dropped.
+	for {
+		c.consume(crawlSession, doRequest, browserCh, &wg)
+		wg.Wait()
+		if crawlSession.Ctx.Err() != nil || crawlSession.Queue.Len() == 0 {
+			break
+		}
+	}
+
+	if err := crawlSession.Ctx.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// consume pops queued requests until the queue goes idle and hands each one to
+// a free browser agent.
+func (c *Crawler) consume(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc, browserCh chan *rod.Browser, wg *sizedwaitgroup.SizedWaitGroup) {
 	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
 			break
@@ -382,12 +432,6 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			}
 		}(req, inScope)
 	}
-	wg.Wait()
-
-	if err := crawlSession.Ctx.Err(); err != nil {
-		return err
-	}
-	return nil
 }
 
 // buildChromeLauncher builds a new chrome launcher instance
@@ -418,6 +462,8 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 	} else if options.Options.SystemChromePath != "" {
 		chromeLauncher.Bin(options.Options.SystemChromePath)
 	} else if !options.Options.ShowBrowser && chromeshell.Supported() {
+		// Prefer chrome-headless-shell on linux/amd64 for headless crawls; skip
+		// when headed since the shell binary cannot show a UI.
 		if shellPath, err := chromeshell.Ensure(); err == nil {
 			chromeLauncher.Bin(shellPath)
 		}
@@ -439,6 +485,10 @@ func buildChromeLauncher(options *types.CrawlerOptions, dataStore string) (*laun
 			return nil, err
 		}
 		chromeLauncher.Set("proxy-server", proxyURL.String())
+		// Same implicit-bypass problem as the browser-context path above: without
+		// this, a launched Chrome ignores the proxy for loopback targets.
+		// Applied whenever a proxy is set, including -hh (Headless is mutually
+		// exclusive with HeadlessHybrid, so the previous Headless guard never ran).
 		chromeLauncher.Set("proxy-bypass-list", proxyBypassList(options.Options.Proxy))
 	}
 

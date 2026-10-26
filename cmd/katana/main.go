@@ -175,6 +175,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.DurationVar(&options.InteractionSettle, "interaction-settle", 2*time.Second, "maximum wait for a UI change after each click"),
 		flagSet.DurationVar(&options.InteractionDuration, "interaction-duration", 0, "maximum time spent on UI exploration before continuing ordinary headless crawl (0 = unlimited)"),
 		flagSet.BoolVarP(&options.HeadlessHybrid, "hybrid", "hh", false, "enable headless hybrid crawling (experimental)"),
+		flagSet.IntVarP(&options.BrowserAgents, "browser-agents", "ba", 1, "number of isolated chrome instances for hybrid crawling (max 8)"),
 		flagSet.BoolVarP(&options.UseInstalledChrome, "system-chrome", "sc", false, "use local installed chrome browser instead of katana installed"),
 		flagSet.BoolVarP(&options.ShowBrowser, "show-browser", "sb", false, "show the browser on the screen with headless mode"),
 		flagSet.StringSliceVarP(&options.HeadlessOptionalArguments, "headless-options", "ho", nil, "start headless chrome with additional options", goflags.FileCommaSeparatedStringSliceOptions),
@@ -227,7 +228,7 @@ func readFlags() (*goflags.FlagSet, error) {
 
 	// Rate-Limit group
 	flagSet.CreateGroup("ratelimit", "Rate-Limit",
-		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers (standard) / browser agents (hybrid, max 8)"),
+		flagSet.IntVarP(&options.Concurrency, "concurrency", "c", 10, "number of concurrent fetchers to use"),
 		flagSet.IntVarP(&options.Parallelism, "parallelism", "p", 10, "number of concurrent inputs to process"),
 		flagSet.IntVarP(&options.Delay, "delay", "rd", 0, "request delay between each request in seconds"),
 		flagSet.IntVarP(&options.RateLimit, "rate-limit", "rl", 150, "maximum requests to send per second"),
