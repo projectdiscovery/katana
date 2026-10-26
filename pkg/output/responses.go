@@ -46,12 +46,12 @@ func createHostDir(storeResponseFolder, domain string) string {
 	return filepath.Join(storeResponseFolder, domain)
 }
 
-func getResponseFile(storeResponseFolder, URL string) (string, *fileWriter, error) {
+func getResponseFile(storeResponseFolder, URL, agent string) (string, *fileWriter, error) {
 	domain, err := getResponseHost(URL)
 	if err != nil {
 		return "", nil, err
 	}
-	fileName := getResponseFileName(storeResponseFolder, domain, URL)
+	fileName := getResponseFileName(storeResponseFolder, domain, URL, agent)
 	output, err := newFileOutputWriter(fileName)
 	if err != nil {
 		return "", nil, errkit.Wrap(err, "output: could not create output file")
@@ -60,9 +60,16 @@ func getResponseFile(storeResponseFolder, URL string) (string, *fileWriter, erro
 	return fileName, output, nil
 }
 
-func getResponseFileName(storeResponseFolder, domain, URL string) string {
+// getResponseFileName returns the file that stores the response to URL. With
+// a crawl as several identities, agent names the identity, so that two
+// identities that get the same URL store their responses in two files.
+func getResponseFileName(storeResponseFolder, domain, URL, agent string) string {
 	folder := createHostDir(storeResponseFolder, domain)
-	file := getResponseHash(URL) + ".txt"
+	key := URL
+	if agent != "" {
+		key = agent + "\x00" + URL
+	}
+	file := getResponseHash(key) + ".txt"
 	return filepath.Join(folder, file)
 }
 
@@ -85,7 +92,7 @@ func updateIndex(storeResponseFolder string, result *Result) error {
 		return err
 	}
 
-	builder.WriteString(getResponseFileName(storeResponseFolder, domain, result.Request.URL))
+	builder.WriteString(getResponseFileName(storeResponseFolder, domain, result.Request.URL, resultAgent(result)))
 	builder.WriteRune(' ')
 	builder.WriteString(result.Request.URL)
 	builder.WriteRune(' ')
@@ -97,4 +104,13 @@ func updateIndex(storeResponseFolder string, result *Result) error {
 	}
 
 	return nil
+}
+
+// resultAgent returns the identity that found result, or "" for a crawl as
+// one identity.
+func resultAgent(result *Result) string {
+	if result == nil || result.Request == nil {
+		return ""
+	}
+	return result.Request.Agent
 }

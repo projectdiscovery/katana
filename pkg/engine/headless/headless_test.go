@@ -200,3 +200,21 @@ func TestPerformAdditionalAnalysisHonorsParserOptions(t *testing.T) {
 	require.True(t, found["https://example.com/api/inline_secret"], "-jc inline script endpoint not extracted, got %v", found)
 	require.True(t, found["https://example.com/redirected"], "Location header not extracted, got %v", found)
 }
+
+func TestIsUniqueURLSimilarityPerAgent(t *testing.T) {
+	h := newTestHeadless(t, false, true)
+	h.options.Options.FilterSimilarThreshold = 2
+	h.pathTrie = utils.NewPathTrie(2)
+	const anon, bob = "agent:anon|", "agent:bob|"
+
+	// anon sees enough values to make the position of /item/N variable.
+	for _, id := range []string{"alpha", "bravo", "charlie", "delta"} {
+		h.isUniqueURL(anon, "https://example.com/item/"+id)
+	}
+	// bob has seen none, so his first two values stay apart, as in a crawl
+	// as bob alone.
+	require.True(t, h.isUniqueURL(bob, "https://example.com/item/echo"))
+	require.True(t, h.isUniqueURL(bob, "https://example.com/item/foxtrot"), "the similarity of one identity must not reach another")
+	require.NotSame(t, h.trieFor(anon), h.trieFor(bob))
+	require.Same(t, h.pathTrie, h.trieFor(""), "a crawl as one identity keeps its trie")
+}

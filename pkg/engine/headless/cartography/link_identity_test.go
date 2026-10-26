@@ -135,6 +135,17 @@ func TestLinkKeyPathShape(t *testing.T) {
 	require.Equal(t, link("/product?id=1"), link("https://example.com/product?id=2"))
 	require.Equal(t, LinkKey(page+"?tab=1", click("", "a", "Top", "#top")), LinkKey(page, click("", "a", "Top", "#top")))
 	require.NotEqual(t, link("/product?id=1"), link("https://other.example/product?id=1"))
+
+	// The scheme is part of the target.
+	require.NotEqual(t, link("http://example.com/admin"), link("https://example.com/admin"))
+	require.Equal(t, link("/admin"), link("https://example.com/admin"), "a relative href takes the scheme of the page")
+
+	// URL-safe tokens share one shape; named routes stay apart.
+	require.Equal(t, link("/go/abC123_def456_ghi789"), link("/go/xyZ987_def654_ghi321"))
+	require.Equal(t, link("/c/post-9f8e7d6c5b"), link("/c/post-0a1b2c3d4e"))
+	require.NotEqual(t, link("/blog/release-notes-2024"), link("/blog/release-notes-2025"))
+	require.NotEqual(t, link("/docs/v2-api-docs"), link("/docs/v3-api-docs"))
+	require.NotEqual(t, link("/docs/getting_started"), link("/docs/advanced_usage"))
 }
 
 func TestPathShape(t *testing.T) {

@@ -25,7 +25,12 @@ type Headless struct {
 	logger  *slog.Logger
 	options *types.CrawlerOptions
 
-	pathTrie *utils.PathTrie
+	// pathTrie is the similarity trie of a crawl as one identity. With
+	// several identities, each has its own trie in pathTries, so that one
+	// identity does not change what is similar for another.
+	pathTrie   *utils.PathTrie
+	pathTries  map[string]*utils.PathTrie
+	pathTrieMu sync.Mutex
 
 	debugger *CrawlDebugger
 
@@ -296,9 +301,28 @@ func (h *Headless) isUniqueURL(dedupScope, rawURL string) bool {
 		dedupKey = utils.ReplaceAllQueryParam(dedupKey, "")
 	}
 	if h.options.Options.FilterSimilar {
-		dedupKey = utils.FingerprintURL(dedupKey, h.pathTrie)
+		dedupKey = utils.FingerprintURL(dedupKey, h.trieFor(dedupScope))
 	}
 	return h.options.UniqueFilter.UniqueURL(dedupScope + dedupKey)
+}
+
+// trieFor returns the similarity trie of dedupScope. The empty scope, a crawl
+// as one identity, uses h.pathTrie as before.
+func (h *Headless) trieFor(dedupScope string) *utils.PathTrie {
+	if dedupScope == "" || h.pathTrie == nil {
+		return h.pathTrie
+	}
+	h.pathTrieMu.Lock()
+	defer h.pathTrieMu.Unlock()
+	trie, ok := h.pathTries[dedupScope]
+	if !ok {
+		if h.pathTries == nil {
+			h.pathTries = map[string]*utils.PathTrie{}
+		}
+		trie = utils.NewPathTrie(h.options.Options.FilterSimilarThreshold)
+		h.pathTries[dedupScope] = trie
+	}
+	return trie
 }
 
 // labelAgent names identity label on result: in request.agent for every
