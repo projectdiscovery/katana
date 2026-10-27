@@ -70,6 +70,10 @@ func TestSemanticValueAsksDecider(t *testing.T) {
 	require.Equal(t, "John", semanticValue(formInput("text", "first_name")))
 	require.Len(t, stub.asked, 1, "rules answer first")
 
+	require.Empty(t, semanticValue(formInput("submit", "go")))
+	require.Empty(t, semanticValue(formInput("hidden", "token")))
+	require.Len(t, stub.asked, 1, "only text fields are asked about")
+
 	FormDecider = &formStub{answer: decider.Answer{Choice: "other"}}
 	require.Empty(t, semanticValue(formInput("text", "plz")))
 

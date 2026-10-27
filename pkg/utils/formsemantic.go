@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/decider"
 )
 
@@ -203,7 +204,8 @@ func matchPattern(pattern, value string) string {
 }
 
 func askDecider(input FormInput) string {
-	if FormDecider == nil {
+	// buttons, hidden and file inputs take no typed text, so asking is wasted budget
+	if FormDecider == nil || !slices.Contains([]string{"", "text", "search"}, strings.ToLower(input.Type)) {
 		return ""
 	}
 	options := append(slices.Sorted(maps.Keys(fixedValues)), "email", "phone", "password", "other")
@@ -213,7 +215,11 @@ func askDecider(input FormInput) string {
 		Options: options,
 		Context: describeInput(input),
 	})
-	if err != nil || answer.Choice == "other" {
+	if err != nil {
+		gologger.Debug().Msgf("could not classify form field %q: %s", input.Name, err)
+		return ""
+	}
+	if answer.Choice == "other" {
 		return ""
 	}
 	return answer.Choice
