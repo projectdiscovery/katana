@@ -5,6 +5,7 @@ go 1.26.10
 require (
 	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/adrianbrad/queue v1.3.0
+	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/dominikbraun/graph v0.23.0
 	github.com/go-rod/rod v0.116.2
 	github.com/google/uuid v1.6.0
@@ -65,7 +66,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6 // indirect
 	github.com/aws/smithy-go v1.25.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/brianvoe/gofakeit/v7 v7.2.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/glamour v0.8.0 // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect

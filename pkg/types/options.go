@@ -78,7 +78,7 @@ type Options struct {
 	FormConfig string
 	// Proxy is the URL for the proxy server
 	Proxy string
-	// Strategy is the crawling strategy. depth-first or breadth-first
+	// Strategy is the crawling strategy. depth-first, breadth-first or priority
 	Strategy string
 	// FieldScope is the scope field for default DNS scope
 	FieldScope string
@@ -236,6 +236,13 @@ type Options struct {
 	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
+	// AIURL is the base URL of an OpenAI compatible API used for crawl decisions
+	AIURL      string
+	AIModel    string
+	AIAPIKey   string
+	AIRecord   string
+	AIReplay   string
+	AIMaxCalls int
 	// KnowledgeBase enables knowledge base classification using dit
 	KnowledgeBase bool
 	// Secrets enables the knowledgebase secrets extractor (Titus-backed)

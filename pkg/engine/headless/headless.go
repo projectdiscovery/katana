@@ -199,6 +199,7 @@ func (h *Headless) Crawl(URL string) error {
 		CookieConsentBypass: true,
 		UserArguments:       h.options.Options.ParseHeadlessOptionalArguments(),
 		DitClassifier:       h.options.DitClassifier,
+		FormDecider:         h.options.FormDecider(),
 		Hooks:               h.hooks,
 	}
 

@@ -144,7 +144,7 @@ CONFIGURATION:
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
-   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -s, -strategy string          Visit strategy (depth-first, breadth-first, priority) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
    -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
@@ -182,7 +182,15 @@ HEADLESS:
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
-   -csk, -captcha-solver-key string       captcha solver provider api key
+   -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
+
+AI:
+   -ai-url string     openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)
+   -ai-model string   model to use with -ai-url
+   -ai-key string     api key for -ai-url (env AI_API_KEY)
+   -ai-record string  file to record ai answers to, reused on later runs
+   -ai-replay string  file to replay recorded ai answers from, without calling the api
+   -ai-max-calls int  maximum ai api calls per crawl (0 = unlimited) (default 100)
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
@@ -393,8 +401,8 @@ HEADLESS:
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
-   -csk, -captcha-solver-key string       captcha solver provider api key
-   -al, -auto-login string           automatic login with username:password (headless only)
+   -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
+   -al, -auto-login string           automatic login with username:password (headless only) (env AUTH_CREDENTIALS)
    -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
 ```
 
@@ -859,7 +867,7 @@ CONFIGURATION:
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
-   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -s, -strategy string          Visit strategy (depth-first, breadth-first, priority) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
    -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
@@ -1343,7 +1351,7 @@ func main() {
 		Parallelism:  10,            // Parallelism is the number of urls processing goroutines
 		Delay:        0,             // Delay is the delay between each crawl requests in seconds
 		RateLimit:    150,           // Maximum requests to send per second
-		Strategy:     "depth-first", // Visit strategy (depth-first, breadth-first)
+		Strategy:     "depth-first", // Visit strategy (depth-first, breadth-first, priority)
 		OnResult: func(result output.Result) { // Callback function to execute for result
 			gologger.Info().Msg(result.Request.URL)
 		},

@@ -49,3 +49,32 @@ func TestPopBackwardCompatible(t *testing.T) {
 	item := <-items
 	require.Equal(t, "item1", item)
 }
+
+func TestPopWaitsForTrackedWork(t *testing.T) {
+	q, err := New("breadth-first", 1)
+	require.NoError(t, err)
+	q.Push("root", 0)
+
+	items := q.PopWithContext(context.Background())
+	require.Equal(t, "root", <-items)
+
+	done := q.Track()
+	go func() {
+		time.Sleep(2 * q.Timeout)
+		q.Push("child", 0)
+		done()
+	}()
+	select {
+	case item := <-items:
+		require.Equal(t, "child", item, "queue gave up while work was still running")
+	case <-time.After(5 * q.Timeout):
+		t.Fatal("child was never popped")
+	}
+
+	select {
+	case _, ok := <-items:
+		require.False(t, ok, "queue should close once idle with no tracked work")
+	case <-time.After(5 * q.Timeout):
+		t.Fatal("queue stayed open after tracked work finished")
+	}
+}

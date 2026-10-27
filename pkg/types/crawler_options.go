@@ -4,11 +4,14 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/user"
 	"regexp"
 	"time"
 
 	"github.com/projectdiscovery/fastdialer/fastdialer"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/decider"
 	"github.com/projectdiscovery/katana/pkg/engine/parser"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase"
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/endpoints"
@@ -54,6 +57,8 @@ type CrawlerOptions struct {
 	// Extractors is the chain of knowledgebase.Extractor implementations whose
 	// outputs are merged into the response KnowledgeBase map by BuildKnowledgeBase.
 	Extractors []knowledgebase.Extractor
+	// Decider answers typed crawl questions when -ai-url or -ai-replay is set
+	Decider *decider.Cache
 
 	// Optional structured logger for headless crawler
 	Logger *slog.Logger
@@ -67,8 +72,18 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	options.ConfigureOutput()
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
 
+	var aiDecider *decider.Cache
+	if options.AIURL != "" || options.AIReplay != "" {
+		d, err := newDecider(options)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not init ai decider")
+		}
+		aiDecider = d
+	}
+
 	parserOptions := &parser.Options{
 		AutomaticFormFill:      options.AutomaticFormFill,
+		FormDecider:            formDecider(aiDecider),
 		ScrapeJSLuiceResponses: options.ScrapeJSLuiceResponses,
 		ScrapeJSResponses:      options.ScrapeJSResponses,
 		DisableRedirects:       options.DisableRedirects,
@@ -158,6 +173,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 
 	crawlerOptions := &CrawlerOptions{
+		Decider:             aiDecider,
 		ExtensionsValidator: extensionsValidator,
 		Parser:              responseParser,
 		ScopeManager:        scopeManager,
@@ -239,6 +255,11 @@ func (c *CrawlerOptions) Close() error {
 			_ = closer.Close()
 		}
 	}
+	if c.Decider != nil {
+		if err := c.Decider.Close(); err != nil {
+			gologger.Warning().Msgf("could not save ai answers: %s", err)
+		}
+	}
 	c.UniqueFilter.Close()
 	if c.ContentSimilarity != nil {
 		c.ContentSimilarity.Close()
@@ -295,4 +316,30 @@ func (c *CrawlerOptions) ValidateScope(absURL, rootHostname string) (bool, error
 		return c.ScopeManager.Validate(parsed.URL, rootHostname)
 	}
 	return true, nil
+}
+
+func newDecider(options *Options) (*decider.Cache, error) {
+	if options.AIReplay != "" {
+		return decider.NewCache(nil, options.AIReplay, true, 0)
+	}
+	apiKey := options.AIAPIKey
+	if apiKey == "" {
+		apiKey = os.Getenv("AI_API_KEY")
+	}
+	// local reasoning models can take a minute to load and answer
+	provider := decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, 2*time.Minute)
+	return decider.NewCache(provider, options.AIRecord, false, options.AIMaxCalls)
+}
+
+// FormDecider returns the decider for form fields, or nil when ai is off.
+func (c *CrawlerOptions) FormDecider() decider.Decider {
+	return formDecider(c.Decider)
+}
+
+// formDecider keeps a nil cache from becoming a non-nil interface.
+func formDecider(c *decider.Cache) decider.Decider {
+	if c == nil {
+		return nil
+	}
+	return c
 }

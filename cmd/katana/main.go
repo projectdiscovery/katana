@@ -142,7 +142,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
 		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
-		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first)"),
+		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first, priority)"),
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.FilterSimilar, "filter-similar", "fsu", false, "filter crawling of similar looking URLs (e.g., /users/123 and /users/456)"),
 		flagSet.IntVarP(&options.FilterSimilarThreshold, "filter-similar-threshold", "fst", 10, "number of distinct values before a path position is treated as parameter (default 10)"),
@@ -191,9 +191,19 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.IntVar(&options.MaxScrollSteps, "max-scroll-steps", 0, "maximum viewport scrolls to reveal lazy-loaded content (headless only)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
-		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
-		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
+		flagSet.StringVarP(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "captcha solver provider api key (env CAPTCHA_SOLVER_KEY)"),
+		flagSet.StringVarP(&options.AuthCredentials, "auto-login", "al", "", "automatic login with username:password (headless only) (env AUTH_CREDENTIALS)"),
 		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
+	)
+
+	// AI group
+	flagSet.CreateGroup("ai", "AI",
+		flagSet.StringVarEnv(&options.AIURL, "ai-url", "", "", "AI_URL", "openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)"),
+		flagSet.StringVarEnv(&options.AIModel, "ai-model", "", "", "AI_MODEL", "model to use with -ai-url"),
+		flagSet.StringVar(&options.AIAPIKey, "ai-key", "", "api key for -ai-url (env AI_API_KEY)"),
+		flagSet.StringVar(&options.AIRecord, "ai-record", "", "file to record ai answers to, reused on later runs"),
+		flagSet.StringVar(&options.AIReplay, "ai-replay", "", "file to replay recorded ai answers from, without calling the api"),
+		flagSet.IntVar(&options.AIMaxCalls, "ai-max-calls", 100, "maximum ai api calls per crawl (0 = unlimited)"),
 	)
 
 	// Scope group
@@ -271,6 +281,14 @@ func readFlags() (*goflags.FlagSet, error) {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
 			return nil, errkit.Wrap(err, "could not read config file")
 		}
+	}
+
+	// secrets come from the env after parsing, as flag defaults they would show in -h and the generated config file
+	if options.CaptchaSolverAPIKey == "" {
+		options.CaptchaSolverAPIKey = os.Getenv("CAPTCHA_SOLVER_KEY")
+	}
+	if options.AuthCredentials == "" {
+		options.AuthCredentials = os.Getenv("AUTH_CREDENTIALS")
 	}
 
 	cleanupOldResumeFiles()
