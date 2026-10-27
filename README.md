@@ -183,6 +183,14 @@ HEADLESS:
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key
 
+AI:
+   -ai-url string     openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)
+   -ai-model string   model to use with -ai-url
+   -ai-key string     api key for -ai-url (env AI_API_KEY)
+   -ai-record string  file to record ai answers to, reused on later runs
+   -ai-replay string  file to replay recorded ai answers from, without calling the api
+   -ai-max-calls int  maximum ai api calls per crawl (0 = unlimited) (default 100)
+
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
    -cos, -crawl-out-scope string[]  out of scope url regex to be excluded by crawler

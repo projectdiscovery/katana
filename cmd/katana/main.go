@@ -195,6 +195,16 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
 	)
 
+	// AI group
+	flagSet.CreateGroup("ai", "AI",
+		flagSet.StringVarEnv(&options.AIURL, "ai-url", "", "", "AI_URL", "openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)"),
+		flagSet.StringVarEnv(&options.AIModel, "ai-model", "", "", "AI_MODEL", "model to use with -ai-url"),
+		flagSet.StringVar(&options.AIAPIKey, "ai-key", "", "api key for -ai-url (env AI_API_KEY)"),
+		flagSet.StringVar(&options.AIRecord, "ai-record", "", "file to record ai answers to, reused on later runs"),
+		flagSet.StringVar(&options.AIReplay, "ai-replay", "", "file to replay recorded ai answers from, without calling the api"),
+		flagSet.IntVar(&options.AIMaxCalls, "ai-max-calls", 100, "maximum ai api calls per crawl (0 = unlimited)"),
+	)
+
 	// Scope group
 	flagSet.CreateGroup("scope", "Scope",
 		flagSet.StringSliceVarP(&options.Scope, "crawl-scope", "cs", nil, "in scope url regex to be followed by crawler", goflags.FileCommaSeparatedStringSliceOptions),

@@ -233,6 +233,13 @@ type Options struct {
 	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
+	// AIURL is the base URL of an OpenAI compatible API used for crawl decisions
+	AIURL      string
+	AIModel    string
+	AIAPIKey   string
+	AIRecord   string
+	AIReplay   string
+	AIMaxCalls int
 	// KnowledgeBase enables knowledge base classification using dit
 	KnowledgeBase bool
 	// Secrets enables the knowledgebase secrets extractor (Titus-backed)
