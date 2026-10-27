@@ -190,8 +190,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.IntVar(&options.MaxScrollSteps, "max-scroll-steps", 0, "maximum viewport scrolls to reveal lazy-loaded content (headless only)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
-		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
-		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
+		flagSet.StringVarP(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "captcha solver provider api key (env CAPTCHA_SOLVER_KEY)"),
+		flagSet.StringVarP(&options.AuthCredentials, "auto-login", "al", "", "automatic login with username:password (headless only) (env AUTH_CREDENTIALS)"),
 		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
 	)
 
@@ -270,6 +270,14 @@ func readFlags() (*goflags.FlagSet, error) {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
 			return nil, errkit.Wrap(err, "could not read config file")
 		}
+	}
+
+	// secrets come from the env after parsing, as flag defaults they would show in -h and the generated config file
+	if options.CaptchaSolverAPIKey == "" {
+		options.CaptchaSolverAPIKey = os.Getenv("CAPTCHA_SOLVER_KEY")
+	}
+	if options.AuthCredentials == "" {
+		options.AuthCredentials = os.Getenv("AUTH_CREDENTIALS")
 	}
 
 	cleanupOldResumeFiles()
