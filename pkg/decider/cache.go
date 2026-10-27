@@ -21,16 +21,24 @@ type Cache struct {
 	mu       sync.Mutex
 	calls    int
 	answers  map[string]Answer
-	inflight map[string]chan struct{}
+	inflight map[string]*flight
 	// failed stops all calls once the provider rejects the configuration
 	failed error
+}
+
+// flight is one provider call. Waiters share its result, including errors,
+// so a bad answer is not asked again for every concurrent caller.
+type flight struct {
+	done chan struct{}
+	a    Answer
+	err  error
 }
 
 // NewCache loads recorded answers from path when it exists. With replay set,
 // next is never called and unrecorded questions fail with ErrNotRecorded.
 // maxCalls <= 0 means unlimited.
 func NewCache(next Decider, path string, replay bool, maxCalls int) (*Cache, error) {
-	c := &Cache{next: next, path: path, replay: replay, maxCalls: maxCalls, answers: map[string]Answer{}, inflight: map[string]chan struct{}{}}
+	c := &Cache{next: next, path: path, replay: replay, maxCalls: maxCalls, answers: map[string]Answer{}, inflight: map[string]*flight{}}
 	if path == "" {
 		if replay {
 			return nil, errors.New("decider: replay needs a recording file")
@@ -73,11 +81,11 @@ func (c *Cache) Decide(ctx context.Context, q Question) (Answer, error) {
 		}
 		// the same form often appears on many pages crawled at once, so
 		// identical questions wait for the first one instead of using budget
-		if wait, ok := c.inflight[key]; ok {
+		if call, ok := c.inflight[key]; ok {
 			c.mu.Unlock()
 			select {
-			case <-wait:
-				continue
+			case <-call.done:
+				return call.a, call.err
 			case <-ctx.Done():
 				return Answer{}, ctx.Err()
 			}
@@ -87,14 +95,15 @@ func (c *Cache) Decide(ctx context.Context, q Question) (Answer, error) {
 			return Answer{}, ErrBudgetExceeded
 		}
 		c.calls++
-		done := make(chan struct{})
-		c.inflight[key] = done
+		call := &flight{done: make(chan struct{})}
+		c.inflight[key] = call
 		c.mu.Unlock()
 
 		a, err := c.ask(ctx, q)
 
 		c.mu.Lock()
 		delete(c.inflight, key)
+		call.a, call.err = a, err
 		if err == nil {
 			c.answers[key] = a
 		} else if errors.Is(err, ErrUnavailable) && c.failed == nil {
@@ -102,7 +111,7 @@ func (c *Cache) Decide(ctx context.Context, q Question) (Answer, error) {
 			gologger.Error().Msgf("ai decider disabled: %s", err)
 		}
 		c.mu.Unlock()
-		close(done)
+		close(call.done)
 		return a, err
 	}
 }

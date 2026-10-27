@@ -3,6 +3,7 @@ package decider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -184,6 +185,45 @@ func TestCacheCoalescesConcurrentQuestions(t *testing.T) {
 	_, err = c.Decide(ctx, zip)
 	require.ErrorIs(t, err, context.Canceled, "a waiter keeps its own context")
 	close(blocked.release)
+}
+
+func TestCacheCoalescesFailedQuestions(t *testing.T) {
+	s := &errStub{release: make(chan struct{}), err: errors.New("malformed")}
+	c, err := NewCache(s, "", false, 5)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 5)
+	for range 5 {
+		wg.Go(func() {
+			_, err := c.Decide(context.Background(), zip)
+			errs <- err
+		})
+	}
+	require.Eventually(t, func() bool { return s.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
+	close(s.release)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.ErrorContains(t, err, "malformed")
+	}
+	require.EqualValues(t, 1, s.calls.Load(), "waiters must share the error")
+
+	_, err = c.Decide(context.Background(), zip)
+	require.ErrorContains(t, err, "malformed")
+	require.EqualValues(t, 2, s.calls.Load(), "a later call can try again")
+}
+
+type errStub struct {
+	calls   atomic.Int32
+	release chan struct{}
+	err     error
+}
+
+func (s *errStub) Decide(context.Context, Question) (Answer, error) {
+	s.calls.Add(1)
+	<-s.release
+	return Answer{}, s.err
 }
 
 func TestCacheStopsAfterPermanentFailure(t *testing.T) {
