@@ -64,56 +64,54 @@ func (c *Cache) Decide(ctx context.Context, q Question) (Answer, error) {
 	}
 	key := q.key()
 
-	for {
-		c.mu.Lock()
-		if a, ok := c.answers[key]; ok {
-			c.mu.Unlock()
-			// recordings are files a user can edit, so they get the same check as live answers
-			return a, q.check(a)
-		}
-		if c.replay {
-			c.mu.Unlock()
-			return Answer{}, ErrNotRecorded
-		}
-		if c.failed != nil {
-			c.mu.Unlock()
-			return Answer{}, c.failed
-		}
-		// the same form often appears on many pages crawled at once, so
-		// identical questions wait for the first one instead of using budget
-		if call, ok := c.inflight[key]; ok {
-			c.mu.Unlock()
-			select {
-			case <-call.done:
-				return call.a, call.err
-			case <-ctx.Done():
-				return Answer{}, ctx.Err()
-			}
-		}
-		if c.maxCalls > 0 && c.calls >= c.maxCalls {
-			c.mu.Unlock()
-			return Answer{}, ErrBudgetExceeded
-		}
-		c.calls++
-		call := &flight{done: make(chan struct{})}
-		c.inflight[key] = call
+	c.mu.Lock()
+	if a, ok := c.answers[key]; ok {
 		c.mu.Unlock()
-
-		a, err := c.ask(ctx, q)
-
-		c.mu.Lock()
-		delete(c.inflight, key)
-		call.a, call.err = a, err
-		if err == nil {
-			c.answers[key] = a
-		} else if errors.Is(err, ErrUnavailable) && c.failed == nil {
-			c.failed = err
-			gologger.Error().Msgf("ai decider disabled: %s", err)
-		}
-		c.mu.Unlock()
-		close(call.done)
-		return a, err
+		// recordings are files a user can edit, so they get the same check as live answers
+		return a, q.check(a)
 	}
+	if c.replay {
+		c.mu.Unlock()
+		return Answer{}, ErrNotRecorded
+	}
+	if c.failed != nil {
+		c.mu.Unlock()
+		return Answer{}, c.failed
+	}
+	// the same form often appears on many pages crawled at once, so
+	// identical questions wait for the first one instead of using budget
+	if call, ok := c.inflight[key]; ok {
+		c.mu.Unlock()
+		select {
+		case <-call.done:
+			return call.a, call.err
+		case <-ctx.Done():
+			return Answer{}, ctx.Err()
+		}
+	}
+	if c.maxCalls > 0 && c.calls >= c.maxCalls {
+		c.mu.Unlock()
+		return Answer{}, ErrBudgetExceeded
+	}
+	c.calls++
+	call := &flight{done: make(chan struct{})}
+	c.inflight[key] = call
+	c.mu.Unlock()
+
+	a, err := c.ask(ctx, q)
+
+	c.mu.Lock()
+	delete(c.inflight, key)
+	call.a, call.err = a, err
+	if err == nil {
+		c.answers[key] = a
+	} else if errors.Is(err, ErrUnavailable) && c.failed == nil {
+		c.failed = err
+		gologger.Error().Msgf("ai decider disabled: %s", err)
+	}
+	c.mu.Unlock()
+	close(call.done)
+	return a, err
 }
 
 func (c *Cache) ask(ctx context.Context, q Question) (Answer, error) {
