@@ -516,9 +516,19 @@ func bodyHtmlDoctypeTagParser(resp *navigation.Response) (navigationRequests []*
 // bodyFormTagParser parses forms from response, asking d about fields the rules cannot fill
 func bodyFormTagParser(d decider.Decider) ResponseParserFunc {
 	return func(resp *navigation.Response) []*navigation.Request {
-		// the parser has no crawl context, the decider's own timeout bounds the call
-		return parseForms(context.Background(), resp, d)
+		return parseForms(deciderContext(resp), resp, d)
 	}
+}
+
+// deciderContext is the crawl context carried by the response request.
+// Standard and hybrid attach it so cancelling the crawl stops a decision.
+func deciderContext(resp *navigation.Response) context.Context {
+	if resp != nil && resp.Resp != nil && resp.Resp.Request != nil {
+		if ctx := resp.Resp.Request.Context(); ctx != nil {
+			return ctx
+		}
+	}
+	return context.Background()
 }
 
 func parseForms(ctx context.Context, resp *navigation.Response, d decider.Decider) (navigationRequests []*navigation.Request) {

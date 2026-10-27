@@ -135,7 +135,7 @@ func FormInputFillSuggestionsWithDecider(ctx context.Context, d decider.Decider,
 	data := mapsutil.NewOrderedMap[string, string]()
 
 	// Fill checkboxes and radioboxes first or default values first
-	for i, input := range inputs {
+	for _, input := range inputs {
 		switch input.Type {
 		case "radio":
 			// Use a single radio name per value
@@ -146,13 +146,10 @@ func FormInputFillSuggestionsWithDecider(ctx context.Context, d decider.Decider,
 			data.Set(input.Name, input.Value)
 
 		default:
-			// If there is a value, use it for the input. Else
-			// infer the values based on input types.
+			// A real value wins. Placeholder text is only a fallback after
+			// semantic filling, so it must not hide the field from that pass.
 			if input.Value != "" {
 				data.Set(input.Name, input.Value)
-			} else if value, ok := input.Attributes.Get("placeholder"); ok {
-				inputs[i].Value = value
-				data.Set(input.Name, value)
 			}
 		}
 	}
@@ -187,7 +184,11 @@ func FormInputFillSuggestionsWithDecider(ctx context.Context, d decider.Decider,
 		default:
 			value := semanticValue(ctx, d, input)
 			if value == "" {
-				value = FormData.Placeholder
+				if placeholder, ok := input.Attributes.Get("placeholder"); ok {
+					value = placeholder
+				} else {
+					value = FormData.Placeholder
+				}
 			}
 			data.Set(input.Name, value)
 		}

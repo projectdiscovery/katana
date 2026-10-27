@@ -76,3 +76,23 @@ func TestSemanticValueAsksDecider(t *testing.T) {
 	require.Empty(t, semanticValue(ctx, &formStub{answer: decider.Answer{Choice: "other"}}, formInput("text", "plz")))
 	require.Empty(t, semanticValue(ctx, &formStub{err: errors.New("down")}, formInput("text", "plz")))
 }
+
+func TestPlaceholderDoesNotHideSemanticValue(t *testing.T) {
+	FormData = DefaultFormFillData
+	filled := formInput("text", "postal", "placeholder", "ZIP code")
+	filled.Value = "90210"
+	got := FormInputFillSuggestionsWithDecider(context.Background(), nil, []FormInput{
+		formInput("text", "zip", "placeholder", "ZIP code"),
+		formInput("text", "q", "placeholder", "search"),
+		filled,
+	})
+	zip, ok := got.Get("zip")
+	require.True(t, ok)
+	require.Equal(t, "10001", zip)
+	query, ok := got.Get("q")
+	require.True(t, ok)
+	require.Equal(t, "search", query)
+	postal, ok := got.Get("postal")
+	require.True(t, ok)
+	require.Equal(t, "90210", postal)
+}
