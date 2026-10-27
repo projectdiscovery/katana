@@ -18,6 +18,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/similarity"
+	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -224,6 +225,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 			return nil, errkit.Wrap(err, "could not init ai decider")
 		}
 		crawlerOptions.Decider = d
+		utils.FormDecider = d
 	}
 
 	// Only 0 means "unset, use the default"; a negative value explicitly

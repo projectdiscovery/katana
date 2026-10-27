@@ -165,8 +165,6 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 			continue
 		}
 		switch input.Type {
-		case "email":
-			data.Set(input.Name, FormData.Email)
 		case "color":
 			data.Set(input.Name, FormData.Color)
 		case "number", "range":
@@ -178,12 +176,12 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 				val = max - step
 			}
 			data.Set(input.Name, strconv.Itoa(val))
-		case "password":
-			data.Set(input.Name, FormData.Password)
-		case "tel":
-			data.Set(input.Name, FormData.PhoneNumber)
 		default:
-			data.Set(input.Name, FormData.Placeholder)
+			value := semanticValue(input)
+			if value == "" {
+				value = FormData.Placeholder
+			}
+			data.Set(input.Name, value)
 		}
 	}
 	return data
