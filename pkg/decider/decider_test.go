@@ -6,7 +6,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -127,4 +130,79 @@ func TestOpenAIErrors(t *testing.T) {
 	require.ErrorContains(t, err, "401")
 	_, err = NewOpenAI(srv.URL, "m", "k", time.Second).Decide(context.Background(), zip)
 	require.ErrorContains(t, err, "malformed answer")
+}
+
+func TestCacheValidatesRecordedAnswers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "answers.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"`+zip.key()+`":{"choice":"rm -rf"}}`), 0o600))
+	c, err := NewCache(nil, path, true, 0)
+	require.NoError(t, err)
+	_, err = c.Decide(context.Background(), zip)
+	require.Error(t, err)
+}
+
+type slowStub struct {
+	calls   atomic.Int32
+	release chan struct{}
+}
+
+func (s *slowStub) Decide(context.Context, Question) (Answer, error) {
+	s.calls.Add(1)
+	<-s.release
+	return Answer{Choice: "zip"}, nil
+}
+
+func TestCacheCoalescesConcurrentQuestions(t *testing.T) {
+	s := &slowStub{release: make(chan struct{})}
+	c, err := NewCache(s, "", false, 1)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 5)
+	for range 5 {
+		wg.Go(func() {
+			_, err := c.Decide(context.Background(), zip)
+			errs <- err
+		})
+	}
+	require.Eventually(t, func() bool { return s.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
+	close(s.release)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err, "waiters must not spend the budget")
+	}
+	require.EqualValues(t, 1, s.calls.Load())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	blocked := &slowStub{release: make(chan struct{})}
+	c, err = NewCache(blocked, "", false, 0)
+	require.NoError(t, err)
+	go func() { _, _ = c.Decide(context.Background(), zip) }()
+	require.Eventually(t, func() bool { return blocked.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
+	_, err = c.Decide(ctx, zip)
+	require.ErrorIs(t, err, context.Canceled, "a waiter keeps its own context")
+	close(blocked.release)
+}
+
+func TestCacheStopsAfterPermanentFailure(t *testing.T) {
+	var calls atomic.Int32
+	status := http.StatusServiceUnavailable
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.Error(w, "nope", status)
+	}))
+	defer srv.Close()
+	c, err := NewCache(NewOpenAI(srv.URL, "m", "", time.Second), "", false, 0)
+	require.NoError(t, err)
+
+	_, err = c.Decide(context.Background(), Question{Kind: Bool, Prompt: "a"})
+	require.NotErrorIs(t, err, ErrUnavailable)
+	status = http.StatusUnauthorized
+	_, err = c.Decide(context.Background(), Question{Kind: Bool, Prompt: "b"})
+	require.ErrorIs(t, err, ErrUnavailable)
+	_, err = c.Decide(context.Background(), Question{Kind: Bool, Prompt: "c"})
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.EqualValues(t, 2, calls.Load(), "no calls after the provider rejected the configuration")
 }

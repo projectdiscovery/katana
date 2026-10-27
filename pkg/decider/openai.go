@@ -57,7 +57,11 @@ func (o *OpenAI) Decide(ctx context.Context, q Question) (Answer, error) {
 	if err != nil {
 		return Answer{}, err
 	}
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
+		return Answer{}, fmt.Errorf("%w: %s: %s", ErrUnavailable, resp.Status, bytes.TrimSpace(data))
+	default:
 		return Answer{}, fmt.Errorf("decider: %s: %s", resp.Status, bytes.TrimSpace(data))
 	}
 

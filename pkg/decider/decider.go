@@ -47,6 +47,8 @@ type Decider interface {
 var (
 	ErrNotRecorded    = errors.New("decider: answer not recorded")
 	ErrBudgetExceeded = errors.New("decider: call budget exceeded")
+	// ErrUnavailable means the provider rejected the url, model or key, so retrying cannot help.
+	ErrUnavailable = errors.New("decider: provider unavailable")
 )
 
 func (q Question) validate() error {
