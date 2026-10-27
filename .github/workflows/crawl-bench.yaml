@@ -1,0 +1,60 @@
+name: 📊 Crawl Bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: ref to compare against
+        default: dev
+      repeat:
+        description: crawls per target and run (median is reported)
+        default: "3"
+
+jobs:
+  bench:
+    name: Crawl Bench
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Check out base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.base }}
+          path: base
+
+      - name: Set up Go
+        uses: projectdiscovery/actions/setup/go@v1
+
+      - name: Build katana
+        run: |
+          go build -o "$RUNNER_TEMP/katana-head" ./cmd/katana
+          (cd base && go build -o "$RUNNER_TEMP/katana-base" ./cmd/katana)
+
+      - name: Start targets
+        run: docker compose up -d --wait
+        working-directory: cmd/tools/crawl-bench
+
+      - name: Run base
+        run: go run . -katana "$RUNNER_TEMP/katana-base" -repeat "$REPEAT" -out base.json
+        working-directory: cmd/tools/crawl-bench
+        env:
+          REPEAT: ${{ inputs.repeat }}
+
+      - name: Run head
+        run: |
+          go run . -katana "$RUNNER_TEMP/katana-head" -repeat "$REPEAT" -out head.json -baseline base.json | tee report.txt
+          { echo "### head vs \`$BASE\`"; echo '```'; cat report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+        working-directory: cmd/tools/crawl-bench
+        env:
+          REPEAT: ${{ inputs.repeat }}
+          BASE: ${{ inputs.base }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: crawl-bench
+          path: cmd/tools/crawl-bench/*.json
