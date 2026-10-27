@@ -14,9 +14,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/decider"
 )
 
-// FormDecider classifies fields the rules below cannot. Nil disables it.
-var FormDecider decider.Decider
-
 // fixedValues are constant so repeated crawls submit the same forms.
 var fixedValues = map[string]string{
 	"url":        "https://example.com",
@@ -111,15 +108,15 @@ var fieldKeywords = []struct {
 }
 
 // semanticValue picks a value for an empty input, or "" to keep the placeholder.
-func semanticValue(input FormInput) string {
-	value := typedValue(fieldSemantic(input))
+func semanticValue(ctx context.Context, d decider.Decider, input FormInput) string {
+	value := typedValue(fieldSemantic(ctx, d, input))
 	if pattern, ok := input.Attributes.Get("pattern"); ok {
 		value = matchPattern(pattern, value)
 	}
 	return value
 }
 
-func fieldSemantic(input FormInput) string {
+func fieldSemantic(ctx context.Context, d decider.Decider, input FormInput) string {
 	if semantic, ok := semanticTypes[strings.ToLower(input.Type)]; ok {
 		return semantic
 	}
@@ -138,7 +135,7 @@ func fieldSemantic(input FormInput) string {
 			return keyword.semantic
 		}
 	}
-	return askDecider(input)
+	return askDecider(ctx, d, input)
 }
 
 // fieldWords splits names like user_firstName into words and adjacent
@@ -203,13 +200,13 @@ func matchPattern(pattern, value string) string {
 	return generated
 }
 
-func askDecider(input FormInput) string {
+func askDecider(ctx context.Context, d decider.Decider, input FormInput) string {
 	// buttons, hidden and file inputs take no typed text, so asking is wasted budget
-	if FormDecider == nil || !slices.Contains([]string{"", "text", "search"}, strings.ToLower(input.Type)) {
+	if d == nil || !slices.Contains([]string{"", "text", "search"}, strings.ToLower(input.Type)) {
 		return ""
 	}
 	options := append(slices.Sorted(maps.Keys(fixedValues)), "email", "phone", "password", "other")
-	answer, err := FormDecider.Decide(context.Background(), decider.Question{
+	answer, err := d.Decide(ctx, decider.Question{
 		Kind:    decider.Choice,
 		Prompt:  "Which kind of value does this form field expect? Answer other if none fit.",
 		Options: options,

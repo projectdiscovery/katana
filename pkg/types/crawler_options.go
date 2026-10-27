@@ -18,7 +18,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/knowledgebase/extractors/secrets"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/similarity"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/extensions"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
 	"github.com/projectdiscovery/katana/pkg/utils/scope"
@@ -73,8 +72,18 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	options.ConfigureOutput()
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
 
+	var aiDecider *decider.Cache
+	if options.AIURL != "" || options.AIReplay != "" {
+		d, err := newDecider(options)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not init ai decider")
+		}
+		aiDecider = d
+	}
+
 	parserOptions := &parser.Options{
 		AutomaticFormFill:      options.AutomaticFormFill,
+		FormDecider:            formDecider(aiDecider),
 		ScrapeJSLuiceResponses: options.ScrapeJSLuiceResponses,
 		ScrapeJSResponses:      options.ScrapeJSResponses,
 		DisableRedirects:       options.DisableRedirects,
@@ -164,6 +173,7 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	}
 
 	crawlerOptions := &CrawlerOptions{
+		Decider:             aiDecider,
 		ExtensionsValidator: extensionsValidator,
 		Parser:              responseParser,
 		ScopeManager:        scopeManager,
@@ -217,15 +227,6 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 
 	if options.Endpoints {
 		crawlerOptions.Extractors = append(crawlerOptions.Extractors, endpoints.New())
-	}
-
-	if options.AIURL != "" || options.AIReplay != "" {
-		d, err := newDecider(options)
-		if err != nil {
-			return nil, errkit.Wrap(err, "could not init ai decider")
-		}
-		crawlerOptions.Decider = d
-		utils.FormDecider = d
 	}
 
 	// Only 0 means "unset, use the default"; a negative value explicitly
@@ -328,4 +329,17 @@ func newDecider(options *Options) (*decider.Cache, error) {
 	// local reasoning models can take a minute to load and answer
 	provider := decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, 2*time.Minute)
 	return decider.NewCache(provider, options.AIRecord, false, options.AIMaxCalls)
+}
+
+// FormDecider returns the decider for form fields, or nil when ai is off.
+func (c *CrawlerOptions) FormDecider() decider.Decider {
+	return formDecider(c.Decider)
+}
+
+// formDecider keeps a nil cache from becoming a non-nil interface.
+func formDecider(c *decider.Cache) decider.Decider {
+	if c == nil {
+		return nil
+	}
+	return c
 }

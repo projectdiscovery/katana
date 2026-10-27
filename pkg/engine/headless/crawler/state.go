@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -141,7 +142,7 @@ var ErrNoNavigationPossible = errors.New("no navigation possible")
 //     of the action, then we can directly use the browser history to navigate back.
 //
 // 3. If all else fails, we have the shortest path navigation.
-func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {
+func (c *Crawler) navigateBackToStateOrigin(ctx context.Context, action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {
 	c.logger.Debug("Found action with different origin id",
 		slog.String("action_origin_id", action.OriginID),
 		slog.String("current_page_hash", currentPageHash),
@@ -175,7 +176,7 @@ func (c *Crawler) navigateBackToStateOrigin(action *types.Action, page *browser.
 	}
 
 	// Finally try Shortest path walking from root.
-	newPageHash, err = c.tryShortestPathNavigation(action, page, currentPageHash)
+	newPageHash, err = c.tryShortestPathNavigation(ctx, action, page, currentPageHash)
 	if err != nil {
 		return "", err
 	}
@@ -304,7 +305,7 @@ func (c *Crawler) isBackNavigationPossible(page *browser.BrowserPage, originPage
 	return false, 0, nil
 }
 
-func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {
+func (c *Crawler) tryShortestPathNavigation(ctx context.Context, action *types.Action, page *browser.BrowserPage, currentPageHash string) (string, error) {
 	c.logger.Debug("Trying Shortest path to navigate back to origin page", slog.String("action_origin_id", action.OriginID), slog.String("current_page_hash", currentPageHash))
 
 	actions, err := c.crawlGraph.ShortestPath(currentPageHash, action.OriginID)
@@ -326,7 +327,7 @@ func (c *Crawler) tryShortestPathNavigation(action *types.Action, page *browser.
 		slog.Any("actions", actions),
 	)
 	for i, pathAction := range actions {
-		if err := c.executeCrawlStateAction(pathAction, page); err != nil {
+		if err := c.executeCrawlStateAction(ctx, pathAction, page); err != nil {
 			return "", err
 		}
 		// Intermediate states were scrolled when discovered, so the next

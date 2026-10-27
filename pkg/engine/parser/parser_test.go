@@ -375,13 +375,13 @@ func TestBodyParsers(t *testing.T) {
 		t.Run("get", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-get.found\" method=\"GET\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
 			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
-			navigationRequests := bodyFormTagParser(resp)
+			navigationRequests := bodyFormTagParser(nil)(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/action-get.found?test1=test&test2=test", navigationRequests[0].URL, "could not get correct url")
 		})
 		t.Run("post", func(t *testing.T) {
 			documentReader, _ := goquery.NewDocumentFromReader(strings.NewReader("<form action=\"/test/html/body/form/action-post.found\" method=\"POST\" enctype=\"multipart/form-data\"><input type=\"text\" name=\"test1\" value=\"test\"><input type=\"text\" name=\"test2\" value=\"test\"></form>"))
 			resp := &navigation.Response{Resp: &http.Response{Request: &http.Request{URL: parsed.URL}}, Reader: documentReader}
-			navigationRequests := bodyFormTagParser(resp)
+			navigationRequests := bodyFormTagParser(nil)(resp)
 			require.Equal(t, "https://security-crawl-maze.app/test/html/body/form/action-post.found", navigationRequests[0].URL, "could not get correct url")
 			require.Equal(t, "POST", navigationRequests[0].Method, "could not get correct method")
 		})
