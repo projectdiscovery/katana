@@ -181,7 +181,7 @@ HEADLESS:
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
-   -csk, -captcha-solver-key string       captcha solver provider api key
+   -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
 
 AI:
    -ai-url string     openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)
@@ -399,8 +399,8 @@ HEADLESS:
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
-   -csk, -captcha-solver-key string       captcha solver provider api key
-   -al, -auto-login string           automatic login with username:password (headless only)
+   -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
+   -al, -auto-login string           automatic login with username:password (headless only) (env AUTH_CREDENTIALS)
    -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
 ```
 
