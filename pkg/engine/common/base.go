@@ -162,7 +162,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 
-		queue.Push(nr, nr.Depth)
+		queue.Push(nr, s.priority(nr))
 
 		if s.Options.Options.PathClimb {
 			extractedParentURLs := utils.ExtractParentPaths(nr.URL)
@@ -195,7 +195,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 					Source:       nr.Source,
 					Tag:          "path-climb",
 				}
-				queue.Push(parentReq, parentDepth)
+				queue.Push(parentReq, s.priority(parentReq))
 			}
 		}
 	}

@@ -50,7 +50,7 @@ func (q *Queue) Len() int {
 	defer q.Unlock()
 
 	switch q.Strategy {
-	case BreadthFirst:
+	case BreadthFirst, Priority:
 		return q.priorityQueue.Len()
 	case DepthFirst:
 		return q.stack.Len()
@@ -65,7 +65,7 @@ func (q *Queue) Push(x interface{}, priority int) {
 	defer q.Unlock()
 
 	switch q.Strategy {
-	case BreadthFirst:
+	case BreadthFirst, Priority:
 		q.priorityQueue.Push(x, priority)
 	case DepthFirst:
 		q.stack.Push(x)
@@ -107,7 +107,7 @@ func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 			var item interface{}
 			q.Lock()
 			switch q.Strategy {
-			case BreadthFirst:
+			case BreadthFirst, Priority:
 				item = q.priorityQueue.Pop()
 			case DepthFirst:
 				item = q.stack.Pop()
