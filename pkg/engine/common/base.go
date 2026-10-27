@@ -438,9 +438,11 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 		}
 
 		wg.Add()
+		done := crawlSession.Queue.Track()
 		// gologger.Debug().Msgf("Visiting: %v", req.URL) // not sure if this is needed
 		go func() {
 			defer wg.Done()
+			defer done()
 
 			// Race Take() against the session context so that workers
 			// don't block shutdown waiting for the next limiter tick

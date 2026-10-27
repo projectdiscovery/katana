@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type Queue struct {
 	Strategy      Strategy
 	stack         *stack
 	priorityQueue *priorityQueue
+	tracked       atomic.Int64
 }
 
 // New creates a new queue from the type specified.
@@ -70,6 +72,15 @@ func (q *Queue) Push(x interface{}, priority int) {
 	}
 }
 
+// Track marks work that may still push items, such as a page being
+// processed. The queue does not time out while tracked work is running.
+// Call the returned func when the work is done.
+func (q *Queue) Track() func() {
+	q.tracked.Add(1)
+	var once sync.Once
+	return func() { once.Do(func() { q.tracked.Add(-1) }) }
+}
+
 // Pop pops elements from the queue (backward-compatible, no context).
 func (q *Queue) Pop() chan interface{} {
 	return q.PopWithContext(context.Background())
@@ -104,6 +115,9 @@ func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 			q.Unlock()
 
 			if item == nil {
+				if q.tracked.Load() > 0 {
+					start = time.Now()
+				}
 				if !start.Add(q.Timeout).Before(time.Now()) {
 					select {
 					case <-ctx.Done():

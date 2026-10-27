@@ -275,86 +275,93 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			continue
 		}
 
-		// Race Take() against the session context so the loop doesn't
-		// block on a limiter tick when the crawl has been cancelled.
-		//
-		// Note: when the session is cancelled mid-Take, this inner
-		// goroutine outlives the loop iteration and stays blocked on
-		// the limiter until the next tick or until RateLimit.Stop() is
-		// called by CrawlerOptions.Close(). The leak is bounded by
-		// Close() and acceptable.
-		if crawlSession.Ctx.Err() != nil {
-			continue
-		}
-		takeDone := make(chan struct{})
-		go func() {
-			if c.Options.HostRateLimit != nil {
-				_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
-			} else if c.Options.RateLimit != nil {
-				c.Options.RateLimit.Take()
-			}
-			close(takeDone)
-		}()
-		select {
-		case <-crawlSession.Ctx.Done():
-			continue
-		case <-takeDone:
-		}
-		c.ApplyBackoff(crawlSession.Hostname)
-
-		if crawlSession.Ctx.Err() != nil {
-			continue
-		}
-
-		if c.Options.Options.Delay > 0 {
-			select {
-			case <-crawlSession.Ctx.Done():
-				continue
-			case <-time.After(time.Duration(c.Options.Options.Delay) * time.Second):
-			}
-		}
-
-		if c.Options.Options.MaxDomainPages > 0 {
-			counter := c.DomainCounter(crawlSession.Hostname)
-			if counter.Add(1) > int64(c.Options.Options.MaxDomainPages) {
-				continue
-			}
-		}
-
-		resp, err := doRequest(crawlSession, req)
-
-		if resp != nil && common.IsThrottled(resp.StatusCode) {
-			c.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
-		} else if resp != nil {
-			c.RecordSuccess(crawlSession.Hostname)
-		}
-
-		if inScope {
-			c.Output(req, resp, err)
-		}
-
-		if err != nil {
-			gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
-			outputError := &output.Error{
-				Timestamp: time.Now(),
-				Endpoint:  req.RequestURL(),
-				Source:    req.Source,
-				Error:     err.Error(),
-			}
-			_ = c.Options.OutputWriter.WriteErr(outputError)
-			continue
-		}
-		if resp == nil || resp.Resp == nil || resp.Reader == nil {
-			continue
-		}
-		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
-			continue
-		}
-
-		navigationRequests := c.Options.Parser.ParseResponse(resp)
-		c.Enqueue(crawlSession.Queue, navigationRequests...)
+		done := crawlSession.Queue.Track()
+		c.visit(crawlSession, req, inScope, doRequest)
+		done()
 	}
 	return nil
+}
+
+// visit requests one page and enqueues its links.
+func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Request, inScope bool, doRequest common.DoRequestFunc) {
+	// Race Take() against the session context so the loop doesn't
+	// block on a limiter tick when the crawl has been cancelled.
+	//
+	// Note: when the session is cancelled mid-Take, this inner
+	// goroutine outlives the loop iteration and stays blocked on
+	// the limiter until the next tick or until RateLimit.Stop() is
+	// called by CrawlerOptions.Close(). The leak is bounded by
+	// Close() and acceptable.
+	if crawlSession.Ctx.Err() != nil {
+		return
+	}
+	takeDone := make(chan struct{})
+	go func() {
+		if c.Options.HostRateLimit != nil {
+			_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
+		} else if c.Options.RateLimit != nil {
+			c.Options.RateLimit.Take()
+		}
+		close(takeDone)
+	}()
+	select {
+	case <-crawlSession.Ctx.Done():
+		return
+	case <-takeDone:
+	}
+	c.ApplyBackoff(crawlSession.Hostname)
+
+	if crawlSession.Ctx.Err() != nil {
+		return
+	}
+
+	if c.Options.Options.Delay > 0 {
+		select {
+		case <-crawlSession.Ctx.Done():
+			return
+		case <-time.After(time.Duration(c.Options.Options.Delay) * time.Second):
+		}
+	}
+
+	if c.Options.Options.MaxDomainPages > 0 {
+		counter := c.DomainCounter(crawlSession.Hostname)
+		if counter.Add(1) > int64(c.Options.Options.MaxDomainPages) {
+			return
+		}
+	}
+
+	resp, err := doRequest(crawlSession, req)
+
+	if resp != nil && common.IsThrottled(resp.StatusCode) {
+		c.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+	} else if resp != nil {
+		c.RecordSuccess(crawlSession.Hostname)
+	}
+
+	if inScope {
+		c.Output(req, resp, err)
+	}
+
+	if err != nil {
+		gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
+		outputError := &output.Error{
+			Timestamp: time.Now(),
+			Endpoint:  req.RequestURL(),
+			Source:    req.Source,
+			Error:     err.Error(),
+		}
+		_ = c.Options.OutputWriter.WriteErr(outputError)
+		return
+	}
+	if resp == nil || resp.Resp == nil || resp.Reader == nil {
+		return
+	}
+	if c.Options.Options.DisableRedirects && resp.IsRedirect() {
+		return
+	}
+
+	navigationRequests := c.Options.Parser.ParseResponse(resp)
+	c.Enqueue(crawlSession.Queue, navigationRequests...)
 }
 
 // buildChromeLauncher builds a new chrome launcher instance
