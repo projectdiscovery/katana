@@ -19,6 +19,7 @@ import (
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/decider"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -92,6 +93,8 @@ type Options struct {
 	AuthUsername  string
 	AuthPassword  string
 	DitClassifier *dit.Classifier
+	// FormDecider classifies form fields the rules cannot, nil disables it
+	FormDecider decider.Decider
 	// AuthSteps, when non-empty, are replayed once against the browser context
 	// before the crawl queue starts (recorded / multi-step login).
 	AuthSteps []auth.LoginStep
@@ -404,7 +407,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			slog.String("from", currentPageHash),
 			slog.String("to", action.OriginID),
 		)
-		newPageHash, err := c.navigateBackToStateOrigin(action, page, currentPageHash)
+		newPageHash, err := c.navigateBackToStateOrigin(ctx, action, page, currentPageHash)
 		if err != nil {
 			return err
 		}
@@ -421,7 +424,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			return err
 		}
 	}
-	if err := c.executeCrawlStateAction(action, page); err != nil {
+	if err := c.executeCrawlStateAction(ctx, action, page); err != nil {
 		return err
 	}
 
@@ -565,13 +568,13 @@ func (c *Crawler) revealLazyContent(page *browser.BrowserPage) (bool, error) {
 
 var ErrElementNotVisible = errors.New("element not visible")
 
-func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) executeCrawlStateAction(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
 	return runWithActionHooks(c.options.Hooks, page, action, func() error {
-		return c.dispatchCrawlAction(action, page)
+		return c.dispatchCrawlAction(ctx, action, page)
 	})
 }
 
-func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) dispatchCrawlAction(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
@@ -585,7 +588,7 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 			return err
 		}
 	case types.ActionTypeFillForm:
-		if err := c.processForm(page, action.Form); err != nil {
+		if err := c.processForm(ctx, page, action.Form); err != nil {
 			return err
 		}
 		if err = page.WaitPageLoadHeurisitics(); err != nil {

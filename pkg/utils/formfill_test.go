@@ -84,7 +84,7 @@ func TestFormInputFillSuggestions(t *testing.T) {
 			return true
 		})
 		value := queryValuesWriter.Encode()
-		require.Equal(t, "Startdate=katana&color=green&country=india&firstname=katana&food=pasta&message=katana&num=51&password=katana&sport1=cricket&sport2=tennis&sport3=football&telephone=2124567890&upclick=%23a52a2a", value, "could not get correct encoded form")
+		require.Equal(t, "Startdate=2024-01-15&color=green&country=india&firstname=John&food=pasta&message=katana&num=51&password=katanaP%40assw0rd1&sport1=cricket&sport2=tennis&sport3=football&telephone=918-929-8152&upclick=%23a52a2a", value, "could not get correct encoded form")
 	})
 }
 
@@ -469,7 +469,7 @@ placeholder: "static-user"
 		<input type="email" name="contact_email">
 		<input type="password" name="secret">
 		<input type="tel" name="mobile">
-		<input type="text" name="display_name">
+		<input type="text" name="nickname">
 		<input type="color" name="theme">
 		<textarea name="bio"></textarea>
 		<select name="role">
@@ -507,7 +507,7 @@ placeholder: "static-user"
 		require.Contains(t, values.Get("contact_email"), "@", "email should be a resolved random address")
 		require.Equal(t, "H@rdC0ded!", values.Get("secret"), "password should be the static value")
 		require.Equal(t, FormData.PhoneNumber, values.Get("mobile"), "tel should use the resolved phone")
-		require.Equal(t, "static-user", values.Get("display_name"), "text should use static placeholder")
+		require.Equal(t, "static-user", values.Get("nickname"), "text should use static placeholder")
 		require.Equal(t, "#facade", values.Get("theme"), "color should be the static value")
 		require.Equal(t, "static-user", values.Get("bio"), "textarea should use static placeholder")
 		require.Equal(t, "user", values.Get("role"), "select should pick the selected option")

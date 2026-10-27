@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -57,7 +58,7 @@ func convertHTMLElementToFormSelect(element *types.HTMLElement) utilsformfill.Fo
 	}
 }
 
-func (c *Crawler) processForm(page *browser.BrowserPage, form *types.HTMLForm) error {
+func (c *Crawler) processForm(ctx context.Context, page *browser.BrowserPage, form *types.HTMLForm) error {
 	if !c.options.AutomaticFormFill {
 		return nil
 	}
@@ -118,7 +119,7 @@ func (c *Crawler) processForm(page *browser.BrowserPage, form *types.HTMLForm) e
 		}
 	}
 
-	fillSuggestions := utilsformfill.FormFillSuggestions(formFields)
+	fillSuggestions := utilsformfill.FormFillSuggestionsWithDecider(ctx, c.options.FormDecider, formFields)
 
 	if err := c.applyFormSuggestions(fillSuggestions, elementMap); err != nil {
 		c.logger.Debug("Error applying form suggestions", slog.String("error", err.Error()))
@@ -199,6 +200,19 @@ func (c *Crawler) applyFormSuggestions(suggestions mapsutil.OrderedMap[string, s
 								slog.String("error", err.Error()),
 							)
 						}
+					}
+				case "date", "time", "datetime-local", "month", "week":
+					// chrome ignores typed text in these pickers, so the value is set directly
+					if _, err := element.Eval(`(v) => {
+						this.value = v;
+						this.dispatchEvent(new Event("input", {bubbles: true}));
+						this.dispatchEvent(new Event("change", {bubbles: true}));
+					}`, value); err != nil {
+						c.logger.Debug("Failed to set input value",
+							slog.String("field", fieldName),
+							slog.String("type", *inputType),
+							slog.String("error", err.Error()),
+						)
 					}
 				default:
 					if err := element.Input(value); err != nil {
