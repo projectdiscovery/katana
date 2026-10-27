@@ -109,6 +109,7 @@ func TestOpenAI(t *testing.T) {
 	value := schema["properties"].(map[string]any)["value"].(map[string]any)
 	require.Equal(t, []any{"zip", "date"}, value["enum"])
 	user := got["messages"].([]any)[1].(map[string]any)["content"].(string)
+	require.Contains(t, user, "Answer with one of: zip, date")
 	require.Contains(t, user, "<page>\n<input name=\"postcode\">\n</page>")
 }
 

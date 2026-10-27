@@ -323,7 +323,7 @@ func newDecider(options *Options) (*decider.Cache, error) {
 	if apiKey == "" {
 		apiKey = os.Getenv("AI_API_KEY")
 	}
-	// model answers are slow compared to page loads, so they get their own timeout
-	provider := decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, time.Minute)
+	// local reasoning models can take a minute to load and answer
+	provider := decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, 2*time.Minute)
 	return decider.NewCache(provider, options.AIRecord, false, options.AIMaxCalls)
 }

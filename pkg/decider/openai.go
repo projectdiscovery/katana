@@ -78,7 +78,14 @@ func (o *OpenAI) Decide(ctx context.Context, q Question) (Answer, error) {
 }
 
 func (o *OpenAI) request(q Question) map[string]any {
+	// the schema only constrains decoding, so the model must also read the options
 	user := q.Prompt
+	switch q.Kind {
+	case Choice:
+		user += "\nAnswer with one of: " + strings.Join(q.Options, ", ")
+	case Score:
+		user += "\nAnswer with a number from 0 to 1."
+	}
 	if q.Context != "" {
 		user += "\n\n<page>\n" + q.Context + "\n</page>"
 	}
