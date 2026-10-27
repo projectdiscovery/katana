@@ -64,8 +64,17 @@ func TestPopWaitsForTrackedWork(t *testing.T) {
 		q.Push("child", 0)
 		done()
 	}()
-	require.Equal(t, "child", <-items, "queue gave up while work was still running")
+	select {
+	case item := <-items:
+		require.Equal(t, "child", item, "queue gave up while work was still running")
+	case <-time.After(5 * q.Timeout):
+		t.Fatal("child was never popped")
+	}
 
-	_, ok := <-items
-	require.False(t, ok, "queue should close once idle with no tracked work")
+	select {
+	case _, ok := <-items:
+		require.False(t, ok, "queue should close once idle with no tracked work")
+	case <-time.After(5 * q.Timeout):
+		t.Fatal("queue stayed open after tracked work finished")
+	}
 }
