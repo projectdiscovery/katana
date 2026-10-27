@@ -144,7 +144,7 @@ CONFIGURATION:
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
-   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -s, -strategy string          Visit strategy (depth-first, breadth-first, priority) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
    -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
@@ -857,7 +857,7 @@ CONFIGURATION:
    -config string                path to the katana configuration file
    -fc, -form-config string      path to custom form configuration file
    -flc, -field-config string    path to custom field configuration file
-   -s, -strategy string          Visit strategy (depth-first, breadth-first) (default "depth-first")
+   -s, -strategy string          Visit strategy (depth-first, breadth-first, priority) (default "depth-first")
    -iqp, -ignore-query-params    Ignore crawling same path with different query-param values
    -fsu, -filter-similar         filter crawling of similar looking URLs (e.g., /users/123 and /users/456)
    -fst, -filter-similar-threshold int  number of distinct values before a path position is treated as parameter (default 10)
@@ -1341,7 +1341,7 @@ func main() {
 		Parallelism:  10,            // Parallelism is the number of urls processing goroutines
 		Delay:        0,             // Delay is the delay between each crawl requests in seconds
 		RateLimit:    150,           // Maximum requests to send per second
-		Strategy:     "depth-first", // Visit strategy (depth-first, breadth-first)
+		Strategy:     "depth-first", // Visit strategy (depth-first, breadth-first, priority)
 		OnResult: func(result output.Result) { // Callback function to execute for result
 			gologger.Info().Msg(result.Request.URL)
 		},
