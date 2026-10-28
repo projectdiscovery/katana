@@ -86,9 +86,10 @@ func (d *DOMNormalizer) Apply(content string) (string, error) {
 	return result, nil
 }
 
-// adWords are matched as whole class and id words. A substring match also
-// hits header, padded or download and strips the real page content, which
-// makes different pages of one site share a state.
+// adWords are matched as whole class and id words, plus a camelCase
+// boundary (adContainer) and a trailing number (ad1). A substring match
+// also hits header, padded or download and strips the real page content,
+// which makes different pages of one site share a state.
 var adWords = map[string]struct{}{"ad": {}, "ads": {}, "advert": {}, "advertisement": {}, "adsbygoogle": {}}
 
 func removeAdContainers(doc *goquery.Document) {
@@ -100,15 +101,41 @@ func removeAdContainers(doc *goquery.Document) {
 }
 
 func hasAdWord(value string) bool {
-	words := strings.FieldsFunc(strings.ToLower(value), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
-	for _, word := range words {
+	for _, word := range adTokens(value) {
 		if _, ok := adWords[word]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+// adTokens splits class and id text on separators and camelCase boundaries.
+// A token that ends in digits also contributes its letter stem, so ad1
+// matches ad without treating admin or pad1 as ads.
+func adTokens(value string) []string {
+	var b strings.Builder
+	var prev rune
+	started := false
+	for _, r := range value {
+		if started && unicode.IsUpper(r) && (unicode.IsLower(prev) || unicode.IsDigit(prev)) {
+			b.WriteByte(' ')
+		}
+		b.WriteRune(unicode.ToLower(r))
+		prev = r
+		started = true
+	}
+	parts := strings.FieldsFunc(b.String(), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		words = append(words, part)
+		stem := strings.TrimRightFunc(part, unicode.IsDigit)
+		if stem != "" && stem != part {
+			words = append(words, stem)
+		}
+	}
+	return words
 }
 
 // domTransformationFunc does required transformation on document.
