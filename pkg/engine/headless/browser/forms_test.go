@@ -27,6 +27,7 @@ func TestGetAllFormsWithShadowingFieldNames(t *testing.T) {
 
 	page, err := launcher.GetPageFromPool()
 	require.NoError(t, err)
+	defer launcher.PutBrowserToPool(page)
 	require.NoError(t, page.Navigate(server.URL))
 	require.NoError(t, page.WaitLoad())
 
