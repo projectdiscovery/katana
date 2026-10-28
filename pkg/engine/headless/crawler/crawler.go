@@ -24,6 +24,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
+	"github.com/projectdiscovery/katana/pkg/engine/headless/cartography"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/diagnostics"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler/normalizer/simhash"
@@ -33,18 +34,21 @@ import (
 )
 
 type Crawler struct {
-	logger         *slog.Logger
-	launcher       *browser.Launcher
-	options        Options
-	crawlQueue     queue.Queue[*types.Action]
-	crawlGraph     *graph.CrawlGraph
-	rewalkResults  []RewalkResult
-	simhashOracle  *simhash.Oracle
-	uniqueActions  map[string]struct{}
-	linkIdentities map[string]int
-	linkPositions  map[string]*linkPosition
-	diagnostics    diagnostics.Writer
-	loggedIn       bool
+	logger          *slog.Logger
+	launcher        *browser.Launcher
+	options         Options
+	crawlQueue      queue.Queue[*types.Action]
+	crawlGraph      *graph.CrawlGraph
+	rewalkResults   []RewalkResult
+	simhashOracle   *simhash.Oracle
+	uniqueActions   map[string]struct{}
+	linkIdentities  map[string]int
+	linkPositions   map[string]*linkPosition
+	explosionBudget *cartography.ExplosionBudget
+	// explosionRejected holds the states that the explosion budget rejected.
+	explosionRejected map[string]struct{}
+	diagnostics       diagnostics.Writer
+	loggedIn          bool
 }
 
 type Options struct {
@@ -109,6 +113,13 @@ type Options struct {
 	// LinkIdentityBudget is how many near-duplicate doors (same
 	// cartography.LinkKey) to enqueue. Zero or less disables the check.
 	LinkIdentityBudget int
+
+	// ExplosionBudget is how many near-duplicate pages to fully explore. Zero
+	// or less disables the check.
+	ExplosionBudget int
+	// ExplosionHamming is the max simhash distance for explosion clustering
+	// (0 or less = cartography.DefaultMaxHamming).
+	ExplosionHamming int
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -191,6 +202,9 @@ func New(opts Options) (*Crawler, error) {
 		uniqueActions: make(map[string]struct{}),
 		diagnostics:   diagnosticsWriter,
 		simhashOracle: simhash.NewOracle(),
+	}
+	if opts.ExplosionBudget > 0 {
+		crawler.explosionBudget = cartography.NewExplosionBudget(opts.ExplosionBudget, opts.ExplosionHamming)
 	}
 	return crawler, nil
 }
@@ -545,6 +559,22 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			}
 			return nil
 		}
+	}
+
+	if c.overExplosionBudget(pageState) {
+		// The location was reached, so it stays in the graph and its paths;
+		// only its links are not explored.
+		if err := c.crawlGraph.AddPageState(*pageState); err != nil {
+			return err
+		}
+		c.logger.Debug("Skipping navigation collection - explosion budget exhausted",
+			slog.String("url", pageState.URL),
+			slog.Uint64("simhash", pageState.SimHash),
+		)
+		if c.crawlQueue.Size() == 0 {
+			return ErrNoCrawlingAction
+		}
+		return nil
 	}
 
 	navigations, err := page.FindNavigations()

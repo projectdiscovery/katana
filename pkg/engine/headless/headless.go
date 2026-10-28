@@ -172,6 +172,8 @@ func (h *Headless) crawlAs(URL string, a agent, agents int) error {
 		MaxScrollSteps:        h.options.Options.MaxScrollSteps,
 		RewalkSample:          h.options.Options.RewalkSample,
 		LinkIdentityBudget:    h.options.Options.LinkIdentityBudget,
+		ExplosionBudget:       h.options.Options.ExplosionBudget,
+		ExplosionHamming:      h.options.Options.ExplosionHamming,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return

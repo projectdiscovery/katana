@@ -207,6 +207,10 @@ type Options struct {
 	// HeadlessAgents are the identities to crawl as, at the same time: anon or
 	// username:password each (headless only; one identity with -cdd/-cwu)
 	HeadlessAgents goflags.StringSlice
+	// ExplosionBudget is how many near-duplicate pages to explore links from (headless, 0 = off)
+	ExplosionBudget int
+	// ExplosionHamming is the simhash distance for explosion clustering (0 or less = 3)
+	ExplosionHamming int
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler
