@@ -180,6 +180,7 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
+   -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
 
@@ -398,6 +399,7 @@ HEADLESS:
    -xhr, -xhr-extraction             extract xhr requests
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
+   -rewalk-sample int                number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
    -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
    -al, -auto-login string           automatic login with username:password (headless only) (env AUTH_CREDENTIALS)

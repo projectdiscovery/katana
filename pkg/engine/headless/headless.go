@@ -137,6 +137,7 @@ func (h *Headless) Crawl(URL string) error {
 		ChromeWSUrl:           h.options.Options.ChromeWSUrl,
 		DOMWaitTime:           h.options.Options.DOMWaitTime,
 		MaxScrollSteps:        h.options.Options.MaxScrollSteps,
+		RewalkSample:          h.options.Options.RewalkSample,
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return

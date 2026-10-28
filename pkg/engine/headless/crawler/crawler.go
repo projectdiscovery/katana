@@ -38,6 +38,7 @@ type Crawler struct {
 	options       Options
 	crawlQueue    queue.Queue[*types.Action]
 	crawlGraph    *graph.CrawlGraph
+	rewalkResults []RewalkResult
 	simhashOracle *simhash.Oracle
 	uniqueActions map[string]struct{}
 	diagnostics   diagnostics.Writer
@@ -99,6 +100,9 @@ type Options struct {
 	// AuthSteps, when non-empty, are replayed once against the browser context
 	// before the crawl queue starts (recorded / multi-step login).
 	AuthSteps []auth.LoginStep
+
+	// RewalkSample is how many discovered paths to clean-session rewalk after the crawl (0 = off).
+	RewalkSample int
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -246,6 +250,9 @@ func (c *Crawler) Crawl(URL string) error {
 		if err := c.writePathsExport(); err != nil {
 			c.logger.Error("Failed to write paths export", slog.String("error", err.Error()))
 		}
+		if err := c.writeRewalkExport(); err != nil {
+			c.logger.Error("Failed to write rewalk export", slog.String("error", err.Error()))
+		}
 	}()
 
 	actions := []*types.Action{{
@@ -299,6 +306,9 @@ func (c *Crawler) Crawl(URL string) error {
 		ctx, cancel = context.WithCancel(parentCtx)
 	}
 	defer cancel()
+	// Rewalk on the crawl context so -ct and Ctrl+C bound it too. Deferred
+	// after cancel, so it runs while ctx is still live.
+	defer c.maybeRewalk(ctx)
 	if c.options.Interactive {
 		uiCtx := ctx
 		if c.options.InteractionDuration > 0 {
