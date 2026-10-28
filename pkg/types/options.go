@@ -129,6 +129,9 @@ type Options struct {
 	InteractionDuration   time.Duration
 	// HeadlessHybrid enables headless hybrid scraping
 	HeadlessHybrid bool
+	// BrowserAgents is the number of isolated Chrome instances used by hybrid
+	// crawling. Values below 2 keep a single browser.
+	BrowserAgents int
 	// AutomaticFormFill enables optional automatic form filling and submission
 	AutomaticFormFill bool
 	// FormExtraction enables extraction of form, input, textarea & select elements

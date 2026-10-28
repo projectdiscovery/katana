@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -57,18 +58,54 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}()
 	c.addHeadersToPage(page)
 
+	// With several agents, the links found on the page are held and queued
+	// after the cookies of the page are shared; see cookieStore.
+	var (
+		heldMu sync.Mutex
+		held   []*navigation.Request
+		share  func()
+	)
+	enqueue := func(reqs ...*navigation.Request) {
+		if c.cookies == nil {
+			c.Enqueue(s.Queue, reqs...)
+			return
+		}
+		heldMu.Lock()
+		held = append(held, reqs...)
+		heldMu.Unlock()
+	}
+	if c.cookies != nil {
+		if err := c.cookies.apply(s.Browser.Context(timeoutCtx)); err != nil {
+			gologger.Debug().Msgf("hybrid: could not set shared cookies: %v", err)
+		}
+		// The baseline is read before BeforeNavigate, so cookies that the
+		// hook sets are shared too.
+		share = c.shareCookies(s)
+	}
+
 	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
 		return nil, err
 	}
 
+	if c.cookies != nil {
+		defer func() {
+			share()
+			heldMu.Lock()
+			defer heldMu.Unlock()
+			c.Enqueue(s.Queue, held...)
+		}()
+	}
+
 	pageRouter := NewHijack(page)
-	pageRouter.SetPattern(&proto.FetchRequestPattern{
-		URLPattern:   "*",
-		RequestStage: proto.FetchRequestStageResponse,
-	})
+	pageRouter.SetPatterns(fetchRequestPatterns(c.Options.Options))
 
 	xhrRequests := []navigation.Request{}
 	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
+		// Defense in depth: continue anything that slipped past pattern filters.
+		if !shouldInspectFetchResource(e.ResourceType, c.Options.Options) {
+			return FetchContinueRequest(page, e)
+		}
+
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
@@ -200,8 +237,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 
 		if parse {
-			navigationRequests := c.Options.Parser.ParseResponse(resp)
-			c.Enqueue(s.Queue, navigationRequests...)
+			enqueue(c.Options.Parser.ParseResponse(resp)...)
 		}
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -401,8 +437,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 		if responseCopy.Reader != nil {
-			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-			c.Enqueue(s.Queue, navigationRequests...)
+			enqueue(c.Options.Parser.ParseResponse(&responseCopy)...)
 		}
 	}
 
@@ -431,7 +466,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 					Depth:        depth,
 					RootHostname: s.Hostname,
 				}
-				c.Enqueue(s.Queue, navReq)
+				enqueue(navReq)
 				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
 			}
 		}
@@ -447,6 +482,30 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	return response, nil
+}
+
+// shareCookies reads the cookies of the agent browser before a navigation and
+// returns a func that, after it, writes the cookies that changed to the
+// shared store.
+func (c *Crawler) shareCookies(s *common.CrawlSession) func() {
+	read := func() (map[cookieKey]*proto.NetworkCookie, error) {
+		ctx, cancel := context.WithTimeout(s.Ctx, 5*time.Second)
+		defer cancel()
+		return browserCookies(s.Browser.Context(ctx))
+	}
+	before, err := read()
+	if err != nil {
+		gologger.Debug().Msgf("hybrid: could not read cookies: %v", err)
+		return func() {}
+	}
+	return func() {
+		after, err := read()
+		if err != nil {
+			gologger.Debug().Msgf("hybrid: could not read cookies: %v", err)
+			return
+		}
+		c.cookies.record(before, after)
+	}
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {

@@ -178,6 +178,7 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr request url,method in jsonl output
+   -ba, -browser-agents int          number of isolated chrome instances for hybrid crawling (max 8) (default 1)
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)
@@ -396,6 +397,7 @@ HEADLESS:
    -noi, -no-incognito               start headless chrome without incognito mode
    -cwu, -chrome-ws-url string       use chrome browser instance launched elsewhere with the debugger listening at this URL
    -xhr, -xhr-extraction             extract xhr requests
+   -ba, -browser-agents int          number of isolated chrome instances for hybrid crawling (max 8) (default 1)
    -pls, -page-load-strategy string  page load strategy (heuristic, load, domcontentloaded, networkidle, none) (default "heuristic")
    -dwt, -dom-wait-time int          time in seconds to wait after page load when using domcontentloaded strategy (default 5)
    -csp, -captcha-solver-provider string  captcha solver provider (e.g. capsolver)

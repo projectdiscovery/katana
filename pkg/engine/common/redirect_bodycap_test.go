@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +23,18 @@ import (
 // effectively unbounded body, so an uncapped io.ReadAll would block inside the
 // redirect callback until the client timeout fires; the cap lets the request
 // follow through to the final response.
+//
+// A non-positive BodyReadSize (library callers that never set it) must still
+// be capped, by the default limit.
 func TestRedirectBodyCapped(t *testing.T) {
+	for _, size := range []int{4096, 0} {
+		t.Run(fmt.Sprintf("BodyReadSize=%d", size), func(t *testing.T) {
+			testRedirectBodyCapped(t, size)
+		})
+	}
+}
+
+func testRedirectBodyCapped(t *testing.T, bodyReadSize int) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/redirect", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Location", "/final")
@@ -65,7 +77,7 @@ func TestRedirectBodyCapped(t *testing.T) {
 				MaxDepth:     10,
 				Strategy:     "depth-first",
 				Timeout:      5,
-				BodyReadSize: 4096,
+				BodyReadSize: bodyReadSize,
 			},
 			OutputWriter:        &mockWriter{},
 			UniqueFilter:        newMockFilter(),

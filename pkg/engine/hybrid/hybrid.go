@@ -20,24 +20,29 @@ import (
 	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
+	"github.com/remeh/sizedwaitgroup"
 )
+
+// browserAgent is one isolated Chrome instance used as a hybrid crawl worker.
+type browserAgent struct {
+	browser        *rod.Browser
+	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
+	cdpWS          *cdp.WebSocket
+	tempDir        string
+	ownsTempDir    bool
+}
 
 // Crawler is a standard crawler instance
 type Crawler struct {
 	*common.Shared
 
-	browser        *rod.Browser
-	chromeLauncher *launcher.Launcher // nil when attached via ChromeWSUrl
-	cdpWS          *cdp.WebSocket
-	// TODO: Remove the Chrome PID kill code in favor of using Leakless(true).
-	// This change will be made if there are no complaints about zombie Chrome processes.
-	// References:
-	// https://github.com/projectdiscovery/katana/issues/632
-	// https://github.com/projectdiscovery/httpx/issues/1425
-	// previousPIDs map[int32]struct{} // track already running PIDs
-	tempDir string
+	agents []*browserAgent
+	// browser is the first agent, kept for callers/tests that expect a primary handle.
+	browser *rod.Browser
 	// hooks holds the optional per-page lifecycle callbacks; see SetHooks.
 	hooks Hooks
+	// cookies shares cookies between agents. It is nil with one agent.
+	cookies *cookieStore
 }
 
 // proxyBypassList returns the Chrome proxy bypass list to use for proxy.
@@ -55,20 +60,64 @@ func proxyBypassList(proxy string) string {
 	return "<-loopback>"
 }
 
+func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
+	return chromeLauncher != nil || browser.BrowserContextID != ""
+}
+
 // New returns a new standard crawler instance
 func New(options *types.CrawlerOptions) (*Crawler, error) {
-	var dataStore string
-	var err error
-	if options.Options.ChromeDataDir != "" {
-		dataStore = options.Options.ChromeDataDir
-	} else {
-		dataStore, err = os.MkdirTemp("", "katana-*")
-		if err != nil {
-			return nil, errkit.Wrap(err, "hybrid: could not create temporary directory")
+	agentsCount := hybridBrowserAgents(options.Options)
+	if agentsCount > 1 {
+		gologger.Info().Msgf("hybrid: using %d browser agents (max %d)", agentsCount, maxHybridBrowserAgents)
+	}
+
+	agents := make([]*browserAgent, 0, agentsCount)
+	cleanup := func() {
+		for _, a := range agents {
+			_ = a.close()
 		}
 	}
 
-	// previousPIDs := processutil.FindProcesses(processutil.IsChromeProcess)
+	for i := 0; i < agentsCount; i++ {
+		agent, err := launchBrowserAgent(options, i)
+		if err != nil {
+			cleanup()
+			return nil, err
+		}
+		agents = append(agents, agent)
+	}
+
+	shared, err := common.NewShared(options)
+	if err != nil {
+		cleanup()
+		return nil, errkit.Wrap(err, "hybrid")
+	}
+
+	crawler := &Crawler{
+		Shared:  shared,
+		agents:  agents,
+		browser: agents[0].browser,
+	}
+	if len(agents) > 1 {
+		crawler.cookies = newCookieStore()
+	}
+	return crawler, nil
+}
+
+func launchBrowserAgent(options *types.CrawlerOptions, index int) (*browserAgent, error) {
+	var dataStore string
+	var ownsTempDir bool
+	var err error
+
+	if options.Options.ChromeDataDir != "" {
+		dataStore = options.Options.ChromeDataDir
+	} else {
+		dataStore, err = os.MkdirTemp("", fmt.Sprintf("katana-%d-*", index))
+		if err != nil {
+			return nil, errkit.Wrap(err, "hybrid: could not create temporary directory")
+		}
+		ownsTempDir = true
+	}
 
 	var launcherURL string
 	var chromeLauncher *launcher.Launcher
@@ -76,23 +125,26 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	if options.Options.ChromeWSUrl != "" {
 		launcherURL = options.Options.ChromeWSUrl
 	} else {
-		// create new chrome launcher instance
 		chromeLauncher, err = buildChromeLauncher(options, dataStore)
 		if err != nil {
+			if ownsTempDir {
+				_ = os.RemoveAll(dataStore)
+			}
 			return nil, err
 		}
-
-		// launch chrome headless process
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
+			if ownsTempDir {
+				_ = os.RemoveAll(dataStore)
+			}
 			return nil, err
 		}
 	}
 
 	// Construct the CDP client here rather than using rod.New().ControlURL(...)
-	// so the websocket handle survives into Close(). rod hides it in an
+	// so the websocket handle survives into close(). rod hides it in an
 	// unexported field, and without it the connection can never be closed --
-	// see Close() for why that leaks. StartWithURL, which Connect calls, is
+	// see close() for why that leaks. StartWithURL, which Connect calls, is
 	// exactly this.
 	dialCtx, dialCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	cdpWS := &cdp.WebSocket{}
@@ -102,6 +154,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
 		}
+		if ownsTempDir {
+			_ = os.RemoveAll(dataStore)
+		}
 		return nil, errkit.Wrap(wsErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
 	browser := rod.New().Client(cdp.New().Start(cdpWS))
@@ -109,6 +164,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		_ = cdpWS.Close()
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
+		}
+		if ownsTempDir {
+			_ = os.RemoveAll(dataStore)
 		}
 		return nil, errkit.Wrap(browserErr, fmt.Sprintf("hybrid: failed to connect to chrome instance at %s", launcherURL))
 	}
@@ -135,17 +193,8 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		// launcher -- its only proxy path -- does not run in that case.
 		res, err := proto.TargetCreateBrowserContext{
 			ProxyServer: options.Options.Proxy,
-			// "<-loopback>" SUBTRACTS Chrome's implicit proxy bypass.
-			//
-			// Chrome always bypasses the proxy for localhost, 127.0.0.0/8,
-			// [::1] and link-local, even when one is configured; the only way
-			// to disable that built-in rule is to subtract it here. Without
-			// this, `-proxy` is silently ignored for exactly the local targets
-			// people most often put behind an intercepting proxy, and the
-			// crawl still succeeds -- so the traffic simply never appears.
-			//
-			// Only applied when a proxy was actually requested: with no proxy
-			// there is nothing to bypass, and the token would be meaningless.
+			// "<-loopback>" SUBTRACTS Chrome's implicit proxy bypass; see
+			// proxyBypassList. Only applied when a proxy was actually requested.
 			ProxyBypassList: proxyBypassList(options.Options.Proxy),
 		}.Call(browser)
 		if err != nil {
@@ -156,45 +205,24 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 		browser = &incognito
 	}
 
-	shared, err := common.NewShared(options)
-	if err != nil {
-		return nil, errkit.Wrap(err, "hybrid")
-	}
-
-	crawler := &Crawler{
-		Shared:         shared,
+	owned = true
+	return &browserAgent{
 		browser:        browser,
 		chromeLauncher: chromeLauncher,
 		cdpWS:          cdpWS,
-		// previousPIDs: previousPIDs,
-		tempDir: dataStore,
-	}
-	owned = true
-
-	return crawler, nil
+		tempDir:        dataStore,
+		ownsTempDir:    ownsTempDir,
+	}, nil
 }
 
-func ownsBrowser(browser *rod.Browser, chromeLauncher *launcher.Launcher) bool {
-	return chromeLauncher != nil || browser.BrowserContextID != ""
-}
-
-// BrowserContextID returns the id of the browser context this crawler created
-// in New, or "" if it has no browser. It lets an embedding program dispose the
-// context out of band: when a crawl dies without running Close, the context
-// otherwise stays resident in a shared, long-lived browser.
-func (c *Crawler) BrowserContextID() string {
-	if c.browser == nil {
-		return ""
+func (a *browserAgent) close() error {
+	if a == nil {
+		return nil
 	}
-	return string(c.browser.BrowserContextID)
-}
-
-// Close closes the crawler process
-func (c *Crawler) Close() error {
-	if c.browser != nil && ownsBrowser(c.browser, c.chromeLauncher) {
-		_ = c.browser.Close()
+	if a.browser != nil && ownsBrowser(a.browser, a.chromeLauncher) {
+		_ = a.browser.Close()
 	}
-	if c.cdpWS != nil {
+	if a.cdpWS != nil {
 		// Close AFTER browser.Close, which dispatches
 		// Target.disposeBrowserContext over this same socket.
 		//
@@ -205,18 +233,40 @@ func (c *Crawler) Close() error {
 		// context does not close the connection, so against a browser attached
 		// via ChromeWSUrl -- where there is no launcher to kill -- every crawl
 		// left the socket and its goroutines behind for the browser's lifetime.
-		_ = c.cdpWS.Close()
+		_ = a.cdpWS.Close()
 	}
-	if c.chromeLauncher != nil {
-		c.chromeLauncher.Kill()
+	if a.chromeLauncher != nil {
+		a.chromeLauncher.Kill()
 	}
-	if c.Options.Options.ChromeDataDir == "" {
-		if err := os.RemoveAll(c.tempDir); err != nil {
+	if a.ownsTempDir && a.tempDir != "" {
+		if err := os.RemoveAll(a.tempDir); err != nil {
 			return err
 		}
 	}
-	// processutil.CloseProcesses(processutil.IsChromeProcess, c.previousPIDs)
 	return nil
+}
+
+// BrowserContextID returns the id of the browser context this crawler created
+// in New, or "" if it has no browser. It lets an embedding program dispose the
+// context out of band: when a crawl dies without running Close, the context
+// otherwise stays resident in a shared, long-lived browser. A shared browser
+// (ChromeWSUrl) always runs a single agent, so this is the only context then.
+func (c *Crawler) BrowserContextID() string {
+	if c.browser == nil {
+		return ""
+	}
+	return string(c.browser.BrowserContextID)
+}
+
+// Close closes the crawler process
+func (c *Crawler) Close() error {
+	var firstErr error
+	for _, a := range c.agents {
+		if err := a.close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // Crawl crawls a URL with the specified options
@@ -236,15 +286,36 @@ func (c *Crawler) Crawl(rootURL string) error {
 	return nil
 }
 
-// Do executes the crawling loop with browser-safe concurrency.
-// Unlike the base implementation, this uses sequential processing (concurrency=1)
-// because Chrome DevTools Protocol operations cannot safely run concurrently
-// on the same browser instance. Multiple concurrent page operations cause
-// race conditions, navigation conflicts, and network interception issues.
+// Do executes the crawling loop with one page at a time per browser agent.
+// Multiple agents (from -browser-agents) each own an isolated Chrome process so
+// CDP work does not contend on a single browser target.
 func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
+	agents := c.agents
+	if len(agents) == 0 {
+		return errkit.New("hybrid: no browser agents available")
+	}
+
+	browserCh := make(chan *rod.Browser, len(agents))
+	for _, a := range agents {
+		browserCh <- a.browser
+	}
+
+	wg := sizedwaitgroup.New(len(agents))
+	c.consume(crawlSession, doRequest, browserCh, &wg)
+	wg.Wait()
+
+	if err := crawlSession.Ctx.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// consume pops queued requests until the queue goes idle and hands each one to
+// a free browser agent.
+func (c *Crawler) consume(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc, browserCh chan *rod.Browser, wg *sizedwaitgroup.SizedWaitGroup) {
 	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
-			return ctxErr
+			break
 		}
 
 		req, ok := item.(*navigation.Request)
@@ -276,10 +347,23 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 		}
 
 		done := crawlSession.Queue.Track()
-		c.visit(crawlSession, req, inScope, doRequest)
-		done()
+		wg.Add()
+		go func(req *navigation.Request, inScope bool) {
+			defer wg.Done()
+			defer done()
+
+			select {
+			case <-crawlSession.Ctx.Done():
+				return
+			case browser := <-browserCh:
+				defer func() { browserCh <- browser }()
+
+				session := *crawlSession
+				session.Browser = browser
+				c.visit(&session, req, inScope, doRequest)
+			}
+		}(req, inScope)
 	}
-	return nil
 }
 
 // visit requests one page and enqueues its links.
