@@ -61,6 +61,22 @@ func TestDOMNormalizer_Apply(t *testing.T) {
 			},
 			want: "<html><head></head><body><div></div></body></html>",
 		},
+		{
+			name: "ad-containers",
+			d:    normalizer,
+			args: args{
+				content: `<html><head></head><body><div class="ad">x</div><div id="top-ads">x</div><div class="ad_slot">x</div><div class="adsbygoogle">x</div></body></html>`,
+			},
+			want: "<html><head></head><body></body></html>",
+		},
+		{
+			name: "content-containers-with-ad-substring",
+			d:    normalizer,
+			args: args{
+				content: `<html><head></head><body><div id="header">h</div><div class="body_padded">b</div><div class="download">d</div></body></html>`,
+			},
+			want: "<html><head></head><body><div>h</div><div>b</div><div>d</div></body></html>",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

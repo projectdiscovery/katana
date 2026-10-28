@@ -2,6 +2,7 @@ package normalizer
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
@@ -15,8 +16,8 @@ var DefaultDOMTransformations = []string{
 	"link[rel='stylesheet']",        // remove stylesheet links
 	"svg",                           // remove svg
 	"grammarly-desktop-integration", // remove grammarly
-	"div[class*='ad'], div[id*='ad'], div[class*='banner'], div[id*='banner'], div[class*='pixel'], div[id*='pixel']", // remove ad, banner and pixel divs
-	"input[name*='csrf'], input[name*='token']", // remove csrf and token inputs
+	"div[class*='banner'], div[id*='banner'], div[class*='pixel'], div[id*='pixel']", // remove banner and pixel divs
+	"input[name*='csrf'], input[name*='token']",                                      // remove csrf and token inputs
 }
 
 // NoChildrenDomTransformations removes all elements with no children
@@ -45,6 +46,8 @@ func NewDOMNormalizer() *DOMNormalizer {
 			})
 		})
 	}
+
+	customTransformations = append(customTransformations, removeAdContainers)
 
 	for _, t := range NoChildrenDomTransformations {
 		t := t
@@ -81,6 +84,31 @@ func (d *DOMNormalizer) Apply(content string) (string, error) {
 		return "", err
 	}
 	return result, nil
+}
+
+// adWords are matched as whole class and id words. A substring match also
+// hits header, padded or download and strips the real page content, which
+// makes different pages of one site share a state.
+var adWords = map[string]struct{}{"ad": {}, "ads": {}, "advert": {}, "advertisement": {}, "adsbygoogle": {}}
+
+func removeAdContainers(doc *goquery.Document) {
+	doc.Find("div").Each(func(_ int, s *goquery.Selection) {
+		if hasAdWord(s.AttrOr("class", "")) || hasAdWord(s.AttrOr("id", "")) {
+			s.Remove()
+		}
+	})
+}
+
+func hasAdWord(value string) bool {
+	words := strings.FieldsFunc(strings.ToLower(value), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	for _, word := range words {
+		if _, ok := adWords[word]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // domTransformationFunc does required transformation on document.
