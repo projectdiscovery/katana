@@ -204,6 +204,9 @@ type Options struct {
 	RewalkSample int
 	// LinkIdentityBudget is how many near-duplicate doors to enqueue per page (headless, 0 = off)
 	LinkIdentityBudget int
+	// HeadlessAgents are the identities to crawl as, at the same time: anon or
+	// username:password each (headless only; one identity with -cdd/-cwu)
+	HeadlessAgents goflags.StringSlice
 	// Debug
 	Debug bool
 	// TlsImpersonate enables experimental tls ClientHello randomization for standard crawler

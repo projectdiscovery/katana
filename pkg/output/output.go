@@ -219,7 +219,7 @@ func (w *StandardWriter) Write(result *Result) error {
 	var err error
 
 	if w.storeResponse && result.HasResponse() {
-		if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String()); err == nil {
+		if fileName, fileWriter, err := getResponseFile(w.storeResponseDir, result.Response.Resp.Request.URL.String(), resultAgent(result)); err == nil {
 			if absPath, err := filepath.Abs(fileName); err == nil {
 				fileName = absPath
 			}

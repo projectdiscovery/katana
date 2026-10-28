@@ -406,6 +406,7 @@ HEADLESS:
    -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
    -al, -auto-login string           automatic login with username:password (headless only) (env AUTH_CREDENTIALS)
    -rf, -recorded-flow string        chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)
+   -ha, -headless-agent string[]     identity to crawl as, anon or username:password; repeat to crawl as several at once (headless only)
 ```
 
 ### Interactive UI exploration
@@ -796,6 +797,16 @@ katana -hl -u https://app.example.com -al 'user:password'
 ```
 
 This is best for simple username/password forms. For multi-step, SPA, or SSO logins prefer a recorded flow.
+
+### Several identities (`-headless-agent`)
+
+To compare what different users can reach, crawl as several identities at once. Each identity runs its own browser with a fresh profile, so sessions never mix:
+
+```console
+katana -hl -u https://app.example.com -ha anon -ha 'alice:password' -ha 'admin:password'
+```
+
+A URL is reported once per identity. In JSON output, every result names the identity in `request.agent`, and results that carry a response also name it in `response.extra.agent`. A crawl as one identity leaves both fields out. With `-chrome-data-dir` or `-chrome-ws-url` the browser holds one session, so katana crawls as one identity. A session header given with `-H` (`Cookie`, `Authorization`, `X-API-Key`, `X-Auth-Token` or `X-Access-Token`) is sent by every identity, so katana also crawls as one identity then. The same username with another password is a separate identity, named `bob#2`, `bob#3` and so on, skipping a label that another identity already uses. The label `anon` is only for the anonymous identity, so an account named `anon` is `anon#2`.
 
 ### Recorded flow (`-recorded-flow`)
 

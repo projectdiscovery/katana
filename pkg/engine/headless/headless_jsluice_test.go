@@ -22,7 +22,7 @@ func TestPerformAdditionalAnalysisHonorsJsluice(t *testing.T) {
 	results := h.performAdditionalAnalysis(&output.Result{
 		Request:  &navigation.Request{URL: pageURL},
 		Response: makeResponse(t, pageURL, html),
-	})
+	}, "")
 
 	found := false
 	for _, r := range results {

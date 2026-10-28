@@ -1,11 +1,12 @@
 package headless
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/lmittmann/tint"
@@ -24,7 +25,12 @@ type Headless struct {
 	logger  *slog.Logger
 	options *types.CrawlerOptions
 
-	pathTrie *utils.PathTrie
+	// pathTrie is the similarity trie of a crawl as one identity. With
+	// several identities, each has its own trie in pathTries, so that one
+	// identity does not change what is similar for another.
+	pathTrie   *utils.PathTrie
+	pathTries  map[string]*utils.PathTrie
+	pathTrieMu sync.Mutex
 
 	debugger *CrawlDebugger
 
@@ -106,6 +112,33 @@ func (h *Headless) Crawl(URL string) error {
 		}
 	}()
 
+	agents := buildAgents(h.options.Options)
+	if len(agents) == 1 {
+		return h.crawlAs(URL, agents[0], len(agents))
+	}
+
+	// Identities run at the same time, so -ct bounds the whole crawl rather
+	// than each identity in turn.
+	errs := make([]error, len(agents))
+	var wg sync.WaitGroup
+	for i, a := range agents {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			h.logger.Info("headless agent starting", slog.String("agent", a.label))
+			if err := h.crawlAs(URL, a, len(agents)); err != nil {
+				gologger.Warning().Msgf("headless agent %s failed to crawl %s: %s", a.label, URL, err)
+				errs[i] = err
+			}
+		}()
+	}
+	wg.Wait()
+	return errors.Join(errs...)
+}
+
+// crawlAs crawls URL as identity a, one of agents identities.
+func (h *Headless) crawlAs(URL string, a agent, agents int) error {
+	dedupScope := a.dedupScope(agents)
 	scopeValidator := validateScopeFunc(h, URL)
 	crawlOpts := crawler.Options{
 		Context:               h.options.Options.Context,
@@ -151,13 +184,16 @@ func (h *Headless) Crawl(URL string) error {
 			// response body for additional discoveries. This ensures that real
 			// results with full response data always take priority over
 			// synthetic Request-only entries produced by performAdditionalAnalysis.
-			isUnique := h.isUniqueURL(rr.Request.URL)
+			isUnique := h.isUniqueURL(dedupScope, rr.Request.URL)
 
 			// Always run additional analysis regardless of uniqueness so we
 			// don't miss URL discoveries embedded in a response body that the
 			// browser happened to fetch more than once.
-			navigationRequests := h.performAdditionalAnalysis(rr)
+			navigationRequests := h.performAdditionalAnalysis(rr, dedupScope)
 			for _, req := range navigationRequests {
+				if agents > 1 {
+					labelAgent(req, a.label)
+				}
 				if err := h.options.OutputWriter.Write(req); err != nil {
 					h.logger.Debug("failed to write navigation result",
 						slog.String("url", func() string {
@@ -188,6 +224,10 @@ func (h *Headless) Crawl(URL string) error {
 					rr.Response.Body = ""
 				}
 			}
+			// Name the identity so results of several agents can be told apart.
+			if agents > 1 {
+				labelAgent(rr, a.label)
+			}
 			if err := h.options.OutputWriter.Write(rr); err != nil {
 				h.logger.Debug("failed to write result",
 					slog.String("error", err.Error()),
@@ -205,12 +245,8 @@ func (h *Headless) Crawl(URL string) error {
 		Hooks:               h.hooks,
 	}
 
-	if creds := h.options.Options.AuthCredentials; creds != "" {
-		parts := strings.SplitN(creds, ":", 2)
-		crawlOpts.AuthUsername = parts[0]
-		if len(parts) > 1 {
-			crawlOpts.AuthPassword = parts[1]
-		}
+	if a.credentials != "" {
+		crawlOpts.AuthUsername, crawlOpts.AuthPassword = splitCredentials(a.credentials)
 	}
 
 	if path := h.options.Options.RecordedFlow; path != "" {
@@ -256,23 +292,61 @@ func (h *Headless) Close() error {
 	return nil
 }
 
-func (h *Headless) isUniqueURL(rawURL string) bool {
+// isUniqueURL reports whether rawURL is new within dedupScope, the prefix that
+// keeps the results of each crawl identity apart.
+func (h *Headless) isUniqueURL(dedupScope, rawURL string) bool {
 	dedupKey := rawURL
 	if h.options.Options.IgnoreQueryParams {
 		dedupKey = utils.ReplaceAllQueryParam(dedupKey, "")
 	}
 	if h.options.Options.FilterSimilar {
-		dedupKey = utils.FingerprintURL(dedupKey, h.pathTrie)
+		dedupKey = utils.FingerprintURL(dedupKey, h.trieFor(dedupScope))
 	}
-	return h.options.UniqueFilter.UniqueURL(dedupKey)
+	return h.options.UniqueFilter.UniqueURL(dedupScope + dedupKey)
 }
 
-func (h *Headless) performAdditionalAnalysis(rr *output.Result) []*output.Result {
+// trieFor returns the similarity trie of dedupScope. The empty scope, a crawl
+// as one identity, uses h.pathTrie as before.
+func (h *Headless) trieFor(dedupScope string) *utils.PathTrie {
+	if dedupScope == "" || h.pathTrie == nil {
+		return h.pathTrie
+	}
+	h.pathTrieMu.Lock()
+	defer h.pathTrieMu.Unlock()
+	trie, ok := h.pathTries[dedupScope]
+	if !ok {
+		if h.pathTries == nil {
+			h.pathTries = map[string]*utils.PathTrie{}
+		}
+		trie = utils.NewPathTrie(h.options.Options.FilterSimilarThreshold)
+		h.pathTries[dedupScope] = trie
+	}
+	return trie
+}
+
+// labelAgent names identity label on result: in request.agent for every
+// result, and also in response.extra.agent when the result has a response.
+func labelAgent(rr *output.Result, label string) {
+	if rr == nil {
+		return
+	}
+	if rr.Request != nil {
+		rr.Request.Agent = label
+	}
+	if rr.Response != nil {
+		if rr.Response.Extra == nil {
+			rr.Response.Extra = map[string]any{}
+		}
+		rr.Response.Extra["agent"] = label
+	}
+}
+
+func (h *Headless) performAdditionalAnalysis(rr *output.Result, dedupScope string) []*output.Result {
 	newNavigations := h.options.Parser.ParseResponse(rr.Response)
 
 	navigationRequests := make([]*output.Result, 0)
 	for _, resp := range newNavigations {
-		if !h.isUniqueURL(resp.URL) {
+		if !h.isUniqueURL(dedupScope, resp.URL) {
 			continue
 		}
 		navigationRequests = append(navigationRequests, &output.Result{

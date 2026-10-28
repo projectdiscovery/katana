@@ -195,6 +195,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVarP(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "captcha solver provider api key (env CAPTCHA_SOLVER_KEY)"),
 		flagSet.StringVarP(&options.AuthCredentials, "auto-login", "al", "", "automatic login with username:password (headless only) (env AUTH_CREDENTIALS)"),
 		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
+		flagSet.StringSliceVarP(&options.HeadlessAgents, "headless-agent", "ha", nil, "identity to crawl as, anon or username:password; repeat to crawl as several at once (headless only)", goflags.StringSliceOptions),
 	)
 
 	// AI group
