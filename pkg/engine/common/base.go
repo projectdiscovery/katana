@@ -69,7 +69,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		hostBackoffs: backoffCache,
 	}
 	if options.Options.KnownFiles != "" {
-		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil)
+		httpclient, _, err := BuildHttpClient(options.Dialer, options.Options, nil, nil)
 		if err != nil {
 			return nil, errkit.Wrap(err, "could not create http client")
 		}
@@ -372,6 +372,9 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		}
 		navigationRequests := s.Options.Parser.ParseResponse(navigationResponse)
 		s.Enqueue(queue, navigationRequests...)
+	}, func(u *url.URL) bool {
+		inScope, err := s.Options.ValidateScope(u.String(), hostname)
+		return err == nil && inScope
 	})
 	if err != nil {
 		cancel()
