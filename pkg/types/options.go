@@ -118,7 +118,7 @@ type Options struct {
 	CustomHeaders goflags.StringSlice
 	// Headless enables headless scraping
 	Headless bool
-	// Interactive explores browser UI states with depth-first clicks.
+	// Interactive explores browser UI states with shallow-wide clicks (new URLs become iterative seeds).
 	Interactive           bool
 	InteractionDepth      int
 	InteractionSelector   string

@@ -406,15 +406,15 @@ HEADLESS:
 
 ### Interactive UI exploration
 
-Use `-interactive` to explore clickable states in the pure headless browser. It enables headless mode, starts at the target page, clicks candidates depth first, and restores a parent state before trying its next control. `-interaction-depth` counts successful state transitions, so a depth of 4 explores four clicks from the starting page. This mode is slower than ordinary headless crawling because a branch may need to be replayed after a click changes the page.
+Use `-interactive` to explore clickable states in the pure headless browser. It enables headless mode, starts at the target page, and clicks candidates with a shallow-wide bias: new in-scope page URLs become fresh seeds with interaction depth reset (each new page gets its own shallow explore), navigation-like controls are tried first, and discovered pages, parent path prefixes (shallowest N, capped), and script/chunk URLs (dynamic/performance first; capped by successful new queue offers per page) are enqueued into the ordinary crawl queue in real time. Unlike ordinary crawl path expansion, interactive discovery always offers those parent prefixes—no `-path-climb` required (still pair `-path-climb` if you want the same for non-interactive findings). Restore accepts a URL-only match only for empty click paths (URL seeds); same-URL UI stacks with a non-empty path still Navigate to the seed and replay that path so sibling controls remain reachable. History back is tried first when the URL drifted, and restore failure skips remaining siblings instead of looping. `-interaction-depth` counts successful state transitions from the current seed. Pair with `-jc` for broader JS crawl after interaction opens new routes.
 
 ```console
-katana -u https://example.com/app -interactive -interaction-depth 4 \
+katana -u https://example.com/app -interactive -interaction-depth 2 \
   -interaction-max-states 500 -interaction-max-actions 2000 \
-  -interaction-settle 2s -interaction-duration 5m -crawl-duration 20m
+  -interaction-settle 2s -interaction-duration 8m -crawl-duration 30m -jc
 ```
 
-`-interaction-selector` and `-interaction-exclude` accept CSS selectors. The default candidate set includes buttons, links, common ARIA controls, inline click handlers, and observed click listeners. After UI exploration, Katana continues its ordinary headless URL crawl. Use `-interaction-duration` to reserve time for that crawl within `-crawl-duration`. Set an action or state limit to `0` to remove that limit.
+`-interaction-selector` and `-interaction-exclude` accept CSS selectors. The default candidate set includes buttons, links, common ARIA controls, inline click handlers, and observed click listeners. After UI exploration, Katana continues its ordinary headless URL crawl on anything interactive discovery enqueued. Script harvest during interaction prefers performance/dynamic chunks and caps successful new offers per page so heavy static tag lists cannot starve fresh chunks; use `-jc` when you want broader JS discovery. Use `-interaction-duration` to reserve time for that crawl within `-crawl-duration`. Set an action or state limit to `0` to remove that limit (unbounded state/action budgets can grow memory and runtime substantially on large sites; prefer explicit caps for production scans). New page URLs discovered mid-click are queued and explored iteratively—not via recursive `explore(0)`—so deep navigation chains cannot blow the call stack.
 
 The existing `-H` option also applies to headless crawling. `Cookie` values are seeded in the browser before navigation, and other headers are attached to requests the crawl scope accepts. New tabs opened by a click are explored when their URL is in scope. Selectors cannot reach every canvas control, closed shadow root, or cross origin frame, so inspect the crawl summary when assessing coverage.
 

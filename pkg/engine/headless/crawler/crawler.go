@@ -214,6 +214,8 @@ func (c *Crawler) Crawl(URL string) error {
 		Depth:    0,
 		OriginID: emptyPageHash,
 	}}
+	c.uniqueActions[actions[0].Hash()] = struct{}{}
+	c.uniqueActions[loadURLDedupeKey(URL)] = struct{}{}
 
 	crawlQueue := queue.NewLinked(actions)
 	c.crawlQueue = crawlQueue
