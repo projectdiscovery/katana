@@ -18,9 +18,10 @@ import (
 )
 
 type RedirectCallback func(resp *http.Response, depth int)
+type ScopeValidator func(u *url.URL) bool
 
 // BuildHttpClient builds a http client based on a profile
-func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback RedirectCallback) (*retryablehttp.Client, *fastdialer.Dialer, error) {
+func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirectCallback RedirectCallback, scopeValidator ...ScopeValidator) (*retryablehttp.Client, *fastdialer.Dialer, error) {
 	// Single Host
 	retryablehttpOptions := retryablehttp.DefaultOptionsSingle
 	retryablehttpOptions.RetryMax = options.Retries
@@ -66,6 +67,16 @@ func BuildHttpClient(dialer *fastdialer.Dialer, options *types.Options, redirect
 			}
 			if redirectCallback != nil {
 				redirectCallback(req.Response, depth)
+			}
+			if len(scopeValidator) > 0 && scopeValidator[0] != nil {
+				if !scopeValidator[0](req.URL) {
+					customHeaders := options.ParseCustomHeaders()
+					for k := range customHeaders {
+						delete(req.Header, k)
+						req.Header.Del(k)
+					}
+					req.Header.Del("Cookie")
+				}
 			}
 			return nil
 		},

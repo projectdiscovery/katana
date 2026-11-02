@@ -351,6 +351,16 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		}
 		s.Enqueue(queue, navigationRequests...)
 	}
+	var scopeValidator ScopeValidator
+	if s.Options.ScopeManager != nil {
+		scopeValidator = func(u *url.URL) bool {
+			validated, err := s.Options.ScopeManager.Validate(u, hostname)
+			if err != nil {
+				return false
+			}
+			return validated
+		}
+	}
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize)))
 		reader, _ := goquery.NewDocumentFromReader(bytes.NewReader(body))
@@ -372,7 +382,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		}
 		navigationRequests := s.Options.Parser.ParseResponse(navigationResponse)
 		s.Enqueue(queue, navigationRequests...)
-	})
+	}, scopeValidator)
 	if err != nil {
 		cancel()
 		return nil, errkit.Wrap(err, "could not create http client")
