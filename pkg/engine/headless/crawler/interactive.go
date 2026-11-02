@@ -41,12 +41,12 @@ func (c *Crawler) crawlInteractive(ctx context.Context, rootURL string) error {
 	if err != nil {
 		return err
 	}
-	originalPage := page.Page
+	originalPage := page.CurrentPage()
 	defer func() {
-		page.Page = originalPage
+		page.SetPage(originalPage)
 		c.launcher.PutBrowserToPool(page)
 	}()
-	page.Page = page.Context(ctx)
+	page.SetPage(originalPage.Context(ctx))
 	if err := page.Timeout(c.options.PageMaxTimeout).Navigate(rootURL); err != nil {
 		return err
 	}

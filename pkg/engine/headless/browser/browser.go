@@ -280,6 +280,7 @@ func (l *Launcher) Close() {
 // BrowserPage is a combination of a browser and a page
 type BrowserPage struct {
 	*rod.Page
+	pageMu         sync.RWMutex
 	Browser        *rod.Browser
 	cancel         context.CancelFunc
 	userDataDir    string
@@ -287,6 +288,22 @@ type BrowserPage struct {
 
 	launcher     *Launcher
 	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
+}
+
+// SetPage stores the page the crawler is using. The dialog goroutine reads it
+// through CurrentPage, so the swap with page.Context is not a data race and
+// the callbacks still observe the crawl context.
+func (b *BrowserPage) SetPage(p *rod.Page) {
+	b.pageMu.Lock()
+	b.Page = p
+	b.pageMu.Unlock()
+}
+
+// CurrentPage returns the page stored by the crawler.
+func (b *BrowserPage) CurrentPage() *rod.Page {
+	b.pageMu.RLock()
+	defer b.pageMu.RUnlock()
+	return b.Page
 }
 
 // WaitOptions controls how WaitPageLoadHeurisitics determines navigation completion.
@@ -607,6 +624,7 @@ func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts in
 }
 
 func (b *BrowserPage) handlePageDialogBoxes() error {
+	sessionPage := b.CurrentPage()
 	patterns := []*proto.FetchRequestPattern{{
 		URLPattern:   "*",
 		RequestStage: proto.FetchRequestStageResponse,
@@ -619,20 +637,21 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			RequestStage: proto.FetchRequestStageRequest,
 		})
 	}
-	err := proto.FetchEnable{Patterns: patterns}.Call(b.Page)
+	err := proto.FetchEnable{Patterns: patterns}.Call(sessionPage)
 	if err != nil {
 		return errors.Wrap(err, "could not enable fetch domain")
 	}
 
-	go b.EachEvent(
+	go sessionPage.EachEvent(
 		func(e *proto.PageJavascriptDialogOpening) {
 			_ = proto.PageHandleJavaScriptDialog{
 				Accept:     true,
 				PromptText: xid.New().String(),
-			}.Call(b.Page)
+			}.Call(b.CurrentPage())
 		},
 
 		func(e *proto.FetchRequestPaused) {
+			page := b.CurrentPage()
 			if b.launcher.opts.CookieConsentBypass {
 				// Check if request should be blocked by cookie consent rules
 				var originStr string
@@ -643,14 +662,14 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 					_ = proto.FetchFailRequest{
 						RequestID:   e.RequestID,
 						ErrorReason: proto.NetworkErrorReasonBlockedByClient,
-					}.Call(b.Page)
+					}.Call(page)
 					return
 				}
 			}
 
 			// Request stage: attach scoped custom headers before the request leaves.
 			if isFetchRequestStage(e) {
-				if err := b.continueWithScopedHeaders(e); err != nil {
+				if err := b.continueWithScopedHeaders(page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
 				return
@@ -658,21 +677,21 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
 				b.observeWithoutBody(e)
-				if err := fetchContinueRequest(b.Page, e); err != nil {
+				if err := fetchContinueRequest(page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
 				return
 			}
-			body, err := fetchGetResponseBody(b.Page, e)
+			body, err := fetchGetResponseBody(page, e)
 			if err != nil {
 				b.observeWithoutBody(e)
 				// Continue the request even if we can't get the body
-				if err := fetchContinueRequest(b.Page, e); err != nil {
+				if err := fetchContinueRequest(page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
 				return
 			}
-			if err := fetchContinueRequest(b.Page, e); err != nil {
+			if err := fetchContinueRequest(page, e); err != nil {
 				slog.Warn("fetchContinueRequest failed", "error", err)
 			}
 
@@ -728,14 +747,14 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 // continueWithScopedHeaders resumes a request-stage pause, attaching
 // non-cookie custom headers only to in-scope requests (see
 // shouldAttachExtraHeaders).
-func (b *BrowserPage) continueWithScopedHeaders(e *proto.FetchRequestPaused) error {
+func (b *BrowserPage) continueWithScopedHeaders(page *rod.Page, e *proto.FetchRequestPaused) error {
 	if len(b.extraHeaders) == 0 || !shouldAttachExtraHeaders(e.Request.URL, b.launcher.opts.ScopeValidator, b.launcher.opts.CookieURL) {
-		return fetchContinueRequest(b.Page, e)
+		return fetchContinueRequest(page, e)
 	}
 	return proto.FetchContinueRequest{
 		RequestID: e.RequestID,
 		Headers:   mergeRequestHeaders(e.Request.Headers, b.extraHeaders),
-	}.Call(b.Page)
+	}.Call(page)
 }
 
 // observeWithoutBody reports an exchange whose body is not read (redirects,

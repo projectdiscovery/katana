@@ -323,8 +323,8 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
-			originalPage := page.Page
-			page.Page = page.Context(ctx)
+			originalPage := page.CurrentPage()
+			page.SetPage(originalPage.Context(ctx))
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
@@ -386,7 +386,7 @@ var ErrNoCrawlingAction = errors.New("no more actions to crawl")
 
 func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage, originalPage *rod.Page) error {
 	defer func() {
-		page.Page = originalPage
+		page.SetPage(originalPage)
 		c.launcher.PutBrowserToPool(page)
 	}()
 
@@ -692,7 +692,11 @@ func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
 	}
 	defer c.launcher.PutBrowserToPool(page)
 
-	page.Page = page.Context(ctx)
+	originalPage := page.CurrentPage()
+	defer func() {
+		page.SetPage(originalPage)
+	}()
+	page.SetPage(originalPage.Context(ctx))
 
 	replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(c.options.AuthSteps)
 	if loginURL == "" {
