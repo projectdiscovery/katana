@@ -280,6 +280,7 @@ func (l *Launcher) Close() {
 // BrowserPage is a combination of a browser and a page
 type BrowserPage struct {
 	*rod.Page
+	pageMu         sync.RWMutex
 	Browser        *rod.Browser
 	cancel         context.CancelFunc
 	userDataDir    string
@@ -287,6 +288,22 @@ type BrowserPage struct {
 
 	launcher     *Launcher
 	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
+}
+
+// SetPage stores the page the crawler is using. The dialog goroutine reads it
+// through CurrentPage, so the swap with page.Context is not a data race and
+// the callbacks still observe the crawl context.
+func (b *BrowserPage) SetPage(p *rod.Page) {
+	b.pageMu.Lock()
+	b.Page = p
+	b.pageMu.Unlock()
+}
+
+// CurrentPage returns the page stored by the crawler.
+func (b *BrowserPage) CurrentPage() *rod.Page {
+	b.pageMu.RLock()
+	defer b.pageMu.RUnlock()
+	return b.Page
 }
 
 // WaitOptions controls how WaitPageLoadHeurisitics determines navigation completion.
@@ -607,7 +624,7 @@ func backoffCountSleeper(initInterval, maxInterval time.Duration, maxAttempts in
 }
 
 func (b *BrowserPage) handlePageDialogBoxes() error {
-	sessionPage := b.Page
+	sessionPage := b.CurrentPage()
 	patterns := []*proto.FetchRequestPattern{{
 		URLPattern:   "*",
 		RequestStage: proto.FetchRequestStageResponse,
@@ -630,10 +647,11 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 			_ = proto.PageHandleJavaScriptDialog{
 				Accept:     true,
 				PromptText: xid.New().String(),
-			}.Call(sessionPage)
+			}.Call(b.CurrentPage())
 		},
 
 		func(e *proto.FetchRequestPaused) {
+			page := b.CurrentPage()
 			if b.launcher.opts.CookieConsentBypass {
 				// Check if request should be blocked by cookie consent rules
 				var originStr string
@@ -644,14 +662,14 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 					_ = proto.FetchFailRequest{
 						RequestID:   e.RequestID,
 						ErrorReason: proto.NetworkErrorReasonBlockedByClient,
-					}.Call(sessionPage)
+					}.Call(page)
 					return
 				}
 			}
 
 			// Request stage: attach scoped custom headers before the request leaves.
 			if isFetchRequestStage(e) {
-				if err := b.continueWithScopedHeaders(sessionPage, e); err != nil {
+				if err := b.continueWithScopedHeaders(page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
 				return
@@ -659,21 +677,21 @@ func (b *BrowserPage) handlePageDialogBoxes() error {
 
 			if e.ResponseStatusCode == nil || e.ResponseErrorReason != "" || (*e.ResponseStatusCode >= 301 && *e.ResponseStatusCode <= 308) {
 				b.observeWithoutBody(e)
-				if err := fetchContinueRequest(sessionPage, e); err != nil {
+				if err := fetchContinueRequest(page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
 				return
 			}
-			body, err := fetchGetResponseBody(sessionPage, e)
+			body, err := fetchGetResponseBody(page, e)
 			if err != nil {
 				b.observeWithoutBody(e)
 				// Continue the request even if we can't get the body
-				if err := fetchContinueRequest(sessionPage, e); err != nil {
+				if err := fetchContinueRequest(page, e); err != nil {
 					slog.Warn("fetchContinueRequest failed", "error", err)
 				}
 				return
 			}
-			if err := fetchContinueRequest(sessionPage, e); err != nil {
+			if err := fetchContinueRequest(page, e); err != nil {
 				slog.Warn("fetchContinueRequest failed", "error", err)
 			}
 
