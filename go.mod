@@ -27,7 +27,7 @@ require (
 	github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.94
-	github.com/projectdiscovery/retryablehttp-go v1.3.31
+	github.com/projectdiscovery/retryablehttp-go v1.3.33
 	github.com/projectdiscovery/utils v0.11.10
 	github.com/projectdiscovery/wappalyzergo v0.3.6
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -99,7 +99,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.7.2 // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -145,7 +145,6 @@ require (
 )
 
 require (
-	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
