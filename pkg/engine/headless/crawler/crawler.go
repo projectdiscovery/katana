@@ -692,6 +692,10 @@ func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
 	}
 	defer c.launcher.PutBrowserToPool(page)
 
+	originalPage := page.Page
+	defer func() {
+		page.Page = originalPage
+	}()
 	page.Page = page.Context(ctx)
 
 	replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(c.options.AuthSteps)
