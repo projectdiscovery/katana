@@ -41,6 +41,10 @@ type Launcher struct {
 	browserPool rod.Pool[BrowserPage]
 
 	opts LauncherOptions
+
+	mu       sync.Mutex
+	pages    map[*BrowserPage]struct{}
+	tempDirs map[string]struct{}
 }
 
 // LauncherOptions contains options for the launcher
@@ -89,6 +93,8 @@ func NewLauncher(opts LauncherOptions) (*Launcher, error) {
 	l := &Launcher{
 		opts:        opts,
 		browserPool: rod.NewPool[BrowserPage](opts.MaxBrowsers),
+		pages:       make(map[*BrowserPage]struct{}),
+		tempDirs:    make(map[string]struct{}),
 	}
 
 	return l, nil
@@ -197,22 +203,24 @@ func (l *Launcher) createChromeLauncher(userDataDir string) (*launcher.Launcher,
 	return chromeLauncher, nil
 }
 
-func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, error) {
+func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, *launcher.Launcher, error) {
 	var launcherURL string
+	var chromeLauncher *launcher.Launcher
 
 	// If ChromeWSUrl is provided, connect to existing Chrome instead of launching new one
 	if l.opts.ChromeWSUrl != "" {
 		launcherURL = l.opts.ChromeWSUrl
 	} else {
 		// Launch a new Chrome instance
-		chromeLauncher, err := l.createChromeLauncher(userDataDir)
+		var err error
+		chromeLauncher, err = l.createChromeLauncher(userDataDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		launcherURL, err = chromeLauncher.Launch()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -226,27 +234,56 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, e
 		browser = browser.SlowMotion(1 * time.Second)
 	}
 	if browserErr := browser.Connect(); browserErr != nil {
-		return nil, browserErr
+		if chromeLauncher != nil {
+			chromeLauncher.Kill()
+		}
+		return nil, nil, browserErr
 	}
 
-	return browser, nil
+	return browser, chromeLauncher, nil
 }
 
 // Close closes the launcher
 func (l *Launcher) Close() {
+	l.mu.Lock()
+	allPages := make([]*BrowserPage, 0, len(l.pages))
+	for p := range l.pages {
+		allPages = append(allPages, p)
+	}
+	l.mu.Unlock()
+
+	for _, b := range allPages {
+		b.cancel()
+		b.CloseBrowserPage()
+	}
+
 	l.browserPool.Cleanup(func(b *BrowserPage) {
 		b.cancel()
 		b.CloseBrowserPage()
 	})
 	close(l.browserPool)
+
+	l.mu.Lock()
+	dirs := make([]string, 0, len(l.tempDirs))
+	for d := range l.tempDirs {
+		dirs = append(dirs, d)
+	}
+	l.mu.Unlock()
+
+	for _, d := range dirs {
+		if !l.shouldPreserveUserDataDir(d) {
+			removeDirWithRetry(d, 3*time.Second)
+		}
+	}
 }
 
 // BrowserPage is a combination of a browser and a page
 type BrowserPage struct {
 	*rod.Page
-	Browser     *rod.Browser
-	cancel      context.CancelFunc
-	userDataDir string
+	Browser        *rod.Browser
+	cancel         context.CancelFunc
+	userDataDir    string
+	chromeLauncher *launcher.Launcher
 
 	launcher     *Launcher
 	extraHeaders map[string]string // non-cookie -H values; injected per in-scope request
@@ -437,12 +474,20 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 			}
 			shouldCleanupTempDir = true
 		}
+		if shouldCleanupTempDir {
+			l.mu.Lock()
+			l.tempDirs[tempDir] = struct{}{}
+			l.mu.Unlock()
+		}
 	}
 
-	browser, err := l.launchBrowserWithDataDir(tempDir)
+	browser, chromeLauncher, err := l.launchBrowserWithDataDir(tempDir)
 	if err != nil {
 		if shouldCleanupTempDir {
-			_ = os.RemoveAll(tempDir)
+			removeDirWithRetry(tempDir, 3*time.Second)
+			l.mu.Lock()
+			delete(l.tempDirs, tempDir)
+			l.mu.Unlock()
 		}
 		return nil, err
 	}
@@ -458,9 +503,15 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 			_ = page.Close()
 			if l.opts.ChromeWSUrl == "" {
 				_ = browser.Close()
+				if chromeLauncher != nil {
+					chromeLauncher.Kill()
+				}
 			}
 			if shouldCleanupTempDir {
-				_ = os.RemoveAll(tempDir)
+				removeDirWithRetry(tempDir, 3*time.Second)
+				l.mu.Lock()
+				delete(l.tempDirs, tempDir)
+				l.mu.Unlock()
 			}
 		}
 	}()
@@ -475,11 +526,12 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 	page = page.Context(cancelCtx)
 
 	browserPage := &BrowserPage{
-		Page:        page,
-		Browser:     browser,
-		launcher:    l,
-		cancel:      cancel,
-		userDataDir: tempDir,
+		Page:           page,
+		Browser:        browser,
+		launcher:       l,
+		cancel:         cancel,
+		userDataDir:    tempDir,
+		chromeLauncher: chromeLauncher,
 	}
 	extra, err := applyBrowserHeaders(page, l.opts.CustomHeaders, l.opts.CookieURL)
 	if err != nil {
@@ -502,6 +554,9 @@ func (l *Launcher) createBrowserPageFunc() (*BrowserPage, error) {
 
 	// Success - cancel any deferred cleanup
 	successfulPageCreation = true
+	l.mu.Lock()
+	l.pages[browserPage] = struct{}{}
+	l.mu.Unlock()
 	return browserPage, nil
 }
 
@@ -851,17 +906,49 @@ func isBrowserConnected(browser *rod.Browser) bool {
 }
 
 func (b *BrowserPage) CloseBrowserPage() {
-	_ = b.Close() // Close the page/tab
+	if b == nil {
+		return
+	}
+	if b.Page != nil {
+		_ = b.Close() // Close the page/tab
+	}
 
 	// Only close the browser if we launched it ourselves (not connecting via ChromeWSUrl)
 	// If ChromeWSUrl was used, we should leave the browser running
-	if b.launcher.opts.ChromeWSUrl == "" {
+	if b.launcher != nil && b.launcher.opts.ChromeWSUrl == "" && b.Browser != nil {
 		_ = b.Browser.Close()
+		if b.chromeLauncher != nil {
+			b.chromeLauncher.Kill()
+		}
+	}
+
+	if b.launcher != nil {
+		b.launcher.mu.Lock()
+		delete(b.launcher.pages, b)
+		b.launcher.mu.Unlock()
 	}
 
 	// Only cleanup temp data dir if we created it (not user-provided)
-	if b.userDataDir != "" && !b.launcher.shouldPreserveUserDataDir(b.userDataDir) {
-		_ = os.RemoveAll(b.userDataDir)
+	if b.userDataDir != "" && b.launcher != nil && !b.launcher.shouldPreserveUserDataDir(b.userDataDir) {
+		removeDirWithRetry(b.userDataDir, 3*time.Second)
+		b.launcher.mu.Lock()
+		delete(b.launcher.tempDirs, b.userDataDir)
+		b.launcher.mu.Unlock()
+	}
+	b.userDataDir = ""
+}
+
+func removeDirWithRetry(dir string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for {
+		err := os.RemoveAll(dir)
+		if err == nil || os.IsNotExist(err) {
+			return
+		}
+		if time.Now().After(deadline) {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

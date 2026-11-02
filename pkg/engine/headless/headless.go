@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lmittmann/tint"
@@ -29,6 +30,9 @@ type Headless struct {
 	debugger *CrawlDebugger
 
 	hooks Hooks
+
+	mu             sync.Mutex
+	activeCrawlers map[*crawler.Crawler]struct{}
 }
 
 // New returns a new headless crawler instance
@@ -36,8 +40,9 @@ func New(options *types.CrawlerOptions) (*Headless, error) {
 	logger := newLogger(options)
 
 	headless := &Headless{
-		logger:  logger,
-		options: options,
+		logger:         logger,
+		options:        options,
+		activeCrawlers: make(map[*crawler.Crawler]struct{}),
 	}
 	if options.Options.FilterSimilar {
 		headless.pathTrie = utils.NewPathTrie(options.Options.FilterSimilarThreshold)
@@ -251,7 +256,19 @@ func (h *Headless) Crawl(URL string) error {
 	if err != nil {
 		return err
 	}
-	defer headlessCrawler.Close()
+	h.mu.Lock()
+	if h.activeCrawlers == nil {
+		h.activeCrawlers = make(map[*crawler.Crawler]struct{})
+	}
+	h.activeCrawlers[headlessCrawler] = struct{}{}
+	h.mu.Unlock()
+
+	defer func() {
+		h.mu.Lock()
+		delete(h.activeCrawlers, headlessCrawler)
+		h.mu.Unlock()
+		headlessCrawler.Close()
+	}()
 
 	if err = headlessCrawler.Crawl(URL); err != nil {
 		return err
@@ -260,6 +277,17 @@ func (h *Headless) Crawl(URL string) error {
 }
 
 func (h *Headless) Close() error {
+	h.mu.Lock()
+	crawlers := make([]*crawler.Crawler, 0, len(h.activeCrawlers))
+	for c := range h.activeCrawlers {
+		crawlers = append(crawlers, c)
+	}
+	h.mu.Unlock()
+
+	for _, c := range crawlers {
+		c.Close()
+	}
+
 	if h.debugger != nil {
 		h.debugger.Close()
 	}

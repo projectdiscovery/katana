@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -193,5 +194,73 @@ func TestLauncherSystemChromeResolution(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.True(t, l.opts.UseInstalledChrome)
+	})
+}
+
+
+func TestUserDataDirCleanup(t *testing.T) {
+	t.Run("tracked temporary directory is removed on Close", func(t *testing.T) {
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers: 1,
+		})
+		require.NoError(t, err)
+
+		tempDir, err := os.MkdirTemp("", "katana-chrome-data-test-*")
+		require.NoError(t, err)
+
+		l.mu.Lock()
+		l.tempDirs[tempDir] = struct{}{}
+		l.mu.Unlock()
+
+		require.DirExists(t, tempDir)
+
+		l.Close()
+
+		require.NoDirExists(t, tempDir)
+	})
+
+	t.Run("user provided directory is preserved on Close", func(t *testing.T) {
+		userDir := t.TempDir()
+
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers: 1,
+			UserDataDir: userDir,
+		})
+		require.NoError(t, err)
+
+		l.mu.Lock()
+		l.tempDirs[userDir] = struct{}{}
+		l.mu.Unlock()
+
+		l.Close()
+
+		require.DirExists(t, userDir)
+	})
+
+	t.Run("tracked page is cleaned up on Close", func(t *testing.T) {
+		l, err := NewLauncher(LauncherOptions{
+			MaxBrowsers: 1,
+		})
+		require.NoError(t, err)
+
+		tempDir, err := os.MkdirTemp("", "katana-chrome-data-test-*")
+		require.NoError(t, err)
+
+		bp := &BrowserPage{
+			userDataDir: tempDir,
+			launcher:    l,
+			cancel:      func() {},
+		}
+		l.mu.Lock()
+		l.pages[bp] = struct{}{}
+		l.tempDirs[tempDir] = struct{}{}
+		l.mu.Unlock()
+
+		require.DirExists(t, tempDir)
+
+		l.Close()
+
+		require.NoDirExists(t, tempDir)
+		require.Empty(t, bp.userDataDir)
 	})
 }
