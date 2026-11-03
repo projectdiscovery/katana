@@ -219,10 +219,12 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		_ = waitRouter()
 	}()
 	defer func() {
+		// Cancel the streaming body read before disabling fetch, then wait
+		// until that handler has returned.
+		cancelHandlers()
 		if err := pageRouter.Stop(); err != nil {
 			gologger.Warning().Msgf("%s\n", err)
 		}
-		cancelHandlers()
 		// a handler still running could enqueue links after the visit is
 		// marked done, when the queue may already have closed
 		<-routerDone
