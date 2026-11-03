@@ -226,6 +226,8 @@ type Options struct {
 	MaxOnclickLinks int
 	// PageLoadStrategy specifies how to wait for pages to load (heuristic, load, domcontentloaded, networkidle, none)
 	PageLoadStrategy string
+	// CrawlStrategy specifies presets for headless crawl settings (fast, balanced, thorough)
+	CrawlStrategy string
 	// DOMWaitTime is the time in seconds to wait after domcontentloaded strategy (default: 5)
 	DOMWaitTime int
 	// MaxScrollSteps is the maximum number of viewport scrolls used to reveal

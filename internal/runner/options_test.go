@@ -3,6 +3,7 @@ package runner
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/stretchr/testify/require"
@@ -208,5 +209,65 @@ func TestValidateRecordedFlow(t *testing.T) {
 		opts.RecordedFlow = writeFlow(t, `{"steps":[{"action":"navigate","value":"https://example.com"}]}`)
 		err := validateOptions(opts)
 		require.ErrorContains(t, err, "at least one action")
+	})
+}
+
+func TestValidateCrawlStrategyPresets(t *testing.T) {
+	t.Run("fast preset sets expected headless parameters", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.CrawlStrategy = "fast"
+		err := validateOptions(opts)
+		require.NoError(t, err)
+		require.Equal(t, "domcontentloaded", opts.PageLoadStrategy)
+		require.Equal(t, 1, opts.DOMWaitTime)
+		require.Equal(t, 2, opts.InteractionDepth)
+		require.Equal(t, 500*time.Millisecond, opts.InteractionSettle)
+		require.Equal(t, 1, opts.MaxScrollSteps)
+		require.Equal(t, 3, opts.MaxOnclickLinks)
+	})
+
+	t.Run("balanced preset sets expected headless parameters", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.CrawlStrategy = "balanced"
+		err := validateOptions(opts)
+		require.NoError(t, err)
+		require.Equal(t, "heuristic", opts.PageLoadStrategy)
+		require.Equal(t, 3, opts.DOMWaitTime)
+		require.Equal(t, 4, opts.InteractionDepth)
+		require.Equal(t, 1500*time.Millisecond, opts.InteractionSettle)
+		require.Equal(t, 2, opts.MaxScrollSteps)
+		require.Equal(t, 10, opts.MaxOnclickLinks)
+	})
+
+	t.Run("thorough preset sets expected headless parameters", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.CrawlStrategy = "thorough"
+		err := validateOptions(opts)
+		require.NoError(t, err)
+		require.Equal(t, "networkidle", opts.PageLoadStrategy)
+		require.Equal(t, 5, opts.DOMWaitTime)
+		require.Equal(t, 6, opts.InteractionDepth)
+		require.Equal(t, 3*time.Second, opts.InteractionSettle)
+		require.Equal(t, 5, opts.MaxScrollSteps)
+		require.Equal(t, 25, opts.MaxOnclickLinks)
+	})
+
+	t.Run("explicit flags override preset defaults", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.CrawlStrategy = "fast"
+		opts.PageLoadStrategy = "load"
+		opts.DOMWaitTime = 8
+		err := validateOptions(opts)
+		require.NoError(t, err)
+		require.Equal(t, "load", opts.PageLoadStrategy)
+		require.Equal(t, 8, opts.DOMWaitTime)
+	})
+
+	t.Run("invalid crawl strategy is rejected", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.CrawlStrategy = "ultra-fast"
+		err := validateOptions(opts)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid crawl-strategy")
 	})
 }

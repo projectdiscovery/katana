@@ -186,6 +186,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.XhrExtraction, "xhr-extraction", "xhr", false, "extract xhr request url,method in jsonl output"),
 		flagSet.IntVarP(&options.MaxFailureCount, "max-failure-count", "mfc", 10, "maximum number of consecutive action failures before stopping"),
 		flagSet.BoolVarP(&options.EnableDiagnostics, "enable-diagnostics", "ed", false, "enable diagnostics"),
+		flagSet.StringVarP(&options.CrawlStrategy, "crawl-strategy", "cst", "", "headless crawl strategy preset (fast, balanced, thorough)"),
 		flagSet.StringVarP(&options.PageLoadStrategy, "page-load-strategy", "pls", "heuristic", "page load strategy (heuristic, load, domcontentloaded, networkidle, none)"),
 		flagSet.IntVarP(&options.DOMWaitTime, "dom-wait-time", "dwt", 5, "time in seconds to wait after page load when using domcontentloaded strategy"),
 		flagSet.IntVar(&options.MaxScrollSteps, "max-scroll-steps", 0, "maximum viewport scrolls to reveal lazy-loaded content (headless only)"),

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/formatter"
@@ -34,6 +35,20 @@ func validateOptions(options *types.Options) error {
 	}
 	if len(options.URLs) == 0 && !fileutil.HasStdin() {
 		return errkit.New("no inputs specified for crawler")
+	}
+
+	// Apply crawl strategy preset if specified
+	if options.CrawlStrategy != "" {
+		validPresets := []string{"fast", "balanced", "thorough"}
+		strategyLower := strings.ToLower(strings.TrimSpace(options.CrawlStrategy))
+		if !slices.Contains(validPresets, strategyLower) {
+			return errkit.New("invalid crawl-strategy: must be one of (fast, balanced, thorough)")
+		}
+		options.CrawlStrategy = strategyLower
+		if !options.Headless && !options.HeadlessHybrid {
+			options.Headless = true
+		}
+		applyCrawlStrategyPreset(options)
 	}
 
 	// Validate page load strategy
@@ -248,4 +263,67 @@ func initExampleFormFillConfig() error {
 
 	err = yaml.NewEncoder(exampleConfig).Encode(utils.DefaultFormFillData)
 	return err
+}
+
+// applyCrawlStrategyPreset configures headless parameters based on the selected preset.
+func applyCrawlStrategyPreset(options *types.Options) {
+	switch options.CrawlStrategy {
+	case "fast":
+		if options.PageLoadStrategy == "" || options.PageLoadStrategy == "heuristic" {
+			options.PageLoadStrategy = "domcontentloaded"
+		}
+		if options.DOMWaitTime == 0 || options.DOMWaitTime == 5 {
+			options.DOMWaitTime = 1
+		}
+		if options.InteractionDepth == 0 || options.InteractionDepth == 4 {
+			options.InteractionDepth = 2
+		}
+		if options.InteractionSettle == 0 || options.InteractionSettle == 2*time.Second {
+			options.InteractionSettle = 500 * time.Millisecond
+		}
+		if options.MaxScrollSteps == 0 {
+			options.MaxScrollSteps = 1
+		}
+		if options.MaxOnclickLinks == 0 || options.MaxOnclickLinks == 10 {
+			options.MaxOnclickLinks = 3
+		}
+	case "balanced":
+		if options.PageLoadStrategy == "" {
+			options.PageLoadStrategy = "heuristic"
+		}
+		if options.DOMWaitTime == 0 || options.DOMWaitTime == 5 {
+			options.DOMWaitTime = 3
+		}
+		if options.InteractionDepth == 0 || options.InteractionDepth == 4 {
+			options.InteractionDepth = 4
+		}
+		if options.InteractionSettle == 0 || options.InteractionSettle == 2*time.Second {
+			options.InteractionSettle = 1500 * time.Millisecond
+		}
+		if options.MaxScrollSteps == 0 {
+			options.MaxScrollSteps = 2
+		}
+		if options.MaxOnclickLinks == 0 || options.MaxOnclickLinks == 10 {
+			options.MaxOnclickLinks = 10
+		}
+	case "thorough":
+		if options.PageLoadStrategy == "" || options.PageLoadStrategy == "heuristic" {
+			options.PageLoadStrategy = "networkidle"
+		}
+		if options.DOMWaitTime == 0 || options.DOMWaitTime == 5 {
+			options.DOMWaitTime = 5
+		}
+		if options.InteractionDepth == 0 || options.InteractionDepth == 4 {
+			options.InteractionDepth = 6
+		}
+		if options.InteractionSettle == 0 || options.InteractionSettle == 2*time.Second {
+			options.InteractionSettle = 3 * time.Second
+		}
+		if options.MaxScrollSteps == 0 {
+			options.MaxScrollSteps = 5
+		}
+		if options.MaxOnclickLinks == 0 || options.MaxOnclickLinks == 10 {
+			options.MaxOnclickLinks = 25
+		}
+	}
 }
