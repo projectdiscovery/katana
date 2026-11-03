@@ -68,12 +68,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	xhrRequests := []navigation.Request{}
+	// handlerPage is cancelled before waiting on the router, so a body read
+	// stuck on a streaming response does not hold the visit open
+	handlerPage, cancelHandlers := page.WithCancel()
 	waitRouter := pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
-		body, _ := FetchGetResponseBody(page, e)
+		body, _ := FetchGetResponseBody(handlerPage, e)
 
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
@@ -145,7 +148,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			if c.Options.Options.DisableRedirects && statusCode >= 300 && statusCode <= 399 {
 				return nil
 			}
-			return FetchContinueRequest(page, e)
+			return FetchContinueRequest(handlerPage, e)
 		}
 
 		httpresp := &http.Response{
@@ -208,7 +211,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
 			return nil
 		}
-		return FetchContinueRequest(page, e)
+		return FetchContinueRequest(handlerPage, e)
 	})
 	routerDone := make(chan struct{})
 	go func() {
@@ -219,6 +222,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if err := pageRouter.Stop(); err != nil {
 			gologger.Warning().Msgf("%s\n", err)
 		}
+		cancelHandlers()
 		// a handler still running could enqueue links after the visit is
 		// marked done, when the queue may already have closed
 		<-routerDone
