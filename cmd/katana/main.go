@@ -161,6 +161,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
 		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
 		flagSet.BoolVar(&options.PprofServer, "pprof-server", false, "enable pprof server"),
+		flagSet.BoolVar(&options.ShowStatistics, "stats", false, "display crawl statistics"),
+		flagSet.IntVarP(&options.StatsInterval, "stats-interval", "si", 0, "number of seconds to wait between showing a statistics update (default 5)"),
 	)
 
 	// Headless group

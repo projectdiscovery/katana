@@ -166,6 +166,8 @@ DEBUG:
    -health-check, -hc        run diagnostic check up
    -elog, -error-log string  file to write sent requests error log
    -pprof-server             enable pprof server
+   -stats                    display crawl statistics
+   -si, -stats-interval int  number of seconds to wait between showing a statistics update (default 5)
 
 HEADLESS:
    -hl, -headless                    enable headless hybrid crawling (experimental)

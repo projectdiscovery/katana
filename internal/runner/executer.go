@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/projectdiscovery/gologger"
@@ -34,16 +35,23 @@ func (r *Runner) ExecuteCrawling() error {
 		}
 	}()
 
+	var done atomic.Int64
+	if r.options.ShowStatistics {
+		defer r.startStats(startTime, &done, len(inputs))()
+	}
+
 	wg := sizedwaitgroup.New(r.options.Parallelism)
 	for _, input := range inputs {
 		if !r.networkpolicy.Validate(input) {
 			gologger.Info().Msgf("Skipping excluded host %s", input)
+			done.Add(1)
 			continue
 		}
 		wg.Add()
 		input = addSchemeIfNotExists(input)
 		go func(input string) {
 			defer wg.Done()
+			defer done.Add(1)
 
 			if err := r.crawler.Crawl(input); err != nil {
 				gologger.Warning().Msgf("Could not crawl %s: %s", input, err)
