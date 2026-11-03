@@ -176,6 +176,10 @@ type Options struct {
 	HealthCheck bool
 	// PprofServer enables pprof server
 	PprofServer bool
+	// ShowStatistics prints crawl progress every StatsInterval seconds
+	ShowStatistics bool
+	// StatsInterval is the number of seconds between statistics updates
+	StatsInterval int
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
 	// Resolvers contains custom resolvers

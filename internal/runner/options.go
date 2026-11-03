@@ -144,6 +144,12 @@ func validateOptions(options *types.Options) error {
 			return errkit.New("specified system chrome binary does not exist")
 		}
 	}
+	if options.StatsInterval != 0 {
+		options.ShowStatistics = true
+	}
+	if options.ShowStatistics && options.StatsInterval <= 0 {
+		options.StatsInterval = 5
+	}
 	if options.StoreResponseDir != "" && !options.StoreResponse {
 		gologger.Debug().Msgf("store response directory specified, enabling \"sr\" flag automatically\n")
 		options.StoreResponse = true
