@@ -7,17 +7,23 @@ import (
 	"time"
 )
 
-// startStats prints crawl progress every interval until the returned stop is
-// called. It writes to stderr directly, like httpx, so -silent keeps it.
+// startStats prints crawl progress every interval, and once more when the
+// returned stop is called so short crawls still report. It writes to stderr
+// directly, like httpx, so -silent keeps it.
 func (r *Runner) startStats(startTime time.Time, done *atomic.Int64, total int) (stop func()) {
+	report := func() {
+		endpoints := r.crawlerOptions.OutputWriter.GetResultCount()
+		fmt.Fprintln(os.Stderr, statsLine(time.Since(startTime), done.Load(), total, endpoints))
+	}
 	ticker := time.NewTicker(time.Duration(r.options.StatsInterval) * time.Second)
 	quit := make(chan struct{})
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		for {
 			select {
 			case <-ticker.C:
-				endpoints := r.crawlerOptions.OutputWriter.GetResultCount()
-				fmt.Fprintln(os.Stderr, statsLine(time.Since(startTime), done.Load(), total, endpoints))
+				report()
 			case <-quit:
 				return
 			}
@@ -26,6 +32,8 @@ func (r *Runner) startStats(startTime time.Time, done *atomic.Int64, total int) 
 	return func() {
 		ticker.Stop()
 		close(quit)
+		<-stopped
+		report()
 	}
 }
 
