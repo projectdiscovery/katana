@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	graphlib "github.com/dominikbraun/graph"
@@ -48,7 +49,10 @@ func (c *Crawler) isCorrectNavigation(page *browser.BrowserPage, action *types.A
 		return "", pageState, fmt.Errorf("failed to get origin page state: %w", err)
 	}
 
-	if pageState != nil && originPageState != nil {
+	// The SimHash fallback absorbs small DOM churn on the same document only.
+	// Pages at other URLs often share a DOM skeleton, and accepting them would
+	// run the action on the wrong page.
+	if pageState != nil && originPageState != nil && sameDocument(pageState.URL, originPageState.URL) {
 		distance := simhash.Distance(pageState.SimHash, originPageState.SimHash)
 		if distance <= simhashThreshold {
 			c.logger.Debug("Page is similar enough to origin, proceeding",
@@ -106,11 +110,43 @@ func newPageState(page *browser.BrowserPage, action *types.Action) (*types.PageS
 	}
 	state.StrippedDOM = strippedDOM
 
-	// Get sha256 hash of the stripped dom
-	state.UniqueID = sha256Hash(strippedDOM)
+	state.UniqueID = stateID(pageInfo.URL, strippedDOM)
 	state.SimHash = simhash.Fingerprint(strings.NewReader(strippedDOM), 3)
 
 	return state, nil
+}
+
+// stateID returns the identity of the page state at pageURL with strippedDOM.
+// The stripped DOM drops attributes and text, so pages at different URLs that
+// share a template have the same stripped DOM. The URL keeps them apart: a
+// merged state keeps the navigation action of only one of them, and the
+// replay path of every other page would be wrong.
+func stateID(pageURL, strippedDOM string) string {
+	return sha256Hash(stateURL(pageURL) + "\n" + strippedDOM)
+}
+
+// stateURL returns the part of a page URL that identifies a state. The
+// fragment is dropped: it does not reach the server, and a client-side route
+// that changes the page also changes its DOM.
+func stateURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	u.Fragment = ""
+	u.RawFragment = ""
+	return u.String()
+}
+
+// sameDocument reports whether two page URLs point to the same document,
+// ignoring the query and the fragment.
+func sameDocument(a, b string) bool {
+	ua, errA := url.Parse(a)
+	ub, errB := url.Parse(b)
+	if errA != nil || errB != nil {
+		return a == b
+	}
+	return ua.Scheme == ub.Scheme && ua.Host == ub.Host && ua.Path == ub.Path
 }
 
 func sha256Hash(item string) string {
@@ -225,6 +261,12 @@ func (c *Crawler) tryElementNavigation(page *browser.BrowserPage, action *types.
 // to match, or enforces at least two matching non-empty attributes.
 func isElementMatch(current, target *types.HTMLElement) bool {
 	if current == nil || target == nil {
+		return false
+	}
+	// Links to different targets are different elements, even when tag and
+	// text match. Pages built from one template repeat such links, and a
+	// match would click the link of the wrong page.
+	if current.Attributes["href"] != target.Attributes["href"] {
 		return false
 	}
 	// Definitive match: identical non-empty IDs
