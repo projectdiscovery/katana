@@ -36,7 +36,7 @@ func TestSurfaceScore(t *testing.T) {
 func TestEnqueuePriorityStrategy(t *testing.T) {
 	enqueue := func(strategy string) []string {
 		shared, _ := newTestShared(5, func(o *types.Options) { o.Strategy = strategy })
-		q, err := queue.New(strategy, 1)
+		q, err := queue.New(strategy)
 		require.NoError(t, err)
 		shared.Enqueue(q,
 			&navigation.Request{Method: http.MethodGet, URL: "https://example.com/about", Depth: 1},

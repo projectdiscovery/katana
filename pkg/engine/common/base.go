@@ -337,7 +337,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	}
 	hostname := parsed.Hostname()
 
-	queue, err := queue.New(s.Options.Options.Strategy, s.Options.Options.Timeout)
+	queue, err := queue.New(s.Options.Options.Strategy)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -404,6 +404,39 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 // (standard HTTP vs. headless browser) to provide their own request logic.
 type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*navigation.Response, error)
 
+// AcceptRequest returns the request in a popped queue item when it is a URL
+// that passes the path and scope filters.
+func (s *Shared) AcceptRequest(crawlSession *CrawlSession, item interface{}) (req *navigation.Request, inScope, ok bool) {
+	req, ok = item.(*navigation.Request)
+	if !ok {
+		return nil, false, false
+	}
+
+	if !utils.IsURL(req.URL) {
+		if s.Options.Options.OnSkipURL != nil {
+			s.Options.Options.OnSkipURL(req.URL)
+		}
+		gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
+		return nil, false, false
+	}
+
+	if !s.Options.ValidatePath(req.URL) {
+		gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
+		return nil, false, false
+	}
+
+	inScope, scopeErr := s.Options.ValidateScope(req.URL, crawlSession.Hostname)
+	if scopeErr != nil {
+		gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
+		return nil, false, false
+	}
+	if !req.SkipValidation && !inScope {
+		gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+		return nil, false, false
+	}
+	return req, inScope, true
+}
+
 // Do executes the main crawling loop for the given crawl session.
 // It processes items from the queue concurrently (respecting the Concurrency limit),
 // validates each request (URL format, path filters, scope), applies rate limiting
@@ -419,40 +452,16 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			break
 		}
 
-		req, ok := item.(*navigation.Request)
+		req, inScope, ok := s.AcceptRequest(crawlSession, item)
 		if !ok {
-			continue
-		}
-
-		if !utils.IsURL(req.URL) {
-			if s.Options.Options.OnSkipURL != nil {
-				s.Options.Options.OnSkipURL(req.URL)
-			}
-			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
-			continue
-		}
-
-		if !s.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
-			continue
-		}
-
-		inScope, scopeErr := s.Options.ValidateScope(req.URL, crawlSession.Hostname)
-		if scopeErr != nil {
-			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
-			continue
-		}
-		if !req.SkipValidation && !inScope {
-			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+			crawlSession.Queue.Done()
 			continue
 		}
 
 		wg.Add()
-		done := crawlSession.Queue.Track()
-		// gologger.Debug().Msgf("Visiting: %v", req.URL) // not sure if this is needed
 		go func() {
 			defer wg.Done()
-			defer done()
+			defer crawlSession.Queue.Done()
 
 			// Race Take() against the session context so that workers
 			// don't block shutdown waiting for the next limiter tick

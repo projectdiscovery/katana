@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // Queue is a queue that implements bucket based depth-first
@@ -20,15 +19,16 @@ import (
 // items as they come in.
 type Queue struct {
 	sync.Mutex
-	Timeout       time.Duration
 	Strategy      Strategy
 	stack         *stack
 	priorityQueue *priorityQueue
-	tracked       atomic.Int64
+	// inProgress counts popped items whose Done is pending; they may still push
+	inProgress atomic.Int64
+	wake       chan struct{}
 }
 
 // New creates a new queue from the type specified.
-func New(strategyName string, timeout int) (*Queue, error) {
+func New(strategyName string) (*Queue, error) {
 	strategy, ok := strategiesMap[strategyName]
 	if !ok {
 		return nil, errors.New("unsupported strategy")
@@ -36,9 +36,9 @@ func New(strategyName string, timeout int) (*Queue, error) {
 
 	queue := &Queue{
 		Strategy:      strategy,
-		Timeout:       time.Duration(timeout) * time.Second,
 		stack:         newStack(),
 		priorityQueue: newPriorityQueue(),
+		wake:          make(chan struct{}, 1),
 	}
 
 	return queue, nil
@@ -62,23 +62,29 @@ func (q *Queue) Len() int {
 // Push pushes an element with an optional priority into the queue.
 func (q *Queue) Push(x interface{}, priority int) {
 	q.Lock()
-	defer q.Unlock()
-
 	switch q.Strategy {
 	case BreadthFirst, Priority:
 		q.priorityQueue.Push(x, priority)
 	case DepthFirst:
 		q.stack.Push(x)
 	}
+	q.Unlock()
+	q.signal()
 }
 
-// Track marks work that may still push items, such as a page being
-// processed. The queue does not time out while tracked work is running.
-// Call the returned func when the work is done.
-func (q *Queue) Track() func() {
-	q.tracked.Add(1)
-	var once sync.Once
-	return func() { once.Do(func() { q.tracked.Add(-1) }) }
+// Done marks an item received from Pop as finished, after it has pushed
+// everything it found. Pop closes once the queue is empty and every
+// received item is done.
+func (q *Queue) Done() {
+	q.inProgress.Add(-1)
+	q.signal()
+}
+
+func (q *Queue) signal() {
+	select {
+	case q.wake <- struct{}{}:
+	default:
+	}
 }
 
 // Pop pops elements from the queue (backward-compatible, no context).
@@ -87,7 +93,7 @@ func (q *Queue) Pop() chan interface{} {
 }
 
 // PopWithContext pops elements from the queue, respecting context cancellation.
-// If ctx is nil, context.Background() is used.
+// If ctx is nil, context.Background() is used. Call Done for every received item.
 func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 	if ctx == nil {
 		ctx = context.Background()
@@ -96,7 +102,6 @@ func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 
 	go func() {
 		defer close(items)
-		start := time.Now()
 		for {
 			select {
 			case <-ctx.Done():
@@ -104,6 +109,9 @@ func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 			default:
 			}
 
+			// read before popping: if nothing was in progress and the queue is
+			// empty, nothing can push anymore
+			idle := q.inProgress.Load() == 0
 			var item interface{}
 			q.Lock()
 			switch q.Strategy {
@@ -115,28 +123,25 @@ func (q *Queue) PopWithContext(ctx context.Context) chan interface{} {
 			q.Unlock()
 
 			if item == nil {
-				if q.tracked.Load() > 0 {
-					start = time.Now()
+				if idle {
+					return
 				}
-				if !start.Add(q.Timeout).Before(time.Now()) {
-					select {
-					case <-ctx.Done():
-						return
-					case <-time.After(1 * time.Second):
-					}
-					continue
-				}
-				return
-			} else {
-				// NOTE: if ctx is cancelled during this send, the popped item is
-				// discarded. This is acceptable because cancellation means the crawl
-				// is shutting down and no consumer will process it.
 				select {
 				case <-ctx.Done():
 					return
-				case items <- item:
+				case <-q.wake:
 				}
-				start = time.Now()
+				continue
+			}
+
+			q.inProgress.Add(1)
+			// NOTE: if ctx is cancelled during this send, the popped item is
+			// discarded. This is acceptable because cancellation means the crawl
+			// is shutting down and no consumer will process it.
+			select {
+			case <-ctx.Done():
+				return
+			case items <- item:
 			}
 		}
 	}()

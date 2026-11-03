@@ -16,7 +16,6 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -247,37 +246,10 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 			return ctxErr
 		}
 
-		req, ok := item.(*navigation.Request)
-		if !ok {
-			continue
+		if req, inScope, ok := c.AcceptRequest(crawlSession, item); ok {
+			c.visit(crawlSession, req, inScope, doRequest)
 		}
-
-		if !utils.IsURL(req.URL) {
-			if c.Options.Options.OnSkipURL != nil {
-				c.Options.Options.OnSkipURL(req.URL)
-			}
-			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
-			continue
-		}
-
-		if !c.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
-			continue
-		}
-
-		inScope, scopeErr := c.Options.ValidateScope(req.URL, crawlSession.Hostname)
-		if scopeErr != nil {
-			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
-			continue
-		}
-		if !req.SkipValidation && !inScope {
-			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
-			continue
-		}
-
-		done := crawlSession.Queue.Track()
-		c.visit(crawlSession, req, inScope, doRequest)
-		done()
+		crawlSession.Queue.Done()
 	}
 	return nil
 }

@@ -68,7 +68,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	xhrRequests := []navigation.Request{}
-	go pageRouter.Start(func(e *proto.FetchRequestPaused) error {
+	waitRouter := pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
@@ -209,11 +209,19 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			return nil
 		}
 		return FetchContinueRequest(page, e)
-	})() //nolint
+	})
+	routerDone := make(chan struct{})
+	go func() {
+		defer close(routerDone)
+		_ = waitRouter()
+	}()
 	defer func() {
 		if err := pageRouter.Stop(); err != nil {
 			gologger.Warning().Msgf("%s\n", err)
 		}
+		// a handler still running could enqueue links after the visit is
+		// marked done, when the queue may already have closed
+		<-routerDone
 	}()
 
 	navigatedURLs := sliceutil.NewSyncSlice[string]()
