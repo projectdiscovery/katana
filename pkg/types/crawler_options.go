@@ -72,6 +72,9 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	options.ConfigureOutput()
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
 
+	if err := options.ValidateAIProvider(); err != nil {
+		return nil, err
+	}
 	var aiDecider *decider.Cache
 	if options.AILive() || options.AIReplay != "" {
 		d, err := newDecider(options)

@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	logutil "github.com/projectdiscovery/utils/log"
 )
@@ -305,6 +306,15 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 
 func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
+}
+
+// ValidateAIProvider rejects unknown providers; an empty one means openai.
+func (options *Options) ValidateAIProvider() error {
+	switch options.AIProvider {
+	case "", "openai", "jev":
+		return nil
+	}
+	return errkit.Newf("invalid -ai-provider %q, use openai or jev", options.AIProvider)
 }
 
 // AILive reports whether crawl decisions go to a provider rather than a replay.

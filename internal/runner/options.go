@@ -58,14 +58,11 @@ func validateOptions(options *types.Options) error {
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
-	switch options.AIProvider {
-	case "", "openai":
-		if options.AIURL != "" && options.AIModel == "" {
-			return errkit.New("-ai-url requires -ai-model")
-		}
-	case "jev":
-	default:
-		return errkit.Newf("invalid -ai-provider %q, use openai or jev", options.AIProvider)
+	if err := options.ValidateAIProvider(); err != nil {
+		return err
+	}
+	if options.AIProvider != "jev" && options.AIURL != "" && options.AIModel == "" {
+		return errkit.New("-ai-url requires -ai-model")
 	}
 	if options.AIReplay != "" && (options.AILive() || options.AIRecord != "") {
 		return errkit.New("-ai-replay cannot be combined with a live provider or -ai-record")
