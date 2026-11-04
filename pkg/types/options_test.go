@@ -114,3 +114,10 @@ func TestParseHeadlessOptionalArguments(t *testing.T) {
 		})
 	}
 }
+
+func TestJevDoesNotUseOpenAIKey(t *testing.T) {
+	t.Setenv("TYPESAFE_API_KEY", "")
+	t.Setenv("AI_API_KEY", "openai-key")
+	_, err := newDecider(&Options{AIProvider: "jev"})
+	require.ErrorContains(t, err, "TYPESAFE_API_KEY", "an AI_API_KEY must not be sent to TypeSafe")
+}

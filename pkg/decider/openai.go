@@ -84,7 +84,7 @@ func postJSON(ctx context.Context, client *http.Client, url, apiKey string, body
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return data, nil
-	case http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
+	case http.StatusUnauthorized, http.StatusPaymentRequired, http.StatusForbidden, http.StatusNotFound:
 		return nil, fmt.Errorf("%w: %s: %s", ErrUnavailable, resp.Status, bytes.TrimSpace(data))
 	default:
 		return nil, fmt.Errorf("decider: %s: %s", resp.Status, bytes.TrimSpace(data))

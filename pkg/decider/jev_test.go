@@ -57,6 +57,8 @@ func TestJevErrors(t *testing.T) {
 		switch r.Header.Get("Authorization") {
 		case "Bearer bad":
 			http.Error(w, "invalid key", http.StatusUnauthorized)
+		case "Bearer broke":
+			http.Error(w, "insufficient balance", http.StatusPaymentRequired)
 		default:
 			_, _ = w.Write([]byte(`{"answers":{"answer":{"type":"noul"}}}`))
 		}
@@ -65,6 +67,8 @@ func TestJevErrors(t *testing.T) {
 
 	_, err := NewJev(srv.URL, "", "bad", time.Second).Decide(context.Background(), zip)
 	require.ErrorIs(t, err, ErrUnavailable)
+	_, err = NewJev(srv.URL, "", "broke", time.Second).Decide(context.Background(), zip)
+	require.ErrorIs(t, err, ErrUnavailable, "no credit stops further calls")
 	_, err = NewJev(srv.URL, "", "k", time.Second).Decide(context.Background(), Question{Kind: Bool, Prompt: "a"})
 	require.Error(t, err, "an answer without its value is rejected")
 }

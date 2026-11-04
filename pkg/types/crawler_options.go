@@ -323,19 +323,20 @@ func newDecider(options *Options) (*decider.Cache, error) {
 		return decider.NewCache(nil, options.AIReplay, true, 0)
 	}
 	apiKey := options.AIAPIKey
-	if apiKey == "" && options.AIProvider == "jev" {
-		apiKey = os.Getenv("TYPESAFE_API_KEY")
-	}
-	if apiKey == "" {
-		apiKey = os.Getenv("AI_API_KEY")
-	}
 	var provider decider.Decider
 	if options.AIProvider == "jev" {
+		// AI_API_KEY usually holds an OpenAI key, which must not reach TypeSafe
+		if apiKey == "" {
+			apiKey = os.Getenv("TYPESAFE_API_KEY")
+		}
 		if apiKey == "" && options.AIURL == "" {
 			return nil, errkit.New("-ai-provider jev requires -ai-key or TYPESAFE_API_KEY")
 		}
 		provider = decider.NewJev(options.AIURL, options.AIModel, apiKey, time.Minute)
 	} else {
+		if apiKey == "" {
+			apiKey = os.Getenv("AI_API_KEY")
+		}
 		// local reasoning models can take a minute to load and answer
 		provider = decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, 2*time.Minute)
 	}
