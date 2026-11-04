@@ -367,3 +367,92 @@ func TestLoadWaitIgnoresStaleAndChildFrameEvents(t *testing.T) {
 	wait()
 	require.GreaterOrEqual(t, time.Since(start), slow, "wait ended before the main frame loaded")
 }
+
+func TestIsStreamingResponse(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType proto.NetworkResourceType
+		headers      []*proto.FetchHeaderEntry
+		expected     bool
+	}{
+		{
+			name:         "EventSource resource type",
+			resourceType: proto.NetworkResourceTypeEventSource,
+			expected:     true,
+		},
+		{
+			name:         "WebSocket resource type",
+			resourceType: proto.NetworkResourceTypeWebSocket,
+			expected:     true,
+		},
+		{
+			name:         "SSE text/event-stream content-type",
+			resourceType: proto.NetworkResourceTypeXHR,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "text/event-stream"},
+			},
+			expected: true,
+		},
+		{
+			name:         "SSE with charset parameter",
+			resourceType: proto.NetworkResourceTypeFetch,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "content-type", Value: "text/event-stream; charset=utf-8"},
+			},
+			expected: true,
+		},
+		{
+			name:         "Streaming JSON application/stream+json",
+			resourceType: proto.NetworkResourceTypeFetch,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/stream+json"},
+			},
+			expected: true,
+		},
+		{
+			name:         "NDJSON application/x-ndjson",
+			resourceType: proto.NetworkResourceTypeXHR,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/x-ndjson"},
+			},
+			expected: true,
+		},
+		{
+			name:         "Standard HTML response",
+			resourceType: proto.NetworkResourceTypeDocument,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "text/html; charset=utf-8"},
+			},
+			expected: false,
+		},
+		{
+			name:         "Standard JSON response",
+			resourceType: proto.NetworkResourceTypeFetch,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/json"},
+			},
+			expected: false,
+		},
+		{
+			name:         "JavaScript response",
+			resourceType: proto.NetworkResourceTypeScript,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/javascript"},
+			},
+			expected: false,
+		},
+		{
+			name:         "Empty headers",
+			resourceType: proto.NetworkResourceTypeOther,
+			headers:      nil,
+			expected:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isStreamingResponse(tt.resourceType, tt.headers)
+			require.Equal(t, tt.expected, got)
+		})
+	}
+}

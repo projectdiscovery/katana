@@ -73,7 +73,6 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if err != nil {
 			return errkit.Wrap(err, "hybrid: could not parse URL")
 		}
-		body, _ := FetchGetResponseBody(page, e)
 
 		headers := make(map[string][]string)
 		for _, h := range e.ResponseHeaders {
@@ -134,9 +133,18 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			xhrRequests = append(xhrRequests, networkReq)
 		}
 
+		// Streaming responses (such as SSE / EventSource or WebSockets) do not
+		// complete while the page is alive. Calling FetchGetResponseBody on them
+		// blocks CDP until visit timeout. Skip body retrieval and parsing.
+		if isStreamingResponse(e.ResourceType, e.ResponseHeaders) {
+			return FetchContinueRequest(pageRouter.Page(), e)
+		}
+
 		// trim trailing /
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
+
+		body, _ := FetchGetResponseBody(pageRouter.Page(), e)
 		parse := c.shouldParse(matchOriginalURL, e.Request.URL, headers, body)
 		// A repeated subresource has nothing new to enqueue. Skip the body
 		// copies, goquery, and fingerprinting. The main document is still
@@ -145,7 +153,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			if c.Options.Options.DisableRedirects && statusCode >= 300 && statusCode <= 399 {
 				return nil
 			}
-			return FetchContinueRequest(page, e)
+			return FetchContinueRequest(pageRouter.Page(), e)
 		}
 
 		httpresp := &http.Response{
@@ -208,7 +216,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
 			return nil
 		}
-		return FetchContinueRequest(page, e)
+		return FetchContinueRequest(pageRouter.Page(), e)
 	})
 	routerDone := make(chan struct{})
 	go func() {
@@ -625,4 +633,24 @@ func waitAnyLifecycleEvent(page *rod.Page, names ...proto.PageLifecycleEventName
 		wait()
 		_ = proto.PageSetLifecycleEventsEnabled{Enabled: false}.Call(page)
 	}
+}
+
+// isStreamingResponse reports whether a paused response is a streaming protocol
+// (such as EventSource/SSE or WebSocket) or streaming Content-Type where calling
+// FetchGetResponseBody blocks waiting for EOF until timeout.
+func isStreamingResponse(resourceType proto.NetworkResourceType, headers []*proto.FetchHeaderEntry) bool {
+	if resourceType == proto.NetworkResourceTypeEventSource || resourceType == proto.NetworkResourceTypeWebSocket {
+		return true
+	}
+	for _, h := range headers {
+		if strings.EqualFold(h.Name, "content-type") {
+			ct := strings.ToLower(h.Value)
+			if strings.Contains(ct, "text/event-stream") ||
+				strings.Contains(ct, "application/stream+json") ||
+				strings.Contains(ct, "application/x-ndjson") {
+				return true
+			}
+		}
+	}
+	return false
 }
