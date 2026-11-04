@@ -227,3 +227,31 @@ func TestValidateStatsFlags(t *testing.T) {
 		require.Equal(t, 2, opts.StatsInterval)
 	})
 }
+
+func TestValidateAIProvider(t *testing.T) {
+	t.Run("jev needs no url or model", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIProvider = "jev"
+		opts.AIRecord = "answers.json"
+		require.NoError(t, validateOptions(opts))
+	})
+
+	t.Run("unknown provider is rejected", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIProvider = "gpt"
+		require.ErrorContains(t, validateOptions(opts), "invalid -ai-provider")
+	})
+
+	t.Run("replay excludes a live provider", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIProvider = "jev"
+		opts.AIReplay = "answers.json"
+		require.Error(t, validateOptions(opts))
+	})
+
+	t.Run("record needs a live provider", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIRecord = "answers.json"
+		require.ErrorContains(t, validateOptions(opts), "-ai-record requires")
+	})
+}

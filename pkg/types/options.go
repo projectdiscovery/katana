@@ -237,7 +237,9 @@ type Options struct {
 	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
-	// AIURL is the base URL of an OpenAI compatible API used for crawl decisions
+	// AIProvider answers crawl decisions: openai (any OpenAI compatible API) or jev
+	AIProvider string
+	// AIURL is the API base URL, required for openai and optional for jev
 	AIURL      string
 	AIModel    string
 	AIAPIKey   string
@@ -303,6 +305,12 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 
 func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
+}
+
+// AILive reports whether crawl decisions go to a provider rather than a replay.
+// Jev has a default API url, so it does not need -ai-url.
+func (options *Options) AILive() bool {
+	return options.AIURL != "" || options.AIProvider == "jev"
 }
 
 // ConfigureOutput configures the output logging levels to be displayed on the screen

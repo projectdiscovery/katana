@@ -58,14 +58,20 @@ func validateOptions(options *types.Options) error {
 	if options.Headless && options.HeadlessHybrid {
 		return errkit.New("flags -hl (headless) and -hh (hybrid) are mutually exclusive")
 	}
-	if options.AIReplay != "" && (options.AIURL != "" || options.AIRecord != "") {
-		return errkit.New("-ai-replay cannot be combined with -ai-url or -ai-record")
+	switch options.AIProvider {
+	case "", "openai":
+		if options.AIURL != "" && options.AIModel == "" {
+			return errkit.New("-ai-url requires -ai-model")
+		}
+	case "jev":
+	default:
+		return errkit.Newf("invalid -ai-provider %q, use openai or jev", options.AIProvider)
 	}
-	if options.AIURL != "" && options.AIModel == "" {
-		return errkit.New("-ai-url requires -ai-model")
+	if options.AIReplay != "" && (options.AILive() || options.AIRecord != "") {
+		return errkit.New("-ai-replay cannot be combined with a live provider or -ai-record")
 	}
-	if options.AIRecord != "" && options.AIURL == "" {
-		return errkit.New("-ai-record requires -ai-url")
+	if options.AIRecord != "" && !options.AILive() {
+		return errkit.New("-ai-record requires -ai-url or -ai-provider jev")
 	}
 	if options.MaxScrollSteps < 0 {
 		return errkit.New("max-scroll-steps cannot be negative")
