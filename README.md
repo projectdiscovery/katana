@@ -186,12 +186,13 @@ HEADLESS:
    -csk, -captcha-solver-key string       captcha solver provider api key (env CAPTCHA_SOLVER_KEY)
 
 AI:
-   -ai-url string     openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)
-   -ai-model string   model to use with -ai-url
-   -ai-key string     api key for -ai-url (env AI_API_KEY)
-   -ai-record string  file to record ai answers to, reused on later runs
-   -ai-replay string  file to replay recorded ai answers from, without calling the api
-   -ai-max-calls int  maximum ai api calls per crawl (0 = unlimited) (default 100)
+   -aip, -ai-provider string  ai provider for crawl decisions (openai, jev) (default "openai")
+   -ai-url string             openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1), optional for jev
+   -ai-model string           model to use with -ai-url (jev default jev-latest)
+   -ai-key string             api key for the ai provider (env AI_API_KEY, TYPESAFE_API_KEY for jev)
+   -ai-record string          file to record ai answers to, reused on later runs
+   -ai-replay string          file to replay recorded ai answers from, without calling the api
+   -ai-max-calls int          maximum ai api calls per crawl (0 = unlimited) (default 100)
 
 SCOPE:
    -cs, -crawl-scope string[]       in scope url regex to be followed by crawler
