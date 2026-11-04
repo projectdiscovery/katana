@@ -288,6 +288,9 @@ func TestHooks_AfterLoadErrorIsReported(t *testing.T) {
 // that is already (nearly) expired, or every hook call on it fails.
 func TestHooks_AfterLoadGetsFreshTimeout(t *testing.T) {
 	const slowLoad = 1500 * time.Millisecond
+	// navigation alone takes about 2.4s locally, so a tight timeout fails on
+	// slower CI runners before AfterLoad runs
+	const timeout = 10 * time.Second
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(slowLoad)
 		w.Header().Set("Content-Type", "text/html")
@@ -300,7 +303,7 @@ func TestHooks_AfterLoadGetsFreshTimeout(t *testing.T) {
 	}
 	sink := &resultSink{}
 	opts := hookTestOptions(sink.add)
-	opts.Timeout = 3
+	opts.Timeout = int(timeout.Seconds())
 	options, err := types.NewCrawlerOptions(opts)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = options.Close() })
@@ -328,8 +331,8 @@ func TestHooks_AfterLoadGetsFreshTimeout(t *testing.T) {
 	require.True(t, ok)
 	require.Empty(t, res.Error)
 	require.Nil(t, ctxErr.Load(), "AfterLoad context must be live")
-	// The navigation consumed ~slowLoad of the 3s timeout; a fresh budget
+	// The navigation consumed at least slowLoad of the timeout; a fresh budget
 	// leaves well over what the navigation's own context could have left.
-	require.Greater(t, time.Duration(remaining.Load()), 3*time.Second-slowLoad+250*time.Millisecond,
+	require.Greater(t, time.Duration(remaining.Load()), timeout-slowLoad+250*time.Millisecond,
 		"AfterLoad must get a fresh timeout, not the navigation's leftover")
 }
