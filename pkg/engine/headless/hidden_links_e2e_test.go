@@ -54,15 +54,19 @@ func TestE2E_Crawl_FollowsHiddenDropdownLinks(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	// The pages are static. Waiting on the load event keeps each hidden-link
+	// navigation short. The SPA heuristic was using the whole crawl budget on
+	// Windows before the last link, the relative one, was requested.
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 
 	c, err := crawler.New(crawler.Options{
 		Context:          ctx,
 		MaxBrowsers:      1,
 		MaxDepth:         3,
-		MaxCrawlDuration: 60 * time.Second,
+		MaxCrawlDuration: 3 * time.Minute,
 		PageMaxTimeout:   15 * time.Second,
+		PageLoadStrategy: "load",
 		NoSandbox:        true,
 		Logger:           slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})),
 		ScopeValidator:   func(u string) bool { return strings.HasPrefix(u, server.URL) },
