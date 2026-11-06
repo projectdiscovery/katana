@@ -199,9 +199,10 @@ func readFlags() (*goflags.FlagSet, error) {
 
 	// AI group
 	flagSet.CreateGroup("ai", "AI",
-		flagSet.StringVarEnv(&options.AIURL, "ai-url", "", "", "AI_URL", "openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1)"),
-		flagSet.StringVarEnv(&options.AIModel, "ai-model", "", "", "AI_MODEL", "model to use with -ai-url"),
-		flagSet.StringVar(&options.AIAPIKey, "ai-key", "", "api key for -ai-url (env AI_API_KEY)"),
+		flagSet.StringVarP(&options.AIProvider, "ai-provider", "aip", "openai", "ai provider for crawl decisions (openai, jev)"),
+		flagSet.StringVarEnv(&options.AIURL, "ai-url", "", "", "AI_URL", "openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1), optional for jev"),
+		flagSet.StringVarEnv(&options.AIModel, "ai-model", "", "", "AI_MODEL", "model to use with -ai-url (jev default jev-latest)"),
+		flagSet.StringVar(&options.AIAPIKey, "ai-key", "", "api key for the ai provider (env AI_API_KEY, TYPESAFE_API_KEY for jev)"),
 		flagSet.StringVar(&options.AIRecord, "ai-record", "", "file to record ai answers to, reused on later runs"),
 		flagSet.StringVar(&options.AIReplay, "ai-replay", "", "file to replay recorded ai answers from, without calling the api"),
 		flagSet.IntVar(&options.AIMaxCalls, "ai-max-calls", 100, "maximum ai api calls per crawl (0 = unlimited)"),

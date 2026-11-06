@@ -35,34 +35,9 @@ func NewOpenAI(baseURL, model, apiKey string, timeout time.Duration) *OpenAI {
 }
 
 func (o *OpenAI) Decide(ctx context.Context, q Question) (Answer, error) {
-	body, err := json.Marshal(o.request(q))
+	data, err := postJSON(ctx, o.client, o.url, o.apiKey, o.request(q))
 	if err != nil {
 		return Answer{}, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.url, bytes.NewReader(body))
-	if err != nil {
-		return Answer{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if o.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+o.apiKey)
-	}
-
-	resp, err := o.client.Do(req)
-	if err != nil {
-		return Answer{}, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return Answer{}, err
-	}
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
-		return Answer{}, fmt.Errorf("%w: %s: %s", ErrUnavailable, resp.Status, bytes.TrimSpace(data))
-	default:
-		return Answer{}, fmt.Errorf("decider: %s: %s", resp.Status, bytes.TrimSpace(data))
 	}
 
 	var completion struct {
@@ -79,6 +54,41 @@ func (o *OpenAI) Decide(ctx context.Context, q Question) (Answer, error) {
 		return Answer{}, errors.New("decider: empty completion")
 	}
 	return parseAnswer(q.Kind, completion.Choices[0].Message.Content)
+}
+
+// postJSON sends body and returns the response, wrapping ErrUnavailable
+// around rejections that retrying cannot fix.
+func postJSON(ctx context.Context, client *http.Client, url, apiKey string, body any) ([]byte, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return data, nil
+	case http.StatusUnauthorized, http.StatusPaymentRequired, http.StatusForbidden, http.StatusNotFound:
+		return nil, fmt.Errorf("%w: %s: %s", ErrUnavailable, resp.Status, bytes.TrimSpace(data))
+	default:
+		return nil, fmt.Errorf("decider: %s: %s", resp.Status, bytes.TrimSpace(data))
+	}
 }
 
 func (o *OpenAI) request(q Question) map[string]any {

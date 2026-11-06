@@ -21,19 +21,9 @@ type HijackHandler = func(e *proto.FetchRequestPaused) error
 // Hijack is a hijack handler
 type Hijack struct {
 	page    *rod.Page
-	p       *rod.Page
 	enable  *proto.FetchEnable
 	disable *proto.FetchDisable
 	cancel  func()
-}
-
-// Page returns the scoped page instance with cancellation context if started,
-// or the fallback page.
-func (h *Hijack) Page() *rod.Page {
-	if h.p != nil {
-		return h.p
-	}
-	return h.page
 }
 
 // SetPattern set pattern directly
@@ -50,7 +40,6 @@ func (h *Hijack) Start(handler HijackHandler) func() error {
 	}
 
 	p, cancel := h.page.WithCancel()
-	h.p = p
 	h.cancel = cancel
 
 	err := h.enable.Call(p)

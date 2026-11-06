@@ -68,6 +68,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 
 	xhrRequests := []navigation.Request{}
+	// handlerPage is cancelled before waiting on the router, so a body read
+	// stuck on a streaming response does not hold the visit open
+	handlerPage, cancelHandlers := page.WithCancel()
 	waitRouter := pageRouter.Start(func(e *proto.FetchRequestPaused) error {
 		URL, err := urlutil.Parse(e.Request.URL)
 		if err != nil {
@@ -137,14 +140,14 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		// complete while the page is alive. Calling FetchGetResponseBody on them
 		// blocks CDP until visit timeout. Skip body retrieval and parsing.
 		if isStreamingResponse(e.ResourceType, e.ResponseHeaders) {
-			return FetchContinueRequest(pageRouter.Page(), e)
+			return FetchContinueRequest(handlerPage, e)
 		}
 
 		// trim trailing /
 		normalizedheadlessURL := strings.TrimSuffix(e.Request.URL, "/")
 		matchOriginalURL := stringsutil.EqualFoldAny(request.URL, e.Request.URL, normalizedheadlessURL)
 
-		body, _ := FetchGetResponseBody(pageRouter.Page(), e)
+		body, _ := FetchGetResponseBody(handlerPage, e)
 		parse := c.shouldParse(matchOriginalURL, e.Request.URL, headers, body)
 		// A repeated subresource has nothing new to enqueue. Skip the body
 		// copies, goquery, and fingerprinting. The main document is still
@@ -153,7 +156,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			if c.Options.Options.DisableRedirects && statusCode >= 300 && statusCode <= 399 {
 				return nil
 			}
-			return FetchContinueRequest(pageRouter.Page(), e)
+			return FetchContinueRequest(handlerPage, e)
 		}
 
 		httpresp := &http.Response{
@@ -216,7 +219,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		if c.Options.Options.DisableRedirects && resp.IsRedirect() {
 			return nil
 		}
-		return FetchContinueRequest(pageRouter.Page(), e)
+		return FetchContinueRequest(handlerPage, e)
 	})
 	routerDone := make(chan struct{})
 	go func() {
@@ -224,6 +227,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		_ = waitRouter()
 	}()
 	defer func() {
+		// Cancel the streaming body read before disabling fetch, then wait
+		// until that handler has returned.
+		cancelHandlers()
 		if err := pageRouter.Stop(); err != nil {
 			gologger.Warning().Msgf("%s\n", err)
 		}

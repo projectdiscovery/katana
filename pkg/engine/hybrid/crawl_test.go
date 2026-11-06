@@ -456,3 +456,78 @@ func TestIsStreamingResponse(t *testing.T) {
 		})
 	}
 }
+
+// A page that opens an EventSource used to keep the hijack body read running
+// after the visit had already hit -timeout.
+func TestEventSourceVisitDoesNotOutliveTimeout(t *testing.T) {
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/events" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				return
+			}
+			ticker := time.NewTicker(50 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-ticker.C:
+					_, _ = w.Write([]byte("data: ping\n\n"))
+					flusher.Flush()
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><script>new EventSource("/events")</script>ok</body></html>`))
+	}))
+	t.Cleanup(srv.Close)
+
+	const timeoutSeconds = 12
+	options, err := types.NewCrawlerOptions(&types.Options{
+		MaxDepth:          1,
+		FieldScope:        "rdn",
+		BodyReadSize:      math.MaxInt,
+		Timeout:           timeoutSeconds,
+		TimeStable:        1,
+		Concurrency:       1,
+		Parallelism:       1,
+		RateLimit:         150,
+		Strategy:          "depth-first",
+		PageLoadStrategy:  "load",
+		Headless:          true,
+		HeadlessNoSandbox: true,
+		OnResult:          func(output.Result) {},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = options.Close() })
+
+	crawler, err := New(options)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = crawler.Close() })
+
+	done := make(chan error, 1)
+	start := time.Now()
+	go func() { done <- crawler.Crawl(srv.URL) }()
+
+	// load does not wait for the open stream. Past this, the visit is stuck
+	// in the body read until -timeout.
+	limit := 10 * time.Second
+	select {
+	case err := <-done:
+		if err != nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(start); elapsed > limit {
+			t.Fatalf("visit took %s, past %s", elapsed, limit)
+		}
+	case <-time.After(limit):
+		t.Fatalf("event stream held the visit open for %s", time.Since(start))
+	}
+}
