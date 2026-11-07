@@ -95,6 +95,26 @@ func TestCacheRecordAndReplay(t *testing.T) {
 	require.Zero(t, s.calls)
 }
 
+func TestCacheNullRecordingStartsEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "answers.json")
+	require.NoError(t, os.WriteFile(path, []byte("null"), 0o600))
+
+	s := &stub{answer: Answer{Choice: "zip"}}
+	c, err := NewCache(s, path, false, 0)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+
+	a, err := c.Decide(context.Background(), zip)
+	require.NoError(t, err)
+	require.Equal(t, "zip", a.Choice)
+	require.Equal(t, 1, s.calls)
+	require.NoError(t, c.Close())
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `"choice": "zip"`)
+}
+
 func TestOpenAI(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
