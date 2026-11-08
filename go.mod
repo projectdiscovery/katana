@@ -22,7 +22,7 @@ require (
 	github.com/projectdiscovery/dsl v0.9.1
 	github.com/projectdiscovery/fastdialer v0.5.26
 	github.com/projectdiscovery/goflags v0.2.1
-	github.com/projectdiscovery/gologger v1.1.73
+	github.com/projectdiscovery/gologger v1.1.75
 	github.com/projectdiscovery/hmap v0.0.102
 	github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890
 	github.com/projectdiscovery/mapcidr v1.1.97
