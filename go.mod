@@ -19,24 +19,24 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/praetorian-inc/titus v1.2.0
-	github.com/projectdiscovery/dsl v0.9.0
-	github.com/projectdiscovery/fastdialer v0.5.26
+	github.com/projectdiscovery/dsl v0.9.1
+	github.com/projectdiscovery/fastdialer v0.6.1
 	github.com/projectdiscovery/goflags v0.2.1
-	github.com/projectdiscovery/gologger v1.1.73
-	github.com/projectdiscovery/hmap v0.0.102
+	github.com/projectdiscovery/gologger v1.1.75
+	github.com/projectdiscovery/hmap v0.0.104
 	github.com/projectdiscovery/jsluice v0.0.0-20261020151924-eaf407744890
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.94
-	github.com/projectdiscovery/retryablehttp-go v1.3.31
+	github.com/projectdiscovery/retryablehttp-go v1.3.34
 	github.com/projectdiscovery/utils v0.11.13
-	github.com/projectdiscovery/wappalyzergo v0.3.6
+	github.com/projectdiscovery/wappalyzergo v0.3.8
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasttemplate v1.2.2
 	go.uber.org/multierr v1.11.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.61.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -139,13 +139,12 @@ require (
 	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 )
 
 require (
-	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -163,7 +162,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/projectdiscovery/networkpolicy v0.1.58
-	github.com/projectdiscovery/retryabledns v1.0.116 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.118 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
@@ -175,11 +174,11 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zmap/zcrypto v0.0.0-20261015050653-aa1de3126e87 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
