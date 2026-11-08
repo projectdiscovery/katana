@@ -28,7 +28,7 @@ require (
 	github.com/projectdiscovery/mapcidr v1.1.97
 	github.com/projectdiscovery/ratelimit v0.0.94
 	github.com/projectdiscovery/retryablehttp-go v1.3.31
-	github.com/projectdiscovery/utils v0.11.10
+	github.com/projectdiscovery/utils v0.11.13
 	github.com/projectdiscovery/wappalyzergo v0.3.6
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -99,7 +99,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.7.2 // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -162,7 +162,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/projectdiscovery/networkpolicy v0.1.55
+	github.com/projectdiscovery/networkpolicy v0.1.58
 	github.com/projectdiscovery/retryabledns v1.0.116 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
