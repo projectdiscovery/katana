@@ -62,13 +62,13 @@ docker pull projectdiscovery/katana:latest
 
 
 ```sh
-docker run projectdiscovery/katana:latest -u https://tesla.com
+docker run projectdiscovery/katana:latest -u https://books.toscrape.com
 ```
 
 > To run katana in headless mode using docker -
 
 ```sh
-docker run projectdiscovery/katana:latest -u https://tesla.com -system-chrome -headless
+docker run projectdiscovery/katana:latest -u https://books.toscrape.com -system-chrome -headless
 ```
 
 </details>
