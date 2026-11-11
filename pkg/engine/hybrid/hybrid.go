@@ -190,6 +190,7 @@ func (c *Crawler) BrowserContextID() string {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
+	c.CloseIdleConnections()
 	if c.browser != nil && ownsBrowser(c.browser, c.chromeLauncher) {
 		_ = c.browser.Close()
 	}
@@ -226,7 +227,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 	crawlSession.Browser = c.browser
 
-	defer crawlSession.CancelFunc()
+	defer crawlSession.Close()
 
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {

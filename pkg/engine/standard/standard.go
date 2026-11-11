@@ -23,6 +23,7 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
+	c.CloseIdleConnections()
 	return nil
 }
 
@@ -32,7 +33,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	if err != nil {
 		return errkit.Wrap(err, "standard")
 	}
-	defer crawlSession.CancelFunc()
+	defer crawlSession.Close()
 	gologger.Info().Msgf("Started standard crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.makeRequest); err != nil {
 		return errkit.Wrap(err, "standard")

@@ -53,6 +53,8 @@ type Shared struct {
 	PathTrie           *utils.PathTrie
 	DomainPageCounter sync.Map
 	hostBackoffs *lru.Cache[string, *hostBackoff]
+	// knownFilesClient is the http client used for robots.txt and sitemap.xml
+	knownFilesClient *retryablehttp.Client
 }
 
 // NewShared creates a new Shared instance with the provided crawler options.
@@ -73,6 +75,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		if err != nil {
 			return nil, errkit.Wrap(err, "could not create http client")
 		}
+		shared.knownFilesClient = httpclient
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
 
@@ -304,6 +307,34 @@ type CrawlSession struct {
 	Queue      *queue.Queue
 	HttpClient *retryablehttp.Client
 	Browser    *rod.Browser
+}
+
+// Close cancels the crawl session and closes the idle keep-alive connections
+// of its http client, so that a finished crawl does not leave connections open
+// in a long-running process.
+func (c *CrawlSession) Close() {
+	if c.CancelFunc != nil {
+		c.CancelFunc()
+	}
+	closeIdleConnections(c.HttpClient)
+}
+
+// CloseIdleConnections closes the idle keep-alive connections of the http
+// clients owned by the crawler, such as the known files client.
+func (s *Shared) CloseIdleConnections() {
+	closeIdleConnections(s.knownFilesClient)
+}
+
+func closeIdleConnections(client *retryablehttp.Client) {
+	if client == nil {
+		return
+	}
+	if client.HTTPClient != nil {
+		client.HTTPClient.CloseIdleConnections()
+	}
+	if client.HTTPClient2 != nil {
+		client.HTTPClient2.CloseIdleConnections()
+	}
 }
 
 // NewCrawlSessionWithURL creates and initializes a new crawl session for the specified URL.
