@@ -28,7 +28,7 @@ require (
 	github.com/projectdiscovery/networkpolicy v0.1.58
 	github.com/projectdiscovery/ratelimit v0.0.94
 	github.com/projectdiscovery/retryablehttp-go v1.3.34
-	github.com/projectdiscovery/rod v0.116.3-0.20261113131459-cf8f6e3b8a54
+	github.com/projectdiscovery/rod v0.116.3-0.20261113150229-d775599ff53d
 	github.com/projectdiscovery/utils v0.11.13
 	github.com/projectdiscovery/wappalyzergo v0.3.8
 	github.com/remeh/sizedwaitgroup v1.0.0
