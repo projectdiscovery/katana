@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod/lib/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/ysmood/gson"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/go-rod/rod"
+	"github.com/projectdiscovery/rod"
 	"github.com/projectdiscovery/utils/errkit"
 )
 

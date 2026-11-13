@@ -4,8 +4,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 // applyBrowserHeaders seeds Cookie via the browser cookie jar (scoped to
