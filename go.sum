@@ -315,8 +315,8 @@ github.com/projectdiscovery/retryabledns v1.0.118 h1:vrWzUgjRyD5fg2QiPF0boDuSL/Q
 github.com/projectdiscovery/retryabledns v1.0.118/go.mod h1:qHuxflnN8BWWqQ+N+TIe9OTqmaMpE/G2+36chAcFQhg=
 github.com/projectdiscovery/retryablehttp-go v1.3.34 h1:tp45jp3yAtXunuIPeOB1k4L/9vq4Tn9Lm0wkRHRKMnI=
 github.com/projectdiscovery/retryablehttp-go v1.3.34/go.mod h1:O/9n0ltIPaX06kpgPAz0Ncq4uPQXttSIWapSu4xvd3E=
-github.com/projectdiscovery/rod v0.116.3-0.20261113174455-93d8b7ffd638 h1:vXByLSiNMUicddqHDfGoj1ij4n1X28k+KAoEX8NM/WU=
-github.com/projectdiscovery/rod v0.116.3-0.20261113174455-93d8b7ffd638/go.mod h1:FLVLMgXw6OFcOU5nd4Il8cdSWgDfAlDeRZMol3drmGs=
+github.com/projectdiscovery/rod v0.116.3-0.20261113214723-dd0abeca2a24 h1:Hot/bpOreHagjzK10d939dAzEuiDsbScyz/JQ4OTolA=
+github.com/projectdiscovery/rod v0.116.3-0.20261113214723-dd0abeca2a24/go.mod h1:FLVLMgXw6OFcOU5nd4Il8cdSWgDfAlDeRZMol3drmGs=
 github.com/projectdiscovery/utils v0.11.13 h1:Mn3/rtyQvtn8XZy0UnVkxbAmn0afbHtWuMHUEztwWSw=
 github.com/projectdiscovery/utils v0.11.13/go.mod h1:TJgsyVjB02CavwZVFzUzPg6YOSJXQxLhL808JCiQKlU=
 github.com/projectdiscovery/wappalyzergo v0.3.8 h1:bjQ99Lanzj8l+2ENwt24/LdZ09uR9IxkamXssBXahIQ=
