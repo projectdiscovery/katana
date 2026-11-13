@@ -14,9 +14,6 @@ import (
 	"time"
 
 	"github.com/adrianbrad/queue"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
-	"github.com/go-rod/rod/lib/utils"
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
@@ -30,6 +27,9 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/graph"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
+	"github.com/projectdiscovery/rod/lib/utils"
 )
 
 type Crawler struct {

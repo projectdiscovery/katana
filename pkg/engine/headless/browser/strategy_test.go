@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-rod/rod/lib/launcher"
+	"github.com/projectdiscovery/rod/lib/launcher"
 	"github.com/stretchr/testify/require"
 )
 

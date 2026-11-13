@@ -3,7 +3,7 @@ package cookie
 import (
 	"testing"
 
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 func TestShouldBlockRequest(t *testing.T) {
