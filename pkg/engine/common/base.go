@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -46,13 +46,14 @@ type hostBackoff struct {
 const hostBackoffsCacheSize = 10000
 
 type Shared struct {
-	Headers            map[string]string
-	KnownFiles         *files.KnownFiles
-	Options            *types.CrawlerOptions
-	Jar                *httputil.CookieJar
-	PathTrie           *utils.PathTrie
+	Headers           map[string]string
+	KnownFiles        *files.KnownFiles
+	Options           *types.CrawlerOptions
+	Jar               *httputil.CookieJar
+	PathTrie          *utils.PathTrie
 	DomainPageCounter sync.Map
-	hostBackoffs *lru.Cache[string, *hostBackoff]
+	hostBackoffs      *lru.Cache[string, *hostBackoff]
+	blockWarned       sync.Map
 }
 
 // NewShared creates a new Shared instance with the provided crawler options.
@@ -535,6 +536,10 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			}
 			if s.Options.Options.DisableRedirects && resp.IsRedirect() {
+				return
+			}
+			if protection := DetectBlock(resp.Resp); protection != "" {
+				s.warnBlocked(crawlSession.Hostname, protection)
 				return
 			}
 
