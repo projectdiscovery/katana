@@ -475,7 +475,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	// for a page whose main document failed after waitNavigation returned (e.g.
 	// via the per-nav timeout) rather than via the race above.
 	if mainDocWatch != nil {
-		if failed, reason := mainDocWatch.mainDocFailedFlag(); failed {
+		if failed, reason := mainDocWatch.settledFailure(s.Ctx); failed {
 			return nil, fmt.Errorf("%w: %s", errMainDocumentFailed, reason)
 		}
 	}
@@ -577,6 +577,9 @@ type mainDocWatcher struct {
 	nav     mainDocNav
 	failGen int
 	reason  string
+	// failedAt is when the currently pending failure was observed; the
+	// acceptance check waits until failedAt+mainDocSettleWindow before judging.
+	failedAt time.Time
 
 	// notify carries "a failure verdict finalized; recheck failedNow()". It is
 	// buffered (1) with a non-blocking send so the finalizer never blocks and
@@ -653,6 +656,7 @@ func (w *mainDocWatcher) onLoadingFailed(e *proto.NetworkLoadingFailed) {
 		}
 		w.failGen++
 		gen := w.failGen
+		w.failedAt = time.Now()
 		w.mu.Unlock()
 		go w.finalizeAfter(gen)
 		return
@@ -743,13 +747,36 @@ func (w *mainDocWatcher) sleepUnlessFailed(ctx context.Context, d time.Duration)
 	}
 }
 
-// mainDocFailedFlag reports whether the main document reached loadingFailed and
-// was not superseded or retired. Consulted at the acceptance point, after the
-// race resolves and all post-nav waits have run, so any supersede has settled.
-func (w *mainDocWatcher) mainDocFailedFlag() (bool, string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.nav.failed && !w.nav.finished, w.reason
+// settledFailure is the acceptance-point check: it reports whether the watched
+// main document failed and was neither superseded nor retired, honouring the
+// same settle window the race uses. A failure observed less than
+// mainDocSettleWindow ago is waited out (so an immediately superseding
+// navigation can still replace it) and then re-checked against current state;
+// a replacement that itself fails restarts the wait for its own window. If ctx
+// ends during the wait, the observed failure stands: it was real, and the
+// crawl is ending anyway.
+func (w *mainDocWatcher) settledFailure(ctx context.Context) (bool, string) {
+	for {
+		w.mu.Lock()
+		pending := w.nav.failed && !w.nav.finished
+		reason := w.reason
+		remaining := time.Until(w.failedAt.Add(mainDocSettleWindow))
+		w.mu.Unlock()
+		if !pending {
+			return false, ""
+		}
+		if reason == "" {
+			reason = "loadingFailed"
+		}
+		if remaining <= 0 {
+			return true, reason
+		}
+		select {
+		case <-ctx.Done():
+			return true, reason
+		case <-time.After(remaining):
+		}
+	}
 }
 
 // failureReason returns the CDP errorText/blockedReason captured for the sentinel.

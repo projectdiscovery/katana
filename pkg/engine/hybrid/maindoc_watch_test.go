@@ -103,3 +103,74 @@ func TestMainDocWatcher_SubscriptionOutlivesParentlessTimeout(t *testing.T) {
 	require.True(t, failed)
 	require.Equal(t, "net::ERR_CONNECTION_CLOSED", reason)
 }
+
+// recordFailure drives a fresh failure on reqID the way onLoadingFailed does,
+// without starting the finalizer, and returns when it was recorded.
+func recordFailure(w *mainDocWatcher, reqID string) {
+	w.mu.Lock()
+	w.nav.onLoadingFailed(reqID)
+	w.reason = "net::ERR_CONNECTION_CLOSED"
+	w.failGen++
+	w.failedAt = time.Now()
+	w.mu.Unlock()
+}
+
+func TestMainDocWatcher_SettledFailure_WaitsOutTheWindow(t *testing.T) {
+	w := newTestWatcher(t)
+	w.mu.Lock()
+	w.nav.onRequestWillBeSent("A", true, false)
+	w.mu.Unlock()
+	recordFailure(w, "A")
+
+	start := time.Now()
+	failed, reason := w.settledFailure(context.Background())
+	require.True(t, failed)
+	require.Equal(t, "net::ERR_CONNECTION_CLOSED", reason)
+	require.GreaterOrEqual(t, time.Since(start), mainDocSettleWindow-10*time.Millisecond,
+		"a fresh failure must not be judged before its settle window")
+}
+
+func TestMainDocWatcher_SettledFailure_ReplacementInsideWindowWins(t *testing.T) {
+	w := newTestWatcher(t)
+	w.mu.Lock()
+	w.nav.onRequestWillBeSent("A", true, false)
+	w.mu.Unlock()
+	recordFailure(w, "A")
+
+	// A superseding navigation lands inside the settle window.
+	go func() {
+		time.Sleep(mainDocSettleWindow / 3)
+		w.mu.Lock()
+		w.nav.onRequestWillBeSent("B", true, false)
+		w.mu.Unlock()
+	}()
+
+	failed, _ := w.settledFailure(context.Background())
+	require.False(t, failed, "a replacement inside the settle window must retire the failure")
+}
+
+func TestMainDocWatcher_SettledFailure_NoFailureReturnsImmediately(t *testing.T) {
+	w := newTestWatcher(t)
+	w.mu.Lock()
+	w.nav.onRequestWillBeSent("A", true, false)
+	w.nav.onLoadingFinished("A")
+	w.mu.Unlock()
+
+	start := time.Now()
+	failed, _ := w.settledFailure(context.Background())
+	require.False(t, failed)
+	require.Less(t, time.Since(start), 50*time.Millisecond)
+}
+
+func TestMainDocWatcher_SettledFailure_CtxEndKeepsObservedFailure(t *testing.T) {
+	w := newTestWatcher(t)
+	w.mu.Lock()
+	w.nav.onRequestWillBeSent("A", true, false)
+	w.mu.Unlock()
+	recordFailure(w, "A")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	failed, _ := w.settledFailure(ctx)
+	require.True(t, failed, "an observed failure stands when the crawl is ending")
+}
