@@ -5,12 +5,14 @@ import (
 	"context"
 	"crypto/md5"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -254,6 +256,21 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	})
 	go waitFrameEvents()
 
+	// Arm the main-document failure watcher BEFORE navigate (correctness-
+	// critical): a watcher installed after Navigate could miss the main
+	// request's requestWillBeSent and never learn its requestId. If arming
+	// fails, we log and proceed without it — the per-nav timeout still bounds
+	// the page exactly as it does today; the fallback simply never fires.
+	mainDocWatch, watchErr := armMainDocWatcher(page, timeoutCtx)
+	if watchErr != nil {
+		gologger.Warning().Msgf("main-doc failure watcher not armed for %s: %s (navigation still bounded by timeout)", request.URL, watchErr)
+	}
+	defer func() {
+		if mainDocWatch != nil {
+			mainDocWatch.stop()
+		}
+	}()
+
 	// Arm the lifecycle listener before navigate so the event is not missed.
 	// Which event we wait for depends on the page-load strategy.
 	strategy := c.Options.Options.PageLoadStrategy
@@ -280,8 +297,36 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errkit.Wrap(err, "hybrid: could not navigate target")
 	}
 
+	// Race the lifecycle wait against the main-document failure signal. A
+	// healthy page completes through the lifecycle event exactly as today; a
+	// page whose main document terminally fails (truncated read-until-close,
+	// browser block, abort-after-partial) returns the transport failure now
+	// instead of blocking to the per-nav timeout. The watcher ONLY signals
+	// failure — success stays owned by the lifecycle wait.
 	if waitNavigation != nil {
-		waitNavigation()
+		navDone := make(chan struct{}, 1)
+		go func() {
+			waitNavigation()
+			navDone <- struct{}{}
+		}()
+		var failSignal <-chan struct{}
+		if mainDocWatch != nil {
+			failSignal = mainDocWatch.failed
+		}
+		select {
+		case <-navDone:
+			// Lifecycle event (or ctx-bound unblock) won: fall through to the
+			// existing post-nav path unchanged.
+		case <-failSignal:
+			// The final main document terminally failed: fast-fail now, before
+			// the stability wait, click step, DOM/HTML reads, and the response
+			// acceptance check. The loser (waitNavigation goroutine) is bounded
+			// by timeoutCtx/page close via the deferred timeoutCancel.
+			return nil, fmt.Errorf("%w: %s", errMainDocumentFailed, mainDocWatch.failureReason())
+		case <-timeoutCtx.Done():
+			// Per-nav timeout: fall through to the existing path, which checks
+			// timeoutCtx.Done() at its next step exactly as today.
+		}
 	}
 
 	// Post-navigation stability wait, strategy-specific
@@ -409,6 +454,19 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		return nil, errkit.Wrap(err, "hybrid: url could not be parsed")
 	}
 
+	// Precedence guard: a main document that reached loadingFailed is a
+	// transport failure, no artifact — regardless of whatever the async
+	// response-stage hijack left in `response`. Keyed on the watcher's recorded
+	// failure flag (write-once under the watcher's own lock, which the hijack
+	// callback cannot flip), this closes the silent "partial-as-complete" store
+	// for a page whose main document failed after waitNavigation returned (e.g.
+	// via the per-nav timeout) rather than via the race above.
+	if mainDocWatch != nil {
+		if failed, reason := mainDocWatch.mainDocFailedFlag(); failed {
+			return nil, fmt.Errorf("%w: %s", errMainDocumentFailed, reason)
+		}
+	}
+
 	if response == nil || response.Resp == nil {
 		// err is guaranteed to be nil, due to previous checks.
 		return nil, errors.New("hybrid: response is nil")
@@ -471,6 +529,174 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	return response, nil
+}
+
+// errMainDocumentFailed is the named sentinel returned when the main document's
+// request terminally failed (Network.loadingFailed) so the configured lifecycle
+// event can never fire. It is a transport failure: our wrapper classifies the
+// returned error via isTransportFailure → no artifact, the same class the
+// per-nav timeout produces today, reached promptly instead of at the timeout.
+var errMainDocumentFailed = errors.New("hybrid: main document request failed")
+
+// mainDocSettleWindow is the short grace after the main document's
+// loadingFailed before a failure verdict finalizes, letting an immediately
+// superseding top-frame navigation (a client-side redirect / re-nav with a new
+// requestId) replace it first. It only ever delays a FAILURE verdict; it never
+// touches a successful page.
+const mainDocSettleWindow = 250 * time.Millisecond
+
+// mainDocWatcher is the rod/CDP I/O layer that drives the pure mainDocNav state
+// machine. It subscribes to Network.requestWillBeSent / loadingFailed /
+// loadingFinished on one page, maps each event onto the state machine's plain-
+// struct methods under a mutex, and closes `failed` once a failure verdict is
+// finalized after the settle window.
+//
+// It is self-contained (rod/CDP only). The correlation logic lives in the
+// mainDocNav state machine below.
+type mainDocWatcher struct {
+	mainFrameID proto.PageFrameID
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	mu      sync.Mutex
+	nav     mainDocNav
+	failGen int
+	reason  string
+
+	failed   chan struct{}
+	failOnce sync.Once
+}
+
+// armMainDocWatcher enables the Network domain, reads the main frame id, and
+// installs the subscription — all BEFORE the caller navigates. It returns an
+// error (never a silent empty watcher) so a failure to arm is logged, not
+// mistaken for "no failure observed".
+func armMainDocWatcher(page *rod.Page, parent context.Context) (*mainDocWatcher, error) {
+	if page == nil {
+		return nil, errors.New("hybrid: cannot arm main-doc watcher: no page")
+	}
+	if err := (proto.NetworkEnable{}).Call(page); err != nil {
+		return nil, fmt.Errorf("hybrid: enable CDP Network domain: %w", err)
+	}
+	tree, err := (proto.PageGetFrameTree{}).Call(page)
+	if err != nil {
+		return nil, fmt.Errorf("hybrid: read page frame tree: %w", err)
+	}
+	if tree.FrameTree == nil || tree.FrameTree.Frame == nil {
+		return nil, errors.New("hybrid: page frame tree has no main frame")
+	}
+
+	subCtx, cancel := context.WithCancel(parent)
+	w := &mainDocWatcher{
+		mainFrameID: tree.FrameTree.Frame.ID,
+		ctx:         subCtx,
+		cancel:      cancel,
+		failed:      make(chan struct{}),
+	}
+	// EachEvent hands back a BLOCKING consume loop bound to subCtx; cancelling
+	// subCtx (stop, or the parent timeout) tears the subscription down.
+	consume := page.Context(subCtx).EachEvent(
+		w.onRequestWillBeSent,
+		w.onLoadingFailed,
+		w.onLoadingFinished,
+	)
+	go consume()
+	return w, nil
+}
+
+// onRequestWillBeSent maps a CDP request event onto the state machine. The main
+// document is discriminated reliably by requestId == loaderId on a main-frame
+// Document request: subresources share the main frame id and loaderId
+// but carry their OWN requestId, so requestId == loaderId is false for them.
+// A redirect continuation reuses the same requestId with redirectResponse set.
+func (w *mainDocWatcher) onRequestWillBeSent(e *proto.NetworkRequestWillBeSent) {
+	isMainDoc := e.Type == proto.NetworkResourceTypeDocument &&
+		e.FrameID == w.mainFrameID &&
+		string(e.RequestID) == string(e.LoaderID)
+	w.mu.Lock()
+	w.nav.onRequestWillBeSent(string(e.RequestID), isMainDoc, e.RedirectResponse != nil)
+	w.mu.Unlock()
+}
+
+// onLoadingFailed records a failure and, when it freshly fails the watched main
+// document, arms a settle timer guarded by a generation so a superseding
+// navigation (or a later distinct failure) cannot be finalized by a stale timer.
+func (w *mainDocWatcher) onLoadingFailed(e *proto.NetworkLoadingFailed) {
+	w.mu.Lock()
+	before := w.nav.failed
+	w.nav.onLoadingFailed(string(e.RequestID))
+	if !before && w.nav.failed {
+		if e.ErrorText != "" {
+			w.reason = e.ErrorText
+		} else if e.BlockedReason != "" {
+			w.reason = string(e.BlockedReason)
+		} else {
+			w.reason = "loadingFailed"
+		}
+		w.failGen++
+		gen := w.failGen
+		w.mu.Unlock()
+		go w.finalizeAfter(gen)
+		return
+	}
+	w.mu.Unlock()
+}
+
+// onLoadingFinished retires the watched main document from failure-watching.
+func (w *mainDocWatcher) onLoadingFinished(e *proto.NetworkLoadingFinished) {
+	w.mu.Lock()
+	w.nav.onLoadingFinished(string(e.RequestID))
+	w.mu.Unlock()
+}
+
+// finalizeAfter waits the settle window, then finalizes a failure verdict IFF
+// this is still the current failure generation (not superseded or overtaken).
+func (w *mainDocWatcher) finalizeAfter(gen int) {
+	if mainDocSettleWindow > 0 {
+		select {
+		case <-w.ctx.Done():
+			return
+		case <-time.After(mainDocSettleWindow):
+		}
+	}
+	w.mu.Lock()
+	if w.failGen != gen {
+		w.mu.Unlock()
+		return
+	}
+	w.nav.settleElapsed()
+	v := w.nav.verdict()
+	w.mu.Unlock()
+	if v == mdFailed {
+		w.failOnce.Do(func() { close(w.failed) })
+	}
+}
+
+// mainDocFailedFlag reports whether the main document reached loadingFailed and
+// was not superseded or retired. Consulted at the acceptance point, after the
+// race resolves and all post-nav waits have run, so any supersede has settled.
+func (w *mainDocWatcher) mainDocFailedFlag() (bool, string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.nav.failed && !w.nav.finished, w.reason
+}
+
+// failureReason returns the CDP errorText/blockedReason captured for the sentinel.
+func (w *mainDocWatcher) failureReason() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.reason == "" {
+		return "loadingFailed"
+	}
+	return w.reason
+}
+
+// stop tears down the subscription and its settle goroutines.
+func (w *mainDocWatcher) stop() {
+	if w.cancel != nil {
+		w.cancel()
+	}
 }
 
 func (c *Crawler) addHeadersToPage(page *rod.Page) {
@@ -659,4 +885,125 @@ func isStreamingResponse(resourceType proto.NetworkResourceType, headers []*prot
 		}
 	}
 	return false
+}
+
+// mainDocNav is a pure, dependency-free correlation state machine that decides
+// whether a hybrid-crawl main-document request has terminally FAILED. It never
+// decides success — a healthy page is owned by the concurrent lifecycle-event
+// wait.
+//
+// It is fed plain-struct events mapped from CDP by the I/O layer and models
+// CDP's actual redirect semantics: a redirect REUSES the same requestId (with
+// redirectResponse set), while a brand-new main-frame Document request is a
+// replacement navigation that re-points the watch and discards any pending
+// failure from the document the page navigated away from.
+type mainDocNav struct {
+	// watched is the requestId of the main document currently being tracked.
+	// Empty until the initial main document's requestWillBeSent is observed.
+	watched string
+	// captured is true once the initial main document has been identified.
+	captured bool
+	// failed is true when loadingFailed was observed on the watched request and
+	// has not since been superseded by a replacement navigation or retired by a
+	// loadingFinished.
+	failed bool
+	// finished is true when loadingFinished was observed on the watched request:
+	// a terminal success that makes a later loadingFailed on that id a no-op.
+	finished bool
+	// settleDone records that the post-failure settle window has elapsed, so a
+	// superseding navigation no longer has a chance to replace the failure.
+	settleDone bool
+}
+
+// mdVerdict is the finalized decision the I/O layer consults.
+type mdVerdict int
+
+const (
+	// mdPending means there is no terminal failure to report: the watcher stays
+	// silent and the lifecycle-event wait / per-nav timeout governs as today.
+	mdPending mdVerdict = iota
+	// mdFailed means the final main document terminally failed: fast-fail now.
+	mdFailed
+)
+
+// onRequestWillBeSent tracks the main document across redirects and replacement
+// navigations.
+//
+//   - isMainDoc is the I/O layer's reliable "this is THE main document" signal:
+//     for the initial request it is requestId == the loaderId returned by
+//     Page.navigate; for a replacement it is a main-frame type:Document request.
+//     frameId+type alone does not discriminate the main document from same-frame
+//     subresources, so the I/O layer resolves isMainDoc and passes it.
+//   - hasRedirectResponse marks a redirect continuation, which REUSES the
+//     watched requestId; it must not be mistaken for a replacement navigation.
+func (m *mainDocNav) onRequestWillBeSent(reqID string, isMainDoc bool, hasRedirectResponse bool) {
+	if reqID == "" {
+		return
+	}
+	// A redirect continuation reuses the watched requestId: keep watching it,
+	// regardless of how the I/O layer classified this hop.
+	if m.captured && reqID == m.watched && hasRedirectResponse {
+		return
+	}
+	if !isMainDoc {
+		return
+	}
+	// Initial capture of the main document.
+	if !m.captured {
+		m.watched = reqID
+		m.captured = true
+		return
+	}
+	// Same request id, no redirect marker: nothing changes.
+	if reqID == m.watched {
+		return
+	}
+	// A NEW main-frame Document request is a replacement navigation: re-point to
+	// it and discard any pending failure from the document we navigated away
+	// from, so the watcher only ever reports the FINAL main document's failure.
+	m.watched = reqID
+	m.failed = false
+	m.finished = false
+	m.settleDone = false
+}
+
+// onLoadingFailed records a terminal failure of the watched main document. A
+// failure that arrives after loadingFinished is ignored (terminal precedence).
+func (m *mainDocNav) onLoadingFailed(reqID string) {
+	if !m.captured || reqID != m.watched || m.finished {
+		return
+	}
+	m.failed = true
+	m.settleDone = false
+}
+
+// onLoadingFinished retires the watched main document from failure-watching. It
+// is NOT a success signal to act on; it only guarantees a later loadingFailed on
+// that id cannot fire, because a finished main document means the lifecycle
+// event is coming and the concurrent wait will complete the page.
+func (m *mainDocNav) onLoadingFinished(reqID string) {
+	if !m.captured || reqID != m.watched {
+		return
+	}
+	m.finished = true
+	m.failed = false
+	m.settleDone = false
+}
+
+// settleElapsed marks that the settle window after a failure has passed, letting
+// a verdict finalize. It is a no-op unless a failure is currently pending.
+func (m *mainDocNav) settleElapsed() {
+	if m.failed && !m.finished {
+		m.settleDone = true
+	}
+}
+
+// verdict is the finalized decision: mdFailed only when a failure was observed,
+// not retired by a finish, not superseded by a replacement, and the settle
+// window has elapsed. Otherwise mdPending — the watcher never signals success.
+func (m *mainDocNav) verdict() mdVerdict {
+	if m.failed && !m.finished && m.settleDone {
+		return mdFailed
+	}
+	return mdPending
 }
