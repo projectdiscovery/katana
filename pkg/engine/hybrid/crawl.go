@@ -261,7 +261,12 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	// request's requestWillBeSent and never learn its requestId. If arming
 	// fails, we log and proceed without it — the per-nav timeout still bounds
 	// the page exactly as it does today; the fallback simply never fires.
-	mainDocWatch, watchErr := armMainDocWatcher(page, timeoutCtx)
+	//
+	// Setup CDP calls run on `page` (navigation timeout); the event
+	// subscription is parented to the session context so it keeps observing
+	// through the DOM/HTML reads, which use fresh timeouts and can outlive the
+	// navigation deadline. The deferred stop() ends it when this returns.
+	mainDocWatch, watchErr := armMainDocWatcher(page, s.Ctx)
 	if watchErr != nil {
 		gologger.Warning().Msgf("main-doc failure watcher not armed for %s: %s (navigation still bounded by timeout)", request.URL, watchErr)
 	}
@@ -309,23 +314,29 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			waitNavigation()
 			navDone <- struct{}{}
 		}()
-		var failSignal <-chan struct{}
-		if mainDocWatch != nil {
-			failSignal = mainDocWatch.failed
-		}
-		select {
-		case <-navDone:
-			// Lifecycle event (or ctx-bound unblock) won: fall through to the
-			// existing post-nav path unchanged.
-		case <-failSignal:
-			// The final main document terminally failed: fast-fail now, before
-			// the stability wait, click step, DOM/HTML reads, and the response
-			// acceptance check. The loser (waitNavigation goroutine) is bounded
-			// by timeoutCtx/page close via the deferred timeoutCancel.
-			return nil, fmt.Errorf("%w: %s", errMainDocumentFailed, mainDocWatch.failureReason())
-		case <-timeoutCtx.Done():
-			// Per-nav timeout: fall through to the existing path, which checks
-			// timeoutCtx.Done() at its next step exactly as today.
+	raceLoop:
+		for {
+			select {
+			case <-navDone:
+				// Lifecycle event (or ctx-bound unblock) won: fall through to the
+				// existing post-nav path unchanged.
+				break raceLoop
+			case <-mainDocWatch.notifyChan():
+				// A failure verdict finalized. Revalidate against current state:
+				// a replacement navigation may have superseded it between the
+				// finalizer's check and this receive. Stale -> keep waiting.
+				// Current -> fast-fail now, before the stability wait, click
+				// step, DOM/HTML reads, and the response acceptance check. The
+				// loser (waitNavigation goroutine) is bounded by timeoutCtx/page
+				// close via the deferred timeoutCancel.
+				if failed, reason := mainDocWatch.failedNow(); failed {
+					return nil, fmt.Errorf("%w: %s", errMainDocumentFailed, reason)
+				}
+			case <-timeoutCtx.Done():
+				// Per-nav timeout: fall through to the existing path, which checks
+				// timeoutCtx.Done() at its next step exactly as today.
+				break raceLoop
+			}
 		}
 	}
 
@@ -337,13 +348,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	case "domcontentloaded":
 		waitTime := time.Duration(c.Options.Options.DOMWaitTime) * time.Second
 		gologger.Debug().Msgf("page-load-strategy=domcontentloaded: waiting %s for DOM\n", waitTime)
-		if waitTime > 0 {
-			time.Sleep(waitTime)
+		if err := mainDocWatch.sleepUnlessFailed(timeoutCtx, waitTime); err != nil {
+			return nil, err
 		}
 
 	case "load":
 		gologger.Debug().Msgf("page-load-strategy=load: basic load wait only\n")
-		time.Sleep(500 * time.Millisecond)
+		if err := mainDocWatch.sleepUnlessFailed(timeoutCtx, 500*time.Millisecond); err != nil {
+			return nil, err
+		}
 
 	default:
 		timeStable := time.Duration(c.Options.Options.TimeStable) * time.Second
@@ -548,8 +561,9 @@ const mainDocSettleWindow = 250 * time.Millisecond
 // mainDocWatcher is the rod/CDP I/O layer that drives the pure mainDocNav state
 // machine. It subscribes to Network.requestWillBeSent / loadingFailed /
 // loadingFinished on one page, maps each event onto the state machine's plain-
-// struct methods under a mutex, and closes `failed` once a failure verdict is
-// finalized after the settle window.
+// struct methods under a mutex, and signals `notify` each time a failure verdict
+// is finalized after the settle window. Consumers must revalidate with
+// failedNow(): a notification can be stale by the time it is received.
 //
 // It is self-contained (rod/CDP only). The correlation logic lives in the
 // mainDocNav state machine below.
@@ -564,8 +578,11 @@ type mainDocWatcher struct {
 	failGen int
 	reason  string
 
-	failed   chan struct{}
-	failOnce sync.Once
+	// notify carries "a failure verdict finalized; recheck failedNow()". It is
+	// buffered (1) with a non-blocking send so the finalizer never blocks and
+	// coalesced notifications are harmless; it is never closed, so a stale
+	// notification consumed by a waiter does not poison later waits.
+	notify chan struct{}
 }
 
 // armMainDocWatcher enables the Network domain, reads the main frame id, and
@@ -592,7 +609,7 @@ func armMainDocWatcher(page *rod.Page, parent context.Context) (*mainDocWatcher,
 		mainFrameID: tree.FrameTree.Frame.ID,
 		ctx:         subCtx,
 		cancel:      cancel,
-		failed:      make(chan struct{}),
+		notify:      make(chan struct{}, 1),
 	}
 	// EachEvent hands back a BLOCKING consume loop bound to subCtx; cancelling
 	// subCtx (stop, or the parent timeout) tears the subscription down.
@@ -669,7 +686,60 @@ func (w *mainDocWatcher) finalizeAfter(gen int) {
 	v := w.nav.verdict()
 	w.mu.Unlock()
 	if v == mdFailed {
-		w.failOnce.Do(func() { close(w.failed) })
+		select {
+		case w.notify <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// notifyChan returns the failure-notification channel, or nil (blocks forever
+// in a select) when no watcher is armed.
+func (w *mainDocWatcher) notifyChan() <-chan struct{} {
+	if w == nil {
+		return nil
+	}
+	return w.notify
+}
+
+// failedNow revalidates a notification against current state: true only if
+// the watched main document's failure is finalized and not since superseded or
+// retired. Safe on a nil watcher (reports false).
+func (w *mainDocWatcher) failedNow() (bool, string) {
+	if w == nil {
+		return false, ""
+	}
+	w.mu.Lock()
+	failed := w.nav.verdict() == mdFailed
+	w.mu.Unlock()
+	if !failed {
+		return false, ""
+	}
+	return true, w.failureReason()
+}
+
+// sleepUnlessFailed waits d, returning errMainDocumentFailed early if a
+// revalidated main-document failure is signalled meanwhile. Stale
+// notifications are ignored and the wait resumes for the remaining time. It
+// returns nil when d elapses or ctx ends (the caller's next step handles ctx
+// exactly as before). On a nil watcher it is a plain ctx-aware sleep.
+func (w *mainDocWatcher) sleepUnlessFailed(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return nil
+		case <-ctx.Done():
+			return nil
+		case <-w.notifyChan():
+			if failed, reason := w.failedNow(); failed {
+				return fmt.Errorf("%w: %s", errMainDocumentFailed, reason)
+			}
+		}
 	}
 }
 
