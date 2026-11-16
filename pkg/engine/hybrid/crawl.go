@@ -620,6 +620,7 @@ func armMainDocWatcher(page *rod.Page, parent context.Context) (*mainDocWatcher,
 		w.onRequestWillBeSent,
 		w.onLoadingFailed,
 		w.onLoadingFinished,
+		w.onFrameNavigated,
 	)
 	go consume()
 	return w, nil
@@ -668,6 +669,19 @@ func (w *mainDocWatcher) onLoadingFailed(e *proto.NetworkLoadingFailed) {
 func (w *mainDocWatcher) onLoadingFinished(e *proto.NetworkLoadingFinished) {
 	w.mu.Lock()
 	w.nav.onLoadingFinished(string(e.RequestID))
+	w.mu.Unlock()
+}
+
+// onFrameNavigated reports a main-frame commit to the state machine: the
+// document named by the frame's loaderId is now what the page displays, which
+// promotes a pending candidate navigation to the watched document. A
+// navigation that never commits (a download, a 204) never reaches here.
+func (w *mainDocWatcher) onFrameNavigated(e *proto.PageFrameNavigated) {
+	if e.Frame == nil || e.Frame.ParentID != "" || e.Frame.ID != w.mainFrameID {
+		return
+	}
+	w.mu.Lock()
+	w.nav.onCommitted(string(e.Frame.LoaderID))
 	w.mu.Unlock()
 }
 
@@ -994,6 +1008,13 @@ func isStreamingResponse(resourceType proto.NetworkResourceType, headers []*prot
 // redirectResponse set), while a brand-new main-frame Document request is a
 // replacement navigation that re-points the watch and discards any pending
 // failure from the document the page navigated away from.
+//
+// Once the watched document has FINISHED, a new main-frame Document request no
+// longer re-points the watch on its own: it becomes a candidate, and only its
+// commit (onCommitted, from a main-frame frameNavigated carrying its loaderId)
+// makes it the watched document. A navigation that never commits — a download
+// (Content-Disposition: attachment), a 204, an aborted click — therefore cannot
+// reject the page that is actually displayed.
 type mainDocNav struct {
 	// watched is the requestId of the main document currently being tracked.
 	// Empty until the initial main document's requestWillBeSent is observed.
@@ -1010,6 +1031,10 @@ type mainDocNav struct {
 	// settleDone records that the post-failure settle window has elapsed, so a
 	// superseding navigation no longer has a chance to replace the failure.
 	settleDone bool
+	// candidate is the requestId of a main-frame Document request that started
+	// after the watched document finished and has not committed yet. Its
+	// failures are ignored; onCommitted promotes it to watched.
+	candidate string
 }
 
 // mdVerdict is the finalized decision the I/O layer consults.
@@ -1042,6 +1067,10 @@ func (m *mainDocNav) onRequestWillBeSent(reqID string, isMainDoc bool, hasRedire
 	if m.captured && reqID == m.watched && hasRedirectResponse {
 		return
 	}
+	// Likewise a redirect hop of the uncommitted candidate stays the candidate.
+	if m.candidate != "" && reqID == m.candidate && hasRedirectResponse {
+		return
+	}
 	if !isMainDoc {
 		return
 	}
@@ -1055,10 +1084,33 @@ func (m *mainDocNav) onRequestWillBeSent(reqID string, isMainDoc bool, hasRedire
 	if reqID == m.watched {
 		return
 	}
+	// The watched document already finished, so it is what the page displays.
+	// The new request replaces it only if it commits (onCommitted); until then
+	// it is a candidate whose failures cannot reject the displayed page.
+	if m.finished {
+		m.candidate = reqID
+		return
+	}
 	// A NEW main-frame Document request is a replacement navigation: re-point to
 	// it and discard any pending failure from the document we navigated away
 	// from, so the watcher only ever reports the FINAL main document's failure.
 	m.watched = reqID
+	m.failed = false
+	m.finished = false
+	m.settleDone = false
+	m.candidate = ""
+}
+
+// onCommitted is fed the loaderId of a main-frame frameNavigated: the document
+// that loaderId names is now what the page displays. If it is the pending
+// candidate, the candidate becomes the watched document with fresh state, so
+// a failure from here on counts. Any other loaderId is a no-op.
+func (m *mainDocNav) onCommitted(loaderID string) {
+	if loaderID == "" || loaderID != m.candidate {
+		return
+	}
+	m.watched = m.candidate
+	m.candidate = ""
 	m.failed = false
 	m.finished = false
 	m.settleDone = false
@@ -1067,6 +1119,11 @@ func (m *mainDocNav) onRequestWillBeSent(reqID string, isMainDoc bool, hasRedire
 // onLoadingFailed records a terminal failure of the watched main document. A
 // failure that arrives after loadingFinished is ignored (terminal precedence).
 func (m *mainDocNav) onLoadingFailed(reqID string) {
+	// An uncommitted candidate that fails never replaced the displayed page.
+	if m.candidate != "" && reqID == m.candidate {
+		m.candidate = ""
+		return
+	}
 	if !m.captured || reqID != m.watched || m.finished {
 		return
 	}
