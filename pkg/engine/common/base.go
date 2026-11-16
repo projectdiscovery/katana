@@ -521,6 +521,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				s.Output(req, resp, err)
 			}
 
+			if resp != nil && s.StopForBlock(resp.Resp, req.URL) {
+				return
+			}
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 				outputError := &output.Error{
@@ -536,10 +539,6 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			}
 			if s.Options.Options.DisableRedirects && resp.IsRedirect() {
-				return
-			}
-			if protection := DetectBlock(resp.Resp); protection != "" {
-				s.warnBlocked(crawlSession.Hostname, protection)
 				return
 			}
 

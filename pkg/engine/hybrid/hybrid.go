@@ -314,6 +314,9 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 		c.Output(req, resp, err)
 	}
 
+	if resp != nil && c.StopForBlock(resp.Resp, req.URL) {
+		return
+	}
 	if err != nil {
 		gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 		outputError := &output.Error{

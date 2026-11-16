@@ -210,7 +210,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			response = resp
 		}
 
-		if parse {
+		if parse && !c.StopForBlock(httpresp, e.Request.URL) {
 			navigationRequests := c.Options.Parser.ParseResponse(resp)
 			c.Enqueue(s.Queue, navigationRequests...)
 		}
@@ -424,7 +424,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		responseCopy.Body = builder.String()
 
 		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
-		if responseCopy.Reader != nil {
+		if responseCopy.Reader != nil && !c.StopForBlock(response.Resp, request.URL) {
 			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
 			c.Enqueue(s.Queue, navigationRequests...)
 		}

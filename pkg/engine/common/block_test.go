@@ -2,6 +2,7 @@ package common
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,26 @@ func TestDetectBlock(t *testing.T) {
 		})
 	}
 	require.Empty(t, DetectBlock(nil))
+}
+
+func TestRespondingHost(t *testing.T) {
+	resp := &http.Response{Request: &http.Request{URL: mustURL(t, "https://a.example.com/challenge")}}
+	require.Equal(t, "a.example.com", RespondingHost(resp, "https://example.com/"))
+	require.Equal(t, "example.com", RespondingHost(&http.Response{}, "https://example.com/path"))
+	require.Equal(t, "raw", RespondingHost(nil, "raw"))
+}
+
+func TestBlockHint(t *testing.T) {
+	require.Equal(t, ", try -headless", blockHint(cloudflareChallenge, false))
+	require.Empty(t, blockHint(cloudflareChallenge, true))
+	require.Empty(t, blockHint("DataDome", false))
+}
+
+func mustURL(t *testing.T, raw string) *url.URL {
+	t.Helper()
+	parsed, err := url.Parse(raw)
+	require.NoError(t, err)
+	return parsed
 }
 
 func TestWarnBlockedOncePerHost(t *testing.T) {

@@ -92,6 +92,15 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 		return response, nil
 	}
 
+	// A repeated challenge body is not new content, but it is still a block.
+	// Keep the response metadata so the caller can say which host was blocked.
+	if common.DetectBlock(resp) != "" {
+		response.Resp = resp
+		response.StatusCode = resp.StatusCode
+		response.Headers = utils.FlattenHeaders(resp.Header)
+		return response, nil
+	}
+
 	limitReader := io.LimitReader(resp.Body, int64(c.Options.Options.BodyReadSize))
 	data, err := io.ReadAll(limitReader)
 	if err != nil {
