@@ -121,12 +121,16 @@ func TestMainDocWatcher_SettledFailure_WaitsOutTheWindow(t *testing.T) {
 	w.nav.onRequestWillBeSent("A", true, false)
 	w.mu.Unlock()
 	recordFailure(w, "A")
+	w.mu.Lock()
+	failedAt := w.failedAt
+	w.mu.Unlock()
 
-	start := time.Now()
 	failed, reason := w.settledFailure(context.Background())
 	require.True(t, failed)
 	require.Equal(t, "net::ERR_CONNECTION_CLOSED", reason)
-	require.GreaterOrEqual(t, time.Since(start), mainDocSettleWindow-10*time.Millisecond,
+	// Measured from the recorded failure, not from this call, so a scheduling
+	// pause before the call cannot fail a correct implementation.
+	require.GreaterOrEqual(t, time.Since(failedAt), mainDocSettleWindow,
 		"a fresh failure must not be judged before its settle window")
 }
 
