@@ -101,6 +101,9 @@ func (c *Crawler) makeRequest(s *common.CrawlSession, request *navigation.Reques
 	// A repeated challenge body is not new content, but it is still a block.
 	// Keep the response so the caller can say which host was blocked.
 	if common.DetectBlock(resp) != "" {
+		resp.Body = io.NopCloser(bytes.NewReader(data))
+		rawResponseBytes, _ := httputil.DumpResponse(resp, true)
+		response.Raw = string(rawResponseBytes)
 		response.Resp = resp
 		response.Body = string(data)
 		response.StatusCode = resp.StatusCode

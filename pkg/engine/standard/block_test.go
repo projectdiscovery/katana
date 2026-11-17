@@ -47,6 +47,7 @@ func TestMakeRequestKeepsRepeatedBlock(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp.Resp, "a repeated challenge body still identifies the blocked host")
 		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+		require.Contains(t, resp.Raw, challenge, "store-response mode keeps the challenge body")
 		require.Equal(t, challenge, resp.Body, "the challenge body stays in the output")
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -60,6 +61,15 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
 		return nil, err
 	}
+
+	// The main frame id separates a blocked top-level document, including one
+	// reached through a redirect, from a blocked iframe, which must not hide
+	// the page that embeds it.
+	var mainFrameID proto.PageFrameID
+	if tree, err := (proto.PageGetFrameTree{}).Call(page); err == nil && tree.FrameTree != nil && tree.FrameTree.Frame != nil {
+		mainFrameID = tree.FrameTree.Frame.ID
+	}
+	var blockedDoc atomic.Pointer[navigation.Response]
 
 	pageRouter := NewHijack(page)
 	pageRouter.SetPattern(&proto.FetchRequestPattern{
@@ -149,10 +159,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 		body, _ := FetchGetResponseBody(handlerPage, e)
 		parse := c.shouldParse(matchOriginalURL, e.Request.URL, headers, body)
+		isBlockedDoc := e.ResourceType == proto.NetworkResourceTypeDocument &&
+			e.FrameID == mainFrameID &&
+			common.DetectBlock(&http.Response{StatusCode: statusCode, Header: http.Header(headers)}) != ""
 		// A repeated subresource has nothing new to enqueue. Skip the body
 		// copies, goquery, and fingerprinting. The main document is still
 		// recorded so the crawl does not end with "hybrid: response is nil".
-		if !matchOriginalURL && !parse {
+		if !matchOriginalURL && !parse && !isBlockedDoc {
 			if c.Options.Options.DisableRedirects && statusCode >= 300 && statusCode <= 399 {
 				return nil
 			}
@@ -202,6 +215,9 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 			KnowledgeBase: c.Options.BuildKnowledgeBase(string(body), httpreq, httpresp),
 		}
 		response.ContentLength = resp.ContentLength
+		if isBlockedDoc {
+			blockedDoc.Store(resp)
+		}
 
 		// Rejected main docs still record response metadata so the crawl does
 		// not end with "hybrid: response is nil"; only parse/enqueue is suppressed.
@@ -316,6 +332,13 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		} else {
 			gologger.Debug().Msgf("time-stable is non-positive: skipping stability wait\n")
 		}
+	}
+
+	// A blocked top-level document replaces the page, even when it was reached
+	// by redirect. Return it unparsed, so the challenge DOM and its links are
+	// never read.
+	if blocked := blockedDoc.Load(); blocked != nil {
+		return blocked, nil
 	}
 
 	// simulate clicks on links with onclick handlers to discover JS redirects
