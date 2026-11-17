@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-rod/rod"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -46,13 +46,14 @@ type hostBackoff struct {
 const hostBackoffsCacheSize = 10000
 
 type Shared struct {
-	Headers            map[string]string
-	KnownFiles         *files.KnownFiles
-	Options            *types.CrawlerOptions
-	Jar                *httputil.CookieJar
-	PathTrie           *utils.PathTrie
+	Headers           map[string]string
+	KnownFiles        *files.KnownFiles
+	Options           *types.CrawlerOptions
+	Jar               *httputil.CookieJar
+	PathTrie          *utils.PathTrie
 	DomainPageCounter sync.Map
-	hostBackoffs *lru.Cache[string, *hostBackoff]
+	hostBackoffs      *lru.Cache[string, *hostBackoff]
+	blockWarned       sync.Map
 	// knownFilesClient is the http client used for robots.txt and sitemap.xml
 	knownFilesClient *retryablehttp.Client
 }
@@ -551,6 +552,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				s.Output(req, resp, err)
 			}
 
+			if resp != nil && s.StopForBlock(resp.Resp, req.URL) {
+				return
+			}
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 				outputError := &output.Error{

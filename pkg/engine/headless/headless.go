@@ -11,6 +11,7 @@ import (
 
 	"github.com/lmittmann/tint"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -33,6 +34,7 @@ type Headless struct {
 
 	mu             sync.Mutex
 	activeCrawlers map[*crawler.Crawler]struct{}
+	blockWarned    sync.Map
 }
 
 // New returns a new headless crawler instance
@@ -171,7 +173,12 @@ func (h *Headless) Crawl(URL string) error {
 			// Always run additional analysis regardless of uniqueness so we
 			// don't miss URL discoveries embedded in a response body that the
 			// browser happened to fetch more than once.
-			navigationRequests := h.performAdditionalAnalysis(rr)
+			var navigationRequests []*output.Result
+			if rr.Response != nil && common.DetectBlock(rr.Response.Resp) != "" {
+				h.reportBlock(rr.Response.Resp, rr.Request.URL)
+			} else {
+				navigationRequests = h.performAdditionalAnalysis(rr)
+			}
 			for _, req := range navigationRequests {
 				if err := h.writeResult(req); err != nil {
 					h.logger.Debug("failed to write navigation result",
@@ -292,6 +299,14 @@ func (h *Headless) Close() error {
 		h.debugger.Close()
 	}
 	return nil
+}
+
+func (h *Headless) reportBlock(resp *http.Response, requested string) {
+	protection := common.DetectBlock(resp)
+	if protection == "" {
+		return
+	}
+	common.ReportBlock(&h.blockWarned, common.RespondingHost(resp, requested), protection, true)
 }
 
 func (h *Headless) isUniqueURL(rawURL string) bool {
