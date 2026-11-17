@@ -18,7 +18,12 @@ func DetectBlock(resp *http.Response) string {
 	if resp == nil || resp.StatusCode != http.StatusForbidden {
 		return ""
 	}
-	h := resp.Header
+	// Hybrid keeps header names as the browser reports them, which is lower
+	// case over HTTP/2, so Get would miss them.
+	h := make(http.Header, len(resp.Header))
+	for name, values := range resp.Header {
+		h[http.CanonicalHeaderKey(name)] = values
+	}
 	switch {
 	case strings.EqualFold(h.Get("Cf-Mitigated"), "challenge"):
 		return cloudflareChallenge

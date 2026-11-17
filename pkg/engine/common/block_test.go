@@ -19,6 +19,7 @@ func TestDetectBlock(t *testing.T) {
 		{"datadome", http.StatusForbidden, http.Header{"X-Datadome": {"protected"}, "Server": {"cloudflare"}}, "DataDome"},
 		{"perimeterx", http.StatusForbidden, http.Header{"X-Px-Blocked": {"1"}, "Server": {"CloudFront"}}, "PerimeterX"},
 		{"akamai", http.StatusForbidden, http.Header{"Server": {"AkamaiGHost"}}, "Akamai"},
+		{"lower case names from a browser over http/2", http.StatusForbidden, http.Header{"x-datadome": {"protected"}}, "DataDome"},
 		{"plain 403 behind cloudflare", http.StatusForbidden, http.Header{"Server": {"cloudflare"}}, ""},
 		{"datadome header on a served page", http.StatusOK, http.Header{"X-Datadome": {"protected"}}, ""},
 		{"akamai served page", http.StatusOK, http.Header{"Server": {"AkamaiGHost"}}, ""},
