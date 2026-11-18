@@ -17,11 +17,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/launcher/flags"
-	"github.com/go-rod/rod/lib/proto"
-	rodutils "github.com/go-rod/rod/lib/utils"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/cookie"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser/stealth"
@@ -29,6 +24,11 @@ import (
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/launcher"
+	"github.com/projectdiscovery/rod/lib/launcher/flags"
+	"github.com/projectdiscovery/rod/lib/proto"
+	rodutils "github.com/projectdiscovery/rod/lib/utils"
 	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/rs/xid"
 )

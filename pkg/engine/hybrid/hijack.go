@@ -3,8 +3,8 @@ package hybrid
 import (
 	"encoding/base64"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 // NewHijack create hijack from page.

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 type interactiveExplorer struct {

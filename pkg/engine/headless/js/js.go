@@ -3,8 +3,8 @@ package js
 import (
 	_ "embed"
 
-	"github.com/go-rod/rod"
 	"github.com/pkg/errors"
+	"github.com/projectdiscovery/rod"
 )
 
 var (

@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-rod/rod/lib/launcher"
 	"github.com/happyhackingspace/dit"
 	"github.com/projectdiscovery/katana/internal/testutils/authlab"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/crawler"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/rod/lib/launcher"
 	"github.com/stretchr/testify/require"
 )
 

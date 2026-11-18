@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-rod/rod"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
@@ -26,6 +25,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
 	"github.com/projectdiscovery/ratelimit"
 	"github.com/projectdiscovery/retryablehttp-go"
+	"github.com/projectdiscovery/rod"
 	"github.com/projectdiscovery/utils/errkit"
 	httputil "github.com/projectdiscovery/utils/http"
 	mapsutil "github.com/projectdiscovery/utils/maps"

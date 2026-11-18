@@ -3,8 +3,8 @@ package hybrid
 import (
 	"context"
 
-	"github.com/go-rod/rod"
 	"github.com/projectdiscovery/katana/pkg/navigation"
+	"github.com/projectdiscovery/rod"
 	"github.com/projectdiscovery/utils/errkit"
 )
 

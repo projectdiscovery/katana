@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/launcher"
+	"github.com/projectdiscovery/rod/lib/proto"
 	"github.com/stretchr/testify/require"
 )
 

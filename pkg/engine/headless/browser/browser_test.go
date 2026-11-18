@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/projectdiscovery/rod/lib/launcher/flags"
 	"github.com/stretchr/testify/require"
 )
 
@@ -196,7 +196,6 @@ func TestLauncherSystemChromeResolution(t *testing.T) {
 		require.True(t, l.opts.UseInstalledChrome)
 	})
 }
-
 
 func TestUserDataDirCleanup(t *testing.T) {
 	t.Run("tracked temporary directory is removed on Close", func(t *testing.T) {
