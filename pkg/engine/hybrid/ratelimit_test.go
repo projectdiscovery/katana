@@ -3,6 +3,7 @@ package hybrid
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -132,6 +133,66 @@ func TestHybridVisitUsesRequestHost(t *testing.T) {
 		q3.Push(&navigation.Request{
 			Method:         http.MethodGet,
 			URL:            "https://throttled.example.com/retry",
+			Depth:          0,
+			SkipValidation: true,
+		}, 0)
+		s3 := &common.CrawlSession{Ctx: ctx, CancelFunc: cancel, Hostname: "seed.example.com", Queue: q3}
+		start = time.Now()
+		err = c.Do(s3, func(_ *common.CrawlSession, _ *navigation.Request) (*navigation.Response, error) {
+			return &navigation.Response{StatusCode: http.StatusOK}, nil
+		})
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, time.Since(start), 900*time.Millisecond)
+	})
+
+	t.Run("redirected 429 attributes throttle to responding host", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		c := newTestHybridCrawler(ctx, nil)
+
+		q1, err := queue.New("depth-first")
+		require.NoError(t, err)
+		q1.Push(&navigation.Request{
+			Method:         http.MethodGet,
+			URL:            "https://redirector.example.com/start",
+			Depth:          0,
+			SkipValidation: true,
+		}, 0)
+		s1 := &common.CrawlSession{Ctx: ctx, CancelFunc: cancel, Hostname: "seed.example.com", Queue: q1}
+		err = c.Do(s1, func(_ *common.CrawlSession, _ *navigation.Request) (*navigation.Response, error) {
+			return &navigation.Response{
+				StatusCode: http.StatusTooManyRequests,
+				Resp: &http.Response{
+					StatusCode: http.StatusTooManyRequests,
+					Request:    httptest.NewRequest(http.MethodGet, "https://Target.Example.COM/final", nil),
+				},
+			}, nil
+		})
+		require.NoError(t, err)
+
+		// Redirector host should remain fast, while target host should incur backoff.
+		q2, err := queue.New("depth-first")
+		require.NoError(t, err)
+		q2.Push(&navigation.Request{
+			Method:         http.MethodGet,
+			URL:            "https://redirector.example.com/next",
+			Depth:          0,
+			SkipValidation: true,
+		}, 0)
+		s2 := &common.CrawlSession{Ctx: ctx, CancelFunc: cancel, Hostname: "seed.example.com", Queue: q2}
+		start := time.Now()
+		err = c.Do(s2, func(_ *common.CrawlSession, _ *navigation.Request) (*navigation.Response, error) {
+			return &navigation.Response{StatusCode: http.StatusOK}, nil
+		})
+		require.NoError(t, err)
+		require.Less(t, time.Since(start), 200*time.Millisecond)
+
+		q3, err := queue.New("depth-first")
+		require.NoError(t, err)
+		q3.Push(&navigation.Request{
+			Method:         http.MethodGet,
+			URL:            "https://target.example.com/retry",
 			Depth:          0,
 			SkipValidation: true,
 		}, 0)

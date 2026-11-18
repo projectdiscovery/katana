@@ -3,6 +3,8 @@ package common
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -110,6 +112,54 @@ func TestDoHostRateLimitUsesRequestHost(t *testing.T) {
 		require.Equal(t, int32(2), count.Load())
 		require.GreaterOrEqual(t, elapsed, 250*time.Millisecond)
 	})
+
+	t.Run("concurrent first requests to unregistered host share one bucket", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		limiter := ratelimit.NewAutoLimiter(ctx, ratelimit.WithMaxCount(1), ratelimit.WithDuration(250*time.Millisecond))
+		defer limiter.Stop()
+
+		shared, _ := newTestShared(2, func(o *types.Options) {
+			o.Concurrency = 4
+		})
+		shared.Options.HostRateLimit = limiter
+		shared.hostBackoffs = newTestBackoffCache()
+
+		q, err := queue.New("depth-first")
+		require.NoError(t, err)
+		for _, u := range []string{
+			"https://unregistered.example.com/1",
+			"https://unregistered.example.com/2",
+			"https://unregistered.example.com/3",
+		} {
+			q.Push(&navigation.Request{
+				Method:         http.MethodGet,
+				URL:            u,
+				Depth:          0,
+				SkipValidation: true,
+			}, 0)
+		}
+
+		session := &CrawlSession{
+			Ctx:        ctx,
+			CancelFunc: cancel,
+			Hostname:   "seed.example.com",
+			Queue:      q,
+		}
+
+		var count atomic.Int32
+		start := time.Now()
+		err = shared.Do(session, func(_ *CrawlSession, _ *navigation.Request) (*navigation.Response, error) {
+			count.Add(1)
+			return &navigation.Response{StatusCode: http.StatusOK}, nil
+		})
+		elapsed := time.Since(start)
+
+		require.NoError(t, err)
+		require.Equal(t, int32(3), count.Load())
+		require.GreaterOrEqual(t, elapsed, 450*time.Millisecond)
+	})
 }
 
 func TestDoBackoffUsesRequestHost(t *testing.T) {
@@ -205,5 +255,115 @@ func TestRequestHost(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.want, RequestHost(tc.rawURL, tc.fallback))
 		})
+	}
+}
+
+func TestDoBackoffUsesRespondingHostOnRedirect(t *testing.T) {
+	t.Run("429 after redirect attributes throttle to responding host", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shared, _ := newTestShared(2, func(o *types.Options) {
+			o.Concurrency = 1
+		})
+		shared.hostBackoffs = newTestBackoffCache()
+
+		q, err := queue.New("depth-first")
+		require.NoError(t, err)
+		q.Push(&navigation.Request{
+			Method:         http.MethodGet,
+			URL:            "https://redirect.example.com/start",
+			Depth:          0,
+			SkipValidation: true,
+		}, 0)
+
+		session := &CrawlSession{
+			Ctx:        ctx,
+			CancelFunc: cancel,
+			Hostname:   "seed.example.com",
+			Queue:      q,
+		}
+
+		err = shared.Do(session, func(_ *CrawlSession, _ *navigation.Request) (*navigation.Response, error) {
+			return &navigation.Response{
+				StatusCode: http.StatusTooManyRequests,
+				Resp: &http.Response{
+					StatusCode: http.StatusTooManyRequests,
+					Request:    httptest.NewRequest(http.MethodGet, "https://Seed.Example.COM/final", nil),
+				},
+			}, nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, int32(1), shared.backoffFor("seed.example.com").consecutive.Load())
+		require.Equal(t, int32(0), shared.backoffFor("redirect.example.com").consecutive.Load())
+	})
+
+	t.Run("200 after redirect decays responding host rather than initial host", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		shared, _ := newTestShared(2, func(o *types.Options) {
+			o.Concurrency = 1
+		})
+		shared.hostBackoffs = newTestBackoffCache()
+		shared.backoffFor("seed.example.com").consecutive.Store(1)
+		shared.backoffFor("redirect.example.com").consecutive.Store(1)
+
+		q, err := queue.New("depth-first")
+		require.NoError(t, err)
+		q.Push(&navigation.Request{
+			Method:         http.MethodGet,
+			URL:            "https://redirect.example.com/go",
+			Depth:          0,
+			SkipValidation: true,
+		}, 0)
+
+		session := &CrawlSession{
+			Ctx:        ctx,
+			CancelFunc: cancel,
+			Hostname:   "seed.example.com",
+			Queue:      q,
+		}
+
+		err = shared.Do(session, func(_ *CrawlSession, _ *navigation.Request) (*navigation.Response, error) {
+			return &navigation.Response{
+				StatusCode: http.StatusOK,
+				Resp: &http.Response{
+					StatusCode: http.StatusOK,
+					Request:    httptest.NewRequest(http.MethodGet, "https://seed.example.com/landed", nil),
+				},
+			}, nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, int32(0), shared.backoffFor("seed.example.com").consecutive.Load())
+		require.Equal(t, int32(1), shared.backoffFor("redirect.example.com").consecutive.Load())
+	})
+}
+
+func TestBackoffForPreservesExistingEntry(t *testing.T) {
+	shared, _ := newTestShared(2)
+	shared.hostBackoffs = newTestBackoffCache()
+
+	const workers = 16
+	results := make([]*hostBackoff, workers)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range workers {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+			b := shared.backoffFor("Race.Example.COM")
+			b.consecutive.Add(1)
+			results[idx] = b
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	final := shared.backoffFor("race.example.com")
+	require.Equal(t, int32(workers), final.consecutive.Load())
+	for _, b := range results {
+		require.Same(t, final, b)
 	}
 }
