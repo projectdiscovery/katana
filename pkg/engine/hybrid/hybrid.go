@@ -268,10 +268,11 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 	if crawlSession.Ctx.Err() != nil {
 		return
 	}
+	reqHost := common.RequestHost(req.URL, crawlSession.Hostname)
 	takeDone := make(chan struct{})
 	go func() {
 		if c.Options.HostRateLimit != nil {
-			_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
+			_ = c.Options.HostRateLimit.Take(reqHost)
 		} else if c.Options.RateLimit != nil {
 			c.Options.RateLimit.Take()
 		}
@@ -282,7 +283,7 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 		return
 	case <-takeDone:
 	}
-	c.ApplyBackoff(crawlSession.Hostname)
+	c.ApplyBackoff(reqHost)
 
 	if crawlSession.Ctx.Err() != nil {
 		return
@@ -306,9 +307,9 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 	resp, err := doRequest(crawlSession, req)
 
 	if resp != nil && common.IsThrottled(resp.StatusCode) {
-		c.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+		c.RecordThrottle(reqHost, resp.StatusCode)
 	} else if resp != nil {
-		c.RecordSuccess(crawlSession.Hostname)
+		c.RecordSuccess(reqHost)
 	}
 
 	if inScope {

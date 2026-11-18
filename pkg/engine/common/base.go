@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -253,7 +254,21 @@ func (s *Shared) DomainCounter(domain string) *atomic.Int64 {
 	return val.(*atomic.Int64)
 }
 
+// RequestHost returns the normalized lowercase hostname for rawURL, falling
+// back to fallback when rawURL is empty or has no hostname.
+func RequestHost(rawURL, fallback string) string {
+	if rawURL != "" {
+		if parsed, err := url.Parse(rawURL); err == nil {
+			if host := strings.ToLower(parsed.Hostname()); host != "" {
+				return host
+			}
+		}
+	}
+	return strings.ToLower(fallback)
+}
+
 func (s *Shared) backoffFor(host string) *hostBackoff {
+	host = strings.ToLower(host)
 	if val, ok := s.hostBackoffs.Get(host); ok {
 		return val
 	}
@@ -495,6 +510,8 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			defer wg.Done()
 			defer crawlSession.Queue.Done()
 
+			reqHost := RequestHost(req.URL, crawlSession.Hostname)
+
 			// Race Take() against the session context so that workers
 			// don't block shutdown waiting for the next limiter tick
 			// (the limiter is bound to options.Context, not the session).
@@ -507,7 +524,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			takeDone := make(chan struct{})
 			go func() {
 				if s.Options.HostRateLimit != nil {
-					_ = s.Options.HostRateLimit.Take(crawlSession.Hostname)
+					_ = s.Options.HostRateLimit.Take(reqHost)
 				} else if s.Options.RateLimit != nil {
 					s.Options.RateLimit.Take()
 				}
@@ -518,7 +535,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			case <-takeDone:
 			}
-			s.ApplyBackoff(crawlSession.Hostname)
+			s.ApplyBackoff(reqHost)
 
 			if crawlSession.Ctx.Err() != nil {
 				return
@@ -543,9 +560,9 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			resp, err := doRequest(crawlSession, req)
 
 			if resp != nil && IsThrottled(resp.StatusCode) {
-				s.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+				s.RecordThrottle(reqHost, resp.StatusCode)
 			} else if resp != nil {
-				s.RecordSuccess(crawlSession.Hostname)
+				s.RecordSuccess(reqHost)
 			}
 
 			if inScope {
