@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	"github.com/projectdiscovery/ratelimit"
 	"github.com/projectdiscovery/retryablehttp-go"
 	"github.com/projectdiscovery/utils/errkit"
 	httputil "github.com/projectdiscovery/utils/http"
@@ -53,6 +55,7 @@ type Shared struct {
 	PathTrie          *utils.PathTrie
 	DomainPageCounter sync.Map
 	hostBackoffs      *lru.Cache[string, *hostBackoff]
+	hostRateLimitInit sync.Map
 	blockWarned       sync.Map
 	// knownFilesClient is the http client used for robots.txt and sitemap.xml
 	knownFilesClient *retryablehttp.Client
@@ -253,12 +256,65 @@ func (s *Shared) DomainCounter(domain string) *atomic.Int64 {
 	return val.(*atomic.Int64)
 }
 
+// RequestHost returns the normalized lowercase hostname for rawURL, falling
+// back to fallback when rawURL is empty or has no hostname.
+func RequestHost(rawURL, fallback string) string {
+	if rawURL != "" {
+		if parsed, err := url.Parse(rawURL); err == nil {
+			if host := strings.ToLower(parsed.Hostname()); host != "" {
+				return host
+			}
+		}
+	}
+	return strings.ToLower(fallback)
+}
+
+// ResponseHost returns the normalized lowercase hostname that sent resp (after
+// any redirects), falling back to fallback when unavailable.
+func ResponseHost(resp *navigation.Response, fallback string) string {
+	if resp != nil {
+		if host := strings.ToLower(RespondingHost(resp.Resp, "")); host != "" {
+			return host
+		}
+	}
+	return strings.ToLower(fallback)
+}
+
+type hostRateLimitKey struct {
+	limiter *ratelimit.AutoLimiter
+	host    string
+}
+
+// TakeHostRateLimit takes one token for host, serializing initial bucket
+// creation so concurrent first requests to an unregistered host share one
+// AutoLimiter bucket.
+func (s *Shared) TakeHostRateLimit(host string) {
+	if s.Options == nil || s.Options.HostRateLimit == nil {
+		return
+	}
+	host = strings.ToLower(host)
+	limiter := s.Options.HostRateLimit
+	key := hostRateLimitKey{limiter: limiter, host: host}
+	val, _ := s.hostRateLimitInit.LoadOrStore(key, &sync.Once{})
+	took := false
+	val.(*sync.Once).Do(func() {
+		_ = limiter.Take(host)
+		took = true
+	})
+	if !took {
+		_ = limiter.Take(host)
+	}
+}
+
 func (s *Shared) backoffFor(host string) *hostBackoff {
+	host = strings.ToLower(host)
 	if val, ok := s.hostBackoffs.Get(host); ok {
 		return val
 	}
 	b := &hostBackoff{}
-	s.hostBackoffs.Add(host, b)
+	if existing, ok, _ := s.hostBackoffs.PeekOrAdd(host, b); ok {
+		return existing
+	}
 	return b
 }
 
@@ -495,6 +551,8 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			defer wg.Done()
 			defer crawlSession.Queue.Done()
 
+			reqHost := RequestHost(req.URL, crawlSession.Hostname)
+
 			// Race Take() against the session context so that workers
 			// don't block shutdown waiting for the next limiter tick
 			// (the limiter is bound to options.Context, not the session).
@@ -507,7 +565,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			takeDone := make(chan struct{})
 			go func() {
 				if s.Options.HostRateLimit != nil {
-					_ = s.Options.HostRateLimit.Take(crawlSession.Hostname)
+					s.TakeHostRateLimit(reqHost)
 				} else if s.Options.RateLimit != nil {
 					s.Options.RateLimit.Take()
 				}
@@ -518,7 +576,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			case <-takeDone:
 			}
-			s.ApplyBackoff(crawlSession.Hostname)
+			s.ApplyBackoff(reqHost)
 
 			if crawlSession.Ctx.Err() != nil {
 				return
@@ -542,10 +600,11 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			resp, err := doRequest(crawlSession, req)
 
+			respHost := ResponseHost(resp, reqHost)
 			if resp != nil && IsThrottled(resp.StatusCode) {
-				s.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+				s.RecordThrottle(respHost, resp.StatusCode)
 			} else if resp != nil {
-				s.RecordSuccess(crawlSession.Hostname)
+				s.RecordSuccess(respHost)
 			}
 
 			if inScope {
