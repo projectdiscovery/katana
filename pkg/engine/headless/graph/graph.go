@@ -4,6 +4,8 @@ package graph
 
 import (
 	"os"
+	"slices"
+	"sort"
 
 	"github.com/dominikbraun/graph"
 	"github.com/dominikbraun/graph/draw"
@@ -71,6 +73,7 @@ func (g *CrawlGraph) AddPageState(n types.PageState) error {
 		err = g.graph.AddEdge(n.OriginID, n.UniqueID, func(ep *graph.EdgeProperties) {
 			ep.Weight = n.Depth
 			ep.Attributes = edgeAttrs
+			ep.Data = n.NavigationAction
 		})
 		if err != nil {
 			if errors.Is(err, graph.ErrEdgeAlreadyExists) {
@@ -92,6 +95,7 @@ func (g *CrawlGraph) AddEdge(sourceState, targetState string, action *types.Acti
 	err := g.graph.AddEdge(sourceState, targetState, func(ep *graph.EdgeProperties) {
 		ep.Weight = action.Depth
 		ep.Attributes = edgeAttrs
+		ep.Data = action
 	})
 	if err != nil {
 		if errors.Is(err, graph.ErrEdgeAlreadyExists) {
@@ -128,6 +132,75 @@ func (g *CrawlGraph) ShortestPath(sourceState, targetState string) ([]*types.Act
 		actionsSlice = append(actionsSlice, pageVertex.NavigationAction)
 	}
 	return actionsSlice, nil
+}
+
+// PathsFrom returns a replayable path from entryID to every other vertex it
+// reaches. One breadth-first walk builds all paths, so each path has the fewest
+// steps. Each step is the action recorded on the traversed edge; an edge
+// without an action is not followed. Vertices the walk cannot reach are returned, sorted, in unreachable so
+// callers can report them.
+func (g *CrawlGraph) PathsFrom(entryID string) (paths []*types.Path, unreachable []string, err error) {
+	adjacency, err := g.graph.AdjacencyMap()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get adjacency map")
+	}
+	if _, ok := adjacency[entryID]; !ok {
+		return nil, nil, errors.Errorf("entry state %s is not in the crawl graph", entryID)
+	}
+
+	steps := map[string][]*types.Action{entryID: {}}
+	queue := []string{entryID}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+
+		targets := make([]string, 0, len(adjacency[id]))
+		for target := range adjacency[id] {
+			targets = append(targets, target)
+		}
+		sort.Strings(targets)
+
+		for _, target := range targets {
+			if _, seen := steps[target]; seen {
+				continue
+			}
+			// The step is the action on the traversed edge. The target's own
+			// NavigationAction can start from a different origin state.
+			action, _ := adjacency[id][target].Properties.Data.(*types.Action)
+			if action == nil {
+				continue
+			}
+			state, err := g.GetPageState(target)
+			if err != nil {
+				return nil, nil, err
+			}
+			targetSteps := steps[id]
+			if state.URL != "about:blank" {
+				// Clip forces a copy, so sibling paths never share a backing array.
+				targetSteps = append(slices.Clip(targetSteps), action)
+			}
+			steps[target] = targetSteps
+			queue = append(queue, target)
+
+			if state.URL == "about:blank" {
+				continue
+			}
+			paths = append(paths, &types.Path{
+				EntryID:   entryID,
+				TargetID:  target,
+				TargetURL: state.URL,
+				Steps:     targetSteps,
+			})
+		}
+	}
+
+	for id := range adjacency {
+		if _, ok := steps[id]; !ok {
+			unreachable = append(unreachable, id)
+		}
+	}
+	sort.Strings(unreachable)
+	return paths, unreachable, nil
 }
 
 func (g *CrawlGraph) DrawGraph(file string) error {
