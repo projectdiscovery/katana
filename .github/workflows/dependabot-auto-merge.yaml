@@ -1,0 +1,15 @@
+name: 🔀 Auto merge PR
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  dependabot:
+    uses: projectdiscovery/workflows/.github/workflows/dependabot-auto-merge.yaml@v1
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      go-compat-checks: true
