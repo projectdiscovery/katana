@@ -29,7 +29,7 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.95
 	github.com/projectdiscovery/retryablehttp-go v1.3.35
 	github.com/projectdiscovery/rod v0.117.0
-	github.com/projectdiscovery/utils v0.11.14
+	github.com/projectdiscovery/utils v0.11.15
 	github.com/projectdiscovery/wappalyzergo v0.3.10
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/rs/xid v1.5.0
@@ -129,7 +129,7 @@ require (
 	github.com/odvcencio/gotreesitter v0.56.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/projectdiscovery/asnmap v1.2.0 // indirect
-	github.com/projectdiscovery/blackrock v0.0.2 // indirect
+	github.com/projectdiscovery/blackrock v0.0.4 // indirect
 	github.com/projectdiscovery/gostruct v0.0.2 // indirect
 	github.com/projectdiscovery/govaluate v0.0.0-20260504230327-80320480bb6e // indirect
 	github.com/projectdiscovery/jarm-go v0.0.0-20260910160638-430e2bae86f6 // indirect
