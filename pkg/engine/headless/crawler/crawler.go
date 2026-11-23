@@ -40,6 +40,7 @@ type Crawler struct {
 	crawlGraph    *graph.CrawlGraph
 	simhashOracle *simhash.Oracle
 	uniqueActions map[string]struct{}
+	similarLinks  map[string]struct{}
 	diagnostics   diagnostics.Writer
 	loggedIn      bool
 }
@@ -99,6 +100,9 @@ type Options struct {
 	// AuthSteps, when non-empty, are replayed once against the browser context
 	// before the crawl queue starts (recorded / multi-step login).
 	AuthSteps []auth.LoginStep
+	// URLFingerprint maps a link target to its similar-URL key (-fsu), so
+	// links sharing a key are followed once. Nil follows every link.
+	URLFingerprint func(rawURL string) string
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -179,6 +183,7 @@ func New(opts Options) (*Crawler, error) {
 		options:       opts,
 		logger:        opts.Logger,
 		uniqueActions: make(map[string]struct{}),
+		similarLinks:  make(map[string]struct{}),
 		diagnostics:   diagnosticsWriter,
 		simhashOracle: simhash.NewOracle(),
 	}
@@ -527,6 +532,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			)
 			continue
 		}
+		if c.similarLinkFollowed(nav, pageState.URL) {
+			c.logger.Debug("Skipping navigation to a similar URL",
+				slog.String("url", nav.Element.Attributes["href"]),
+			)
+			continue
+		}
 		nav.OriginID = pageState.UniqueID
 
 		c.logger.Debug("Got new navigation",
@@ -667,6 +678,24 @@ func (c *Crawler) followHiddenLink(page *browser.BrowserPage, element *types.HTM
 		return err
 	}
 	return page.WaitPageLoadHeurisitics()
+}
+
+// similarLinkFollowed reports whether nav is a link to a URL similar to one
+// already followed, and records it otherwise.
+func (c *Crawler) similarLinkFollowed(nav *types.Action, pageURL string) bool {
+	if c.options.URLFingerprint == nil || nav.Element == nil || nav.Element.TagName != "A" {
+		return false
+	}
+	target, ok := resolveHTTPLink(nav.Element.Attributes["href"], pageURL)
+	if !ok {
+		return false
+	}
+	key := c.options.URLFingerprint(target)
+	if _, followed := c.similarLinks[key]; followed {
+		return true
+	}
+	c.similarLinks[key] = struct{}{}
+	return false
 }
 
 // resolveHTTPLink resolves href against pageURL, keeping only http(s) targets.
