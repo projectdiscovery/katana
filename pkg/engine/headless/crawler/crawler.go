@@ -518,6 +518,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 
+	linkBase := c.linkBase(page, pageState.URL)
 	for _, nav := range navigations {
 		actionHash := nav.Hash()
 		if _, ok := c.uniqueActions[actionHash]; ok {
@@ -532,7 +533,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			)
 			continue
 		}
-		if c.similarLinkFollowed(nav, pageState.URL) {
+		if c.similarLinkFollowed(nav, linkBase) {
 			c.logger.Debug("Skipping navigation to a similar URL",
 				slog.String("url", nav.Element.Attributes["href"]),
 			)
@@ -680,13 +681,26 @@ func (c *Crawler) followHiddenLink(page *browser.BrowserPage, element *types.HTM
 	return page.WaitPageLoadHeurisitics()
 }
 
+// linkBase is the URL that relative links on page resolve against, which a
+// <base href> can move away from the page URL.
+func (c *Crawler) linkBase(page *browser.BrowserPage, pageURL string) string {
+	if c.options.URLFingerprint == nil {
+		return pageURL
+	}
+	base, err := page.Eval(`() => document.baseURI`)
+	if err != nil || base.Value.Str() == "" {
+		return pageURL
+	}
+	return base.Value.Str()
+}
+
 // similarLinkFollowed reports whether nav is a link to a URL similar to one
 // already followed, and records it otherwise.
-func (c *Crawler) similarLinkFollowed(nav *types.Action, pageURL string) bool {
+func (c *Crawler) similarLinkFollowed(nav *types.Action, baseURL string) bool {
 	if c.options.URLFingerprint == nil || nav.Element == nil || nav.Element.TagName != "A" {
 		return false
 	}
-	target, ok := resolveHTTPLink(nav.Element.Attributes["href"], pageURL)
+	target, ok := resolveHTTPLink(nav.Element.Attributes["href"], baseURL)
 	if !ok {
 		return false
 	}
