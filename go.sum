@@ -285,8 +285,8 @@ github.com/praetorian-inc/titus v1.2.0 h1:cEiScUeE5CWl179FDagc7dr5ypvGmgNa0xmD+H
 github.com/praetorian-inc/titus v1.2.0/go.mod h1:Hrjwlww3Ces8WHejO3OOZJP/7ZVMo3CAZAsoniNl30g=
 github.com/projectdiscovery/asnmap v1.2.0 h1:xxZxVYJYPyBNbwF7jL/rtpThKBMdjomQBmlAZRqhq7E=
 github.com/projectdiscovery/asnmap v1.2.0/go.mod h1:0tNdUGHUE7TFWDaHZtuXcVpQfRTZZ1BKmFfl8gtQbiU=
-github.com/projectdiscovery/blackrock v0.0.2 h1:mxXdu0uM8P2L2Qi210COlU8QiICPFW/Rxk5QUhlPO2k=
-github.com/projectdiscovery/blackrock v0.0.2/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
+github.com/projectdiscovery/blackrock v0.0.4 h1:xFqk3gqbLDfJuqfpTer+rtwz3q7JLnz/a/A2hbFB8rI=
+github.com/projectdiscovery/blackrock v0.0.4/go.mod h1:ANUtjDfaVrqB453bzToU+YB4cUbvBRpLvEwoWIwlTss=
 github.com/projectdiscovery/dsl v0.9.3 h1:Xj8blo5Lck8FuoPpTjPHOWHIujcDpT9CteJUJEO7Ifw=
 github.com/projectdiscovery/dsl v0.9.3/go.mod h1:6KKSigvE4uamshHNS7gN1Aj+c3yFQKzKKSIVgIp7Ptk=
 github.com/projectdiscovery/fastdialer v0.6.3 h1:2MLl4AYiZN+trj47MCKDiqVXKUIlERir5n8d6gb8wvo=
@@ -319,8 +319,8 @@ github.com/projectdiscovery/retryablehttp-go v1.3.35 h1:u4ZnTMh7ZE46buZRBrFL3Yyk
 github.com/projectdiscovery/retryablehttp-go v1.3.35/go.mod h1:+UvjTjyTxKJRfPgm023lb84MjAjpDT3jjs1ZO5KuAIE=
 github.com/projectdiscovery/rod v0.117.0 h1:iFauyrfVVr0+qppbMncvgqHFkXHQqWDQ0oV/ois2EQk=
 github.com/projectdiscovery/rod v0.117.0/go.mod h1:FLVLMgXw6OFcOU5nd4Il8cdSWgDfAlDeRZMol3drmGs=
-github.com/projectdiscovery/utils v0.11.14 h1:1AL15zuWA5A9PjKX6Df0j62eEGAiFzmJO71P0x8ul0A=
-github.com/projectdiscovery/utils v0.11.14/go.mod h1:e5kUJT/Jr+lBGrzCAVo8TQvYeeEkVwT6DMkkIRVlGRU=
+github.com/projectdiscovery/utils v0.11.15 h1:SL02AwUsTvuAt5fu+uxEzjZPwtc0Oj1MVky89GlcnR0=
+github.com/projectdiscovery/utils v0.11.15/go.mod h1:xi8KJ+NENlIk4sgfnvihJdcR+4qnEO5Z67fvN5Md33w=
 github.com/projectdiscovery/wappalyzergo v0.3.10 h1:y7pZ+oEM9AjZc/ywXhMU2UAC42bZ7O8eUYDbbTD1KQg=
 github.com/projectdiscovery/wappalyzergo v0.3.10/go.mod h1:v6ZGfobwbT6vXOt3Cjq/KZ6rio5CFwacX5o34rnnzQw=
 github.com/refraction-networking/utls v1.8.2 h1:j4Q1gJj0xngdeH+Ox/qND11aEfhpgoEvV+S9iJ2IdQo=
