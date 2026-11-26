@@ -34,3 +34,54 @@ services:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 2s
       retries: 60
+
+  wordpress:
+    image: wordpress:7.1.5-php8.4-apache
+    environment:
+      - WORDPRESS_DB_HOST=wordpress-db
+      - WORDPRESS_DB_USER=wordpress
+      - WORDPRESS_DB_PASSWORD=wordpress
+      - WORDPRESS_DB_NAME=wordpress
+      # build links from the request host, so they point back through the bench proxy
+      - WORDPRESS_CONFIG_EXTRA=define('WP_HOME', 'http://' . ($$_SERVER['HTTP_HOST'] ?? '127.0.0.1:8081')); define('WP_SITEURL', WP_HOME);
+    depends_on:
+      wordpress-db:
+        condition: service_healthy
+    volumes:
+      - wordpress:/var/www/html
+    ports:
+      - 127.0.0.1:8081:80
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-o", "/dev/null", "http://127.0.0.1/wp-login.php"]
+      interval: 2s
+      retries: 60
+
+  wordpress-db:
+    image: mariadb:11.8
+    environment:
+      - MYSQL_ROOT_PASSWORD=wordpress
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 60
+
+  wp-cli:
+    image: wordpress:cli-2.12.0-php8.4
+    profiles: [setup]
+    user: "33:33"
+    environment:
+      - WORDPRESS_DB_HOST=wordpress-db
+      - WORDPRESS_DB_USER=wordpress
+      - WORDPRESS_DB_PASSWORD=wordpress
+      - WORDPRESS_DB_NAME=wordpress
+    volumes:
+      - wordpress:/var/www/html
+    depends_on:
+      wordpress:
+        condition: service_healthy
+
+volumes:
+  wordpress:
