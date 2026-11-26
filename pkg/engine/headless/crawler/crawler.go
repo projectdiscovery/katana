@@ -224,6 +224,9 @@ func (c *Crawler) Crawl(URL string) error {
 	crawlQueue := queue.NewLinked(actions)
 	c.crawlQueue = crawlQueue
 
+	// The seed counts as a followed URL, so a similar link to it is skipped.
+	c.markSimilarURL(URL)
+
 	crawlGraph := graph.NewCrawlGraph()
 	c.crawlGraph = crawlGraph
 
@@ -688,10 +691,18 @@ func (c *Crawler) linkBase(page *browser.BrowserPage, pageURL string) string {
 		return pageURL
 	}
 	base, err := page.Eval(`() => document.baseURI`)
-	if err != nil || base.Value.Str() == "" {
+	if err != nil {
 		return pageURL
 	}
-	return base.Value.Str()
+	return baseOrPage(base.Value.Str(), pageURL)
+}
+
+// baseOrPage returns the document base URI, or pageURL when it is empty.
+func baseOrPage(baseURI, pageURL string) string {
+	if baseURI == "" {
+		return pageURL
+	}
+	return baseURI
 }
 
 // similarLinkFollowed reports whether nav is a link to a URL similar to one
@@ -704,12 +715,21 @@ func (c *Crawler) similarLinkFollowed(nav *types.Action, baseURL string) bool {
 	if !ok {
 		return false
 	}
-	key := c.options.URLFingerprint(target)
-	if _, followed := c.similarLinks[key]; followed {
+	return !c.markSimilarURL(target)
+}
+
+// markSimilarURL records the similar-URL key of rawURL and reports whether it
+// was new. It is a no-op that reports true when -fsu is off.
+func (c *Crawler) markSimilarURL(rawURL string) bool {
+	if c.options.URLFingerprint == nil {
 		return true
 	}
+	key := c.options.URLFingerprint(rawURL)
+	if _, followed := c.similarLinks[key]; followed {
+		return false
+	}
 	c.similarLinks[key] = struct{}{}
-	return false
+	return true
 }
 
 // resolveHTTPLink resolves href against pageURL, keeping only http(s) targets.
