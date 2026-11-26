@@ -7,6 +7,9 @@ targets:
     prepare: ./dvwa-setup.sh
     # logout ends the session the crawl depends on
     args: [-cos, logout]
+  - name: wordpress
+    url: http://127.0.0.1:8081
+    prepare: ./wordpress-setup.sh
 
 runs:
   standard: [-d, "5", -jc, -jsl, -kf, all, -aff, -ct, "180"]
