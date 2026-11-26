@@ -156,6 +156,7 @@ func (h *Headless) Crawl(URL string) error {
 		ChromeWSUrl:           h.options.Options.ChromeWSUrl,
 		DOMWaitTime:           h.options.Options.DOMWaitTime,
 		MaxScrollSteps:        h.options.Options.MaxScrollSteps,
+		URLFingerprint:        h.urlFingerprint(),
 		RequestCallback: func(rr *output.Result) {
 			if rr == nil || rr.Request == nil {
 				return
@@ -307,6 +308,14 @@ func (h *Headless) reportBlock(resp *http.Response, requested string) {
 		return
 	}
 	common.ReportBlock(&h.blockWarned, common.RespondingHost(resp, requested), protection, true)
+}
+
+// urlFingerprint is the -fsu link filter for the crawler, nil when -fsu is off.
+func (h *Headless) urlFingerprint() func(string) string {
+	if !h.options.Options.FilterSimilar {
+		return nil
+	}
+	return func(rawURL string) string { return utils.FingerprintURL(rawURL, h.pathTrie) }
 }
 
 func (h *Headless) isUniqueURL(rawURL string) bool {

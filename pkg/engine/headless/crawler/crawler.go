@@ -40,6 +40,7 @@ type Crawler struct {
 	crawlGraph    *graph.CrawlGraph
 	simhashOracle *simhash.Oracle
 	uniqueActions map[string]struct{}
+	similarLinks  map[string]struct{}
 	diagnostics   diagnostics.Writer
 	loggedIn      bool
 }
@@ -99,6 +100,9 @@ type Options struct {
 	// AuthSteps, when non-empty, are replayed once against the browser context
 	// before the crawl queue starts (recorded / multi-step login).
 	AuthSteps []auth.LoginStep
+	// URLFingerprint maps a link target to its similar-URL key (-fsu), so
+	// links sharing a key are followed once. Nil follows every link.
+	URLFingerprint func(rawURL string) string
 
 	// Hooks installs optional lifecycle callbacks. See Hooks for semantics.
 	// The zero value disables all callbacks.
@@ -179,6 +183,7 @@ func New(opts Options) (*Crawler, error) {
 		options:       opts,
 		logger:        opts.Logger,
 		uniqueActions: make(map[string]struct{}),
+		similarLinks:  make(map[string]struct{}),
 		diagnostics:   diagnosticsWriter,
 		simhashOracle: simhash.NewOracle(),
 	}
@@ -218,6 +223,9 @@ func (c *Crawler) Crawl(URL string) error {
 
 	crawlQueue := queue.NewLinked(actions)
 	c.crawlQueue = crawlQueue
+
+	// The seed counts as a followed URL, so a similar link to it is skipped.
+	c.markSimilarURL(URL)
 
 	crawlGraph := graph.NewCrawlGraph()
 	c.crawlGraph = crawlGraph
@@ -513,6 +521,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		}
 	}
 
+	linkBase := c.linkBase(page, pageState.URL)
 	for _, nav := range navigations {
 		actionHash := nav.Hash()
 		if _, ok := c.uniqueActions[actionHash]; ok {
@@ -523,6 +532,12 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 		// Check if the element we have is a logout page
 		if nav.Element != nil && isLogoutPage(nav.Element) {
 			c.logger.Debug("Skipping Found logout page",
+				slog.String("url", nav.Element.Attributes["href"]),
+			)
+			continue
+		}
+		if c.similarLinkFollowed(nav, linkBase) {
+			c.logger.Debug("Skipping navigation to a similar URL",
 				slog.String("url", nav.Element.Attributes["href"]),
 			)
 			continue
@@ -667,6 +682,54 @@ func (c *Crawler) followHiddenLink(page *browser.BrowserPage, element *types.HTM
 		return err
 	}
 	return page.WaitPageLoadHeurisitics()
+}
+
+// linkBase is the URL that relative links on page resolve against, which a
+// <base href> can move away from the page URL.
+func (c *Crawler) linkBase(page *browser.BrowserPage, pageURL string) string {
+	if c.options.URLFingerprint == nil {
+		return pageURL
+	}
+	base, err := page.Eval(`() => document.baseURI`)
+	if err != nil {
+		return pageURL
+	}
+	return baseOrPage(base.Value.Str(), pageURL)
+}
+
+// baseOrPage returns the document base URI, or pageURL when it is empty.
+func baseOrPage(baseURI, pageURL string) string {
+	if baseURI == "" {
+		return pageURL
+	}
+	return baseURI
+}
+
+// similarLinkFollowed reports whether nav is a link to a URL similar to one
+// already followed, and records it otherwise.
+func (c *Crawler) similarLinkFollowed(nav *types.Action, baseURL string) bool {
+	if c.options.URLFingerprint == nil || nav.Element == nil || nav.Element.TagName != "A" {
+		return false
+	}
+	target, ok := resolveHTTPLink(nav.Element.Attributes["href"], baseURL)
+	if !ok {
+		return false
+	}
+	return !c.markSimilarURL(target)
+}
+
+// markSimilarURL records the similar-URL key of rawURL and reports whether it
+// was new. It is a no-op that reports true when -fsu is off.
+func (c *Crawler) markSimilarURL(rawURL string) bool {
+	if c.options.URLFingerprint == nil {
+		return true
+	}
+	key := c.options.URLFingerprint(rawURL)
+	if _, followed := c.similarLinks[key]; followed {
+		return false
+	}
+	c.similarLinks[key] = struct{}{}
+	return true
 }
 
 // resolveHTTPLink resolves href against pageURL, keeping only http(s) targets.

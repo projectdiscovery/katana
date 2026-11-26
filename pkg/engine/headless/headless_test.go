@@ -193,3 +193,11 @@ func TestPerformAdditionalAnalysisHonorsParserOptions(t *testing.T) {
 	require.True(t, found["https://example.com/api/inline_secret"], "-jc inline script endpoint not extracted, got %v", found)
 	require.True(t, found["https://example.com/redirected"], "Location header not extracted, got %v", found)
 }
+
+func TestURLFingerprint(t *testing.T) {
+	require.Nil(t, newTestHeadless(t, false, false).urlFingerprint(), "-fsu off")
+
+	fp := newTestHeadless(t, false, true).urlFingerprint()
+	require.NotNil(t, fp)
+	require.Equal(t, fp("http://example.com/p/1"), fp("http://example.com/p/2"))
+}
