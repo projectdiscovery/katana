@@ -7,6 +7,8 @@ type Strategy int
 const (
 	BreadthFirst Strategy = iota
 	DepthFirst
+	// Priority orders by a score the caller computes, lowest first.
+	Priority
 )
 
 func (s Strategy) String() string {
@@ -21,4 +23,5 @@ func (s Strategy) String() string {
 var strategiesMap = map[string]Strategy{
 	"breadth-first": BreadthFirst,
 	"depth-first":   DepthFirst,
+	"priority":      Priority,
 }

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/dsl"
+	"github.com/projectdiscovery/katana/pkg/decider"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 	"github.com/rs/xid"
 )
@@ -124,10 +126,16 @@ type FormTextArea struct {
 // FormInputFillSuggestions returns a list of form filling suggestions
 // for inputs returning the specified recommended values.
 func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, string] {
+	return FormInputFillSuggestionsWithDecider(context.Background(), nil, inputs)
+}
+
+// FormInputFillSuggestionsWithDecider is FormInputFillSuggestions that asks d
+// about text fields the built-in rules cannot classify. d may be nil.
+func FormInputFillSuggestionsWithDecider(ctx context.Context, d decider.Decider, inputs []FormInput) mapsutil.OrderedMap[string, string] {
 	data := mapsutil.NewOrderedMap[string, string]()
 
 	// Fill checkboxes and radioboxes first or default values first
-	for i, input := range inputs {
+	for _, input := range inputs {
 		switch input.Type {
 		case "radio":
 			// Use a single radio name per value
@@ -138,13 +146,10 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 			data.Set(input.Name, input.Value)
 
 		default:
-			// If there is a value, use it for the input. Else
-			// infer the values based on input types.
+			// A real value wins. Placeholder text is only a fallback after
+			// semantic filling, so it must not hide the field from that pass.
 			if input.Value != "" {
 				data.Set(input.Name, input.Value)
-			} else if value, ok := input.Attributes.Get("placeholder"); ok {
-				inputs[i].Value = value
-				data.Set(input.Name, value)
 			}
 		}
 	}
@@ -165,8 +170,6 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 			continue
 		}
 		switch input.Type {
-		case "email":
-			data.Set(input.Name, FormData.Email)
 		case "color":
 			data.Set(input.Name, FormData.Color)
 		case "number", "range":
@@ -178,12 +181,16 @@ func FormInputFillSuggestions(inputs []FormInput) mapsutil.OrderedMap[string, st
 				val = max - step
 			}
 			data.Set(input.Name, strconv.Itoa(val))
-		case "password":
-			data.Set(input.Name, FormData.Password)
-		case "tel":
-			data.Set(input.Name, FormData.Password)
 		default:
-			data.Set(input.Name, FormData.Placeholder)
+			value := semanticValue(ctx, d, input)
+			if value == "" {
+				if placeholder, ok := input.Attributes.Get("placeholder"); ok {
+					value = placeholder
+				} else {
+					value = FormData.Placeholder
+				}
+			}
+			data.Set(input.Name, value)
 		}
 	}
 	return data
@@ -235,11 +242,17 @@ func FormTextAreaFill(inputs []FormTextArea) mapsutil.OrderedMap[string, string]
 // Returns:
 // An ordered map containing suggestions for filling the form fields.
 func FormFillSuggestions(formFields []interface{}) mapsutil.OrderedMap[string, string] {
+	return FormFillSuggestionsWithDecider(context.Background(), nil, formFields)
+}
+
+// FormFillSuggestionsWithDecider is FormFillSuggestions that asks d about
+// text fields the built-in rules cannot classify. d may be nil.
+func FormFillSuggestionsWithDecider(ctx context.Context, d decider.Decider, formFields []interface{}) mapsutil.OrderedMap[string, string] {
 	merged := mapsutil.NewOrderedMap[string, string]()
 	for _, item := range formFields {
 		switch v := item.(type) {
 		case FormInput:
-			dataMapInputs := FormInputFillSuggestions([]FormInput{v})
+			dataMapInputs := FormInputFillSuggestionsWithDecider(ctx, d, []FormInput{v})
 			MergeDataMaps(&merged, dataMapInputs)
 		case FormSelect:
 			dataMapSelects := FormSelectFill([]FormSelect{v})

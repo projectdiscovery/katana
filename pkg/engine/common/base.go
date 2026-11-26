@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-rod/rod"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/parser/files"
 	"github.com/projectdiscovery/katana/pkg/navigation"
@@ -23,7 +23,9 @@ import (
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils"
 	"github.com/projectdiscovery/katana/pkg/utils/queue"
+	"github.com/projectdiscovery/ratelimit"
 	"github.com/projectdiscovery/retryablehttp-go"
+	"github.com/projectdiscovery/rod"
 	"github.com/projectdiscovery/utils/errkit"
 	httputil "github.com/projectdiscovery/utils/http"
 	mapsutil "github.com/projectdiscovery/utils/maps"
@@ -46,13 +48,17 @@ type hostBackoff struct {
 const hostBackoffsCacheSize = 10000
 
 type Shared struct {
-	Headers            map[string]string
-	KnownFiles         *files.KnownFiles
-	Options            *types.CrawlerOptions
-	Jar                *httputil.CookieJar
-	PathTrie           *utils.PathTrie
+	Headers           map[string]string
+	KnownFiles        *files.KnownFiles
+	Options           *types.CrawlerOptions
+	Jar               *httputil.CookieJar
+	PathTrie          *utils.PathTrie
 	DomainPageCounter sync.Map
-	hostBackoffs *lru.Cache[string, *hostBackoff]
+	hostBackoffs      *lru.Cache[string, *hostBackoff]
+	hostRateLimitInit sync.Map
+	blockWarned       sync.Map
+	// knownFilesClient is the http client used for robots.txt and sitemap.xml
+	knownFilesClient *retryablehttp.Client
 }
 
 // NewShared creates a new Shared instance with the provided crawler options.
@@ -73,6 +79,7 @@ func NewShared(options *types.CrawlerOptions) (*Shared, error) {
 		if err != nil {
 			return nil, errkit.Wrap(err, "could not create http client")
 		}
+		shared.knownFilesClient = httpclient
 		shared.KnownFiles = files.New(httpclient, options.Options.KnownFiles)
 	}
 
@@ -162,7 +169,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 			continue
 		}
 
-		queue.Push(nr, nr.Depth)
+		queue.Push(nr, s.priority(nr))
 
 		if s.Options.Options.PathClimb {
 			extractedParentURLs := utils.ExtractParentPaths(nr.URL)
@@ -195,7 +202,7 @@ func (s *Shared) Enqueue(queue *queue.Queue, navigationRequests ...*navigation.R
 					Source:       nr.Source,
 					Tag:          "path-climb",
 				}
-				queue.Push(parentReq, parentDepth)
+				queue.Push(parentReq, s.priority(parentReq))
 			}
 		}
 	}
@@ -249,12 +256,65 @@ func (s *Shared) DomainCounter(domain string) *atomic.Int64 {
 	return val.(*atomic.Int64)
 }
 
+// RequestHost returns the normalized lowercase hostname for rawURL, falling
+// back to fallback when rawURL is empty or has no hostname.
+func RequestHost(rawURL, fallback string) string {
+	if rawURL != "" {
+		if parsed, err := url.Parse(rawURL); err == nil {
+			if host := strings.ToLower(parsed.Hostname()); host != "" {
+				return host
+			}
+		}
+	}
+	return strings.ToLower(fallback)
+}
+
+// ResponseHost returns the normalized lowercase hostname that sent resp (after
+// any redirects), falling back to fallback when unavailable.
+func ResponseHost(resp *navigation.Response, fallback string) string {
+	if resp != nil {
+		if host := strings.ToLower(RespondingHost(resp.Resp, "")); host != "" {
+			return host
+		}
+	}
+	return strings.ToLower(fallback)
+}
+
+type hostRateLimitKey struct {
+	limiter *ratelimit.AutoLimiter
+	host    string
+}
+
+// TakeHostRateLimit takes one token for host, serializing initial bucket
+// creation so concurrent first requests to an unregistered host share one
+// AutoLimiter bucket.
+func (s *Shared) TakeHostRateLimit(host string) {
+	if s.Options == nil || s.Options.HostRateLimit == nil {
+		return
+	}
+	host = strings.ToLower(host)
+	limiter := s.Options.HostRateLimit
+	key := hostRateLimitKey{limiter: limiter, host: host}
+	val, _ := s.hostRateLimitInit.LoadOrStore(key, &sync.Once{})
+	took := false
+	val.(*sync.Once).Do(func() {
+		_ = limiter.Take(host)
+		took = true
+	})
+	if !took {
+		_ = limiter.Take(host)
+	}
+}
+
 func (s *Shared) backoffFor(host string) *hostBackoff {
+	host = strings.ToLower(host)
 	if val, ok := s.hostBackoffs.Get(host); ok {
 		return val
 	}
 	b := &hostBackoff{}
-	s.hostBackoffs.Add(host, b)
+	if existing, ok, _ := s.hostBackoffs.PeekOrAdd(host, b); ok {
+		return existing
+	}
 	return b
 }
 
@@ -306,6 +366,34 @@ type CrawlSession struct {
 	Browser    *rod.Browser
 }
 
+// Close cancels the crawl session and closes the idle keep-alive connections
+// of its http client, so that a finished crawl does not leave connections open
+// in a long-running process.
+func (c *CrawlSession) Close() {
+	if c.CancelFunc != nil {
+		c.CancelFunc()
+	}
+	closeIdleConnections(c.HttpClient)
+}
+
+// CloseIdleConnections closes the idle keep-alive connections of the http
+// clients owned by the crawler, such as the known files client.
+func (s *Shared) CloseIdleConnections() {
+	closeIdleConnections(s.knownFilesClient)
+}
+
+func closeIdleConnections(client *retryablehttp.Client) {
+	if client == nil {
+		return
+	}
+	if client.HTTPClient != nil {
+		client.HTTPClient.CloseIdleConnections()
+	}
+	if client.HTTPClient2 != nil {
+		client.HTTPClient2.CloseIdleConnections()
+	}
+}
+
 // NewCrawlSessionWithURL creates and initializes a new crawl session for the specified URL.
 // It performs the following initialization steps:
 //  1. Creates a context with optional timeout based on CrawlDuration setting
@@ -337,7 +425,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 	}
 	hostname := parsed.Hostname()
 
-	queue, err := queue.New(s.Options.Options.Strategy, s.Options.Options.Timeout)
+	queue, err := queue.New(s.Options.Options.Strategy)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -350,6 +438,16 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 			gologger.Warning().Msgf("Could not parse known files for %s: %s\n", URL, err)
 		}
 		s.Enqueue(queue, navigationRequests...)
+	}
+	var scopeValidator ScopeValidator
+	if s.Options.ScopeManager != nil {
+		scopeValidator = func(u *url.URL) bool {
+			validated, err := s.Options.ScopeManager.Validate(u, hostname)
+			if err != nil {
+				return false
+			}
+			return validated
+		}
 	}
 	httpclient, _, err := BuildHttpClient(s.Options.Dialer, s.Options.Options, func(resp *http.Response, depth int) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(s.Options.Options.BodyReadSize)))
@@ -372,7 +470,7 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 		}
 		navigationRequests := s.Options.Parser.ParseResponse(navigationResponse)
 		s.Enqueue(queue, navigationRequests...)
-	})
+	}, scopeValidator)
 	if err != nil {
 		cancel()
 		return nil, errkit.Wrap(err, "could not create http client")
@@ -394,6 +492,39 @@ func (s *Shared) NewCrawlSessionWithURL(URL string) (*CrawlSession, error) {
 // (standard HTTP vs. headless browser) to provide their own request logic.
 type DoRequestFunc func(crawlSession *CrawlSession, req *navigation.Request) (*navigation.Response, error)
 
+// AcceptRequest returns the request in a popped queue item when it is a URL
+// that passes the path and scope filters.
+func (s *Shared) AcceptRequest(crawlSession *CrawlSession, item interface{}) (req *navigation.Request, inScope, ok bool) {
+	req, ok = item.(*navigation.Request)
+	if !ok {
+		return nil, false, false
+	}
+
+	if !utils.IsURL(req.URL) {
+		if s.Options.Options.OnSkipURL != nil {
+			s.Options.Options.OnSkipURL(req.URL)
+		}
+		gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
+		return nil, false, false
+	}
+
+	if !s.Options.ValidatePath(req.URL) {
+		gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
+		return nil, false, false
+	}
+
+	inScope, scopeErr := s.Options.ValidateScope(req.URL, crawlSession.Hostname)
+	if scopeErr != nil {
+		gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
+		return nil, false, false
+	}
+	if !req.SkipValidation && !inScope {
+		gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+		return nil, false, false
+	}
+	return req, inScope, true
+}
+
 // Do executes the main crawling loop for the given crawl session.
 // It processes items from the queue concurrently (respecting the Concurrency limit),
 // validates each request (URL format, path filters, scope), applies rate limiting
@@ -409,38 +540,18 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			break
 		}
 
-		req, ok := item.(*navigation.Request)
+		req, inScope, ok := s.AcceptRequest(crawlSession, item)
 		if !ok {
-			continue
-		}
-
-		if !utils.IsURL(req.URL) {
-			if s.Options.Options.OnSkipURL != nil {
-				s.Options.Options.OnSkipURL(req.URL)
-			}
-			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
-			continue
-		}
-
-		if !s.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
-			continue
-		}
-
-		inScope, scopeErr := s.Options.ValidateScope(req.URL, crawlSession.Hostname)
-		if scopeErr != nil {
-			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
-			continue
-		}
-		if !req.SkipValidation && !inScope {
-			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
+			crawlSession.Queue.Done()
 			continue
 		}
 
 		wg.Add()
-		// gologger.Debug().Msgf("Visiting: %v", req.URL) // not sure if this is needed
 		go func() {
 			defer wg.Done()
+			defer crawlSession.Queue.Done()
+
+			reqHost := RequestHost(req.URL, crawlSession.Hostname)
 
 			// Race Take() against the session context so that workers
 			// don't block shutdown waiting for the next limiter tick
@@ -454,7 +565,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 			takeDone := make(chan struct{})
 			go func() {
 				if s.Options.HostRateLimit != nil {
-					_ = s.Options.HostRateLimit.Take(crawlSession.Hostname)
+					s.TakeHostRateLimit(reqHost)
 				} else if s.Options.RateLimit != nil {
 					s.Options.RateLimit.Take()
 				}
@@ -465,7 +576,7 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 				return
 			case <-takeDone:
 			}
-			s.ApplyBackoff(crawlSession.Hostname)
+			s.ApplyBackoff(reqHost)
 
 			if crawlSession.Ctx.Err() != nil {
 				return
@@ -489,16 +600,20 @@ func (s *Shared) Do(crawlSession *CrawlSession, doRequest DoRequestFunc) error {
 
 			resp, err := doRequest(crawlSession, req)
 
+			respHost := ResponseHost(resp, reqHost)
 			if resp != nil && IsThrottled(resp.StatusCode) {
-				s.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+				s.RecordThrottle(respHost, resp.StatusCode)
 			} else if resp != nil {
-				s.RecordSuccess(crawlSession.Hostname)
+				s.RecordSuccess(respHost)
 			}
 
 			if inScope {
 				s.Output(req, resp, err)
 			}
 
+			if resp != nil && s.StopForBlock(resp.Resp, req.URL) {
+				return
+			}
 			if err != nil {
 				gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 				outputError := &output.Error{

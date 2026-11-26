@@ -54,7 +54,7 @@ func (c *Crawler) rewalkPath(ctx context.Context, page *browser.BrowserPage, pat
 		if step == nil {
 			continue
 		}
-		if err := c.executeCrawlStateAction(step, page); err != nil {
+		if err := c.executeCrawlStateAction(ctx, step, page); err != nil {
 			return cartography.LocationFingerprint{}, err
 		}
 	}

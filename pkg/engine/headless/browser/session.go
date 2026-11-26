@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 // ClearSession wipes cookies and web storage of origins so the next navigation

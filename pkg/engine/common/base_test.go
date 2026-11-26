@@ -82,7 +82,7 @@ func newTestShared(maxDepth int, opts ...func(*types.Options)) (*Shared, *mockWr
 func TestEnqueueMaxDepthOutputsDiscoveredURLs(t *testing.T) {
 	t.Run("URLs within max depth are enqueued", func(t *testing.T) {
 		shared, writer := newTestShared(2)
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.Enqueue(q, &navigation.Request{
 			Method: http.MethodGet,
@@ -97,7 +97,7 @@ func TestEnqueueMaxDepthOutputsDiscoveredURLs(t *testing.T) {
 
 	t.Run("URLs exceeding max depth are output but not enqueued", func(t *testing.T) {
 		shared, writer := newTestShared(1)
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.Enqueue(q, &navigation.Request{
 			Method: http.MethodGet,
@@ -113,7 +113,7 @@ func TestEnqueueMaxDepthOutputsDiscoveredURLs(t *testing.T) {
 
 	t.Run("URLs at exact max depth are enqueued normally", func(t *testing.T) {
 		shared, writer := newTestShared(2)
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.Enqueue(q, &navigation.Request{
 			Method: http.MethodGet,
@@ -128,7 +128,7 @@ func TestEnqueueMaxDepthOutputsDiscoveredURLs(t *testing.T) {
 
 	t.Run("multiple URLs beyond max depth are all output", func(t *testing.T) {
 		shared, writer := newTestShared(1)
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.Enqueue(q,
 			&navigation.Request{Method: http.MethodGet, URL: "https://example.com/a", Depth: 2},
@@ -141,7 +141,7 @@ func TestEnqueueMaxDepthOutputsDiscoveredURLs(t *testing.T) {
 
 	t.Run("discovered URLs do not consume uniqueness filter", func(t *testing.T) {
 		shared, writer := newTestShared(2)
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.Enqueue(q, &navigation.Request{
 			Method: http.MethodGet,
@@ -170,7 +170,7 @@ func TestEnqueueDomainPageBudget(t *testing.T) {
 
 	t.Run("URLs within budget are enqueued", func(t *testing.T) {
 		shared, _ := newTestShared(10, withBudget(5))
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.Enqueue(q, &navigation.Request{
 			Method: http.MethodGet, URL: "https://example.com/a", Depth: 1, RootHostname: "example.com",
@@ -181,7 +181,7 @@ func TestEnqueueDomainPageBudget(t *testing.T) {
 
 	t.Run("URLs beyond budget are dropped", func(t *testing.T) {
 		shared, _ := newTestShared(10, withBudget(2))
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.DomainCounter("example.com").Store(2)
 
@@ -194,7 +194,7 @@ func TestEnqueueDomainPageBudget(t *testing.T) {
 
 	t.Run("budget is per domain", func(t *testing.T) {
 		shared, _ := newTestShared(10, withBudget(1))
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		shared.DomainCounter("a.com").Store(1)
 
@@ -211,7 +211,7 @@ func TestEnqueueDomainPageBudget(t *testing.T) {
 
 	t.Run("zero budget means unlimited", func(t *testing.T) {
 		shared, _ := newTestShared(10)
-		q, _ := queue.New("depth-first", 10)
+		q, _ := queue.New("depth-first")
 
 		for i := range 100 {
 			shared.Enqueue(q, &navigation.Request{

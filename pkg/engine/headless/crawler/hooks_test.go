@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -150,7 +151,7 @@ func TestExecuteCrawlStateAction_DispatchesThroughHooks(t *testing.T) {
 		},
 	}
 
-	err := c.executeCrawlStateAction(&types.Action{Type: types.ActionTypeUnknown}, &browser.BrowserPage{})
+	err := c.executeCrawlStateAction(context.Background(), &types.Action{Type: types.ActionTypeUnknown}, &browser.BrowserPage{})
 
 	require.Error(t, err)
 	assert.True(t, beforeCalled)

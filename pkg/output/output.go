@@ -135,21 +135,28 @@ func New(options Options) (Writer, error) {
 	}
 	if options.StoreResponse {
 		writer.storeResponseDir = DefaultResponseDir
-		if options.StoreResponseDir != DefaultResponseDir && options.StoreResponseDir != "" {
+		isCustomDir := options.StoreResponseDir != DefaultResponseDir && options.StoreResponseDir != ""
+		if isCustomDir {
 			writer.storeResponseDir = options.StoreResponseDir
 		}
 		if options.NoClobber {
 			writer.storeResponseDir = createDirNameNoClobber(writer.storeResponseDir)
 			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
-		} else {
+		} else if !isCustomDir {
 			removeDirsWithSuffix(writer.storeResponseDir)
 			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
+		} else {
+			_ = os.MkdirAll(writer.storeResponseDir, os.ModePerm)
 		}
-		// Pre-create (truncate) the index file. updateIndex() reopens it with
-		// O_APPEND|O_WRONLY per write and closes its own handle, so we must not
-		// retain a long-lived descriptor here.
+		// Pre-create or open index file. For custom or no-clobber dirs, keep index additive.
 		indexPath := filepath.Join(writer.storeResponseDir, indexFile)
-		f, err := os.Create(indexPath)
+		flags := os.O_CREATE | os.O_WRONLY
+		if options.NoClobber || isCustomDir {
+			flags |= os.O_APPEND
+		} else {
+			flags |= os.O_TRUNC
+		}
+		f, err := os.OpenFile(indexPath, flags, 0644)
 		if err != nil {
 			return nil, errkit.Wrap(err, "output: could not create index file")
 		}
@@ -231,14 +238,8 @@ func (w *StandardWriter) Write(result *Result) error {
 		}
 	}
 
-	if w.omitRaw {
-		result.Request.Raw = ""
-		if result.Response != nil {
-			result.Response.Raw = ""
-		}
-	}
-	if w.omitBody && result.HasResponse() {
-		result.Response.Body = ""
+	if w.omitRaw || w.omitBody {
+		result = w.withOmittedFields(result)
 	}
 
 	var outputKind string
@@ -280,6 +281,28 @@ func (w *StandardWriter) Write(result *Result) error {
 	}
 
 	return nil
+}
+
+// withOmittedFields omits on a copy because the crawler still parses the
+// original response after writing it.
+func (w *StandardWriter) withOmittedFields(result *Result) *Result {
+	omitted := *result
+	if w.omitRaw {
+		request := *omitted.Request
+		request.Raw = ""
+		omitted.Request = &request
+	}
+	if omitted.Response != nil {
+		response := *omitted.Response
+		if w.omitRaw {
+			response.Raw = ""
+		}
+		if w.omitBody && result.HasResponse() {
+			response.Body = ""
+		}
+		omitted.Response = &response
+	}
+	return &omitted
 }
 
 func (w *StandardWriter) WriteErr(errMessage *Error) error {
@@ -325,6 +348,9 @@ func (w *StandardWriter) GetResultCount() int64 {
 
 func createDirNameNoClobber(dir string) string {
 	if !fileutil.FolderExists(dir) {
+		return dir
+	}
+	if entries, err := os.ReadDir(dir); err == nil && len(entries) == 0 {
 		return dir
 	}
 

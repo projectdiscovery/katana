@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/projectdiscovery/katana/pkg/decider"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/utils"
 )
@@ -16,11 +17,13 @@ type Options struct {
 	ScrapeJSLuiceResponses bool
 	ScrapeJSResponses      bool
 	DisableRedirects       bool
+	// FormDecider classifies form fields the rules cannot, nil disables it
+	FormDecider decider.Decider
 }
 
 func (p *Parser) InitWithOptions(options *Options) {
 	if options.AutomaticFormFill {
-		*p = append(*p, responseParser{bodyParser, bodyFormTagParser})
+		*p = append(*p, responseParser{bodyParser, bodyFormTagParser(options.FormDecider)})
 	}
 	if options.ScrapeJSLuiceResponses {
 		*p = append(*p, responseParser{bodyParser, scriptContentJsluiceParser})

@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
 	"github.com/projectdiscovery/katana/pkg/utils/filters"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/launcher"
+	"github.com/projectdiscovery/rod/lib/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -296,4 +296,238 @@ func TestShouldParseSubresourceOncePerBody(t *testing.T) {
 		require.True(t, c.shouldParse(true, "https://example.com/a", nil, html))
 		require.False(t, c.shouldParse(true, "https://example.com/b", nil, html))
 	})
+}
+
+// A blank page never fires FirstMeaningfulPaint, which used to stall the
+// default and networkidle strategies until the request timed out.
+func TestBlankPageDoesNotTimeOut(t *testing.T) {
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body></body></html>`))
+	}))
+	defer srv.Close()
+
+	for _, strategy := range []string{"heuristic", "networkidle"} {
+		t.Run(strategy, func(t *testing.T) {
+			var results []output.Result
+			options, err := types.NewCrawlerOptions(&types.Options{
+				MaxDepth:          1,
+				FieldScope:        "rdn",
+				BodyReadSize:      math.MaxInt,
+				Timeout:           8,
+				TimeStable:        1,
+				Concurrency:       1,
+				Parallelism:       1,
+				RateLimit:         150,
+				Strategy:          "depth-first",
+				PageLoadStrategy:  strategy,
+				Headless:          true,
+				HeadlessNoSandbox: true,
+				OnResult:          func(r output.Result) { results = append(results, r) },
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = options.Close() })
+
+			crawler, err := New(options)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = crawler.Close() })
+
+			require.NoError(t, crawler.Crawl(srv.URL))
+			require.NotEmpty(t, results)
+			require.Empty(t, results[0].Error)
+		})
+	}
+}
+
+// Enabling lifecycle events replays the previous document's networkIdle, and
+// an iframe goes idle before its parent; neither may end the wait.
+func TestLoadWaitIgnoresStaleAndChildFrameEvents(t *testing.T) {
+	_, page := setupBrowserTest(t)
+	const slow = 2 * time.Second
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		switch r.URL.Path {
+		case "/":
+			_, _ = w.Write([]byte(`<html><body><iframe src="/frame"></iframe><img src="/slow"></body></html>`))
+		case "/frame":
+			_, _ = w.Write([]byte(`<html><body><h1>frame content</h1></body></html>`))
+		case "/slow":
+			time.Sleep(slow)
+		}
+	}))
+	defer srv.Close()
+
+	start := time.Now()
+	wait := waitAnyLifecycleEvent(page, proto.PageLifecycleEventNameFirstMeaningfulPaint, proto.PageLifecycleEventNameNetworkIdle)
+	require.NoError(t, page.Navigate(srv.URL))
+	wait()
+	require.GreaterOrEqual(t, time.Since(start), slow, "wait ended before the main frame loaded")
+}
+
+func TestIsStreamingResponse(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType proto.NetworkResourceType
+		headers      []*proto.FetchHeaderEntry
+		expected     bool
+	}{
+		{
+			name:         "EventSource resource type",
+			resourceType: proto.NetworkResourceTypeEventSource,
+			expected:     true,
+		},
+		{
+			name:         "WebSocket resource type",
+			resourceType: proto.NetworkResourceTypeWebSocket,
+			expected:     true,
+		},
+		{
+			name:         "SSE text/event-stream content-type",
+			resourceType: proto.NetworkResourceTypeXHR,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "text/event-stream"},
+			},
+			expected: true,
+		},
+		{
+			name:         "SSE with charset parameter",
+			resourceType: proto.NetworkResourceTypeFetch,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "content-type", Value: "text/event-stream; charset=utf-8"},
+			},
+			expected: true,
+		},
+		{
+			name:         "Streaming JSON application/stream+json",
+			resourceType: proto.NetworkResourceTypeFetch,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/stream+json"},
+			},
+			expected: true,
+		},
+		{
+			name:         "NDJSON application/x-ndjson",
+			resourceType: proto.NetworkResourceTypeXHR,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/x-ndjson"},
+			},
+			expected: true,
+		},
+		{
+			name:         "Standard HTML response",
+			resourceType: proto.NetworkResourceTypeDocument,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "text/html; charset=utf-8"},
+			},
+			expected: false,
+		},
+		{
+			name:         "Standard JSON response",
+			resourceType: proto.NetworkResourceTypeFetch,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/json"},
+			},
+			expected: false,
+		},
+		{
+			name:         "JavaScript response",
+			resourceType: proto.NetworkResourceTypeScript,
+			headers: []*proto.FetchHeaderEntry{
+				{Name: "Content-Type", Value: "application/javascript"},
+			},
+			expected: false,
+		},
+		{
+			name:         "Empty headers",
+			resourceType: proto.NetworkResourceTypeOther,
+			headers:      nil,
+			expected:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isStreamingResponse(tt.resourceType, tt.headers)
+			require.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+// A page that opens an EventSource used to keep the hijack body read running
+// after the visit had already hit -timeout.
+func TestEventSourceVisitDoesNotOutliveTimeout(t *testing.T) {
+	if path, _ := launcher.LookPath(); path == "" {
+		t.Skip("chrome/chromium not found, skipping browser test")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/events" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				return
+			}
+			ticker := time.NewTicker(50 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-ticker.C:
+					_, _ = w.Write([]byte("data: ping\n\n"))
+					flusher.Flush()
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><script>new EventSource("/events")</script>ok</body></html>`))
+	}))
+	t.Cleanup(srv.Close)
+
+	const timeoutSeconds = 12
+	options, err := types.NewCrawlerOptions(&types.Options{
+		MaxDepth:          1,
+		FieldScope:        "rdn",
+		BodyReadSize:      math.MaxInt,
+		Timeout:           timeoutSeconds,
+		TimeStable:        1,
+		Concurrency:       1,
+		Parallelism:       1,
+		RateLimit:         150,
+		Strategy:          "depth-first",
+		PageLoadStrategy:  "load",
+		Headless:          true,
+		HeadlessNoSandbox: true,
+		OnResult:          func(output.Result) {},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = options.Close() })
+
+	crawler, err := New(options)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = crawler.Close() })
+
+	done := make(chan error, 1)
+	start := time.Now()
+	go func() { done <- crawler.Crawl(srv.URL) }()
+
+	// load does not wait for the open stream. Past this, the visit is stuck
+	// in the body read until -timeout.
+	limit := 10 * time.Second
+	select {
+	case err := <-done:
+		if err != nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(start); elapsed > limit {
+			t.Fatalf("visit took %s, past %s", elapsed, limit)
+		}
+	case <-time.After(limit):
+		t.Fatalf("event stream held the visit open for %s", time.Since(start))
+	}
 }

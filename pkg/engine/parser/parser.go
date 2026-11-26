@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/decider"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/utils"
@@ -511,8 +513,25 @@ func bodyHtmlDoctypeTagParser(resp *navigation.Response) (navigationRequests []*
 	return
 }
 
-// bodyFormTagParser parses forms from response
-func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigation.Request) {
+// bodyFormTagParser parses forms from response, asking d about fields the rules cannot fill
+func bodyFormTagParser(d decider.Decider) ResponseParserFunc {
+	return func(resp *navigation.Response) []*navigation.Request {
+		return parseForms(deciderContext(resp), resp, d)
+	}
+}
+
+// deciderContext is the crawl context carried by the response request.
+// Standard and hybrid attach it so cancelling the crawl stops a decision.
+func deciderContext(resp *navigation.Response) context.Context {
+	if resp != nil && resp.Resp != nil && resp.Resp.Request != nil {
+		if ctx := resp.Resp.Request.Context(); ctx != nil {
+			return ctx
+		}
+	}
+	return context.Background()
+}
+
+func parseForms(ctx context.Context, resp *navigation.Response, d decider.Decider) (navigationRequests []*navigation.Request) {
 	resp.Reader.Find("form").Each(func(i int, item *goquery.Selection) {
 		href, _ := item.Attr("action")
 		encType, ok := item.Attr("enctype")
@@ -557,7 +576,7 @@ func bodyFormTagParser(resp *navigation.Response) (navigationRequests []*navigat
 			formFields = append(formFields, utils.ConvertGoquerySelectionToFormField(item))
 		})
 
-		dataMap := utils.FormFillSuggestions(formFields)
+		dataMap := utils.FormFillSuggestionsWithDecider(ctx, d, formFields)
 		dataMap.Iterate(func(key, value string) bool {
 			if key == "" {
 				return true

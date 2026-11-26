@@ -32,6 +32,34 @@ func TestIsPathCommonJSLibraryFile(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "versioned library",
+			args: args{
+				path: "/js/jquery-3.6.0.min.js",
+			},
+			want: true,
+		},
+		{
+			name: "vendor chunk",
+			args: args{
+				path: "/js/chunk-vendors.abc123.js",
+			},
+			want: true,
+		},
+		{
+			name: "library name inside a word",
+			args: args{
+				path: "/static/context.js",
+			},
+			want: false,
+		},
+		{
+			name: "ng at the end of a word",
+			args: args{
+				path: "/js/billing.js",
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

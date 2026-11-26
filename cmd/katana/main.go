@@ -142,7 +142,7 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.StringVar(&cfgFile, "config", "", "path to the katana configuration file"),
 		flagSet.StringVarP(&options.FormConfig, "form-config", "fc", "", "path to custom form configuration file"),
 		flagSet.StringVarP(&options.FieldConfig, "field-config", "flc", "", "path to custom field configuration file"),
-		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first)"),
+		flagSet.StringVarP(&options.Strategy, "strategy", "s", "depth-first", "Visit strategy (depth-first, breadth-first, priority)"),
 		flagSet.BoolVarP(&options.IgnoreQueryParams, "ignore-query-params", "iqp", false, "Ignore crawling same path with different query-param values"),
 		flagSet.BoolVarP(&options.FilterSimilar, "filter-similar", "fsu", false, "filter crawling of similar looking URLs (e.g., /users/123 and /users/456)"),
 		flagSet.IntVarP(&options.FilterSimilarThreshold, "filter-similar-threshold", "fst", 10, "number of distinct values before a path position is treated as parameter (default 10)"),
@@ -161,6 +161,8 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.BoolVarP(&options.HealthCheck, "hc", "health-check", false, "run diagnostic check up"),
 		flagSet.StringVarP(&options.ErrorLogFile, "error-log", "elog", "", "file to write sent requests error log"),
 		flagSet.BoolVar(&options.PprofServer, "pprof-server", false, "enable pprof server"),
+		flagSet.BoolVar(&options.ShowStatistics, "stats", false, "display crawl statistics"),
+		flagSet.IntVarP(&options.StatsInterval, "stats-interval", "si", 0, "number of seconds to wait between showing a statistics update (default 5)"),
 	)
 
 	// Headless group
@@ -192,10 +194,21 @@ func readFlags() (*goflags.FlagSet, error) {
 		flagSet.IntVar(&options.LinkIdentityBudget, "link-identity-budget", 0, "maximum near-duplicate links (same element and target path shape, other query values or path IDs) to follow per page (headless only, 0 = off)"),
 		flagSet.IntVar(&options.RewalkSample, "rewalk-sample", 0, "number of discovered paths to replay from a clean session after the crawl to detect state changes (headless only, 0 = off)"),
 		flagSet.StringVarEnv(&options.CaptchaSolverProvider, "captcha-solver-provider", "csp", "", "CAPTCHA_SOLVER_PROVIDER", "captcha solver provider (e.g. capsolver)"),
-		flagSet.StringVarEnv(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "CAPTCHA_SOLVER_KEY", "captcha solver provider api key"),
-		flagSet.StringVarEnv(&options.AuthCredentials, "auto-login", "al", "", "AUTH_CREDENTIALS", "automatic login with username:password (headless only)"),
+		flagSet.StringVarP(&options.CaptchaSolverAPIKey, "captcha-solver-key", "csk", "", "captcha solver provider api key (env CAPTCHA_SOLVER_KEY)"),
+		flagSet.StringVarP(&options.AuthCredentials, "auto-login", "al", "", "automatic login with username:password (headless only) (env AUTH_CREDENTIALS)"),
 		flagSet.StringVarP(&options.RecordedFlow, "recorded-flow", "rf", "", "chrome DevTools Recorder JSON (or explicit steps) to replay before crawl (headless only)"),
 		flagSet.StringSliceVarP(&options.HeadlessAgents, "headless-agent", "ha", nil, "identity to crawl as, anon or username:password; repeat to crawl as several at once (headless only)", goflags.StringSliceOptions),
+	)
+
+	// AI group
+	flagSet.CreateGroup("ai", "AI",
+		flagSet.StringVarP(&options.AIProvider, "ai-provider", "aip", "openai", "ai provider for crawl decisions (openai, jev)"),
+		flagSet.StringVarEnv(&options.AIURL, "ai-url", "", "", "AI_URL", "openai compatible api url for crawl decisions (e.g. http://127.0.0.1:11434/v1), optional for jev"),
+		flagSet.StringVarEnv(&options.AIModel, "ai-model", "", "", "AI_MODEL", "model to use with -ai-url (jev default jev-latest)"),
+		flagSet.StringVar(&options.AIAPIKey, "ai-key", "", "api key for the ai provider (env AI_API_KEY, TYPESAFE_API_KEY for jev)"),
+		flagSet.StringVar(&options.AIRecord, "ai-record", "", "file to record ai answers to, reused on later runs"),
+		flagSet.StringVar(&options.AIReplay, "ai-replay", "", "file to replay recorded ai answers from, without calling the api"),
+		flagSet.IntVar(&options.AIMaxCalls, "ai-max-calls", 100, "maximum ai api calls per crawl (0 = unlimited)"),
 	)
 
 	// Scope group
@@ -273,6 +286,14 @@ func readFlags() (*goflags.FlagSet, error) {
 		if err := flagSet.MergeConfigFile(cfgFile); err != nil {
 			return nil, errkit.Wrap(err, "could not read config file")
 		}
+	}
+
+	// secrets come from the env after parsing, as flag defaults they would show in -h and the generated config file
+	if options.CaptchaSolverAPIKey == "" {
+		options.CaptchaSolverAPIKey = os.Getenv("CAPTCHA_SOLVER_KEY")
+	}
+	if options.AuthCredentials == "" {
+		options.AuthCredentials = os.Getenv("AUTH_CREDENTIALS")
 	}
 
 	cleanupOldResumeFiles()

@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	logutil "github.com/projectdiscovery/utils/log"
 )
@@ -78,7 +79,7 @@ type Options struct {
 	FormConfig string
 	// Proxy is the URL for the proxy server
 	Proxy string
-	// Strategy is the crawling strategy. depth-first or breadth-first
+	// Strategy is the crawling strategy. depth-first, breadth-first or priority
 	Strategy string
 	// FieldScope is the scope field for default DNS scope
 	FieldScope string
@@ -176,6 +177,10 @@ type Options struct {
 	HealthCheck bool
 	// PprofServer enables pprof server
 	PprofServer bool
+	// ShowStatistics prints crawl progress every StatsInterval seconds
+	ShowStatistics bool
+	// StatsInterval is the number of seconds between statistics updates
+	StatsInterval int
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
 	// Resolvers contains custom resolvers
@@ -240,6 +245,15 @@ type Options struct {
 	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
+	// AIProvider answers crawl decisions: openai (any OpenAI compatible API) or jev
+	AIProvider string
+	// AIURL is the API base URL, required for openai and optional for jev
+	AIURL      string
+	AIModel    string
+	AIAPIKey   string
+	AIRecord   string
+	AIReplay   string
+	AIMaxCalls int
 	// KnowledgeBase enables knowledge base classification using dit
 	KnowledgeBase bool
 	// Secrets enables the knowledgebase secrets extractor (Titus-backed)
@@ -299,6 +313,21 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 
 func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
+}
+
+// ValidateAIProvider rejects unknown providers; an empty one means openai.
+func (options *Options) ValidateAIProvider() error {
+	switch options.AIProvider {
+	case "", "openai", "jev":
+		return nil
+	}
+	return errkit.Newf("invalid -ai-provider %q, use openai or jev", options.AIProvider)
+}
+
+// AILive reports whether crawl decisions go to a provider rather than a replay.
+// Jev has a default API url, so it does not need -ai-url.
+func (options *Options) AILive() bool {
+	return options.AIURL != "" || options.AIProvider == "jev"
 }
 
 // ConfigureOutput configures the output logging levels to be displayed on the screen

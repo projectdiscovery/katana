@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-rod/rod"
 	ditcaptcha "github.com/happyhackingspace/dit/captcha"
 	"github.com/projectdiscovery/gologger"
 	captchajs "github.com/projectdiscovery/katana/pkg/engine/headless/captcha/js"
+	"github.com/projectdiscovery/rod"
 )
 
 type Handler struct {

@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 type interactiveExplorer struct {
@@ -42,12 +41,12 @@ func (c *Crawler) crawlInteractive(ctx context.Context, rootURL string) error {
 	if err != nil {
 		return err
 	}
-	originalPage := page.Page
+	originalPage := page.CurrentPage()
 	defer func() {
-		page.Page = originalPage
+		page.SetPage(originalPage)
 		c.launcher.PutBrowserToPool(page)
 	}()
-	page.Page = page.Context(ctx)
+	page.SetPage(originalPage.Context(ctx))
 	if err := page.Timeout(c.options.PageMaxTimeout).Navigate(rootURL); err != nil {
 		return err
 	}
@@ -275,15 +274,11 @@ func (e *interactiveExplorer) candidates(pageURL string) ([]*types.HTMLElement, 
 			continue
 		}
 		if item.TagName == "A" && item.Attributes["href"] != "" {
-			target, err := url.Parse(item.Attributes["href"])
-			if err != nil || (target.Scheme != "" && target.Scheme != "http" && target.Scheme != "https") {
+			target, ok := resolveHTTPLink(item.Attributes["href"], pageURL)
+			if !ok {
 				continue
 			}
-			base, err := url.Parse(pageURL)
-			if err != nil {
-				continue
-			}
-			if validate := e.crawler.options.ScopeValidator; validate != nil && !validate(base.ResolveReference(target).String()) {
+			if validate := e.crawler.options.ScopeValidator; validate != nil && !validate(target) {
 				continue
 			}
 		}

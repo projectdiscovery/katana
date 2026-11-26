@@ -105,21 +105,28 @@
       return listeners;
     }
   
+    // A form field named id, action or method shadows that form property,
+    // so read them from the prototype, as the browser does on submit.
+    function formProperty(form, name) {
+      if (!(form instanceof HTMLFormElement)) return form[name];
+      return Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, name).get.call(form);
+    }
+
     // getAllForms returns all the forms on the page
     // along with their elements
     window.getAllForms = function () {
       const forms = document.querySelectorAll("form");
       const pseudoForms = document.querySelectorAll("div.form");
-      
+
       const allForms = [...forms, ...pseudoForms];
       return Array.from(allForms).map((form) => ({
         tagName: form.tagName,
-        id: form.id,
+        id: form.getAttribute('id') || '',
         classes: typeof form.className === 'string' ? form.className : Array.from(form.classList).join(' '),
         attributes: window.getElementAttributes(form),
         outerHTML: form.outerHTML,
-        action: form.action ? String(form.action) : '',
-        method: form.method,
+        action: formProperty(form, 'action') ? String(formProperty(form, 'action')) : '',
+        method: formProperty(form, 'method'),
         xpath: window.getXPath(form),
         cssSelector: window.getCssPath(form),
         elements: form.elements ? 

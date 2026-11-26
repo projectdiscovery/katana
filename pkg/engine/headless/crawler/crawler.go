@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -14,12 +15,10 @@ import (
 	"time"
 
 	"github.com/adrianbrad/queue"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
-	"github.com/go-rod/rod/lib/utils"
 	"github.com/happyhackingspace/dit"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/decider"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -29,6 +28,9 @@ import (
 	"github.com/projectdiscovery/katana/pkg/engine/headless/graph"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/types"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
+	"github.com/projectdiscovery/rod/lib/utils"
 )
 
 type Crawler struct {
@@ -96,6 +98,8 @@ type Options struct {
 	AuthUsername  string
 	AuthPassword  string
 	DitClassifier *dit.Classifier
+	// FormDecider classifies form fields the rules cannot, nil disables it
+	FormDecider decider.Decider
 	// AuthSteps, when non-empty, are replayed once against the browser context
 	// before the crawl queue starts (recorded / multi-step login).
 	AuthSteps []auth.LoginStep
@@ -375,8 +379,8 @@ func (c *Crawler) Crawl(URL string) error {
 				return err
 			}
 
-			originalPage := page.Page
-			page.Page = page.Context(ctx)
+			originalPage := page.CurrentPage()
+			page.SetPage(originalPage.Context(ctx))
 
 			c.logger.Debug("Processing action",
 				slog.String("action", action.String()),
@@ -438,7 +442,7 @@ var ErrNoCrawlingAction = errors.New("no more actions to crawl")
 
 func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *browser.BrowserPage, originalPage *rod.Page) error {
 	defer func() {
-		page.Page = originalPage
+		page.SetPage(originalPage)
 		c.launcher.PutBrowserToPool(page)
 	}()
 
@@ -460,7 +464,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			slog.String("from", currentPageHash),
 			slog.String("to", action.OriginID),
 		)
-		newPageHash, err := c.navigateBackToStateOrigin(action, page, currentPageHash)
+		newPageHash, err := c.navigateBackToStateOrigin(ctx, action, page, currentPageHash)
 		if err != nil {
 			return err
 		}
@@ -477,7 +481,7 @@ func (c *Crawler) crawlFn(ctx context.Context, action *types.Action, page *brows
 			return err
 		}
 	}
-	if err := c.executeCrawlStateAction(action, page); err != nil {
+	if err := c.executeCrawlStateAction(ctx, action, page); err != nil {
 		return err
 	}
 
@@ -627,13 +631,13 @@ func (c *Crawler) revealLazyContent(page *browser.BrowserPage) (bool, error) {
 
 var ErrElementNotVisible = errors.New("element not visible")
 
-func (c *Crawler) executeCrawlStateAction(action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) executeCrawlStateAction(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
 	return runWithActionHooks(c.options.Hooks, page, action, func() error {
-		return c.dispatchCrawlAction(action, page)
+		return c.dispatchCrawlAction(ctx, action, page)
 	})
 }
 
-func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.BrowserPage) error {
+func (c *Crawler) dispatchCrawlAction(ctx context.Context, action *types.Action, page *browser.BrowserPage) error {
 	var err error
 	switch action.Type {
 	case types.ActionTypeLoadURL:
@@ -647,7 +651,7 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 			return err
 		}
 	case types.ActionTypeFillForm:
-		if err := c.processForm(page, action.Form); err != nil {
+		if err := c.processForm(ctx, page, action.Form); err != nil {
 			return err
 		}
 		if err = page.WaitPageLoadHeurisitics(); err != nil {
@@ -660,29 +664,28 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 			return err
 		}
 
-		elementTimeout := element.Timeout(c.options.PageMaxTimeout)
-		if err := elementTimeout.ScrollIntoView(); err != nil {
-			return err
-		}
+		// checked before scrolling, since ScrollIntoView waits for a
+		// display:none element to become visible until the page times out
 		visible, err := element.Visible()
 		if err != nil {
 			return err
 		}
 		if !visible {
-			return ErrElementNotVisible
+			return c.followHiddenLink(page, action.Element, element)
+		}
+		if err := element.Timeout(c.options.PageMaxTimeout).ScrollIntoView(); err != nil {
+			return err
 		}
 
-		// Check if element is interactable (not blocked by overlays)
 		interactable, err := element.Interactable()
 		if err != nil {
-			var ce *rod.CoveredError
-			if errors.As(err, &ce) {
-				return ErrElementNotVisible
+			if isUnclickable(err) {
+				return c.followHiddenLink(page, action.Element, element)
 			}
 			return err
 		}
 		if interactable == nil {
-			return ErrElementNotVisible
+			return c.followHiddenLink(page, action.Element, element)
 		}
 
 		if err := element.Click(proto.InputMouseButtonLeft, 1); err != nil {
@@ -698,6 +701,52 @@ func (c *Crawler) dispatchCrawlAction(action *types.Action, page *browser.Browse
 	return nil
 }
 
+// isUnclickable reports whether err means the element is on the page but a
+// click cannot reach it.
+func isUnclickable(err error) bool {
+	var covered *rod.CoveredError
+	var noPointer *rod.NoPointerEventsError
+	var noShape *rod.InvisibleShapeError
+	return errors.As(err, &covered) || errors.As(err, &noPointer) || errors.As(err, &noShape)
+}
+
+// followHiddenLink loads a link's URL directly when the link cannot be clicked,
+// such as one inside a CSS hover dropdown, so it is still visited.
+func (c *Crawler) followHiddenLink(page *browser.BrowserPage, element *types.HTMLElement, live *rod.Element) error {
+	if element == nil || element.TagName != "A" {
+		return ErrElementNotVisible
+	}
+	// the href property is what a click would load, resolved against any <base>
+	href, err := live.Property("href")
+	if err != nil {
+		return ErrElementNotVisible
+	}
+	target, ok := resolveHTTPLink(href.Str(), "")
+	if !ok || (c.options.ScopeValidator != nil && !c.options.ScopeValidator(target)) {
+		return ErrElementNotVisible
+	}
+	if err := page.Timeout(c.options.PageMaxTimeout).Navigate(target); err != nil {
+		return err
+	}
+	return page.WaitPageLoadHeurisitics()
+}
+
+// resolveHTTPLink resolves href against pageURL, keeping only http(s) targets.
+func resolveHTTPLink(href, pageURL string) (string, bool) {
+	if href == "" {
+		return "", false
+	}
+	target, err := url.Parse(href)
+	if err != nil || (target.Scheme != "" && target.Scheme != "http" && target.Scheme != "https") {
+		return "", false
+	}
+	base, err := url.Parse(pageURL)
+	if err != nil {
+		return "", false
+	}
+	return base.ResolveReference(target).String(), true
+}
+
 func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
 	page, err := c.launcher.GetPageFromPool()
 	if err != nil {
@@ -705,7 +754,11 @@ func (c *Crawler) runRecordedAuthFlow(ctx context.Context) error {
 	}
 	defer c.launcher.PutBrowserToPool(page)
 
-	page.Page = page.Context(ctx)
+	originalPage := page.CurrentPage()
+	defer func() {
+		page.SetPage(originalPage)
+	}()
+	page.SetPage(originalPage.Context(ctx))
 
 	replaySteps, loginURL := auth.StepsAfterFirstNavigateURL(c.options.AuthSteps)
 	if loginURL == "" {
