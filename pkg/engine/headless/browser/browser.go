@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -227,7 +228,8 @@ func (l *Launcher) launchBrowserWithDataDir(userDataDir string) (*rod.Browser, *
 	browser := rod.New().
 		ControlURL(launcherURL)
 	if l.opts.Trace {
-		browser = browser.Trace(true)
+		// rod traces to stdout by default, which would mix into the crawl results
+		browser = browser.Trace(true).Logger(log.New(os.Stderr, "[rod] ", log.LstdFlags))
 	}
 
 	if l.opts.SlowMotion {
