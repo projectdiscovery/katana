@@ -59,9 +59,37 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		}
 	}()
 	c.addHeadersToPage(page)
+	var (
+		heldMu sync.Mutex
+		held   []*navigation.Request
+		share  func()
+	)
+	enqueue := func(reqs ...*navigation.Request) {
+		if c.cookies == nil {
+			c.Enqueue(s.Queue, reqs...)
+			return
+		}
+		heldMu.Lock()
+		held = append(held, reqs...)
+		heldMu.Unlock()
+	}
+	if c.cookies != nil {
+		if err := c.cookies.apply(s.Browser.Context(timeoutCtx)); err != nil {
+			gologger.Warning().Msgf("hybrid: could not set shared cookies: %v", err)
+		}
+		share = c.shareCookies(s)
+	}
 
 	if err := runBeforeNavigate(timeoutCtx, c.hooks, sessionPage, request); err != nil {
 		return nil, err
+	}
+	if share != nil {
+		defer func() {
+			share()
+			heldMu.Lock()
+			defer heldMu.Unlock()
+			c.Enqueue(s.Queue, held...)
+		}()
 	}
 
 	// The main frame id separates a blocked top-level document, including one
@@ -230,7 +258,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 
 		if parse && !c.StopForBlock(httpresp, e.Request.URL) {
 			navigationRequests := c.Options.Parser.ParseResponse(resp)
-			c.Enqueue(s.Queue, navigationRequests...)
+			enqueue(navigationRequests...)
 		}
 
 		// do not continue following the request if it's a redirect and redirects are disabled
@@ -520,7 +548,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 		responseCopy.Reader, _ = goquery.NewDocumentFromReader(strings.NewReader(responseCopy.Body))
 		if responseCopy.Reader != nil && !c.StopForBlock(response.Resp, request.URL) {
 			navigationRequests := c.Options.Parser.ParseResponse(&responseCopy)
-			c.Enqueue(s.Queue, navigationRequests...)
+			enqueue(navigationRequests...)
 		}
 	}
 
@@ -549,7 +577,7 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 					Depth:        depth,
 					RootHostname: s.Hostname,
 				}
-				c.Enqueue(s.Queue, navReq)
+				enqueue(navReq)
 				gologger.Debug().Msgf("enqueued JS navigation: %s", navURL)
 			}
 		}
@@ -565,6 +593,27 @@ func (c *Crawler) navigateRequest(s *common.CrawlSession, request *navigation.Re
 	}
 
 	return response, nil
+}
+
+func (c *Crawler) shareCookies(s *common.CrawlSession) func() {
+	read := func() (map[cookieKey]*proto.NetworkCookie, error) {
+		ctx, cancel := context.WithTimeout(s.Ctx, 5*time.Second)
+		defer cancel()
+		return browserCookies(s.Browser.Context(ctx))
+	}
+	before, err := read()
+	if err != nil {
+		gologger.Warning().Msgf("hybrid: could not read cookies: %v", err)
+		return func() {}
+	}
+	return func() {
+		after, err := read()
+		if err != nil {
+			gologger.Warning().Msgf("hybrid: could not read cookies: %v", err)
+			return
+		}
+		c.cookies.record(before, after)
+	}
 }
 
 // errMainDocumentFailed is the named sentinel returned when the main document's

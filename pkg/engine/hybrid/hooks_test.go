@@ -115,6 +115,7 @@ func TestResponseExtra_JSON(t *testing.T) {
 // it every launch on macOS raises a Keychain access prompt.
 func hookTestOptions(onResult func(output.Result)) *types.Options {
 	return &types.Options{
+		UseInstalledChrome:        true,
 		HeadlessOptionalArguments: []string{"use-mock-keychain=true", "password-store=basic"},
 		MaxDepth:                  1,
 		FieldScope:                "rdn",
