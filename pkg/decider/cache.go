@@ -55,6 +55,10 @@ func NewCache(next Decider, path string, replay bool, maxCalls int) (*Cache, err
 	if err := json.Unmarshal(data, &c.answers); err != nil {
 		return nil, err
 	}
+	if c.answers == nil {
+		// a recording may be null, which unmarshals into a nil map
+		c.answers = make(map[string]Answer)
+	}
 	return c, nil
 }
 

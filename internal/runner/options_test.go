@@ -210,3 +210,48 @@ func TestValidateRecordedFlow(t *testing.T) {
 		require.ErrorContains(t, err, "at least one action")
 	})
 }
+
+func TestValidateStatsFlags(t *testing.T) {
+	t.Run("stats defaults to a 5 second interval", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.ShowStatistics = true
+		require.NoError(t, validateOptions(opts))
+		require.Equal(t, 5, opts.StatsInterval)
+	})
+
+	t.Run("stats interval enables stats", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.StatsInterval = 2
+		require.NoError(t, validateOptions(opts))
+		require.True(t, opts.ShowStatistics)
+		require.Equal(t, 2, opts.StatsInterval)
+	})
+}
+
+func TestValidateAIProvider(t *testing.T) {
+	t.Run("jev needs no url or model", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIProvider = "jev"
+		opts.AIRecord = "answers.json"
+		require.NoError(t, validateOptions(opts))
+	})
+
+	t.Run("unknown provider is rejected", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIProvider = "gpt"
+		require.ErrorContains(t, validateOptions(opts), "invalid -ai-provider")
+	})
+
+	t.Run("replay excludes a live provider", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIProvider = "jev"
+		opts.AIReplay = "answers.json"
+		require.Error(t, validateOptions(opts))
+	})
+
+	t.Run("record needs a live provider", func(t *testing.T) {
+		opts := newTestOptions()
+		opts.AIRecord = "answers.json"
+		require.ErrorContains(t, validateOptions(opts), "-ai-record requires")
+	})
+}

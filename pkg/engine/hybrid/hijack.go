@@ -3,8 +3,8 @@ package hybrid
 import (
 	"encoding/base64"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 // NewHijack create hijack from page.
@@ -28,13 +28,8 @@ type Hijack struct {
 
 // SetPattern set pattern directly
 func (h *Hijack) SetPattern(pattern *proto.FetchRequestPattern) {
-	h.SetPatterns([]*proto.FetchRequestPattern{pattern})
-}
-
-// SetPatterns configures one or more Fetch interception patterns.
-func (h *Hijack) SetPatterns(patterns []*proto.FetchRequestPattern) {
 	h.enable = &proto.FetchEnable{
-		Patterns: patterns,
+		Patterns: []*proto.FetchRequestPattern{pattern},
 	}
 }
 

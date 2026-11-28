@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -92,6 +93,26 @@ func TestCacheRecordAndReplay(t *testing.T) {
 	_, err = replay.Decide(context.Background(), Question{Kind: Bool, Prompt: "new"})
 	require.ErrorIs(t, err, ErrNotRecorded)
 	require.Zero(t, s.calls)
+}
+
+func TestCacheNullRecordingStartsEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "answers.json")
+	require.NoError(t, os.WriteFile(path, []byte("null"), 0o600))
+
+	s := &stub{answer: Answer{Choice: "zip"}}
+	c, err := NewCache(s, path, false, 0)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.Close() })
+
+	a, err := c.Decide(context.Background(), zip)
+	require.NoError(t, err)
+	require.Equal(t, "zip", a.Choice)
+	require.Equal(t, 1, s.calls)
+	require.NoError(t, c.Close())
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `"choice": "zip"`)
 }
 
 func TestOpenAI(t *testing.T) {
@@ -188,30 +209,35 @@ func TestCacheCoalescesConcurrentQuestions(t *testing.T) {
 }
 
 func TestCacheCoalescesFailedQuestions(t *testing.T) {
-	s := &errStub{release: make(chan struct{}), err: errors.New("malformed")}
-	c, err := NewCache(s, "", false, 5)
-	require.NoError(t, err)
+	// failures are not cached, so a waiter that arrives after the release
+	// asks again; synctest.Wait parks every waiter before the release
+	synctest.Test(t, func(t *testing.T) {
+		s := &errStub{release: make(chan struct{}), err: errors.New("malformed")}
+		c, err := NewCache(s, "", false, 5)
+		require.NoError(t, err)
 
-	var wg sync.WaitGroup
-	errs := make(chan error, 5)
-	for range 5 {
-		wg.Go(func() {
-			_, err := c.Decide(context.Background(), zip)
-			errs <- err
-		})
-	}
-	require.Eventually(t, func() bool { return s.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
-	close(s.release)
-	wg.Wait()
-	close(errs)
-	for err := range errs {
+		var wg sync.WaitGroup
+		errs := make(chan error, 5)
+		for range 5 {
+			wg.Go(func() {
+				_, err := c.Decide(context.Background(), zip)
+				errs <- err
+			})
+		}
+		synctest.Wait()
+		require.EqualValues(t, 1, s.calls.Load())
+		close(s.release)
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			require.ErrorContains(t, err, "malformed")
+		}
+		require.EqualValues(t, 1, s.calls.Load(), "waiters must share the error")
+
+		_, err = c.Decide(context.Background(), zip)
 		require.ErrorContains(t, err, "malformed")
-	}
-	require.EqualValues(t, 1, s.calls.Load(), "waiters must share the error")
-
-	_, err = c.Decide(context.Background(), zip)
-	require.ErrorContains(t, err, "malformed")
-	require.EqualValues(t, 2, s.calls.Load(), "a later call can try again")
+		require.EqualValues(t, 2, s.calls.Load(), "a later call can try again")
+	})
 }
 
 type errStub struct {

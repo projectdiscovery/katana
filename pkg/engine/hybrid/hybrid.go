@@ -6,17 +6,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/cdp"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/launcher/flags"
-	"github.com/go-rod/rod/lib/proto"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/navigation"
 	"github.com/projectdiscovery/katana/pkg/output"
 	"github.com/projectdiscovery/katana/pkg/types"
-	"github.com/projectdiscovery/katana/pkg/utils"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/cdp"
+	"github.com/projectdiscovery/rod/lib/launcher"
+	"github.com/projectdiscovery/rod/lib/launcher/flags"
+	"github.com/projectdiscovery/rod/lib/proto"
 	"github.com/projectdiscovery/utils/chromeshell"
 	"github.com/projectdiscovery/utils/errkit"
 	urlutil "github.com/projectdiscovery/utils/url"
@@ -74,7 +73,9 @@ func New(options *types.CrawlerOptions) (*Crawler, error) {
 	agents := make([]*browserAgent, 0, agentsCount)
 	cleanup := func() {
 		for _, a := range agents {
-			_ = a.close()
+			if err := a.close(); err != nil {
+				gologger.Warning().Msgf("hybrid: could not close browser agent: %v", err)
+			}
 		}
 	}
 
@@ -183,6 +184,11 @@ func launchBrowserAgent(options *types.CrawlerOptions, index int) (*browserAgent
 		if chromeLauncher != nil {
 			chromeLauncher.Kill()
 		}
+		if ownsTempDir {
+			if err := os.RemoveAll(dataStore); err != nil {
+				gologger.Warning().Msgf("hybrid: could not remove browser directory: %v", err)
+			}
+		}
 	}()
 
 	// create a new browser instance (default to incognito mode)
@@ -260,6 +266,7 @@ func (c *Crawler) BrowserContextID() string {
 
 // Close closes the crawler process
 func (c *Crawler) Close() error {
+	c.CloseIdleConnections()
 	var firstErr error
 	for _, a := range c.agents {
 		if err := a.close(); err != nil && firstErr == nil {
@@ -277,7 +284,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 	}
 	crawlSession.Browser = c.browser
 
-	defer crawlSession.CancelFunc()
+	defer crawlSession.Close()
 
 	gologger.Info().Msgf("Started headless crawling for => %v", rootURL)
 	if err := c.Do(crawlSession, c.navigateRequest); err != nil {
@@ -293,6 +300,19 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 	agents := c.agents
 	if len(agents) == 0 {
 		return errkit.New("hybrid: no browser agents available")
+	}
+	if len(agents) == 1 {
+		for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
+			if err := crawlSession.Ctx.Err(); err != nil {
+				crawlSession.Queue.Done()
+				return err
+			}
+			if req, inScope, ok := c.AcceptRequest(crawlSession, item); ok {
+				c.visit(crawlSession, req, inScope, doRequest)
+			}
+			crawlSession.Queue.Done()
+		}
+		return nil
 	}
 
 	browserCh := make(chan *rod.Browser, len(agents))
@@ -315,42 +335,19 @@ func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoReque
 func (c *Crawler) consume(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc, browserCh chan *rod.Browser, wg *sizedwaitgroup.SizedWaitGroup) {
 	for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 		if ctxErr := crawlSession.Ctx.Err(); ctxErr != nil {
+			crawlSession.Queue.Done()
 			break
 		}
 
-		req, ok := item.(*navigation.Request)
+		req, inScope, ok := c.AcceptRequest(crawlSession, item)
 		if !ok {
+			crawlSession.Queue.Done()
 			continue
 		}
-
-		if !utils.IsURL(req.URL) {
-			if c.Options.Options.OnSkipURL != nil {
-				c.Options.Options.OnSkipURL(req.URL)
-			}
-			gologger.Debug().Msgf("`%v` not a url. skipping", req.URL)
-			continue
-		}
-
-		if !c.Options.ValidatePath(req.URL) {
-			gologger.Debug().Msgf("`%v` filtered path. skipping", req.URL)
-			continue
-		}
-
-		inScope, scopeErr := c.Options.ValidateScope(req.URL, crawlSession.Hostname)
-		if scopeErr != nil {
-			gologger.Debug().Msgf("Error validating scope for `%v`: %v. skipping", req.URL, scopeErr)
-			continue
-		}
-		if !req.SkipValidation && !inScope {
-			gologger.Debug().Msgf("`%v` not in scope. skipping", req.URL)
-			continue
-		}
-
-		done := crawlSession.Queue.Track()
 		wg.Add()
 		go func(req *navigation.Request, inScope bool) {
 			defer wg.Done()
-			defer done()
+			defer crawlSession.Queue.Done()
 
 			select {
 			case <-crawlSession.Ctx.Done():
@@ -379,10 +376,11 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 	if crawlSession.Ctx.Err() != nil {
 		return
 	}
+	reqHost := common.RequestHost(req.URL, crawlSession.Hostname)
 	takeDone := make(chan struct{})
 	go func() {
 		if c.Options.HostRateLimit != nil {
-			_ = c.Options.HostRateLimit.Take(crawlSession.Hostname)
+			c.TakeHostRateLimit(reqHost)
 		} else if c.Options.RateLimit != nil {
 			c.Options.RateLimit.Take()
 		}
@@ -393,7 +391,7 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 		return
 	case <-takeDone:
 	}
-	c.ApplyBackoff(crawlSession.Hostname)
+	c.ApplyBackoff(reqHost)
 
 	if crawlSession.Ctx.Err() != nil {
 		return
@@ -416,16 +414,20 @@ func (c *Crawler) visit(crawlSession *common.CrawlSession, req *navigation.Reque
 
 	resp, err := doRequest(crawlSession, req)
 
+	respHost := common.ResponseHost(resp, reqHost)
 	if resp != nil && common.IsThrottled(resp.StatusCode) {
-		c.RecordThrottle(crawlSession.Hostname, resp.StatusCode)
+		c.RecordThrottle(respHost, resp.StatusCode)
 	} else if resp != nil {
-		c.RecordSuccess(crawlSession.Hostname)
+		c.RecordSuccess(respHost)
 	}
 
 	if inScope {
 		c.Output(req, resp, err)
 	}
 
+	if resp != nil && c.StopForBlock(resp.Resp, req.URL) {
+		return
+	}
 	if err != nil {
 		gologger.Warning().Msgf("Could not request seed URL %s: %s\n", req.URL, err)
 		outputError := &output.Error{

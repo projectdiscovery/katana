@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/projectdiscovery/rod"
+	"github.com/projectdiscovery/rod/lib/proto"
 )
 
 // cookieStore shares cookies between browser agents. Each agent is its own

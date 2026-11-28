@@ -238,14 +238,8 @@ func (w *StandardWriter) Write(result *Result) error {
 		}
 	}
 
-	if w.omitRaw {
-		result.Request.Raw = ""
-		if result.Response != nil {
-			result.Response.Raw = ""
-		}
-	}
-	if w.omitBody && result.HasResponse() {
-		result.Response.Body = ""
+	if w.omitRaw || w.omitBody {
+		result = w.withOmittedFields(result)
 	}
 
 	var outputKind string
@@ -287,6 +281,28 @@ func (w *StandardWriter) Write(result *Result) error {
 	}
 
 	return nil
+}
+
+// withOmittedFields omits on a copy because the crawler still parses the
+// original response after writing it.
+func (w *StandardWriter) withOmittedFields(result *Result) *Result {
+	omitted := *result
+	if w.omitRaw {
+		request := *omitted.Request
+		request.Raw = ""
+		omitted.Request = &request
+	}
+	if omitted.Response != nil {
+		response := *omitted.Response
+		if w.omitRaw {
+			response.Raw = ""
+		}
+		if w.omitBody && result.HasResponse() {
+			response.Body = ""
+		}
+		omitted.Response = &response
+	}
+	return &omitted
 }
 
 func (w *StandardWriter) WriteErr(errMessage *Error) error {

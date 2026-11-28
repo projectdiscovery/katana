@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/katana/pkg/output"
+	"github.com/projectdiscovery/utils/errkit"
 	fileutil "github.com/projectdiscovery/utils/file"
 	logutil "github.com/projectdiscovery/utils/log"
 )
@@ -179,6 +180,10 @@ type Options struct {
 	HealthCheck bool
 	// PprofServer enables pprof server
 	PprofServer bool
+	// ShowStatistics prints crawl progress every StatsInterval seconds
+	ShowStatistics bool
+	// StatsInterval is the number of seconds between statistics updates
+	StatsInterval int
 	// ErrorLogFile specifies a file to write with the errors of all requests
 	ErrorLogFile string
 	// Resolvers contains custom resolvers
@@ -236,7 +241,9 @@ type Options struct {
 	MaxScrollSteps        int
 	CaptchaSolverProvider string
 	CaptchaSolverAPIKey   string
-	// AIURL is the base URL of an OpenAI compatible API used for crawl decisions
+	// AIProvider answers crawl decisions: openai (any OpenAI compatible API) or jev
+	AIProvider string
+	// AIURL is the API base URL, required for openai and optional for jev
 	AIURL      string
 	AIModel    string
 	AIAPIKey   string
@@ -302,6 +309,21 @@ func (options *Options) ParseHeadlessOptionalArguments() map[string]string {
 
 func (options *Options) ShouldResume() bool {
 	return options.Resume != "" && fileutil.FileExists(options.Resume)
+}
+
+// ValidateAIProvider rejects unknown providers; an empty one means openai.
+func (options *Options) ValidateAIProvider() error {
+	switch options.AIProvider {
+	case "", "openai", "jev":
+		return nil
+	}
+	return errkit.Newf("invalid -ai-provider %q, use openai or jev", options.AIProvider)
+}
+
+// AILive reports whether crawl decisions go to a provider rather than a replay.
+// Jev has a default API url, so it does not need -ai-url.
+func (options *Options) AILive() bool {
+	return options.AIURL != "" || options.AIProvider == "jev"
 }
 
 // ConfigureOutput configures the output logging levels to be displayed on the screen

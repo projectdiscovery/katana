@@ -47,7 +47,8 @@ type Decider interface {
 var (
 	ErrNotRecorded    = errors.New("decider: answer not recorded")
 	ErrBudgetExceeded = errors.New("decider: call budget exceeded")
-	// ErrUnavailable means the provider rejected the url, model or key, so retrying cannot help.
+	// ErrUnavailable means the provider rejected the url, model or key, or the
+	// account is out of credit, so retrying cannot help.
 	ErrUnavailable = errors.New("decider: provider unavailable")
 )
 

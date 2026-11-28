@@ -9,7 +9,7 @@ import (
 )
 
 func TestPopWithContextCancellation(t *testing.T) {
-	q, err := New("breadth-first", 30)
+	q, err := New("breadth-first")
 	require.NoError(t, err)
 
 	q.Push("item1", 0)
@@ -30,7 +30,7 @@ func TestPopWithContextCancellation(t *testing.T) {
 }
 
 func TestPopWithContextNil(t *testing.T) {
-	q, err := New("breadth-first", 2)
+	q, err := New("breadth-first")
 	require.NoError(t, err)
 	q.Push("item1", 0)
 
@@ -41,7 +41,7 @@ func TestPopWithContextNil(t *testing.T) {
 }
 
 func TestPopBackwardCompatible(t *testing.T) {
-	q, err := New("breadth-first", 2)
+	q, err := New("breadth-first")
 	require.NoError(t, err)
 	q.Push("item1", 0)
 
@@ -50,31 +50,36 @@ func TestPopBackwardCompatible(t *testing.T) {
 	require.Equal(t, "item1", item)
 }
 
-func TestPopWaitsForTrackedWork(t *testing.T) {
-	q, err := New("breadth-first", 1)
+// A popped item stays in progress until Done, so the queue neither closes
+// while its page may still push links nor waits once nothing is left.
+func TestPopEndsWhenNothingIsInProgress(t *testing.T) {
+	q, err := New("breadth-first")
 	require.NoError(t, err)
 	q.Push("root", 0)
 
 	items := q.PopWithContext(context.Background())
 	require.Equal(t, "root", <-items)
 
-	done := q.Track()
-	go func() {
-		time.Sleep(2 * q.Timeout)
-		q.Push("child", 0)
-		done()
-	}()
 	select {
-	case item := <-items:
-		require.Equal(t, "child", item, "queue gave up while work was still running")
-	case <-time.After(5 * q.Timeout):
-		t.Fatal("child was never popped")
+	case <-items:
+		t.Fatal("queue closed while the popped item was still in progress")
+	case <-time.After(200 * time.Millisecond):
 	}
 
+	q.Push("child", 0)
+	q.Done()
+	select {
+	case item := <-items:
+		require.Equal(t, "child", item)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("pushed item was not handed out promptly")
+	}
+
+	q.Done()
 	select {
 	case _, ok := <-items:
-		require.False(t, ok, "queue should close once idle with no tracked work")
-	case <-time.After(5 * q.Timeout):
-		t.Fatal("queue stayed open after tracked work finished")
+		require.False(t, ok)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("queue stayed open with nothing queued or in progress")
 	}
 }

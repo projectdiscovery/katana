@@ -6,10 +6,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lmittmann/tint"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/katana/pkg/engine/common"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/auth"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/browser"
 	"github.com/projectdiscovery/katana/pkg/engine/headless/captcha"
@@ -29,6 +31,10 @@ type Headless struct {
 	debugger *CrawlDebugger
 
 	hooks Hooks
+
+	mu             sync.Mutex
+	activeCrawlers map[*crawler.Crawler]struct{}
+	blockWarned    sync.Map
 }
 
 // New returns a new headless crawler instance
@@ -36,8 +42,9 @@ func New(options *types.CrawlerOptions) (*Headless, error) {
 	logger := newLogger(options)
 
 	headless := &Headless{
-		logger:  logger,
-		options: options,
+		logger:         logger,
+		options:        options,
+		activeCrawlers: make(map[*crawler.Crawler]struct{}),
 	}
 	if options.Options.FilterSimilar {
 		headless.pathTrie = utils.NewPathTrie(options.Options.FilterSimilarThreshold)
@@ -49,6 +56,18 @@ func New(options *types.CrawlerOptions) (*Headless, error) {
 	}
 
 	return headless, nil
+}
+
+// writeResult mirrors common.Shared.Output so library users get OnResult
+// from headless crawls as they do from standard and hybrid.
+func (h *Headless) writeResult(result *output.Result) error {
+	if err := h.options.OutputWriter.Write(result); err != nil {
+		return err
+	}
+	if h.options.Options.OnResult != nil {
+		h.options.Options.OnResult(*result)
+	}
+	return nil
 }
 
 func newLogger(options *types.CrawlerOptions) *slog.Logger {
@@ -154,9 +173,14 @@ func (h *Headless) Crawl(URL string) error {
 			// Always run additional analysis regardless of uniqueness so we
 			// don't miss URL discoveries embedded in a response body that the
 			// browser happened to fetch more than once.
-			navigationRequests := h.performAdditionalAnalysis(rr)
+			var navigationRequests []*output.Result
+			if rr.Response != nil && common.DetectBlock(rr.Response.Resp) != "" {
+				h.reportBlock(rr.Response.Resp, rr.Request.URL)
+			} else {
+				navigationRequests = h.performAdditionalAnalysis(rr)
+			}
 			for _, req := range navigationRequests {
-				if err := h.options.OutputWriter.Write(req); err != nil {
+				if err := h.writeResult(req); err != nil {
 					h.logger.Debug("failed to write navigation result",
 						slog.String("url", func() string {
 							if req != nil && req.Request != nil {
@@ -186,7 +210,7 @@ func (h *Headless) Crawl(URL string) error {
 					rr.Response.Body = ""
 				}
 			}
-			if err := h.options.OutputWriter.Write(rr); err != nil {
+			if err := h.writeResult(rr); err != nil {
 				h.logger.Debug("failed to write result",
 					slog.String("error", err.Error()),
 				)
@@ -239,7 +263,19 @@ func (h *Headless) Crawl(URL string) error {
 	if err != nil {
 		return err
 	}
-	defer headlessCrawler.Close()
+	h.mu.Lock()
+	if h.activeCrawlers == nil {
+		h.activeCrawlers = make(map[*crawler.Crawler]struct{})
+	}
+	h.activeCrawlers[headlessCrawler] = struct{}{}
+	h.mu.Unlock()
+
+	defer func() {
+		h.mu.Lock()
+		delete(h.activeCrawlers, headlessCrawler)
+		h.mu.Unlock()
+		headlessCrawler.Close()
+	}()
 
 	if err = headlessCrawler.Crawl(URL); err != nil {
 		return err
@@ -248,10 +284,29 @@ func (h *Headless) Crawl(URL string) error {
 }
 
 func (h *Headless) Close() error {
+	h.mu.Lock()
+	crawlers := make([]*crawler.Crawler, 0, len(h.activeCrawlers))
+	for c := range h.activeCrawlers {
+		crawlers = append(crawlers, c)
+	}
+	h.mu.Unlock()
+
+	for _, c := range crawlers {
+		c.Close()
+	}
+
 	if h.debugger != nil {
 		h.debugger.Close()
 	}
 	return nil
+}
+
+func (h *Headless) reportBlock(resp *http.Response, requested string) {
+	protection := common.DetectBlock(resp)
+	if protection == "" {
+		return
+	}
+	common.ReportBlock(&h.blockWarned, common.RespondingHost(resp, requested), protection, true)
 }
 
 func (h *Headless) isUniqueURL(rawURL string) bool {

@@ -72,8 +72,11 @@ func NewCrawlerOptions(options *Options) (*CrawlerOptions, error) {
 	options.ConfigureOutput()
 	extensionsValidator := extensions.NewValidator(options.ExtensionsMatch, options.ExtensionFilter, options.NoDefaultExtFilter)
 
+	if err := options.ValidateAIProvider(); err != nil {
+		return nil, err
+	}
 	var aiDecider *decider.Cache
-	if options.AIURL != "" || options.AIReplay != "" {
+	if options.AILive() || options.AIReplay != "" {
 		d, err := newDecider(options)
 		if err != nil {
 			return nil, errkit.Wrap(err, "could not init ai decider")
@@ -323,11 +326,23 @@ func newDecider(options *Options) (*decider.Cache, error) {
 		return decider.NewCache(nil, options.AIReplay, true, 0)
 	}
 	apiKey := options.AIAPIKey
-	if apiKey == "" {
-		apiKey = os.Getenv("AI_API_KEY")
+	var provider decider.Decider
+	if options.AIProvider == "jev" {
+		// AI_API_KEY usually holds an OpenAI key, which must not reach TypeSafe
+		if apiKey == "" {
+			apiKey = os.Getenv("TYPESAFE_API_KEY")
+		}
+		if apiKey == "" && options.AIURL == "" {
+			return nil, errkit.New("-ai-provider jev requires -ai-key or TYPESAFE_API_KEY")
+		}
+		provider = decider.NewJev(options.AIURL, options.AIModel, apiKey, time.Minute)
+	} else {
+		if apiKey == "" {
+			apiKey = os.Getenv("AI_API_KEY")
+		}
+		// local reasoning models can take a minute to load and answer
+		provider = decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, 2*time.Minute)
 	}
-	// local reasoning models can take a minute to load and answer
-	provider := decider.NewOpenAI(options.AIURL, options.AIModel, apiKey, 2*time.Minute)
 	return decider.NewCache(provider, options.AIRecord, false, options.AIMaxCalls)
 }
 

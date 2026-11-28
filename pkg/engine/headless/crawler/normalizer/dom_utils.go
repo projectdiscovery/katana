@@ -2,6 +2,7 @@ package normalizer
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
@@ -15,8 +16,8 @@ var DefaultDOMTransformations = []string{
 	"link[rel='stylesheet']",        // remove stylesheet links
 	"svg",                           // remove svg
 	"grammarly-desktop-integration", // remove grammarly
-	"div[class*='ad'], div[id*='ad'], div[class*='banner'], div[id*='banner'], div[class*='pixel'], div[id*='pixel']", // remove ad, banner and pixel divs
-	"input[name*='csrf'], input[name*='token']", // remove csrf and token inputs
+	"div[class*='banner'], div[id*='banner'], div[class*='pixel'], div[id*='pixel']", // remove banner and pixel divs
+	"input[name*='csrf'], input[name*='token']",                                      // remove csrf and token inputs
 }
 
 // NoChildrenDomTransformations removes all elements with no children
@@ -45,6 +46,8 @@ func NewDOMNormalizer() *DOMNormalizer {
 			})
 		})
 	}
+
+	customTransformations = append(customTransformations, removeAdContainers)
 
 	for _, t := range NoChildrenDomTransformations {
 		t := t
@@ -81,6 +84,58 @@ func (d *DOMNormalizer) Apply(content string) (string, error) {
 		return "", err
 	}
 	return result, nil
+}
+
+// adWords are matched as whole class and id words, plus a camelCase
+// boundary (adContainer) and a trailing number (ad1). A substring match
+// also hits header, padded or download and strips the real page content,
+// which makes different pages of one site share a state.
+var adWords = map[string]struct{}{"ad": {}, "ads": {}, "advert": {}, "advertisement": {}, "adsbygoogle": {}}
+
+func removeAdContainers(doc *goquery.Document) {
+	doc.Find("div").Each(func(_ int, s *goquery.Selection) {
+		if hasAdWord(s.AttrOr("class", "")) || hasAdWord(s.AttrOr("id", "")) {
+			s.Remove()
+		}
+	})
+}
+
+func hasAdWord(value string) bool {
+	for _, word := range adTokens(value) {
+		if _, ok := adWords[word]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// adTokens splits class and id text on separators and camelCase boundaries.
+// A token that ends in digits also contributes its letter stem, so ad1
+// matches ad without treating admin or pad1 as ads.
+func adTokens(value string) []string {
+	var b strings.Builder
+	var prev rune
+	started := false
+	for _, r := range value {
+		if started && unicode.IsUpper(r) && (unicode.IsLower(prev) || unicode.IsDigit(prev)) {
+			b.WriteByte(' ')
+		}
+		b.WriteRune(unicode.ToLower(r))
+		prev = r
+		started = true
+	}
+	parts := strings.FieldsFunc(b.String(), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		words = append(words, part)
+		stem := strings.TrimRightFunc(part, unicode.IsDigit)
+		if stem != "" && stem != part {
+			words = append(words, stem)
+		}
+	}
+	return words
 }
 
 // domTransformationFunc does required transformation on document.
