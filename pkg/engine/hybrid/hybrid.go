@@ -298,10 +298,7 @@ func (c *Crawler) Crawl(rootURL string) error {
 // CDP work does not contend on a single browser target.
 func (c *Crawler) Do(crawlSession *common.CrawlSession, doRequest common.DoRequestFunc) error {
 	agents := c.agents
-	if len(agents) == 0 {
-		return errkit.New("hybrid: no browser agents available")
-	}
-	if len(agents) == 1 {
+	if len(agents) <= 1 {
 		for item := range crawlSession.Queue.PopWithContext(crawlSession.Ctx) {
 			if err := crawlSession.Ctx.Err(); err != nil {
 				crawlSession.Queue.Done()
